@@ -457,6 +457,7 @@ export class FixedSalarySettingsService {
           amount: null,
           staff: params.staff,
           actor: params.actor,
+          removedWithRole: true,
         });
       }
     }
@@ -469,6 +470,7 @@ export class FixedSalarySettingsService {
           operatingRatePercent: null,
           staff: params.staff,
           actor: params.actor,
+          removedWithRole: true,
         });
       }
     }
@@ -536,6 +538,7 @@ export class FixedSalarySettingsService {
       amount: number | null;
       staff: StaffOverrideAuditStaff;
       actor?: ActionHistoryActor;
+      removedWithRole?: boolean;
     },
   ) {
     const existing = await tx.staffFixedSalaryOverride.findUnique({
@@ -564,7 +567,9 @@ export class FixedSalarySettingsService {
           actor: params.actor,
           entityType: 'staff_fixed_salary_override',
           entityId: existing.id,
-          description: 'Clear staff fixed salary override',
+          description: params.removedWithRole
+            ? `Xóa mức đè lương cứng vì tắt vai trò ${params.roleType}`
+            : 'Clear staff fixed salary override',
           beforeValue: beforeView,
         });
       }
@@ -620,6 +625,7 @@ export class FixedSalarySettingsService {
       operatingRatePercent: number | null;
       staff: StaffOverrideAuditStaff;
       actor?: ActionHistoryActor;
+      removedWithRole?: boolean;
     },
   ) {
     const existing = await tx.staffFixedSalaryOperatingRateOverride.findUnique({
@@ -649,7 +655,9 @@ export class FixedSalarySettingsService {
           actor: params.actor,
           entityType: 'staff_fixed_salary_operating_rate_override',
           entityId: existing.id,
-          description: 'Clear staff fixed-salary operating-rate override',
+          description: params.removedWithRole
+            ? `Xóa mức đè % vận hành lương cứng vì tắt vai trò ${params.roleType}`
+            : 'Clear staff fixed-salary operating-rate override',
           beforeValue: beforeView,
         });
       }

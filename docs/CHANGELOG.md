@@ -27,6 +27,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
   - Dialog **Chỉnh sửa thông tin nhân sự** đổi chip vai trò thành danh sách; bật một vai trò thì bung ô lương cứng và % vận hành của đúng vai trò đó. Để trống = mặc định vai trò; `0` / `0%` = cố ý loại.
   - `PATCH /staff/:id/with-fixed-salary-overrides` ghi hồ sơ + `roles` + `roleFixedSalaryOverrides` trong một transaction (role trước, override sau) nên thêm vai trò mới kèm mức đè lần đầu không còn 400. Lỗi ở bất kỳ bước nào rollback hết. PUT từng trục `/fixed-salary-settings/staff-overrides/*` giữ nguyên.
   - Card **Mức đè lương cứng theo nhân sự** gỡ khỏi `/admin/staffs/[id]` (mirror staff). Toast Sonner; invalidate cache staff + overrides.
+- **Tắt vai trò thì xóa mức đè, có cảnh báo (hotfix):**
+  - Trước khi lưu, tắt vai trò đang có mức đè mở `ConfirmDialog` (component xác nhận dùng chung, không overlay mới) nêu đúng số hai trục (ví dụ `12.000.000đ` và `15%`) và *Lương các tháng đã chốt không thay đổi*.
+  - Xác nhận → xóa vai trò + cả hai row override trong cùng transaction với lần lưu; hủy → không ghi gì, vai trò trở lại bật. Tắt vai trò không có mức đè thì không hỏi.
+  - `action_history` ghi `Xóa mức đè … vì tắt vai trò {role}`. Không đụng `staff_fixed_salary_payables`.
 
 ### Fixed
 

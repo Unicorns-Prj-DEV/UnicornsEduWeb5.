@@ -1,3 +1,4 @@
+import type { StaffFixedSalaryRoleRow } from "@/dtos/fixed-salary-settings.dto";
 import { parseMoneyInput } from "@/lib/money-input.helpers";
 
 export const fixedSalaryInputClassName =
@@ -28,6 +29,77 @@ export function getFixedSalaryApiErrorMessage(
 
 export function formatFixedSalaryVnd(value: number): string {
   return `${new Intl.NumberFormat("vi-VN").format(value)}đ`;
+}
+
+export const LOCKED_FIXED_SALARY_MONTH_NOTE =
+  "Lương các tháng đã chốt không thay đổi.";
+
+export type DisabledRoleOverrideWarning = {
+  roleType: string;
+  roleLabel: string;
+  hasAmountOverride: boolean;
+  hasRateOverride: boolean;
+  amountOverride: number | null;
+  operatingRateOverride: number | null;
+};
+
+export function collectDisabledRoleOverrideWarnings(params: {
+  originalRoles: readonly string[];
+  nextRoles: Iterable<string>;
+  roleRows: StaffFixedSalaryRoleRow[] | undefined;
+  roleLabels: Record<string, string>;
+}): DisabledRoleOverrideWarning[] {
+  const nextRoles = new Set(params.nextRoles);
+  const byRole = new Map(
+    (params.roleRows ?? []).map((row) => [row.roleType, row]),
+  );
+  const warnings: DisabledRoleOverrideWarning[] = [];
+
+  for (const role of params.originalRoles) {
+    if (nextRoles.has(role)) {
+      continue;
+    }
+
+    const row = byRole.get(role as StaffFixedSalaryRoleRow["roleType"]);
+    const hasAmountOverride = Boolean(row?.amount.hasOverride);
+    const hasRateOverride = Boolean(row?.operatingRate.hasOverride);
+    if (!hasAmountOverride && !hasRateOverride) {
+      continue;
+    }
+
+    warnings.push({
+      roleType: role,
+      roleLabel: params.roleLabels[role] ?? role,
+      hasAmountOverride,
+      hasRateOverride,
+      amountOverride: hasAmountOverride ? (row?.amount.overrideValue ?? null) : null,
+      operatingRateOverride: hasRateOverride
+        ? (row?.operatingRate.overrideValue ?? null)
+        : null,
+    });
+  }
+
+  return warnings;
+}
+
+function formatOverrideAmount(warning: DisabledRoleOverrideWarning): string {
+  if (!warning.hasAmountOverride) {
+    return "không có mức đè";
+  }
+  return formatFixedSalaryVnd(warning.amountOverride ?? 0);
+}
+
+function formatOverrideRate(warning: DisabledRoleOverrideWarning): string {
+  if (!warning.hasRateOverride) {
+    return "không có mức đè";
+  }
+  return `${warning.operatingRateOverride ?? 0}%`;
+}
+
+export function formatDisabledRoleOverrideWarningLine(
+  warning: DisabledRoleOverrideWarning,
+): string {
+  return `Tắt vai trò ${warning.roleLabel} sẽ xóa mức đè lương cứng ${formatOverrideAmount(warning)} và % vận hành ${formatOverrideRate(warning)}.`;
 }
 
 /** Empty → null (use role default). `0` is kept as an intentional exclusion. */

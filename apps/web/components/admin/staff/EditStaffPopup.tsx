@@ -8,13 +8,18 @@ import { Switch } from "@/components/ui/switch";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import StaffRoleFixedSalaryFields from "@/components/admin/staff/StaffRoleFixedSalaryFields";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import type { StaffDetail, StaffGender } from "@/dtos/staff.dto";
 import type { StaffRoleFixedSalaryOverrideItem } from "@/dtos/fixed-salary-settings.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as fixedSalarySettingsApi from "@/lib/apis/fixed-salary-settings.api";
 import {
+  collectDisabledRoleOverrideWarnings,
+  formatDisabledRoleOverrideWarningLine,
+  LOCKED_FIXED_SALARY_MONTH_NOTE,
   parseOptionalFixedSalaryAmountInput,
   parseOptionalFixedSalaryOperatingRateInput,
+  type DisabledRoleOverrideWarning,
 } from "@/lib/fixed-salary-settings.helpers";
 import { moneyInputInitialFromNumber } from "@/lib/money-input.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
@@ -91,6 +96,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   );
   const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
   const [rateDraft, setRateDraft] = useState<Record<string, string>>({});
+  const [overrideRemovalWarnings, setOverrideRemovalWarnings] = useState<
+    DisabledRoleOverrideWarning[]
+  >([]);
   const [managedByStaffId, setManagedByStaffId] = useState<string | null>(() => {
     if (
       staff.customerCareManagedByStaffId &&
@@ -179,50 +187,19 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     });
   };
 
-  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (overridesQuery.isLoading || overridesQuery.isError) {
-      return;
-    }
-    const trimmedName = fullName.trim();
-    const normalizedCccd = cccdNumber.trim();
-    const isMarkingInactive = staff.status !== "inactive" && status === "inactive";
-    if (
-      isMarkingInactive &&
-      !window.confirm(
-        "Chuyển nhân sự sang Ngừng hoạt động? Nhân sự sẽ không thể truy cập workspace nhân sự hoặc nhận phân công mới, nhưng lịch sử vẫn được giữ.",
-      )
-    ) {
-      return;
-    }
-
-    const trimmedRevenueSharePercent = revenueSharePercent.trim();
-    if (showRevenueShareField && trimmedRevenueSharePercent) {
-      const parsed = Number(trimmedRevenueSharePercent);
-      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
-        toast.error("Tỷ lệ % hoa hồng doanh thu phải là số từ 0 đến 100.");
-        return;
-      }
-    }
-
-    let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
-    try {
-      roleFixedSalaryOverrides = ROLE_OPTIONS.filter((opt) =>
-        selectedRoles.has(opt.value),
-      ).map((opt) => ({
-        roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
-        amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
-        operatingRatePercent: parseOptionalFixedSalaryOperatingRateInput(
-          rateValue(opt.value),
-        ),
-      }));
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Mức đè lương cứng không hợp lệ.",
-      );
-      return;
-    }
-
+  const persistStaffUpdate = (params: {
+    roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
+    trimmedName: string;
+    normalizedCccd: string;
+    trimmedRevenueSharePercent: string;
+  }) => {
+    const {
+      roleFixedSalaryOverrides,
+      trimmedName,
+      normalizedCccd,
+      trimmedRevenueSharePercent,
+    } = params;
+    setOverrideRemovalWarnings([]);
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu thông tin nhân sự...",
@@ -279,11 +256,120 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     });
   };
 
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (overridesQuery.isLoading || overridesQuery.isError) {
+      return;
+    }
+    const trimmedName = fullName.trim();
+    const normalizedCccd = cccdNumber.trim();
+    const isMarkingInactive = staff.status !== "inactive" && status === "inactive";
+    if (
+      isMarkingInactive &&
+      !window.confirm(
+        "Chuyển nhân sự sang Ngừng hoạt động? Nhân sự sẽ không thể truy cập workspace nhân sự hoặc nhận phân công mới, nhưng lịch sử vẫn được giữ.",
+      )
+    ) {
+      return;
+    }
+
+    const trimmedRevenueSharePercent = revenueSharePercent.trim();
+    if (showRevenueShareField && trimmedRevenueSharePercent) {
+      const parsed = Number(trimmedRevenueSharePercent);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        toast.error("Tỷ lệ % hoa hồng doanh thu phải là số từ 0 đến 100.");
+        return;
+      }
+    }
+
+    let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
+    try {
+      roleFixedSalaryOverrides = ROLE_OPTIONS.filter((opt) =>
+        selectedRoles.has(opt.value),
+      ).map((opt) => ({
+        roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
+        amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
+        operatingRatePercent: parseOptionalFixedSalaryOperatingRateInput(
+          rateValue(opt.value),
+        ),
+      }));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Mức đè lương cứng không hợp lệ.",
+      );
+      return;
+    }
+
+    const warnings = collectDisabledRoleOverrideWarnings({
+      originalRoles: staff.roles ?? [],
+      nextRoles: selectedRoles,
+      roleRows: overrideStaff?.roles,
+      roleLabels: ROLE_LABELS,
+    });
+    if (warnings.length > 0) {
+      setOverrideRemovalWarnings(warnings);
+      return;
+    }
+
+    persistStaffUpdate({
+      roleFixedSalaryOverrides,
+      trimmedName,
+      normalizedCccd,
+      trimmedRevenueSharePercent,
+    });
+  };
+
+  const confirmOverrideRemoval = () => {
+    const trimmedName = fullName.trim();
+    const normalizedCccd = cccdNumber.trim();
+    const trimmedRevenueSharePercent = revenueSharePercent.trim();
+    let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
+    try {
+      roleFixedSalaryOverrides = ROLE_OPTIONS.filter((opt) =>
+        selectedRoles.has(opt.value),
+      ).map((opt) => ({
+        roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
+        amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
+        operatingRatePercent: parseOptionalFixedSalaryOperatingRateInput(
+          rateValue(opt.value),
+        ),
+      }));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Mức đè lương cứng không hợp lệ.",
+      );
+      return;
+    }
+
+    persistStaffUpdate({
+      roleFixedSalaryOverrides,
+      trimmedName,
+      normalizedCccd,
+      trimmedRevenueSharePercent,
+    });
+  };
+
+  const cancelOverrideRemoval = () => {
+    setSelectedRoles((prev) => {
+      const next = new Set(prev);
+      for (const warning of overrideRemovalWarnings) {
+        next.add(warning.roleType);
+      }
+      return next;
+    });
+    setOverrideRemovalWarnings([]);
+  };
+
   if (!open) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={() => {
+        if (overrideRemovalWarnings.length > 0) {
+          return;
+        }
+        onClose();
+      }} />
       <div
         role="dialog"
         aria-modal="true"
@@ -294,12 +380,13 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           <h2 id="edit-staff-title" className="text-lg font-semibold text-text-primary">
             Chỉnh sửa thông tin nhân sự
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            aria-label="Đóng"
-          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded p-1 text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              aria-label="Đóng"
+              disabled={overrideRemovalWarnings.length > 0}
+            >
             <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -591,13 +678,18 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              disabled={overrideRemovalWarnings.length > 0}
+              className="rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               Hủy
             </button>
             <button
               type="submit"
-              disabled={overridesQuery.isLoading || overridesQuery.isError}
+              disabled={
+                overridesQuery.isLoading ||
+                overridesQuery.isError ||
+                overrideRemovalWarnings.length > 0
+              }
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               Lưu thông tin
@@ -605,6 +697,26 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           </div>
         </form>
       </div>
+
+      <ConfirmDialog
+        open={overrideRemovalWarnings.length > 0}
+        nested
+        labelledBy="disable-role-override-title"
+        title="Tắt vai trò sẽ xóa mức đè lương cứng"
+        description={
+          <>
+            {overrideRemovalWarnings.map((warning) => (
+              <p key={warning.roleType}>
+                {formatDisabledRoleOverrideWarningLine(warning)}
+              </p>
+            ))}
+            <p>{LOCKED_FIXED_SALARY_MONTH_NOTE}</p>
+          </>
+        }
+        confirmLabel="Xóa mức đè và lưu"
+        onClose={cancelOverrideRemoval}
+        onConfirm={confirmOverrideRemoval}
+      />
     </>
   );
 }

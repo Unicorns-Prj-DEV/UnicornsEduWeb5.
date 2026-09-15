@@ -601,6 +601,54 @@ describe('StaffService', () => {
     expect(syncOrder).toBeGreaterThan(updateOrder);
   });
 
+  it('syncs remaining roles after a role is removed, still in the same transaction', async () => {
+    const existingStaff = {
+      id: 'staff-1',
+      userId: 'user-1',
+      roles: [StaffRole.teacher, StaffRole.assistant],
+      status: 'active',
+      customerCareManagedByStaffId: null,
+      user: { id: 'user-1' },
+      classTeachers: [],
+    };
+    const updatedStaff = {
+      ...existingStaff,
+      roles: [StaffRole.teacher],
+    };
+
+    mockPrisma.staffInfo.findUnique
+      .mockResolvedValueOnce(existingStaff)
+      .mockResolvedValue(updatedStaff);
+    mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-1' });
+    jest
+      .spyOn(service, 'getStaffById')
+      .mockResolvedValue(updatedStaff as never);
+
+    await service.updateStaffWithFixedSalaryOverrides(
+      'staff-1',
+      {
+        roles: [StaffRole.teacher],
+        roleFixedSalaryOverrides: [],
+      },
+      {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: 'admin',
+      },
+    );
+
+    expect(
+      fixedSalarySettingsService.syncStaffRoleOverridesInTx,
+    ).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        staffId: 'staff-1',
+        nextRoles: [StaffRole.teacher],
+        items: [],
+      }),
+    );
+  });
+
   it('does not keep role changes when override sync fails in the same transaction', async () => {
     const existingStaff = {
       id: 'staff-1',

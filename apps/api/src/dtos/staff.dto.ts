@@ -251,7 +251,7 @@ export class UpdateStaffWithFixedSalaryOverridesDto extends OmitType(
     type: StaffRoleFixedSalaryOverrideItemDto,
     isArray: true,
     description:
-      'Per-role lương cứng / % vận hành overrides for roles in `roles`. Null on an axis clears that override only. 0 is stored as an intentional exclusion. Omitted axes are left unchanged. Roles removed from `roles` have both override rows deleted.',
+      'Per-role lương cứng / % vận hành overrides for roles in `roles`. Null on an axis clears that override only. 0 is stored as an intentional exclusion. Omitted axes are left unchanged. Roles removed from `roles` have both override rows deleted in this same transaction; action-history records that deletion with the disabled role. Closed-month staff_fixed_salary_payables are never written.',
   })
   @IsArray()
   @ValidateNested({ each: true })

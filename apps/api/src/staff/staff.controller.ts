@@ -772,7 +772,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Update staff roles and fixed-salary overrides together',
     description:
-      'Write staff profile fields, the authoritative role list, and per-role lương cứng / % vận hành overrides in one transaction. Roles are stored first, then overrides, so a newly added role can receive an override in the same request. An error rolls back every change. Null on an axis clears that override only; 0 is stored as an intentional exclusion. Per-axis PUT /fixed-salary-settings/staff-overrides/* endpoints are unchanged.',
+      'Write staff profile fields, the authoritative role list, and per-role lương cứng / % vận hành overrides in one transaction. Roles are stored first, then overrides, so a newly added role can receive an override in the same request. An error rolls back every change. Null on an axis clears that override only; 0 is stored as an intentional exclusion. Roles removed from the payload have both override rows deleted and action-history records the deletion with that role; staff_fixed_salary_payables (closed months) are not touched. Per-axis PUT /fixed-salary-settings/staff-overrides/* endpoints are unchanged.',
   })
   @ApiParam({ name: 'id', description: 'Staff ID' })
   @ApiBody({

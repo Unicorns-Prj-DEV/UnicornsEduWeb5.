@@ -322,6 +322,12 @@ describe('FixedSalarySettingsService', () => {
         return removed;
       }),
     },
+    staffFixedSalaryPayable: {
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -901,6 +907,70 @@ describe('FixedSalarySettingsService', () => {
       staffOperatingOverrideRows.find((row) => row.roleType === StaffRole.teacher)
         ?.ratePercent,
     ).toBe(9);
+  });
+
+  it('records override deletion with the disabled role and does not touch closed-month payables', async () => {
+    seedDualRoleStaff();
+    const actor = {
+      userId: 'admin-1',
+      userEmail: 'admin@example.com',
+      roleType: 'admin',
+    };
+    staffSalaryOverrideRows.push({
+      id: 'override-assistant-amount',
+      staffId: 'staff-an',
+      roleType: StaffRole.assistant,
+      amount: 12_000_000,
+    });
+    staffOperatingOverrideRows.push({
+      id: 'override-assistant-rate',
+      staffId: 'staff-an',
+      roleType: StaffRole.assistant,
+      ratePercent: 15,
+    });
+
+    await service.syncStaffRoleOverridesInTx(mockPrisma as never, {
+      staffId: 'staff-an',
+      nextRoles: [StaffRole.teacher],
+      items: [],
+      staff: { user: staffRows[0]?.user },
+      actor,
+    });
+
+    expect(
+      staffSalaryOverrideRows.find((row) => row.roleType === StaffRole.assistant),
+    ).toBeUndefined();
+    expect(
+      staffOperatingOverrideRows.find(
+        (row) => row.roleType === StaffRole.assistant,
+      ),
+    ).toBeUndefined();
+    expect(actionHistoryService.recordDelete).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'staff_fixed_salary_override',
+        description: 'Xóa mức đè lương cứng vì tắt vai trò assistant',
+        beforeValue: expect.objectContaining({
+          roleType: StaffRole.assistant,
+          amount: 12_000_000,
+        }),
+      }),
+    );
+    expect(actionHistoryService.recordDelete).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'staff_fixed_salary_operating_rate_override',
+        description: 'Xóa mức đè % vận hành lương cứng vì tắt vai trò assistant',
+        beforeValue: expect.objectContaining({
+          roleType: StaffRole.assistant,
+          operatingRatePercent: 15,
+        }),
+      }),
+    );
+    expect(mockPrisma.staffFixedSalaryPayable.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.staffFixedSalaryPayable.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.staffFixedSalaryPayable.update).not.toHaveBeenCalled();
+    expect(mockPrisma.staffFixedSalaryPayable.updateMany).not.toHaveBeenCalled();
   });
 
   it('rejects an override for a role that is not in the accompanying roles list', async () => {
