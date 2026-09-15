@@ -2,6 +2,8 @@
 
 Script sinh dữ liệu mẫu cho **ngân hàng câu hỏi** và **đề luyện tập** của các Khoá học đã có trong DB.
 
+> **Vé 05:** schema vật lý là `modules` / `lessons` (`LessonKind`). Bảng dưới mô tả dữ liệu nghiệp vụ; runner `seed-question-bank.ts` còn gọi client tên cũ cho đến vé 06–07.
+
 - Runner: `apps/api/scripts/seed-question-bank.ts`
 - Dữ liệu: `apps/api/scripts/seed-data/` (`types.ts`, `algorithms.ts`, `math-thpt.ts`)
 - Lệnh: `pnpm seed:question-bank` (chạy từ `apps/api`)

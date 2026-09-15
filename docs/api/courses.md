@@ -2,6 +2,8 @@
 
 Nguồn triển khai: `apps/api/src/class/course.controller.ts`, `course.service.ts`, `course-access.service.ts`.
 
+> **Vé 05 (schema):** bảng vật lý là `modules` / `lessons` / `LessonKind`. HTTP path và tên controller dưới đây (`/chapters`, `/topics`, `/lectures`) **chưa** đổi — vé 06–07.
+
 Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`) vẫn kiểm từng khoá sau khi request qua được decorator.
 
 `UserRole.admin` (và staff có `staffInfo.roles` chứa `admin`) luôn được coi là admin đầy đủ trên các route dùng `@Roles(UserRole.admin)` + `@AllowStaffRolesOnAdminRoutes(...)`.

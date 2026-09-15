@@ -89,9 +89,9 @@ model StudentInfo {
   achievements              StudentAchievement[]
   galleryItems              StudentGalleryItem[]
   surveyAssessments         ClassSurveyStudentAssessment[]
-  lectureQuizAnswers        LectureQuizAnswer[]
+  lessonQuizAnswers         LessonQuizAnswer[]
   attempts                  Attempt[]
-  theoryTopicViews          ClassTheoryTopicView[]
+  theoryLessonViews         ClassTheoryLessonView[]
 
   @@map("student_info")
 }

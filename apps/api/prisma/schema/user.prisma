@@ -26,8 +26,8 @@ model User {
   regulationsUpdated                      Regulation[]                      @relation("RegulationUpdatedBy")
   studentWalletSepayOrdersCreated         StudentWalletSepayOrder[]         @relation("StudentWalletSepayOrdersCreatedBy")
   studentWalletDirectTopUpRequestsCreated StudentWalletDirectTopUpRequest[] @relation("StudentWalletDirectTopUpRequestsRequestedBy")
-  topicsCreated                          Topic[]                          @relation("TopicCreatedBy")
-  topicsUpdated                          Topic[]                          @relation("TopicUpdatedBy")
+  lessonsCreated                         Lesson[]                         @relation("LessonCreatedBy")
+  lessonsUpdated                         Lesson[]                         @relation("LessonUpdatedBy")
   staffInfo                              StaffInfo?
   studentInfo                             StudentInfo?
   userDevices                            UserDevice[]

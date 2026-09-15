@@ -35,6 +35,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Schema nội dung ba cấp (vé 05):** `chapters` → `modules` (Chuyên đề), mỗi `lectures` cũ → một `lessons` lý thuyết riêng, `topics` practice → tiết thực hành, DROP `topics`/`lectures`. XOR tiết thuộc chuyên đề hoặc lớp (`lessons_owner_check`); tiết thực hành không có video/content. Lớp gán chuyên đề N bài có N mục nội dung + N mục timeline (ẩn copy nguyên); lượt xem lý thuyết cũ gắn tiết đầu. Migration mới `20260921000000_rename_three_level_content` — không sửa migration đã deploy. Call site web/API cố ý còn đỏ (vé 06–07). Docs: ADR `docs/adr/2026-09-15-three-level-content-model.md`, `docs/Database Schema.md`, `CONTEXT.md`.
 - **Prefactor đường dẫn cây nội dung:** mọi href trang (admin/staff/học sinh) đi qua `apps/web/lib/course-content-routes.ts`; mọi URL Axios chứa `/chapters` `/topics` `/lectures` đi qua `apps/web/lib/content-api-paths.ts`. Điều hướng và endpoint giữ nguyên; dọn đường cho đợt đổi tên module/lesson. Docs: ADR `docs/adr/2026-09-10-course-content-drill-down.md`, `docs/pages/admin.md`, `docs/pages/staff.md`, `docs/pages/student.md`, `docs/Cách làm việc.md`.
 - **Đợt tối ưu theo `react-doctor` (2026-09-11):** ADR `docs/adr/2026-09-11-frontend-perf-a11y-conventions.md`.
   - `apps/web/lib/formatters.ts` mới: gom toàn bộ `Intl.NumberFormat` / `Intl.DateTimeFormat` về module scope (126 warning `intl-*`), component không tự dựng `Intl` trong render nữa.

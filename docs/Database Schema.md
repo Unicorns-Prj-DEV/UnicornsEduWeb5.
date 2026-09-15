@@ -43,12 +43,11 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `sessions`
 - `attendance`
 - `cf_problem_tutorials` (tutorial theo bài Codeforces)
-- `topics` (chuyên đề — nhóm nội dung cấp cao nhất trong khoá học hoặc lớp)
-- `chapters` (chủ đề — nhóm chuyên đề bên trong khoá học)
-- `lectures` (bài học — đơn vị nội dung bên trong chuyên đề lý thuyết)
-- `lecture_quizzes` (liên kết câu hỏi từ ngân hàng vào bài học ôn nhẹ)
-- `lecture_quiz_answers` (trả lời bài tập ôn nhẹ — không sinh Attempt, không tính điểm)
-- `class_theory_topic_views` (lượt mở trang chuyên đề lý thuyết của học sinh trong phạm vi lớp)
+- `modules` (chuyên đề — nhóm tiết học bên trong khoá học)
+- `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề XOR lớp)
+- `lesson_quizzes` (liên kết câu hỏi từ ngân hàng vào bài tập ôn nhẹ của tiết lý thuyết)
+- `lesson_quiz_answers` (trả lời bài tập ôn nhẹ — không sinh Attempt, không tính điểm)
+- `class_theory_lesson_views` (lượt mở trang tiết lý thuyết của học sinh trong phạm vi lớp)
 - `attempts` (lượt làm Chuyên đề luyện tập — FK `assignment_id` → `class_content_items.id`)
 - `attempt_answers` (câu trả lời của một Attempt; snapshot đề + `points_possible` = 100/N lúc start)
 
@@ -119,16 +118,15 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **LessonTask → LessonResource**: 1-N optional (`lesson_resources.lessonTaskId`, `onDelete: SetNull`).
 - **LessonTask → LessonOutput**: 1-N optional (`lesson_outputs.lesson_task_id`, `onDelete: SetNull`).
 - **LessonOutput → StaffInfo**: optional FK, `onDelete: SetNull`; staff này là nhân sự nhận thanh toán / đứng tên output, không phải nhóm điều phối task.
-- **Chapter → Course**: N-1 (`chapters.course_id` FK, `onDelete: Cascade`).
-- **Topic → Course/Chapter**: optional FK, `onDelete: Cascade` — topic thuộc khoá học khi có `course_id` + `chapter_id`.
-- **Topic → Class**: optional FK, `onDelete: Cascade` — topic legacy gắn lớp.
-- **Topic CHECK constraint**: `topics_owner_check` — topic thuộc `(course_id+chapter_id)` OR `class_id`, never both.
-- **Lecture → Topic**: N-1 (`lectures.topic_id` FK, `onDelete: Cascade`) — chỉ topic `kind = theory` mới có lectures.
+- **Module → Course**: N-1 (`modules.course_id` FK, `onDelete: Cascade`).
+- **Lesson → Course/Module**: optional FK, `onDelete: Cascade` — tiết cấp khoá khi có `course_id` + `module_id`.
+- **Lesson → Class**: optional FK, `onDelete: Cascade` — tiết tạo riêng trong lớp.
+- **Lesson CHECK constraint**: `lessons_owner_check` — tiết thuộc `(course_id+module_id)` OR `class_id`, never both. `lessons_practice_no_media_check` — tiết `practice` không có `video_url`/`content`.
 - **Question → Course**: N-1 (`questions.course_id` FK, `onDelete: Cascade`).
-- **Question → Chapter**: N-1 (`questions.chapter_id` FK, `onDelete: Cascade`).
+- **Question → Module**: N-1 (`questions.module_id` FK, `onDelete: Cascade`).
 - **Question → CourseDifficultyLevel**: N-1 (`questions.difficulty_level_id` FK, `onDelete: Restrict`).
 - **Question → QuestionLink**: 1-N (`question_links.question_id` FK, `onDelete: Restrict`).
-- **QuestionLink → Topic**: N-1 (`question_links.topic_id` FK, `onDelete: Cascade`); unique `(topic_id, question_id)`.
+- **QuestionLink → Lesson**: N-1 (`question_links.lesson_id` FK, `onDelete: Cascade`); unique `(lesson_id, question_id)`.
 
 ---
 
@@ -308,7 +306,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
     - `timeline_custom_order` (`BOOLEAN`, default `false`): `false` = timeline lớp **mới nhất trên, cũ nhất dưới** (buổi = ngày+giờ, khảo sát = ngày báo cáo, chuyên đề = `open_at` hoặc `created_at`); tạo/sửa ngày tự xếp lại. `true` sau lần DnD đầu (`POST .../timeline/reorder`); mục mới khi đó append cuối. Migrations `20260916000000_timeline_sort_by_time`, `20260917000000_timeline_newest_first`.
     - Học sinh quá hạn: bị chặn toàn bộ trang lớp (list + detail + sub-resources); lớp biến khỏi danh sách. Gia sư/admin vẫn xem được.
     - `ClassStatus.ended` và hết hạn là **hai trục độc lập**: lớp `ended` còn hạn vẫn xem được; lớp `running` hết hạn vẫn bị chặn.
-- Mối quan hệ: teachers, students, sessions, makeupScheduleEvents, surveys, `trainingManager` (StaffInfo), `topics` (legacy, via `class_id`)
+- Mối quan hệ: teachers, students, sessions, makeupScheduleEvents, surveys, `trainingManager` (StaffInfo), `lessons` (tiết riêng lớp, via `class_id`)
 - Bảng liên kết `class_teachers` (Class ↔ StaffInfo) ngoài `custom_allowance` (nullable; **null** = kế thừa `classes.allowance_per_session_per_student`; số dương = override, không đổi khi chỉ sửa default lớp qua `PATCH /class/:id/basic-info`) còn có:
   - Expand #134: `custom_allowance` **giữ tên**, backfill sang đơn vị mỗi block 30 phút (`ROUND(giá_cũ / số_block_chuẩn)`). API vẫn nhận/trả mức **theo buổi** (chia lúc ghi, nhân lúc đọc) để không đổi số tiền trên UI/payroll.
   - `status` (`TEXT`, nullable): `null` hoặc `active` được hiểu là phân công gia sư đang mở; `inactive` là **nghỉ dạy theo lớp**. Khi gia sư nghỉ dạy ở một lớp, record được giữ để bảo toàn lịch sử trợ cấp/payroll nhưng không còn là phân công hiện tại.
@@ -346,7 +344,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - Thay thế enum cố định `ClassType` (`vip|basic|advance|hardcore`) — migration `20260818090000_add_class_category`, đổi tên in-place sang `courses` ở migration `20260906000000_rename_class_category_to_course` (ADR `docs/adr/2026-09-05-class-category-becomes-course.md`). Admin tự quản lý danh sách qua CRUD `/courses` (`CourseController`/`CourseService`).
 - Cột: `id` (PK, `@default(uuid())` tự sinh), `name`, `default_duration_days` (INT nullable, `null` = vô hạn — thời hạn mặc định khi tạo lớp từ khoá), `sort_order` (số nguyên, default `0`, dùng để sắp xếp hiển thị), `is_active` (default `true`), `created_at`, `updated_at`. Migration `20260818130000_drop_class_category_code` bỏ cột `code` — không còn mã phân loại thủ công, chỉ cần điền tên khi tạo.
-- Quan hệ: `classes` (1-N, `classes.course_id` FK `onDelete: Restrict`), `course_difficulty_levels` (1-N), `course_lesson_plan_members` (1-N), `chapters` (1-N), `topics` (1-N).
+- Quan hệ: `classes` (1-N, `classes.course_id` FK `onDelete: Restrict`), `course_difficulty_levels` (1-N), `course_lesson_plan_members` (1-N), `modules` (1-N), `lessons` (1-N).
 - **Thời hạn mặc định**: `default_duration_days` để trống/null nghĩa là vô hạn; sửa mặc định sau khi lớp đã tạo **không hồi tố** cho lớp cũ (mốc chốt `Class.contentAccessExpiresAt` theo lớp).
 - Hành vi API:
   - `GET /courses?includeInactive=` — mặc định chỉ trả `is_active=true`; `includeInactive=true` trả cả bản ghi đã ẩn (dùng cho trang quản trị `/admin/courses`). Mỗi dòng kèm `_count` (`classes`, `lessonPlanMembers`, `difficultyLevels` — chỉ đếm mức khó `is_active=true`). **Lọc theo người gọi (server-side, không nhận cờ từ client):** `lesson_plan` thuần (có role `lesson_plan` mà không kèm `admin` / `assistant` / `lesson_plan_head`) chỉ nhận khoá mình được gán qua `course_lesson_plan_members`. Mọi role khác — gồm `admin`, `assistant`, `lesson_plan_head`, `training`, `teacher`, `accountant_income`, `accountant_expense`, `customer_care` — nhận toàn bộ danh sách như trước. Phạm vi này do `CourseAccessService.resolveListableCourseIds` (khác `resolveViewableCourseIds`, hàm kia là phạm vi *quản lý nội dung* và **không** dùng để lọc GET list). Endpoint vẫn yêu cầu auth admin/staff; thiếu staff profile không crash — không phải `lesson_plan` thuần thì vẫn nhận mọi khoá.
@@ -403,33 +401,34 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 ### 4.4.0b `class_content_items` (Nội dung lớp học)
 
-- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `topic`) được thêm vào danh sách nội dung của lớp. Với chuyên đề luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): đề (`topics`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp.
+- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `lesson`) được thêm vào danh sách nội dung của lớp. Với tiết luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): tiết (`lessons`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp.
 - `class_id` (FK → `classes.id`, `onDelete: Cascade`)
-- `kind` (`ClassContentItemKind`, default `topic`) — phân loại nội dung. Hiện tại chỉ có `topic`, mở rộng thêm kinds trong tương lai.
-- `topic_id` (nullable FK → `topics.id`, `onDelete: Restrict`) — FK đến chuyên đề. Nullable để hỗ trợ future kinds không cần topic. Không Cascade/SetNull: xóa Chuyên đề cấp khoá khi còn lần giao (kể cả đã ẩn) bị chặn. ADR `docs/adr/2026-09-07-class-content-soft-hide-restrict-knowledge-tree.md`.
+- `kind` (`ClassContentItemKind`, default `lesson`) — phân loại nội dung. Hiện tại chỉ có `lesson`.
+- `lesson_id` (nullable FK → `lessons.id`, `onDelete: Restrict`) — FK đến tiết học. Nullable để hỗ trợ future kinds không cần lesson. Không Cascade/SetNull: xóa Chuyên đề / Tiết học cấp khoá khi còn lần giao (kể cả đã ẩn) bị chặn. ADR `docs/adr/2026-09-07-class-content-soft-hide-restrict-knowledge-tree.md`.
 - `sort_order` (`INT`, default 0) — thứ tự hiển thị trong danh sách nội dung lớp.
-- `open_at` (`TIMESTAMPTZ`, nullable) — thời điểm mở bài của **lần giao**. Chỉ dùng khi topic `kind = practice`. Không nằm trên `topics`. Khi `POST /class/:id/content` luyện tập **không** gửi `openAt`, backend ghi thời điểm tạo lần giao (đồng hồ server), không lấy giờ máy client.
-- `duration_minutes` (`INT`, nullable) — thời lượng làm bài (phút) của lần giao. 1–720. Chỉ dùng khi topic `kind = practice`. Không nằm trên `topics`.
+- `open_at` (`TIMESTAMPTZ`, nullable) — thời điểm mở bài của **lần giao**. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`. Khi `POST /class/:id/content` luyện tập **không** gửi `openAt`, backend ghi thời điểm tạo lần giao (đồng hồ server), không lấy giờ máy client.
+- `duration_minutes` (`INT`, nullable) — thời lượng làm bài (phút) của lần giao. 1–720. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`.
 - `hidden_at` (`TIMESTAMPTZ`, nullable, default null) — thời điểm ẩn mềm khỏi học sinh. Null = đang hiện.
 - `hidden_by_staff_id` (nullable FK → `staff_info.id`, `onDelete: SetNull`) — staff đã ẩn.
-- Unique constraint: `(class_id, topic_id)` — mỗi chuyên đề chỉ xuất hiện tối đa 1 lần trong nội dung của một lớp; cùng một đề vẫn giao được cho nhiều lớp (mỗi lớp một hàng độc lập). Item đã ẩn vẫn chiếm unique — khôi phục, không thêm lại.
-- Migration: `20260910000000_add_class_content_items` — tạo bảng + backfill các topic hiện có (`topic.class_id IS NOT NULL`) thành class_content_item.
+- Unique constraint: `(class_id, lesson_id)` — mỗi tiết chỉ xuất hiện tối đa 1 lần trong nội dung của một lớp; cùng một tiết vẫn giao được cho nhiều lớp (mỗi lớp một hàng độc lập). Item đã ẩn vẫn chiếm unique — khôi phục, không thêm lại.
+- Migration: `20260910000000_add_class_content_items` — tạo bảng + backfill các topic (cũ) `class_id IS NOT NULL`.
 - Migration: `20260912000000_add_class_content_assignment_schedule` — thêm `open_at` + `duration_minutes`.
-- Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK `topic_id` Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
+- Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
+- Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
 
-### 4.4.0ba `class_theory_topic_views` (Lượt xem chuyên đề lý thuyết)
+### 4.4.0ba `class_theory_lesson_views` (Lượt xem tiết lý thuyết)
 
-- Một hàng ghi nhận một học sinh đã mở trang **Chuyên đề lý thuyết** qua một `class_content_items` cụ thể. Không backfill lịch sử trước khi có tracking.
-- `class_content_item_id` (FK → `class_content_items.id`, `onDelete: Cascade`) — phạm vi lớp/chuyên đề được xem.
+- Một hàng ghi nhận một học sinh đã mở trang **Tiết lý thuyết** qua một `class_content_items` cụ thể. Không backfill lịch sử trước khi có tracking.
+- `class_content_item_id` (FK → `class_content_items.id`, `onDelete: Cascade`) — phạm vi lớp/tiết được xem.
 - `student_id` (FK → `student_info.id`, `onDelete: Cascade`)
-- `last_viewed_at` — lần mở gần nhất của học sinh cho chuyên đề lý thuyết đó.
-- Unique constraint: `(class_content_item_id, student_id)` — một marker tiến độ cho mỗi học sinh trong mỗi chuyên đề lý thuyết của lớp.
-- Index: `(class_content_item_id, last_viewed_at)` cho dialog tiến độ; index `student_id` cho lookup theo học sinh nếu cần.
-- Migration: `20260910181000_add_class_theory_topic_views`.
+- `last_viewed_at` — lần mở gần nhất của học sinh cho tiết lý thuyết đó.
+- Unique constraint: `(class_content_item_id, student_id)` (`ctlv_cci_student_id_key`).
+- Index: `(class_content_item_id, last_viewed_at)` (`ctlv_cci_last_viewed_at_idx`) cho dialog tiến độ; index `student_id`.
+- Migration: `20260910181000_add_class_theory_topic_views` tạo bảng tên cũ; `20260921000000_rename_three_level_content` đổi tên bảng. Backfill: lượt xem cũ gắn vào **tiết đầu tiên** của chuyên đề lý thuyết cũ (content item gốc); các tiết sau bắt đầu chưa xem.
 
 ### 4.4.0bb `class_timeline_items` (Timeline lớp)
 
-- Join riêng buổi học / báo cáo khảo sát / lần giao chuyên đề trên một lớp. Không thay `class_content_items`.
+- Join riêng buổi học / báo cáo khảo sát / lần giao tiết học trên một lớp. Không thay `class_content_items`.
 - `class_id` (FK → `classes.id`, `onDelete: Cascade`)
 - `kind` (`ClassTimelineItemKind`): `session` | `class_survey` | `content_item`
 - XOR FK (CHECK + unique từng cột): `session_id`, `class_survey_id`, `class_content_item_id` — cascade khi xóa entity gốc.
@@ -437,7 +436,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `sort_order` — thứ tự DnD admin/staff; học sinh đọc cùng thứ tự (cursor = id dòng trước, lọc `sort_order >`).
 - Index: `(class_id, sort_order)`.
 - `classes.timeline_custom_order` (default `false`): chưa DnD thì `sort_order` **mới nhất trên, cũ nhất dưới** (buổi = ngày+giờ, khảo sát = ngày báo cáo, chuyên đề = `open_at` hoặc `created_at`); tạo/sửa ngày tự xếp lại. `true` sau lần DnD đầu. Migration `20260916000000_timeline_sort_by_time` (cột + mix theo giờ ASC) rồi `20260917000000_timeline_newest_first` (DESC).
-- Migration: `20260915000000_add_class_timeline_items` — bảng + CHECK + backfill ban đầu.
+- Migration: `20260915000000_add_class_timeline_items` — bảng + CHECK + backfill ban đầu. `20260921000000_rename_three_level_content` chèn thêm dòng timeline khi một lần giao lý thuyết nở thành N tiết.
 
 ### 4.4.0c `attempts` / `attempt_answers` (Bài làm)
 
@@ -571,58 +570,55 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Sync chỉ cập nhật dòng `pending` (không đụng dòng đã `paid`); buổi chuyển non-chargeable sẽ xóa dòng `pending` tương ứng.
 - Nguồn payroll `revenue_share` trong payment-preview (`GET /staff/:id/payment-preview`, `POST /staff/:id/payments/pay-all|pay-selected`) đọc/ghi trực tiếp bảng này; không áp thuế (`taxRatePercent = 0` cố định cho nguồn này).
 
-### 4.6c-b `chapters` (Chủ đề — nhóm chuyên đề trong khoá học)
+### 4.6c-b `modules` (Chuyên đề — nhóm tiết học trong khoá học)
 
-- Nhóm các chuyên đề (topic) bên trong một khoá học; mỗi chapter thuộc đúng 1 course.
+- Nhóm các tiết học bên trong một khoá học; mỗi module thuộc đúng 1 course. Không tồn tại ở cấp lớp.
 - Cột:
   - `id` (PK, UUID default)
   - `course_id` (FK → `courses.id`, cascade)
-  - `title` (`TEXT`): tiêu đề chủ đề
+  - `title` (`TEXT`): tiêu đề chuyên đề
   - `sort_order` (`INTEGER`, default 0): thứ tự sắp xếp
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
 - Index: `(course_id)`
-- Quan hệ: `courses` (1-N), `topics` (1-N)
+- Quan hệ: `courses` (1-N), `lessons` (1-N), `questions` (1-N — ngân hàng câu hỏi phân loại theo chuyên đề)
+- Đổi tên in-place từ `chapters` (Chủ đề cũ) ở migration `20260921000000_rename_three_level_content`. ADR `docs/adr/2026-09-15-three-level-content-model.md`.
 
-### 4.6c-c `lectures` (Bài học — đơn vị nội dung trong chuyên đề lý thuyết)
+### 4.6c `lessons` (Tiết học — đơn vị nội dung học sinh nhìn thấy)
 
-- Mỗi lecture gắn 1 topic (topic phải có `kind = theory`); chứa video nhúng + nội dung lý thuyết.
-- Cột:
-  - `id` (PK, UUID default)
-  - `topic_id` (FK → `topics.id`, cascade)
-  - `title` (`TEXT`): tiêu đề bài học
-  - `video_url` (`TEXT`, nullable): link video YouTube nhúng
-  - `content` (`TEXT`, nullable): nội dung bài học (HTML rich text)
-  - `order` (`INTEGER`, default 0): thứ tự sắp xếp
-  - `created_at`, `updated_at` (`TIMESTAMPTZ`)
-- Index: `(topic_id)`
-- Quan hệ: `topics` (1-N)
-
-### 4.6c `topics` (Chuyên đề — nhóm nội dung cấp cao nhất)
-
-- Chuyên đề là đơn vị nội dung cấp cao nhất, thuộc một trong hai chế độ:
-  - **Khoá học — trong Chủ đề** (`course_id` + `chapter_id` không null, `class_id` null): nội dung chung cho tất cả lớp dùng khoá học đó, nằm trong một Chủ đề. Bao gồm chuyên đề luyện tập cấp khoá (`kind = practice`): luôn thuộc một Chủ đề, dùng chung cho mọi lớp thuộc khoá đó.
-  - **Lớp** (`class_id` không null, `course_id` + `chapter_id` null): chuyên đề riêng lớp (gia sư tự tạo, **không** hiện trong cây kiến thức khoá). `kind = practice` vẫn gắn câu hỏi qua `question_links`; bản thân câu hỏi luôn thuộc ngân hàng **khoá** (`questions.course_id` = `classes.course_id` của lớp đó), không có ngân hàng riêng lớp.
-- CHECK constraint `topics_owner_check`: đảm bảo mỗi topic thuộc đúng một trong hai chế độ trên, không bao giờ cả hai. **Không có chế độ thứ ba** — topic cấp khoá đứng ngoài Chủ đề (`course_id` not null + `chapter_id` null) bị constraint từ chối; chuyên đề luyện tập cấp khoá phải gắn một Chủ đề.
+- Ba cấp: **Khoá học → Chuyên đề → Tiết học**. Khái niệm Bài học (`lectures`) biến mất: mỗi lecture cũ là **một** tiết lý thuyết riêng, không gộp.
+- Thuộc một trong hai chế độ (CHECK `lessons_owner_check`):
+  - **Khoá học — trong Chuyên đề** (`course_id` + `module_id` không null, `class_id` null): nội dung chung cho mọi lớp dùng khoá đó.
+  - **Lớp** (`class_id` không null, `course_id` + `module_id` null): tiết tạo riêng trong lớp, không thuộc chuyên đề nào. Ngoại lệ có chủ ý của phát biểu "ba cấp".
+- `kind` (`LessonKind`): `theory` (lý thuyết — video + nội dung + bài tập ôn nhẹ tuỳ chọn) hoặc `practice` (thực hành — thuần tập câu hỏi). CHECK `lessons_practice_no_media_check`: `practice` thì `video_url` và `content` phải NULL.
 - Cột chính:
-  - `id` (UUID, PK)
-  - `kind` (`TopicKind`): `theory` (lý thuyết — có thể chứa nhiều lectures) hoặc `practice` (thực hành — chứa bài tập)
+  - `id` (UUID, PK) — practice / theory-không-lecture giữ id topic cũ; theory có lecture giữ id lecture cũ
+  - `kind` (`LessonKind`)
   - `course_id` (FK → `courses.id`, cascade, nullable)
-  - `chapter_id` (FK → `chapters.id`, cascade, nullable)
+  - `module_id` (FK → `modules.id`, cascade, nullable)
   - `class_id` (FK → `classes.id`, cascade, nullable)
-  - `title` (`TEXT`): tiêu đề chuyên đề
-  - `order` (`INTEGER`, default 0): thứ tự sắp xếp
-  - `created_by`, `updated_by` (nullable FK → `users.id`): audit user tạo/sửa
+  - `title` (`TEXT`)
+  - `video_url` (`TEXT`, nullable) — chỉ tiết lý thuyết
+  - `content` (`TEXT`, nullable) — chỉ tiết lý thuyết
+  - `order` (`INTEGER`, default 0) — thứ tự trong chuyên đề (hoặc trong lớp, với tiết riêng lớp)
+  - `created_by`, `updated_by` (nullable FK → `users.id`)
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
-- Indexes: `(course_id)`, `(chapter_id)`, `(class_id)`
-- Quan hệ: `courses` (optional), `chapters` (optional), `classes` (optional), `lectures` (1-N), `questionLinks` (1-N), `createdByUser` (User), `updatedByUser` (User)
+- Indexes: `(course_id)`, `(module_id)`, `(class_id)`
+- Quan hệ: `courses` (optional), `modules` (optional), `classes` (optional), `lesson_quizzes` (1-N), `question_links` (1-N), `class_content_items` (1-N)
+- Migration: `20260921000000_rename_three_level_content` — tạo `lessons`, backfill, DROP `topics` + `lectures`.
+
+### 4.6c-c `lesson_quizzes` / `lesson_quiz_answers` (Bài tập ôn nhẹ)
+
+- `lesson_quizzes`: câu hỏi ngân hàng gắn vào một tiết lý thuyết. Unique `(lesson_id, question_id)`. FK `lesson_id` cascade; `question_id` restrict.
+- `lesson_quiz_answers`: trả lời ôn nhẹ theo `(lesson_id, question_id, student_id)`. Không sinh Attempt, không tính điểm.
+- Đổi tên in-place từ `lecture_quizzes` / `lecture_quiz_answers` (`lecture_id` → `lesson_id`) ở `20260921000000_rename_three_level_content`.
 
 ### 4.6d `questions` (Ngân hàng câu hỏi)
 
-- Ngân hàng câu hỏi, mỗi câu thuộc một Chapter và một DifficultyLevel của course.
+- Ngân hàng câu hỏi, mỗi câu thuộc một Module (chuyên đề) và một DifficultyLevel của course.
 - Cột:
   - `id` (PK, UUID default)
   - `course_id` (FK → `courses.id`, cascade)
-  - `chapter_id` (FK → `chapters.id`, cascade)
+  - `module_id` (FK → `modules.id`, cascade)
   - `difficulty_level_id` (FK → `course_difficulty_levels.id`, restrict)
   - `type` (`QuestionType`): `single_choice` | `essay`
   - `content` (`TEXT`): nội dung câu hỏi (HTML từ TipTap)
@@ -632,21 +628,21 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
   - `deleted_at` (`TIMESTAMPTZ`, nullable): soft-delete timestamp
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
-- Indexes: `(course_id)`, `(chapter_id)`, `(difficulty_level_id)`
-- Quan hệ: `courses` (1-N), `chapters` (1-N), `course_difficulty_levels` (1-N), `question_links` (1-N)
+- Indexes: `(course_id)`, `(module_id)`, `(difficulty_level_id)`
+- Quan hệ: `courses` (1-N), `modules` (1-N), `course_difficulty_levels` (1-N), `question_links` (1-N)
 - Table: `questions` (via `@@map`)
 
-### 4.6e `question_links` (Liên kết câu hỏi — chuyên đề luyện tập)
+### 4.6e `question_links` (Liên kết câu hỏi — tiết luyện tập)
 
-- Liên kết câu hỏi với một topic (đề thi trong thư viện, bài tập thực hành …) — CRUD qua `topics/:topicId/questions` (module #55).
+- Liên kết câu hỏi với một tiết `kind = practice`. CRUD qua API tiết luyện tập (HTTP path vẫn `/topics/:topicId/questions` đến vé 06).
 - Cột:
   - `id` (PK, UUID default)
-  - `topic_id` (FK → `topics.id`, cascade)
+  - `lesson_id` (FK → `lessons.id`, cascade)
   - `question_id` (FK → `questions.id`, restrict)
-  - `order` (`INT`, nullable): thứ tự câu trong chuyên đề
+  - `order` (`INT`, nullable): thứ tự câu trong tiết
   - `points` (`INT`, nullable): trọng số soạn đề (tuỳ chọn). **Không** dùng khi chấm Attempt — thang chấm = 100/N snapshot lúc start.
-- Unique: `(topic_id, question_id)`
-- Indexes: `(topic_id)`, `(question_id)`
+- Unique: `(lesson_id, question_id)`
+- Indexes: `(lesson_id)`, `(question_id)`
 - Table: `question_links` (via `@@map`)
 
 ### 4.7 Finance models
@@ -868,8 +864,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `ClassType`: **đã xoá** (migration `20260818090000_add_class_category`) — thay bằng bảng `courses` tuỳ chỉnh được, xem mục 4.4.0-cat.
 - `StudentClassStatus`: `active | inactive`
 - `AttendanceStatus`: `present | excused | absent`
-- `TopicKind`: `theory | practice` — phân loại chuyên đề: `theory` (lý thuyết, có thể chứa nhiều lectures) hoặc `practice` (thực hành)
-- `ClassContentItemKind`: `topic` — phân loại nội dung lớp học (mở rộng thêm kinds trong tương lai)
+- `LessonKind`: `theory | practice` — phân loại tiết học: `theory` (lý thuyết, video + nội dung) hoặc `practice` (thực hành, thuần câu hỏi). Đổi tên enum từ `TopicKind` ở `20260921000000_rename_three_level_content`.
+- `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
 - `ClassTimelineItemKind`: `session` | `class_survey` | `content_item` — loại mục trên timeline lớp (`class_timeline_items`)
 - `QuestionType`: `single_choice | essay` — phân loại câu hỏi trong ngân hàng câu hỏi
 - `AttemptStatus`: `in_progress | submitted | timed_out` — trạng thái lượt làm bài
