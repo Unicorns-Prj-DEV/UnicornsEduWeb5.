@@ -56,6 +56,7 @@ import {
   SearchAssignableStaffUsersDto,
   SearchStaffOptionsDto,
   UpdateStaffDto,
+  UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
@@ -753,6 +754,58 @@ export class StaffController {
     );
 
     return this.staffService.updateStaff(
+      {
+        ...data,
+        bank_qr_link: normalizedBankQrLink ?? undefined,
+        personal_achievement_link: normalizedAchievementLink ?? undefined,
+      },
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
+  }
+
+  @Patch(':id/with-fixed-salary-overrides')
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @ApiOperation({
+    summary: 'Update staff roles and fixed-salary overrides together',
+    description:
+      'Write staff profile fields, the authoritative role list, and per-role lương cứng / % vận hành overrides in one transaction. Roles are stored first, then overrides, so a newly added role can receive an override in the same request. An error rolls back every change. Null on an axis clears that override only; 0 is stored as an intentional exclusion. Per-axis PUT /fixed-salary-settings/staff-overrides/* endpoints are unchanged.',
+  })
+  @ApiParam({ name: 'id', description: 'Staff ID' })
+  @ApiBody({
+    type: UpdateStaffWithFixedSalaryOverridesDto,
+    description:
+      'Staff update payload plus roleFixedSalaryOverrides. Path id is the staff id.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Staff updated with roles and overrides applied together.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, override for a role not in the payload roles list, or duplicate roleType.',
+  })
+  @ApiResponse({ status: 404, description: 'Staff not found.' })
+  async updateStaffWithFixedSalaryOverrides(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStaffIdPipe()) id: string,
+    @Body() data: UpdateStaffWithFixedSalaryOverridesDto,
+  ) {
+    const normalizedBankQrLink = normalizeHttpHttpsUrl(
+      data.bank_qr_link,
+      'Link QR ngân hàng',
+    );
+    const normalizedAchievementLink = normalizeHttpHttpsUrl(
+      data.personal_achievement_link,
+      'Link thành tích cá nhân',
+    );
+
+    return this.staffService.updateStaffWithFixedSalaryOverrides(
+      id,
       {
         ...data,
         bank_qr_link: normalizedBankQrLink ?? undefined,

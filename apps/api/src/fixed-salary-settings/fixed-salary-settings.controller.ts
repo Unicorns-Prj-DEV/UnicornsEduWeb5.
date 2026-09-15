@@ -133,10 +133,10 @@ export class FixedSalarySettingsController {
   @ApiOperation({
     summary: 'List resolved staff fixed-salary overrides',
     description:
-      'Return active staff who currently hold at least one role. Each (staff, role) pair resolves lương cứng and % vận hành independently: override row wins (including 0); otherwise role default; otherwise unconfigured. Search is by name, handle, or id.',
+      'Return staff who currently hold at least one role. Exact staffId skips the active-only filter so the staff edit dialog can load overrides for inactive staff. List/search still returns active staff only. Each (staff, role) pair resolves lương cứng and % vận hành independently: override row wins (including 0); otherwise role default; otherwise unconfigured. Search is by name, handle, or id.',
   })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'staffId', required: false, type: String })
+  @ApiQuery({ name: 'staffId', required: false, type: String, description: 'Exact staff id. When set, search and the active-only filter are skipped so the edit dialog can load overrides for inactive staff too.' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({
     status: 200,

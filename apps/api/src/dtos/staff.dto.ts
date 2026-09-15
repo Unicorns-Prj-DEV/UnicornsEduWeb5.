@@ -1,5 +1,11 @@
 import { Transform, Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  PartialType,
+} from '@nestjs/swagger';
+import { StaffRoleFixedSalaryOverrideItemDto } from './fixed-salary-settings.dto';
 import { Gender, PaymentStatus, StaffRole, StaffStatus } from 'generated/enums';
 import {
   ArrayMinSize,
@@ -225,6 +231,32 @@ export class UpdateStaffDto extends PartialType(CreateStaffDto) {
   @IsOptional()
   @IsEnum(StaffStatus)
   status?: StaffStatus;
+}
+
+export class UpdateStaffWithFixedSalaryOverridesDto extends OmitType(
+  UpdateStaffDto,
+  ['id'] as const,
+) {
+  @ApiProperty({
+    enum: StaffRole,
+    isArray: true,
+    description:
+      'Authoritative role list after this save. Overrides are applied only after these roles are written in the same transaction.',
+  })
+  @IsArray()
+  @IsEnum(StaffRole, { each: true })
+  roles: StaffRole[];
+
+  @ApiProperty({
+    type: StaffRoleFixedSalaryOverrideItemDto,
+    isArray: true,
+    description:
+      'Per-role lương cứng / % vận hành overrides for roles in `roles`. Null on an axis clears that override only. 0 is stored as an intentional exclusion. Omitted axes are left unchanged. Roles removed from `roles` have both override rows deleted.',
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StaffRoleFixedSalaryOverrideItemDto)
+  roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItemDto[];
 }
 
 export class UpdateStaffStatusDto {

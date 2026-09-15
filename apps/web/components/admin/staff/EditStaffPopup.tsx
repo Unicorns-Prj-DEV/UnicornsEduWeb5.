@@ -1,12 +1,23 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { DateInput } from "@/components/ui/DateInput";
+import { Switch } from "@/components/ui/switch";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
+import StaffRoleFixedSalaryFields from "@/components/admin/staff/StaffRoleFixedSalaryFields";
 import type { StaffDetail, StaffGender } from "@/dtos/staff.dto";
+import type { StaffRoleFixedSalaryOverrideItem } from "@/dtos/fixed-salary-settings.dto";
 import * as staffApi from "@/lib/apis/staff.api";
+import * as fixedSalarySettingsApi from "@/lib/apis/fixed-salary-settings.api";
+import {
+  parseOptionalFixedSalaryAmountInput,
+  parseOptionalFixedSalaryOperatingRateInput,
+} from "@/lib/fixed-salary-settings.helpers";
+import { moneyInputInitialFromNumber } from "@/lib/money-input.helpers";
+import { ROLE_LABELS } from "@/lib/staff.constants";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
@@ -78,6 +89,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(
     () => new Set(staff.roles ?? []),
   );
+  const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
+  const [rateDraft, setRateDraft] = useState<Record<string, string>>({});
   const [managedByStaffId, setManagedByStaffId] = useState<string | null>(() => {
     if (
       staff.customerCareManagedByStaffId &&
@@ -104,13 +117,63 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     (option) => option.id !== staff.id,
   );
 
-  const toggleRole = (role: string) => {
+  const overridesQuery = useQuery({
+    queryKey: ["fixed-salary-settings", "staff-overrides", { staffId: staff.id }],
+    queryFn: () =>
+      fixedSalarySettingsApi.getStaffFixedSalaryOverrides({
+        staffId: staff.id,
+        limit: 1,
+      }),
+    enabled: open,
+    staleTime: 15_000,
+  });
+  const roleDefaultsQuery = useQuery({
+    queryKey: ["fixed-salary-settings", "role-defaults"],
+    queryFn: fixedSalarySettingsApi.getRoleFixedSalaryDefaults,
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const roleOperatingRatesQuery = useQuery({
+    queryKey: ["fixed-salary-settings", "role-operating-rates"],
+    queryFn: fixedSalarySettingsApi.getRoleFixedSalaryOperatingRates,
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const overrideStaff = overridesQuery.data?.staff?.[0] ?? null;
+  const serverDrafts = useMemo(() => {
+    const amount: Record<string, string> = {};
+    const rate: Record<string, string> = {};
+    for (const row of overrideStaff?.roles ?? []) {
+      amount[row.roleType] = row.amount.hasOverride
+        ? moneyInputInitialFromNumber(row.amount.overrideValue)
+        : "";
+      rate[row.roleType] =
+        row.operatingRate.hasOverride && row.operatingRate.overrideValue != null
+          ? String(row.operatingRate.overrideValue)
+          : "";
+    }
+    return { amount, rate };
+  }, [overrideStaff]);
+
+  const amountValue = (role: string) =>
+    amountDraft[role] ?? serverDrafts.amount[role] ?? "";
+  const rateValue = (role: string) =>
+    rateDraft[role] ?? serverDrafts.rate[role] ?? "";
+  const roleDefaultAmount = (role: string) =>
+    roleDefaultsQuery.data?.roles.find((row) => row.roleType === role)?.amount ??
+    null;
+  const roleDefaultRate = (role: string) =>
+    roleOperatingRatesQuery.data?.roles.find((row) => row.roleType === role)
+      ?.operatingRatePercent ?? null;
+
+  const toggleRole = (role: string, enabled: boolean) => {
     setSelectedRoles((prev) => {
       const next = new Set(prev);
-      if (next.has(role)) {
-        next.delete(role);
-      } else {
+      if (enabled) {
         next.add(role);
+      } else {
+        next.delete(role);
       }
       return next;
     });
@@ -118,6 +181,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
 
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (overridesQuery.isLoading || overridesQuery.isError) {
+      return;
+    }
     const trimmedName = fullName.trim();
     const normalizedCccd = cccdNumber.trim();
     const isMarkingInactive = staff.status !== "inactive" && status === "inactive";
@@ -134,9 +200,27 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     if (showRevenueShareField && trimmedRevenueSharePercent) {
       const parsed = Number(trimmedRevenueSharePercent);
       if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
-        window.alert("Tỷ lệ % hoa hồng doanh thu phải là số từ 0 đến 100.");
+        toast.error("Tỷ lệ % hoa hồng doanh thu phải là số từ 0 đến 100.");
         return;
       }
+    }
+
+    let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
+    try {
+      roleFixedSalaryOverrides = ROLE_OPTIONS.filter((opt) =>
+        selectedRoles.has(opt.value),
+      ).map((opt) => ({
+        roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
+        amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
+        operatingRatePercent: parseOptionalFixedSalaryOperatingRateInput(
+          rateValue(opt.value),
+        ),
+      }));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Mức đè lương cứng không hợp lệ.",
+      );
+      return;
     }
 
     onClose();
@@ -145,7 +229,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
       successMessage: "Đã lưu thông tin nhân sự.",
       errorMessage: "Không thể cập nhật thông tin nhân sự.",
       action: async () => {
-        await staffApi.updateStaff({
+        await staffApi.updateStaffWithFixedSalaryOverrides({
           id: staff.id,
           full_name: trimmedName || undefined,
           cccd_number: normalizedCccd || undefined,
@@ -160,6 +244,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           bank_account: bankAccount.trim() || undefined,
           bank_qr_link: bankQrLink.trim() || undefined,
           roles: Array.from(selectedRoles),
+          roleFixedSalaryOverrides,
           customer_care_managed_by_staff_id: showManagedByField
             ? (managedByStaffId || null)
             : null,
@@ -181,6 +266,10 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["staff", "detail", staff.id] }),
           queryClient.invalidateQueries({ queryKey: ["staff", "list"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["fixed-salary-settings", "staff-overrides"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["staff", "income-summary", staff.id] }),
           ...(statusChanged
             ? [queryClient.invalidateQueries({ queryKey: ["class", "list"] })]
             : []),
@@ -404,33 +493,54 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
 
               <div className="sm:col-span-2">
                 <p className="mb-2 text-sm font-medium text-text-secondary">Vai trò</p>
-                <div className="flex flex-wrap gap-2">
-                  {ROLE_OPTIONS.map((opt) => (
-                    <label
-                      key={opt.value}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors duration-200"
-                      style={{
-                        borderColor: selectedRoles.has(opt.value)
-                          ? "var(--ue-primary)"
-                          : "var(--ue-border-default)",
-                        backgroundColor: selectedRoles.has(opt.value)
-                          ? "color-mix(in srgb, var(--ue-primary) 15%, transparent)"
-                          : "transparent",
-                        color: selectedRoles.has(opt.value)
-                          ? "var(--ue-primary)"
-                          : "var(--ue-text-secondary)",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedRoles.has(opt.value)}
-                        onChange={() => toggleRole(opt.value)}
-                        className="sr-only"
-                      />
-                      {opt.label}
-                    </label>
-                  ))}
-                </div>
+                {overridesQuery.isError ? (
+                  <p className="mb-2 text-sm text-error">
+                    Không tải được mức đè lương cứng. Đóng dialog rồi mở lại để thử lại.
+                  </p>
+                ) : null}
+                <ul className="flex flex-col gap-2">
+                  {ROLE_OPTIONS.map((opt) => {
+                    const enabled = selectedRoles.has(opt.value);
+                    return (
+                      <li
+                        key={opt.value}
+                        className="rounded-lg border border-border-default bg-bg-surface px-3 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-medium text-text-primary">
+                            {ROLE_LABELS[opt.value] ?? opt.label}
+                          </span>
+                          <Switch
+                            checked={enabled}
+                            onCheckedChange={(next) => toggleRole(opt.value, next)}
+                            aria-label={opt.label}
+                          />
+                        </div>
+                        {enabled ? (
+                          <StaffRoleFixedSalaryFields
+                            roleLabel={ROLE_LABELS[opt.value] ?? opt.label}
+                            amountValue={amountValue(opt.value)}
+                            rateValue={rateValue(opt.value)}
+                            roleDefaultAmount={roleDefaultAmount(opt.value)}
+                            roleDefaultRate={roleDefaultRate(opt.value)}
+                            onAmountChange={(value) =>
+                              setAmountDraft((prev) => ({
+                                ...prev,
+                                [opt.value]: value,
+                              }))
+                            }
+                            onRateChange={(value) =>
+                              setRateDraft((prev) => ({
+                                ...prev,
+                                [opt.value]: value,
+                              }))
+                            }
+                          />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
 
               {showRevenueShareField && (
@@ -487,7 +597,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
             </button>
             <button
               type="submit"
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              disabled={overridesQuery.isLoading || overridesQuery.isError}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               Lưu thông tin
             </button>

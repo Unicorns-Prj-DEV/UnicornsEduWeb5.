@@ -145,6 +145,10 @@ describe('StaffService', () => {
     generateTutorMeetLink: jest.fn(),
     deleteCalendarEvent: jest.fn(),
   };
+  const fixedSalarySettingsService = {
+    assertStaffOverrideItems: jest.fn(),
+    syncStaffRoleOverridesInTx: jest.fn(),
+  };
 
   let service: StaffService;
 
@@ -189,6 +193,11 @@ describe('StaffService', () => {
       'https://meet.google.com/fixed-staff-link',
     );
     googleCalendarService.deleteCalendarEvent.mockResolvedValue(undefined);
+    fixedSalarySettingsService.assertStaffOverrideItems.mockReset();
+    fixedSalarySettingsService.syncStaffRoleOverridesInTx.mockReset();
+    fixedSalarySettingsService.syncStaffRoleOverridesInTx.mockResolvedValue(
+      undefined,
+    );
     mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(
       (callback: (db: typeof mockPrisma) => unknown) => callback(mockPrisma),
@@ -198,6 +207,7 @@ describe('StaffService', () => {
       actionHistoryService as never,
       googleCalendarService as never,
       authIdentityCacheService as never,
+      fixedSalarySettingsService as never,
     );
   });
 
@@ -507,6 +517,117 @@ describe('StaffService', () => {
     expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
       'new-user',
     );
+  });
+
+  it('writes roles then fixed-salary overrides in the same transaction, including a newly added role', async () => {
+    const existingStaff = {
+      id: 'staff-1',
+      userId: 'user-1',
+      roles: [StaffRole.teacher],
+      status: 'active',
+      customerCareManagedByStaffId: null,
+      user: {
+        id: 'user-1',
+        first_name: 'An',
+        last_name: 'Nguyen',
+      },
+      classTeachers: [],
+    };
+    const updatedStaff = {
+      ...existingStaff,
+      roles: [StaffRole.teacher, StaffRole.assistant],
+    };
+
+    mockPrisma.staffInfo.findUnique
+      .mockResolvedValueOnce(existingStaff)
+      .mockResolvedValue(updatedStaff);
+    mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-1' });
+    jest
+      .spyOn(service, 'getStaffById')
+      .mockResolvedValue(updatedStaff as never);
+
+    await service.updateStaffWithFixedSalaryOverrides(
+      'staff-1',
+      {
+        roles: [StaffRole.teacher, StaffRole.assistant],
+        roleFixedSalaryOverrides: [
+          {
+            roleType: StaffRole.assistant,
+            amount: 0,
+            operatingRatePercent: null,
+          },
+        ],
+      },
+      {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: 'admin',
+      },
+    );
+
+    expect(
+      fixedSalarySettingsService.assertStaffOverrideItems,
+    ).toHaveBeenCalledWith(
+      [StaffRole.teacher, StaffRole.assistant],
+      [
+        {
+          roleType: StaffRole.assistant,
+          amount: 0,
+          operatingRatePercent: null,
+        },
+      ],
+    );
+    expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          roles: [StaffRole.teacher, StaffRole.assistant],
+        }),
+      }),
+    );
+    expect(
+      fixedSalarySettingsService.syncStaffRoleOverridesInTx,
+    ).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        staffId: 'staff-1',
+        nextRoles: [StaffRole.teacher, StaffRole.assistant],
+      }),
+    );
+    const updateOrder =
+      mockPrisma.staffInfo.update.mock.invocationCallOrder[0];
+    const syncOrder =
+      fixedSalarySettingsService.syncStaffRoleOverridesInTx.mock
+        .invocationCallOrder[0];
+    expect(syncOrder).toBeGreaterThan(updateOrder);
+  });
+
+  it('does not keep role changes when override sync fails in the same transaction', async () => {
+    const existingStaff = {
+      id: 'staff-1',
+      userId: 'user-1',
+      roles: [StaffRole.teacher],
+      status: 'active',
+      customerCareManagedByStaffId: null,
+      user: { id: 'user-1' },
+      classTeachers: [],
+    };
+    mockPrisma.staffInfo.findUnique.mockResolvedValue(existingStaff);
+    mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-1' });
+    fixedSalarySettingsService.syncStaffRoleOverridesInTx.mockRejectedValue(
+      new BadRequestException('invalid percent'),
+    );
+
+    await expect(
+      service.updateStaffWithFixedSalaryOverrides('staff-1', {
+        roles: [StaffRole.teacher, StaffRole.assistant],
+        roleFixedSalaryOverrides: [
+          {
+            roleType: StaffRole.assistant,
+            operatingRatePercent: 120,
+          },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('returns friendly error when cccd number is duplicated', async () => {

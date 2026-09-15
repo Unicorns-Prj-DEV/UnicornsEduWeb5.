@@ -90,6 +90,12 @@ export interface StaffFixedSalaryOverridesQuery {
   limit?: number;
 }
 
+export interface StaffRoleFixedSalaryOverrideItem {
+  roleType: FixedSalaryStaffRole;
+  amount?: number | null;
+  operatingRatePercent?: number | null;
+}
+
 export interface UpsertStaffFixedSalaryAmountPayload {
   staffId: string;
   roleType: FixedSalaryStaffRole;

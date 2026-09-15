@@ -29,5 +29,5 @@ Ticket 02 gộp hai giá trị vào **một** row `role_fixed_salary_defaults` (
 ## Consequences
 
 - API tách: `GET/PUT /fixed-salary-settings/role-defaults` (amount) và `GET/PUT /fixed-salary-settings/role-operating-rates` (percent). Admin + assistant qua `@Roles(admin)`.
-- UI tab **Lương cứng** vẫn một tab. Từ 2026-09-10 hai nhóm role gộp thành **một bảng 3 cột** (Role / mức lương / % vận hành) nhưng **giữ hai nút lưu độc lập** đúng theo tách API ở trên; **mức đè theo nhân sự chuyển sang trang chi tiết nhân sự** `/admin/staffs/[id]` (query `staff-overrides?staffId=`), tab settings chỉ còn chính sách theo role + chốt tháng.
+- UI tab **Lương cứng** vẫn một tab. Từ 2026-09-10 hai nhóm role gộp thành **một bảng 3 cột** (Role / mức lương / % vận hành) nhưng **giữ hai nút lưu độc lập** đúng theo tách API ở trên. Từ 2026-09-15 **mức đè theo nhân sự** nằm trong dialog **Chỉnh sửa thông tin nhân sự** (`PATCH /staff/:id/with-fixed-salary-overrides` ghi role rồi override trong một transaction); tab settings chỉ còn chính sách theo role + chốt tháng. PUT từng trục `/staff-overrides/*` giữ cho cấu hình lương chung.
 - Ticket sau đọc từng bảng khi resolve lương cứng / % vận hành, không đọc extra allowance.

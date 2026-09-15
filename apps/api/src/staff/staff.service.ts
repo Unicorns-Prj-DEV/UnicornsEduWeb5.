@@ -51,10 +51,12 @@ import {
   type UpdateStaffFixedSalaryPayableDto,
   type StaffOverdueSurveyWarningItemDto,
   UpdateStaffDto,
+  UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
 import {
   generateStaffId,
   isEntityIdUniqueConstraintError,
@@ -704,6 +706,7 @@ export class StaffService {
     private readonly actionHistoryService: ActionHistoryService,
     private readonly googleCalendarService: GoogleCalendarService,
     private readonly authIdentityCacheService: AuthIdentityCacheService,
+    private readonly fixedSalarySettingsService: FixedSalarySettingsService,
   ) {}
 
   /**
@@ -5717,7 +5720,13 @@ export class StaffService {
     return this.getStaffById(id);
   }
 
-  async updateStaff(data: UpdateStaffDto, auditActor?: ActionHistoryActor) {
+  async updateStaff(
+    data: UpdateStaffDto,
+    auditActor?: ActionHistoryActor,
+    options?: {
+      roleFixedSalaryOverrides?: UpdateStaffWithFixedSalaryOverridesDto['roleFixedSalaryOverrides'];
+    },
+  ) {
     const existingStaff = await this.getStaffAuditSnapshot(
       this.prisma,
       data.id,
@@ -5725,6 +5734,18 @@ export class StaffService {
 
     if (!existingStaff) {
       throw new NotFoundException('Staff not found');
+    }
+
+    if (options?.roleFixedSalaryOverrides) {
+      if (data.roles == null) {
+        throw new BadRequestException(
+          'Cần gửi danh sách vai trò khi lưu mức đè lương cứng.',
+        );
+      }
+      this.fixedSalarySettingsService.assertStaffOverrideItems(
+        data.roles,
+        options.roleFixedSalaryOverrides,
+      );
     }
 
     const userNamePayload = this.normalizeStaffUserNameInput(data);
@@ -5876,18 +5897,30 @@ export class StaffService {
           data: payload as Prisma.StaffInfoUpdateArgs['data'],
         });
 
-        if (auditActor) {
-          const afterValue = await this.getStaffAuditSnapshot(tx, data.id);
-          if (afterValue) {
-            await this.actionHistoryService.recordUpdate(tx, {
-              actor: auditActor,
-              entityType: 'staff',
-              entityId: data.id,
-              description: 'Cập nhật nhân sự',
-              beforeValue: existingStaff,
-              afterValue,
-            });
-          }
+        const afterValue =
+          auditActor || options?.roleFixedSalaryOverrides
+            ? await this.getStaffAuditSnapshot(tx, data.id)
+            : null;
+
+        if (auditActor && afterValue) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'staff',
+            entityId: data.id,
+            description: 'Cập nhật nhân sự',
+            beforeValue: existingStaff,
+            afterValue,
+          });
+        }
+
+        if (options?.roleFixedSalaryOverrides && data.roles) {
+          await this.fixedSalarySettingsService.syncStaffRoleOverridesInTx(tx, {
+            staffId: data.id,
+            nextRoles: data.roles,
+            items: options.roleFixedSalaryOverrides,
+            staff: afterValue ?? existingStaff,
+            actor: auditActor,
+          });
         }
 
         return data.id;
@@ -5902,6 +5935,21 @@ export class StaffService {
       }
       throw error;
     }
+  }
+
+  async updateStaffWithFixedSalaryOverrides(
+    id: string,
+    data: UpdateStaffWithFixedSalaryOverridesDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    return this.updateStaff(
+      {
+        ...data,
+        id,
+      },
+      auditActor,
+      { roleFixedSalaryOverrides: data.roleFixedSalaryOverrides },
+    );
   }
 
   async deleteStaff(id: string, auditActor?: ActionHistoryActor) {
