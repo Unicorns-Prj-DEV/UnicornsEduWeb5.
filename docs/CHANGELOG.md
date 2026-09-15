@@ -35,6 +35,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Chi tiết học sinh (admin/staff): ưu tiên ví và lịch thi.** Trang `/admin/students/[id]` (mirror `/staff/students/[id]`) xếp **Tài khoản hiện tại** rồi **Lịch thi** lên đầu, sau đó **Thông tin cơ bản** → **Liên hệ phụ huynh** (thu gọn sẵn, mở bằng `Collapsible` shadcn, nhớ `localStorage`) → Thành tích → Feedback → danh sách lớp. Mobile 1 cột, từ `sm` 2 cột. Không đổi nhãn hai khối hồ sơ.
 - **Đợt tối ưu theo `react-doctor` (2026-09-11):** ADR `docs/adr/2026-09-11-frontend-perf-a11y-conventions.md`.
   - `apps/web/lib/formatters.ts` mới: gom toàn bộ `Intl.NumberFormat` / `Intl.DateTimeFormat` về module scope (126 warning `intl-*`), component không tự dựng `Intl` trong render nữa.
   - **22 trang** dùng `useSearchParams()` được bọc `<Suspense>` (24 → 0 cảnh báo `nextjs-no-use-search-params-without-suspense`); thiếu boundary thì Next.js bỏ static render cả route.

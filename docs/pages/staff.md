@@ -155,7 +155,7 @@
   - với `staff.accountant_income`, route này là chế độ thu/học phí: xem lớp/học phí/tổng nạp/học phí đã học/lợi nhuận tháng và được chỉnh gói học phí học sinh theo lớp (tổng gói + số buổi); không có QR SePay, không có **Nạp thẳng**, không rút/chỉnh số dư ví
   - với `staff.customer_care`, route chỉ mở khi học sinh đó đang thuộc `customer_care_service` của chính staff hiện tại
   - ở mode `customer_care`, CSKH được mở popup **Chỉnh sửa hồ sơ học sinh** (gồm trạng thái, lịch thi, phân công CSKH) nhưng **không** được chỉnh `customer_care_profit_percent` / ô **Tỷ lệ lợi nhuận (%)**; danh sách lớp, gói học phí và chỉnh số dư ví vẫn bị khóa. Ví cho xem QR SePay tĩnh và gửi yêu cầu **Nạp thẳng** cho học sinh đang được giao, không có Rút và không cộng số dư ngay; vẫn giữ deep-link sang chi tiết lớp của học sinh
-  - UI trang re-export từ `apps/web/app/admin/students/[id]/page.tsx`; layout profile/ví dùng chung với admin (xem ghi chú grid responsive trong `docs/pages/admin.md`).
+  - UI trang re-export từ `apps/web/app/admin/students/[id]/page.tsx`; thứ tự khối, thu gọn **Thông tin cơ bản** / **Liên hệ phụ huynh**, và `localStorage` mở/đóng dùng chung với admin (xem ghi chú layout trong `docs/pages/admin.md`).
 - `/staff/customer-care-detail`
   - tự động lấy `staffInfo.id` của user đang đăng nhập, không nhận `staffId` từ URL
   - dùng cùng dữ liệu với trang admin customer-care detail: 3 tab **Học sinh**, **Thanh Toán** và **Hoa hồng**
