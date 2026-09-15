@@ -12,8 +12,8 @@
 
 ## Verify
 
-- `apps/web` `tsc --noEmit` — xem kết quả trong phiên làm việc.
-- Browser: chi tiết lớp admin/staff nếu session local có sẵn; nếu không login thì ghi nhận trong worker_done.
+- `apps/web` `tsc --noEmit` — 0 lỗi.
+- Browser: Chrome DevTools MCP không gắn được (profile đang bị process khác giữ). Không login/end-to-end trên UI.
 
 ## Không làm
 
