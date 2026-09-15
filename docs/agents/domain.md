@@ -28,7 +28,8 @@ When you resolve a fuzzy term during a session, write it into `CONTEXT.md` right
 - `Google Calendar sync`
 - `Khoá học` / course — replaced the old `Danh mục lớp` (class category); see `docs/adr/2026-09-05-class-category-becomes-course.md`
 - `Chuyên đề` / module (`modules`) — was `Chủ đề` / chapter; see `docs/adr/2026-09-15-three-level-content-model.md`
-- `Tiết học` / lesson (`lessons`) — was topic + lecture flattened; keep the words **Tiết học** and **Buổi học**, never abbreviate
+- `Tiết học` / lesson (`lessons`) vs `Buổi học` / session — easy to confuse; keep both full words, never abbreviate. Flattened from topic + lecture; one old lecture = one lesson (`docs/adr/2026-09-16-one-lecture-becomes-one-lesson.md`). Class-owned lessons are XOR with modules (`docs/adr/2026-09-16-class-owned-lesson-xor.md`)
+- Retired (do not reuse): `Chapter`/`chapters`, `Topic`/`topics`, `Lecture`/`lectures`, `TopicKind`, `ClassTheoryTopicView`, HTTP `/chapters` `/topics` `/lectures`
 - `Lớp không điểm danh` / class attendance default — `Class.noAttendance` is a **default suggestion** when creating a session; see `docs/adr/2026-09-07-per-session-optional-attendance.md`
 - `Buổi không điểm danh` / session skip-attendance — frozen on `Session.snapshotNoAttendance`; charging/auto-present still follow `docs/adr/2026-09-05-class-without-attendance-still-charges.md`
 - `thiết bị đăng nhập` / `UserDevice` — login device, not `Session`; see `docs/adr/2026-09-07-immediate-device-revocation.md`

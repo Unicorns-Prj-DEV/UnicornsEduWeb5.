@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-15
-- **Supersedes:** phần cây bốn cấp Chủ đề / Chuyên đề / Bài học trong `docs/adr/2026-09-10-course-content-drill-down.md` (tab workspace và prefactor URL vẫn giữ đến vé 06–07)
+- **Supersedes:** phần cây bốn cấp Chủ đề / Chuyên đề / Bài học trong `docs/adr/2026-09-10-course-content-drill-down.md` (tab workspace và prefactor URL đã đổi ở vé 06–07)
+- **Details:** `docs/adr/2026-09-16-one-lecture-becomes-one-lesson.md`, `docs/adr/2026-09-16-class-owned-lesson-xor.md`
 
 ## Context
 
@@ -18,7 +19,7 @@ Cây nội dung trên `dev` là bốn cấp: `Course` → `Chapter` (chủ đề
 4. **XOR ở tầng dữ liệu:** CHECK `lessons_owner_check` — `(course_id + module_id)` XOR `class_id`. Tiết riêng lớp không thuộc chuyên đề. CHECK `lessons_practice_no_media_check` — tiết thực hành không có `video_url`/`content`.
 5. **Migration mới** `20260921000000_rename_three_level_content` chồng lên lịch sử. Không sửa file migration đã commit. Production sẽ tạo bảng tên cũ rồi đổi tên ngay sau đó.
 
-HTTP path / Prisma client call site (web + Nest) **không** xanh ở vé này — vé 06 và 07 trên cùng integration branch; nghiệm thu vé 08.
+HTTP path / Prisma client call site (web + Nest) nghiệm thu xanh ở vé 08 trên cùng integration branch.
 
 ## Considered options
 
@@ -30,4 +31,4 @@ HTTP path / Prisma client call site (web + Nest) **không** xanh ở vé này �
 
 - Sau migrate không còn bảng/cột `chapters` / `topics` / `lectures` / `chapter_id` / `topic_id` / `lecture_id`.
 - `ClassContentItem.lessonId` Restrict — xóa chuyên đề/tiết cấp khoá khi còn lần giao vẫn 409.
-- API (vé 06) nói `modules` / `lessons` trên HTTP, DTO, Swagger; không alias. FE (`apps/web`) còn path cũ đến vé 07; nghiệm thu xanh ở vé 08.
+- API (vé 06) nói `modules` / `lessons` trên HTTP, DTO, Swagger; không alias. FE (vé 07) cùng path. Nghiệm thu typecheck/test: vé 08.

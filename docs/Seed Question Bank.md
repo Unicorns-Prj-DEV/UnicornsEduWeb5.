@@ -80,12 +80,12 @@ Ngoại lệ có chủ đích:
 1. Mở pack tương ứng trong `apps/api/scripts/seed-data/`.
 2. Thêm phần tử vào `questions` với `key` **mới và không đổi về sau** (`key` là đầu vào sinh id — đổi `key` = tạo câu mới, câu cũ ở lại DB).
 3. Nội dung viết HTML (`<p>`, `<ul>`, `<code>`, `<pre>`), công thức toán đặt giữa hai dấu `$` — khớp `@tiptap/extension-mathematics` ở editor và `MathContent.tsx` khi render.
-4. `difficulty` và `chapter` phải khớp tuyệt đối chuỗi khai báo trong `difficultyLevels` / `chapters` của pack.
+4. `difficulty` và `module` phải khớp tuyệt đối chuỗi khai báo trong `difficultyLevels` / `modules` của pack.
 5. Đề khai báo trong `exams` theo **blueprint độ khó** (`{ 'Nhận biết': 1, 'Thông hiểu': 2 }`), không liệt kê từng câu.
 
 6. `rotate` (tuỳ chọn) tránh trùng câu giữa hai đề cùng blueprint trên cùng pool.
 
-Hàm chọn câu là `pickExamQuestions()`: lọc theo `chapters`, nhóm theo độ khó, sắp theo `key`, rồi rải **round-robin qua các chương** để đề tổng hợp không dồn câu vào một chương. Đổi hàm này nếu muốn chiến lược khác (ưu tiên chương cuối khoá, chọn ngẫu nhiên có seed, …). Nếu nguồn không đủ câu cho một mức độ khó, script in cảnh báo và lấy hết số có.
+Hàm chọn câu là `pickExamQuestions()`: lọc theo `modules`, nhóm theo độ khó, sắp theo `key`, rồi rải **round-robin qua các chuyên đề** để đề tổng hợp không dồn câu vào một chuyên đề. Đổi hàm này nếu muốn chiến lược khác (ưu tiên chuyên đề cuối khoá, chọn ngẫu nhiên có seed, …). Nếu nguồn không đủ câu cho một mức độ khó, script in cảnh báo và lấy hết số có.
 
 ### `rotate` hoạt động thế nào
 

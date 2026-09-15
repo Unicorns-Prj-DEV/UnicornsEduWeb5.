@@ -187,7 +187,7 @@ export class QuestionService {
 
   async bulkCreate(dto: BulkCreateQuestionDto, actor: QuestionActor) {
     await this.assertWriteAccess(actor, dto.courseId);
-    // Validate cross-course for shared chapter + difficulty
+    // Validate cross-course for shared module + difficulty
     await this.assertModuleBelongsToCourse(dto.moduleId, dto.courseId);
 
     // Validate each item

@@ -74,13 +74,13 @@ Hệ thống sinh prompt theo khoá đang mở, không hard-code. Các tham số
 - Danh sách `difficulty_levels` của khoá (in nguyên chuỗi để mô hình khớp tuyệt đối)
 - Tỉ lệ độ khó mặc định
 
-Hai tham số người dùng chỉnh trên panel: **số câu cần sinh** và **chủ đề**. Chủ đề lấy từ danh sách Chủ đề hiện có của khoá; nếu chưa có, người dùng gõ tên mới và chọn mục **Tạo chủ đề “…”** ngay trong dropdown. Chủ đề được chọn ở bước lấy prompt cũng là nơi các câu hỏi sẽ được gắn khi lưu.
+Hai tham số người dùng chỉnh trên panel: **số câu cần sinh** và **chuyên đề**. Chuyên đề lấy từ danh sách Chuyên đề hiện có của khoá; nếu chưa có, người dùng gõ tên mới và chọn mục **Tạo chuyên đề “…”** ngay trong dropdown. Chuyên đề được chọn ở bước lấy prompt cũng là nơi các câu hỏi sẽ được gắn khi lưu.
 
 ```
 Bạn là trợ lý soạn câu hỏi cho khoá {{TÊN KHOÁ}} của Unicorns Edu.
 
 NHIỆM VỤ
-Sinh {{SỐ CÂU}} câu hỏi về: {{CHỦ ĐỀ}}.
+Sinh {{SỐ CÂU}} câu hỏi về: {{CHUYÊN ĐỀ}}.
 
 ĐẦU RA — CHỈ MỘT JSON ARRAY THUẦN
 - In ra đúng một mảng JSON: ký tự đầu là [ và ký tự cuối là ].
@@ -120,10 +120,10 @@ Các ràng buộc dễ bị coi là thừa nhưng xử lý lỗi có thật:
 
 ## Luồng nhập
 
-1. **Lấy prompt** — panel prompt, nhập số câu và chọn hoặc tạo chủ đề bằng `UpgradedSelect`, bấm **Sao chép & Tiếp tục**. `handleCopy` `await navigator.clipboard.writeText` trong try/catch: thành công mới toast `"Đã sao chép prompt."` và sang bước dán; thất bại → toast error, không báo đã copy, ở lại bước prompt.
+1. **Lấy prompt** — panel prompt, nhập số câu và chọn hoặc tạo chuyên đề bằng `UpgradedSelect`, bấm **Sao chép & Tiếp tục**. `handleCopy` `await navigator.clipboard.writeText` trong try/catch: thành công mới toast `"Đã sao chép prompt."` và sang bước dán; thất bại → toast error, không báo đã copy, ở lại bước prompt.
 2. **Dán JSON** — validate ngay tại client. Lỗi parse (JSON hỏng, không phải array, trống, quá 50 câu) hiện toast. Lỗi từng câu báo rõ **câu số mấy** và **trường nào sai** (ví dụ `Câu 2: essay không được có options`); câu lỗi vẫn vào bước soát để sửa, không bị bỏ qua im lặng.
-3. **Soát từng câu (cổng review bắt buộc)** — sau parse thành công, UI chuyển sang chế độ tuần tự: đúng **một câu** trên màn hình, chỉ số **câu X / N**, thanh tiến độ đã review, và danh sách tổng quan (ô số câu) hiện **đã xem / chưa xem**. Câu đang hiển thị được đánh dấu đã xem. Footer dùng hai nút **Trước / Sau** màu xanh nước biển để điều hướng trong khi chưa ở câu cuối hoặc chưa review đủ; nút **Lưu vào ngân hàng** chỉ xuất hiện tại câu cuối sau khi mọi câu trong danh sách đã được xem ít nhất một lần. Khi chưa thể lưu, UI nhắc `Còn k câu chưa review` hoặc lý do khác nếu thiếu chủ đề / không còn câu hợp lệ. Sửa nội dung ngay trong bước này (`revalidate` cùng rule lúc parse — essay còn `options` thì không `_valid`). Đóng rồi mở lại modal phải soát lại từ đầu (state review không persist).
-   - Select **Gắn vào Chủ đề** (bước soát) và select **Độ khó** (trên từng câu) đều `searchable` và cho **tạo mới ngay trong dropdown**: gõ tên chưa có → chọn mục `Tạo chủ đề “…”` / `Tạo độ khó “…”` → `POST /course/:courseId/chapters` hoặc `POST /courses/:id/difficulty-levels`, invalidate `courseKeys.chapters` / `courseKeys.difficultyLevelsPrefix`, rồi tự chọn giá trị vừa tạo (hook chung `useChapterCreateOption` / `useDifficultyCreateOption` ở `apps/web/lib/hooks/useCourseTaxonomyCreate.ts`). Độ khó mới tạo được `revalidate` chấp nhận vì `difficultyNames` refetch theo query key.
+3. **Soát từng câu (cổng review bắt buộc)** — sau parse thành công, UI chuyển sang chế độ tuần tự: đúng **một câu** trên màn hình, chỉ số **câu X / N**, thanh tiến độ đã review, và danh sách tổng quan (ô số câu) hiện **đã xem / chưa xem**. Câu đang hiển thị được đánh dấu đã xem. Footer dùng hai nút **Trước / Sau** màu xanh nước biển để điều hướng trong khi chưa ở câu cuối hoặc chưa review đủ; nút **Lưu vào ngân hàng** chỉ xuất hiện tại câu cuối sau khi mọi câu trong danh sách đã được xem ít nhất một lần. Khi chưa thể lưu, UI nhắc `Còn k câu chưa review` hoặc lý do khác nếu thiếu chuyên đề / không còn câu hợp lệ. Sửa nội dung ngay trong bước này (`revalidate` cùng rule lúc parse — essay còn `options` thì không `_valid`). Đóng rồi mở lại modal phải soát lại từ đầu (state review không persist).
+   - Select **Gắn vào Chuyên đề** (bước soát) và select **Độ khó** (trên từng câu) đều `searchable` và cho **tạo mới ngay trong dropdown**: gõ tên chưa có → chọn mục `Tạo chuyên đề “…”` / `Tạo độ khó “…”` → `POST /course/:courseId/modules` hoặc `POST /courses/:id/difficulty-levels`, invalidate `courseKeys.modules` / `courseKeys.difficultyLevelsPrefix`, rồi tự chọn giá trị vừa tạo (hook chung `useModuleCreateOption` / `useDifficultyCreateOption` ở `apps/web/lib/hooks/useCourseTaxonomyCreate.ts`). Độ khó mới tạo được `revalidate` chấp nhận vì `difficultyNames` refetch theo query key.
 4. **Nhập** — một request duy nhất tạo toàn bộ câu hợp lệ. Sau lưu, TanStack Query invalidate `questionKeys.course(courseId)` (không chỉ `questionKeys.all`).
 
 Câu lỗi **không nhập được**. Người dùng sửa trong bước soát, sửa JSON rồi dán lại, hoặc bỏ những câu đó.

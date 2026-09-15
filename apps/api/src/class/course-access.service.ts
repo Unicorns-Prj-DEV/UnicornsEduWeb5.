@@ -23,7 +23,7 @@ const COURSE_MANAGER_STAFF_ROLES = [
 
 /**
  * Guard phân quyền nội dung Khoá học — dùng lại cho mọi ticket nội dung khoá về sau
- * (cây Chủ đề/Chuyên đề, Ngân hàng câu hỏi, đề thi...).
+ * (cây Chuyên đề/Tiết học, Ngân hàng câu hỏi, tiết thực hành cấp khoá...).
  *
  * Quy tắc:
  * - Admin đầy đủ, Trợ lí (`assistant`), Trưởng giáo án (`lesson_plan_head`) quản lý

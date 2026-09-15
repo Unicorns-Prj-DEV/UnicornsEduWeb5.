@@ -60,12 +60,7 @@ export class ClassContentService extends CourseContentSupportService {
   }
 
   /**
-   * Student may open a topic only through a lần giao on this class.
-   * Practice assignments stay closed until `openAt`.
-   */
-
-  /**
-   * Student may open a topic only through a lần giao on this class.
+   * Student may open a lesson only through a lần giao on this class.
    * Practice assignments stay closed until `openAt`.
    */
   async getAssignedLessonForStudent(
@@ -188,24 +183,25 @@ export class ClassContentService extends CourseContentSupportService {
   }
 
   /**
-   * Block course-level Chapter/Topic/Lecture deletes while any class still
-   * references the topic via ClassContentItem (including hidden items).
+   * Block course-level Module/Lesson deletes while any class still
+   * references the lesson via ClassContentItem (including hidden items).
    */
 
   // ---------- Class Content ----------
   //
-  // Finding #8 — dual source of truth note:
-  // `Topic.classId` (scalar FK on the topics table) and `class_content_items.class_id`
-  // serve different purposes. Topic.classId marks a topic as "owned by" a class (created
-  // inline for that class). class_content_items is the ordered list of topics shown in
-  // the class content tab — it can reference both class-owned topics AND course topics.
-  // When creating a new topic for a class, we write BOTH: Topic.classId = classId (so
-  // the topic is recognizably class-scoped) AND a class_content_items row (so it appears
-  // in the ordered content list). When adding an existing course topic, only a
-  // class_content_items row is created — the topic's courseId/moduleId stay untouched.
+  // Dual source of truth:
+  // `Lesson.classId` (scalar FK on `lessons`) and `class_content_items.class_id`
+  // serve different purposes. Lesson.classId marks a lesson as owned by a class
+  // (created inline for that class — XOR with courseId+moduleId). class_content_items
+  // is the ordered list of lessons shown in the class content tab — it can
+  // reference both class-owned lessons AND course lessons. When creating a new
+  // lesson for a class, we write BOTH: Lesson.classId = classId AND a
+  // class_content_items row. When adding an existing course lesson, only a
+  // class_content_items row is created — the lesson's courseId/moduleId stay
+  // untouched.
 
   /**
-   * Map a raw Prisma ClassContentItem (with included topic/chapter/lectures) to the
+   * Map a raw Prisma ClassContentItem (with included lesson/module) to the
    * frontend DTO shape expected by ClassContentManager.
    */
   private mapClassContentItem(item: {
