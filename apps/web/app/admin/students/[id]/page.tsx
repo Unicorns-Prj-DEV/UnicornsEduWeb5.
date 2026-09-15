@@ -10,6 +10,8 @@ import {
     StudentBalancePopup,
     StudentDetailRow,
     StudentInfoCard,
+    STUDENT_DETAIL_BASIC_INFO_OPEN_KEY,
+    STUDENT_DETAIL_PARENT_CONTACT_OPEN_KEY,
     StudentExamCard,
     StudentWalletHistoryPopup,
     StudentWalletCard,
@@ -661,8 +663,28 @@ export default function AdminStudentDetailPage() {
                     </div>
 
                     <div className="mt-4 grid gap-3.5 sm:mt-5 sm:gap-4">
-                        <div className="grid min-w-0 gap-3.5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.1fr)] sm:gap-4">
-                            <StudentInfoCard title="Thông tin cơ bản">
+                        <div className="grid min-w-0 gap-3.5 sm:grid-cols-2 sm:gap-4">
+                            <StudentWalletCard
+                                className="min-w-0"
+                                balance={student.accountBalance ?? 0}
+                                onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}
+                                onWithdraw={canDirectlyWithdrawWallet ? handleWithdraw : undefined}
+                                onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
+                            />
+                            <StudentExamCard
+                                className="min-w-0"
+                                key={student.id}
+                                studentId={student.id}
+                            />
+                        </div>
+
+                        <div className="grid min-w-0 gap-3.5 sm:grid-cols-2 sm:gap-4">
+                            <StudentInfoCard
+                                title="Thông tin cơ bản"
+                                collapsible
+                                defaultOpen={false}
+                                storageKey={STUDENT_DETAIL_BASIC_INFO_OPEN_KEY}
+                            >
                                 <dl className="divide-y divide-border-subtle">
                                     <StudentDetailRow label="Email" value={student.email?.trim() || "—"} />
                                     <StudentDetailRow label="Trường" value={student.school?.trim() || "—"} />
@@ -686,7 +708,12 @@ export default function AdminStudentDetailPage() {
                                 </dl>
                             </StudentInfoCard>
 
-                            <StudentInfoCard title="Liên hệ phụ huynh">
+                            <StudentInfoCard
+                                title="Liên hệ phụ huynh"
+                                collapsible
+                                defaultOpen={false}
+                                storageKey={STUDENT_DETAIL_PARENT_CONTACT_OPEN_KEY}
+                            >
                                 <dl className="divide-y divide-border-subtle">
                                     <StudentDetailRow label="Họ tên" value={student.parentName?.trim() || "—"} />
                                     <StudentDetailRow label="Số điện thoại" value={student.parentPhone?.trim() || "—"} />
@@ -722,16 +749,6 @@ export default function AdminStudentDetailPage() {
                                     </p>
                                 )}
                             </StudentInfoCard>
-
-                            <div className="min-w-0 space-y-3.5 xl:col-span-1 xl:space-y-4">
-                                <StudentWalletCard
-                                    balance={student.accountBalance ?? 0}
-                                    onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}
-                                    onWithdraw={canDirectlyWithdrawWallet ? handleWithdraw : undefined}
-                                    onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
-                                />
-                                <StudentExamCard key={student.id} studentId={student.id} />
-                            </div>
                         </div>
 
                         <StudentInfoCard title="Thành tích">
