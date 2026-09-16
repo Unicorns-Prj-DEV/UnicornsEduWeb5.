@@ -45,12 +45,12 @@ export class FixedSalarySettingsController {
   @ApiOperation({
     summary: 'List role default fixed salaries',
     description:
-      'Return the default fixed salary amount for every StaffRole. Unconfigured roles return null amount (not 0). Independent of fixed-salary operating percent.',
+      'Return the default fixed salary amount for every fixed-salary StaffRole (teacher excluded). Unconfigured roles return null amount (not 0). Independent of fixed-salary operating percent.',
   })
   @ApiResponse({
     status: 200,
     description:
-      'One row per StaffRole, including unconfigured roles with null amount.',
+      'One row per fixed-salary StaffRole (teacher excluded), including unconfigured roles with null amount.',
   })
   async getRoleDefaults() {
     return this.fixedSalarySettingsService.getRoleDefaults();
@@ -89,12 +89,12 @@ export class FixedSalarySettingsController {
   @ApiOperation({
     summary: 'List role default fixed-salary operating percents',
     description:
-      'Return the default operating deduction percent for lương cứng of every StaffRole. Unconfigured roles return null (not 0). This percent is not used for teacher session allowance or class-teacher % vận hành.',
+      'Return the default operating deduction percent for lương cứng of every fixed-salary StaffRole (teacher excluded). Unconfigured roles return null (not 0). This percent is not used for teacher session allowance or class-teacher % vận hành.',
   })
   @ApiResponse({
     status: 200,
     description:
-      'One row per StaffRole, including unconfigured roles with null operatingRatePercent.',
+      'One row per fixed-salary StaffRole (teacher excluded), including unconfigured roles with null operatingRatePercent.',
   })
   async getRoleOperatingRates() {
     return this.fixedSalarySettingsService.getRoleOperatingRates();
@@ -133,15 +133,15 @@ export class FixedSalarySettingsController {
   @ApiOperation({
     summary: 'List resolved staff fixed-salary overrides',
     description:
-      'Return active staff who currently hold at least one role. Each (staff, role) pair resolves lương cứng and % vận hành independently: override row wins (including 0); otherwise role default; otherwise unconfigured. Search is by name, handle, or id.',
+      'Return staff who currently hold at least one role. Exact staffId skips the active-only filter so the staff edit dialog can load overrides for inactive staff. List/search still returns active staff only. Each (staff, fixed-salary role) pair resolves lương cứng and % vận hành independently (teacher is omitted). Override row wins (including 0); otherwise role default; otherwise unconfigured. Search is by name, handle, or id.',
   })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'staffId', required: false, type: String })
+  @ApiQuery({ name: 'staffId', required: false, type: String, description: 'Exact staff id. When set, search and the active-only filter are skipped so the edit dialog can load overrides for inactive staff too.' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({
     status: 200,
     description:
-      'Staff list with one independent row per current role and resolved values per axis.',
+      'Staff list with one independent row per current fixed-salary role (teacher omitted) and resolved values per axis.',
   })
   async getStaffOverrides(@Query() query: StaffFixedSalaryOverridesQueryDto) {
     return this.fixedSalarySettingsService.getStaffOverrides(query);
@@ -217,7 +217,7 @@ export class FixedSalarySettingsController {
   @ApiOperation({
     summary: 'Close the current month’s fixed salaries',
     description:
-      'Generate pending lương cứng payables for the current Asia/Ho_Chi_Minh month. One row per (active staff, current role) with applied amount > 0. Snapshots gross, operating %, tax %, deduction amounts, and net using calculateDeductionAmounts (operating on gross, then tax on remainder). Idempotent: unique (staff, role, month) at the database; reruns skip existing rows without changing them. Same function as the day-28 cron.',
+      'Generate pending lương cứng payables for the current Asia/Ho_Chi_Minh month. One row per (active staff, current fixed-salary role) with applied amount > 0. Teacher is skipped even if leftover config exists. Snapshots gross, operating %, tax %, deduction amounts, and net using calculateDeductionAmounts (operating on gross, then tax on remainder). Idempotent: unique (staff, role, month) at the database; reruns skip existing rows without changing them. Manual close always runs this path. The day-28 cron uses a separate automatic entry that skips the whole month when any payable already exists.',
   })
   @ApiResponse({
     status: 201,

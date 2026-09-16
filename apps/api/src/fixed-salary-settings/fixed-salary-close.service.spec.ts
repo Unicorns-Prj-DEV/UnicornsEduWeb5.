@@ -135,6 +135,9 @@ describe('FixedSalaryCloseService', () => {
           return { count };
         },
       ),
+      count: jest.fn(async ({ where }: { where: { month: string } }) =>
+        payables.filter((row) => row.month === where.month).length,
+      ),
       findMany: jest.fn(async ({ where }: { where: { month: string } }) =>
         payables
           .filter((row) => row.month === where.month)
@@ -173,12 +176,12 @@ describe('FixedSalaryCloseService', () => {
     staffRows.push({
       id: 'staff-a',
       status: StaffStatus.active,
-      roles: [StaffRole.teacher],
+      roles: [StaffRole.assistant],
       user: { first_name: 'An', last_name: 'Nguyen' },
     });
-    salaryDefaults.push({ roleType: StaffRole.teacher, amount: 1_000_000 });
-    operatingDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
-    roleTaxDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
+    salaryDefaults.push({ roleType: StaffRole.assistant, amount: 1_000_000 });
+    operatingDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
+    roleTaxDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
 
     const result = await service.closeMonth('2026-09');
     expect(result.createdCount).toBe(1);
@@ -186,7 +189,7 @@ describe('FixedSalaryCloseService', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       staffId: 'staff-a',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.assistant,
       month: '2026-09',
       status: 'pending',
       grossAmount: 1_000_000,
@@ -203,7 +206,7 @@ describe('FixedSalaryCloseService', () => {
       {
         id: 'inactive',
         status: StaffStatus.inactive,
-        roles: [StaffRole.teacher],
+        roles: [StaffRole.assistant],
         user: { first_name: 'Off', last_name: 'Staff' },
       },
       {
@@ -235,11 +238,47 @@ describe('FixedSalaryCloseService', () => {
     staffRows.push({
       id: 'dual',
       status: StaffStatus.active,
-      roles: [StaffRole.teacher, StaffRole.assistant],
+      roles: [StaffRole.communication, StaffRole.assistant],
       user: { first_name: 'Dual', last_name: 'Role' },
     });
     salaryDefaults.push(
-      { roleType: StaffRole.teacher, amount: 2_000_000 },
+      { roleType: StaffRole.communication, amount: 2_000_000 },
+      { roleType: StaffRole.assistant, amount: 500_000 },
+    );
+    operatingDefaults.push(
+      { roleType: StaffRole.communication, ratePercent: 10 },
+      { roleType: StaffRole.assistant, ratePercent: 0 },
+    );
+    roleTaxDefaults.push(
+      { roleType: StaffRole.communication, ratePercent: 10 },
+      { roleType: StaffRole.assistant, ratePercent: 5 },
+    );
+
+    const result = await service.closeMonth('2026-09');
+    expect(result.createdCount).toBe(2);
+    expect(result.items.map((item) => item.roleType).sort()).toEqual([
+      StaffRole.assistant,
+      StaffRole.communication,
+    ]);
+    expect(
+      result.items.find((item) => item.roleType === StaffRole.communication)
+        ?.grossAmount,
+    ).toBe(2_000_000);
+    expect(
+      result.items.find((item) => item.roleType === StaffRole.assistant)
+        ?.grossAmount,
+    ).toBe(500_000);
+  });
+
+  it('does not create a fixed-salary payable for teacher even when leftover config exists', async () => {
+    staffRows.push({
+      id: 'tutor',
+      status: StaffStatus.active,
+      roles: [StaffRole.teacher, StaffRole.assistant],
+      user: { first_name: 'Tutor', last_name: 'Plus' },
+    });
+    salaryDefaults.push(
+      { roleType: StaffRole.teacher, amount: 8_000_000 },
       { roleType: StaffRole.assistant, amount: 500_000 },
     );
     operatingDefaults.push(
@@ -252,30 +291,25 @@ describe('FixedSalaryCloseService', () => {
     );
 
     const result = await service.closeMonth('2026-09');
-    expect(result.createdCount).toBe(2);
-    expect(result.items.map((item) => item.roleType).sort()).toEqual([
-      StaffRole.assistant,
-      StaffRole.teacher,
-    ]);
+    expect(result.createdCount).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].roleType).toBe(StaffRole.assistant);
+    expect(result.items[0].grossAmount).toBe(500_000);
     expect(
-      result.items.find((item) => item.roleType === StaffRole.teacher)?.grossAmount,
-    ).toBe(2_000_000);
-    expect(
-      result.items.find((item) => item.roleType === StaffRole.assistant)
-        ?.grossAmount,
-    ).toBe(500_000);
+      result.items.find((item) => item.roleType === StaffRole.teacher),
+    ).toBeUndefined();
   });
 
   it('does not create or mutate existing rows on a second close of the same month', async () => {
     staffRows.push({
       id: 'staff-a',
       status: StaffStatus.active,
-      roles: [StaffRole.teacher],
+      roles: [StaffRole.assistant],
       user: { first_name: 'An', last_name: 'Nguyen' },
     });
-    salaryDefaults.push({ roleType: StaffRole.teacher, amount: 1_000_000 });
-    operatingDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
-    roleTaxDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
+    salaryDefaults.push({ roleType: StaffRole.assistant, amount: 1_000_000 });
+    operatingDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
+    roleTaxDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
 
     await service.closeMonth('2026-09');
     salaryDefaults[0].amount = 9_000_000;
@@ -288,6 +322,95 @@ describe('FixedSalaryCloseService', () => {
     expect(mockPrisma.staffFixedSalaryPayable.createMany).toHaveBeenCalledWith(
       expect.objectContaining({ skipDuplicates: true }),
     );
+  });
+
+  it('automatic close skips the whole month when any payable already exists', async () => {
+    staffRows.push(
+      {
+        id: 'staff-a',
+        status: StaffStatus.active,
+        roles: [StaffRole.assistant],
+        user: { first_name: 'An', last_name: 'Nguyen' },
+      },
+      {
+        id: 'staff-b',
+        status: StaffStatus.active,
+        roles: [StaffRole.communication],
+        user: { first_name: 'Binh', last_name: 'Tran' },
+      },
+    );
+    salaryDefaults.push(
+      { roleType: StaffRole.assistant, amount: 1_000_000 },
+      { roleType: StaffRole.communication, amount: 2_000_000 },
+    );
+    payables.push({
+      id: 'existing',
+      staffId: 'staff-a',
+      roleType: StaffRole.assistant,
+      month: '2026-09',
+      status: 'pending',
+      grossAmount: 1_000_000,
+      operatingRatePercent: 0,
+      taxRatePercent: 0,
+      operatingDeductionAmount: 0,
+      taxDeductionAmount: 0,
+      netAmount: 1_000_000,
+      createdAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+
+    const result = await service.closeMonthIfUnclosed('2026-09');
+
+    expect(result.skippedBecauseAlreadyClosed).toBe(true);
+    expect(result.createdCount).toBe(0);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].staffId).toBe('staff-a');
+    expect(mockPrisma.staffFixedSalaryPayable.createMany).not.toHaveBeenCalled();
+  });
+
+  it('manual close still creates payables for newly eligible staff after an early close', async () => {
+    staffRows.push(
+      {
+        id: 'staff-a',
+        status: StaffStatus.active,
+        roles: [StaffRole.assistant],
+        user: { first_name: 'An', last_name: 'Nguyen' },
+      },
+      {
+        id: 'staff-b',
+        status: StaffStatus.active,
+        roles: [StaffRole.communication],
+        user: { first_name: 'Binh', last_name: 'Tran' },
+      },
+    );
+    salaryDefaults.push(
+      { roleType: StaffRole.assistant, amount: 1_000_000 },
+      { roleType: StaffRole.communication, amount: 2_000_000 },
+    );
+    payables.push({
+      id: 'existing',
+      staffId: 'staff-a',
+      roleType: StaffRole.assistant,
+      month: '2026-09',
+      status: 'pending',
+      grossAmount: 1_000_000,
+      operatingRatePercent: 0,
+      taxRatePercent: 0,
+      operatingDeductionAmount: 0,
+      taxDeductionAmount: 0,
+      netAmount: 1_000_000,
+      createdAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+
+    const result = await service.closeMonth('2026-09');
+
+    expect(result.skippedBecauseAlreadyClosed).toBeUndefined();
+    expect(result.createdCount).toBe(1);
+    expect(result.skippedCount).toBe(1);
+    expect(result.items).toHaveLength(2);
+    expect(
+      result.items.map((item) => item.staffId).sort(),
+    ).toEqual(['staff-a', 'staff-b']);
+    expect(mockPrisma.staffFixedSalaryPayable.createMany).toHaveBeenCalled();
   });
 
   it('snapshots operating then tax using the shared deduction helper', () => {

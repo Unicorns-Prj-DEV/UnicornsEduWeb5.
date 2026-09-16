@@ -12,6 +12,7 @@ import {
 import { getPreferredUserFullName } from '../common/user-name.util';
 import {
   StaffFixedSalaryOverridesQueryDto,
+  StaffRoleFixedSalaryOverrideItemDto,
   UpsertRoleFixedSalaryDefaultsDto,
   UpsertRoleFixedSalaryOperatingRatesDto,
   UpsertStaffFixedSalaryAmountDto,
@@ -19,8 +20,13 @@ import {
 } from '../dtos/fixed-salary-settings.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveFixedSalaryAxis } from './fixed-salary-resolution.util';
+import {
+  FIXED_SALARY_STAFF_ROLES,
+  isFixedSalaryStaffRole,
+} from './fixed-salary-staff-roles';
 
-const STAFF_ROLES = Object.values(StaffRole);
+const TEACHER_FIXED_SALARY_MESSAGE =
+  'Vai trò giáo viên không nhận lương cứng.';
 
 export type RoleFixedSalaryDefaultView = {
   roleType: StaffRole;
@@ -50,6 +56,12 @@ type RoleOperatingRateRow = {
   updatedAt: Date | string;
 };
 
+type StaffOverrideAuditStaff = {
+  user?: Parameters<typeof getPreferredUserFullName>[0];
+};
+
+type StaffOverrideWriteClient = Prisma.TransactionClient | PrismaService;
+
 @Injectable()
 export class FixedSalarySettingsService {
   constructor(
@@ -62,7 +74,7 @@ export class FixedSalarySettingsService {
     const byRole = new Map(rows.map((row) => [row.roleType, row]));
 
     return {
-      roles: STAFF_ROLES.map((roleType) =>
+      roles: FIXED_SALARY_STAFF_ROLES.map((roleType) =>
         this.mapSalaryView(roleType, byRole.get(roleType) ?? null),
       ),
     };
@@ -76,7 +88,7 @@ export class FixedSalarySettingsService {
     const byRole = new Map(rows.map((row) => [row.roleType, row]));
 
     return {
-      roles: STAFF_ROLES.map((roleType) =>
+      roles: FIXED_SALARY_STAFF_ROLES.map((roleType) =>
         this.mapOperatingRateView(roleType, byRole.get(roleType) ?? null),
       ),
     };
@@ -88,6 +100,7 @@ export class FixedSalarySettingsService {
   ) {
     const seen = new Set<StaffRole>();
     const normalizedItems = dto.items.map((item) => {
+      this.assertFixedSalaryStaffRole(item.roleType);
       if (seen.has(item.roleType)) {
         throw new BadRequestException(
           'Each roleType may appear only once in the payload.',
@@ -181,6 +194,7 @@ export class FixedSalarySettingsService {
   ) {
     const seen = new Set<StaffRole>();
     const normalizedItems = dto.items.map((item) => {
+      this.assertFixedSalaryStaffRole(item.roleType);
       if (seen.has(item.roleType)) {
         throw new BadRequestException(
           'Each roleType may appear only once in the payload.',
@@ -275,12 +289,12 @@ export class FixedSalarySettingsService {
   async getStaffOverrides(query: StaffFixedSalaryOverridesQueryDto) {
     const limit = Math.min(Math.max(query.limit ?? 40, 1), 100);
     const staffRows = await this.prisma.staffInfo.findMany({
-      where: {
-        status: StaffStatus.active,
-        ...(query.staffId
-          ? { id: query.staffId }
-          : this.buildStaffSearchWhere(query.search)),
-      },
+      where: query.staffId
+        ? { id: query.staffId }
+        : {
+            status: StaffStatus.active,
+            ...this.buildStaffSearchWhere(query.search),
+          },
       take: limit,
       orderBy: [
         { user: { first_name: 'asc' } },
@@ -329,7 +343,7 @@ export class FixedSalarySettingsService {
       staff: staffWithRoles.map((staff) => ({
         staffId: staff.id,
         fullName: getPreferredUserFullName(staff.user) ?? staff.id,
-        roles: staff.roles.map((roleType) => {
+        roles: staff.roles.filter(isFixedSalaryStaffRole).map((roleType) => {
           const salaryOverride = salaryOverrides.find(
             (row) => row.staffId === staff.id && row.roleType === roleType,
           );
@@ -365,78 +379,13 @@ export class FixedSalarySettingsService {
     const amount = this.normalizeAmount(dto.amount);
 
     await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.staffFixedSalaryOverride.findUnique({
-        where: {
-          staffId_roleType: {
-            staffId: dto.staffId,
-            roleType: dto.roleType,
-          },
-        },
+      await this.writeStaffAmountOverrideInTx(tx, {
+        staffId: dto.staffId,
+        roleType: dto.roleType,
+        amount,
+        staff,
+        actor,
       });
-      const beforeView = existing
-        ? this.mapStaffSalaryOverrideView(existing, staff)
-        : null;
-
-      if (amount === null) {
-        if (!existing) {
-          return;
-        }
-
-        await tx.staffFixedSalaryOverride.delete({
-          where: { id: existing.id },
-        });
-
-        if (actor && beforeView) {
-          await this.actionHistoryService.recordDelete(tx, {
-            actor,
-            entityType: 'staff_fixed_salary_override',
-            entityId: existing.id,
-            description: 'Clear staff fixed salary override',
-            beforeValue: beforeView,
-          });
-        }
-
-        return;
-      }
-
-      if (existing?.amount === amount) {
-        return;
-      }
-
-      const row = existing
-        ? await tx.staffFixedSalaryOverride.update({
-            where: { id: existing.id },
-            data: { amount },
-          })
-        : await tx.staffFixedSalaryOverride.create({
-            data: {
-              staffId: dto.staffId,
-              roleType: dto.roleType,
-              amount,
-            },
-          });
-
-      if (actor) {
-        const afterView = this.mapStaffSalaryOverrideView(row, staff);
-        if (existing && beforeView) {
-          await this.actionHistoryService.recordUpdate(tx, {
-            actor,
-            entityType: 'staff_fixed_salary_override',
-            entityId: row.id,
-            description: 'Update staff fixed salary override',
-            beforeValue: beforeView,
-            afterValue: afterView,
-          });
-        } else {
-          await this.actionHistoryService.recordCreate(tx, {
-            actor,
-            entityType: 'staff_fixed_salary_override',
-            entityId: row.id,
-            description: 'Create staff fixed salary override',
-            afterValue: afterView,
-          });
-        }
-      }
     });
 
     return this.getStaffOverrides({ staffId: dto.staffId, limit: 1 });
@@ -452,86 +401,123 @@ export class FixedSalarySettingsService {
     );
 
     await this.prisma.$transaction(async (tx) => {
-      const existing =
-        await tx.staffFixedSalaryOperatingRateOverride.findUnique({
-          where: {
-            staffId_roleType: {
-              staffId: dto.staffId,
-              roleType: dto.roleType,
-            },
-          },
-        });
-      const beforeView = existing
-        ? this.mapStaffOperatingOverrideView(existing, staff)
-        : null;
-      const beforePercent = this.mapPercent(existing?.ratePercent ?? null);
-
-      if (operatingRatePercent === null) {
-        if (!existing) {
-          return;
-        }
-
-        await tx.staffFixedSalaryOperatingRateOverride.delete({
-          where: { id: existing.id },
-        });
-
-        if (actor && beforeView) {
-          await this.actionHistoryService.recordDelete(tx, {
-            actor,
-            entityType: 'staff_fixed_salary_operating_rate_override',
-            entityId: existing.id,
-            description: 'Clear staff fixed-salary operating-rate override',
-            beforeValue: beforeView,
-          });
-        }
-
-        return;
-      }
-
-      if (beforePercent === operatingRatePercent) {
-        return;
-      }
-
-      const row = existing
-        ? await tx.staffFixedSalaryOperatingRateOverride.update({
-            where: { id: existing.id },
-            data: { ratePercent: operatingRatePercent },
-          })
-        : await tx.staffFixedSalaryOperatingRateOverride.create({
-            data: {
-              staffId: dto.staffId,
-              roleType: dto.roleType,
-              ratePercent: operatingRatePercent,
-            },
-          });
-
-      if (actor) {
-        const afterView = this.mapStaffOperatingOverrideView(row, staff);
-        if (existing && beforeView) {
-          await this.actionHistoryService.recordUpdate(tx, {
-            actor,
-            entityType: 'staff_fixed_salary_operating_rate_override',
-            entityId: row.id,
-            description: 'Update staff fixed-salary operating-rate override',
-            beforeValue: beforeView,
-            afterValue: afterView,
-          });
-        } else {
-          await this.actionHistoryService.recordCreate(tx, {
-            actor,
-            entityType: 'staff_fixed_salary_operating_rate_override',
-            entityId: row.id,
-            description: 'Create staff fixed-salary operating-rate override',
-            afterValue: afterView,
-          });
-        }
-      }
+      await this.writeStaffOperatingRateOverrideInTx(tx, {
+        staffId: dto.staffId,
+        roleType: dto.roleType,
+        operatingRatePercent,
+        staff,
+        actor,
+      });
     });
 
     return this.getStaffOverrides({ staffId: dto.staffId, limit: 1 });
   }
 
+  assertStaffOverrideItems(
+    nextRoles: StaffRole[],
+    items: StaffRoleFixedSalaryOverrideItemDto[],
+  ) {
+    const seen = new Set<StaffRole>();
+
+    for (const item of items) {
+      if (seen.has(item.roleType)) {
+        throw new BadRequestException(
+          'Danh sách mức đè lương cứng không được trùng vai trò.',
+        );
+      }
+      seen.add(item.roleType);
+
+      this.assertFixedSalaryStaffRole(item.roleType);
+
+      if (!nextRoles.includes(item.roleType)) {
+        throw new BadRequestException(
+          'Fixed-salary override is only allowed for a role this staff currently holds.',
+        );
+      }
+    }
+  }
+
+  async syncStaffRoleOverridesInTx(
+    tx: Prisma.TransactionClient,
+    params: {
+      staffId: string;
+      nextRoles: StaffRole[];
+      items: StaffRoleFixedSalaryOverrideItemDto[];
+      staff: StaffOverrideAuditStaff;
+      actor?: ActionHistoryActor;
+    },
+  ) {
+    this.assertStaffOverrideItems(params.nextRoles, params.items);
+
+    const [salaryOverrides, operatingOverrides] = await Promise.all([
+      tx.staffFixedSalaryOverride.findMany({
+        where: { staffId: params.staffId },
+      }),
+      tx.staffFixedSalaryOperatingRateOverride.findMany({
+        where: { staffId: params.staffId },
+      }),
+    ]);
+
+    for (const row of salaryOverrides) {
+      if (
+        !params.nextRoles.includes(row.roleType) ||
+        !isFixedSalaryStaffRole(row.roleType)
+      ) {
+        await this.writeStaffAmountOverrideInTx(tx, {
+          staffId: params.staffId,
+          roleType: row.roleType,
+          amount: null,
+          staff: params.staff,
+          actor: params.actor,
+          removedWithRole: !params.nextRoles.includes(row.roleType),
+        });
+      }
+    }
+
+    for (const row of operatingOverrides) {
+      if (
+        !params.nextRoles.includes(row.roleType) ||
+        !isFixedSalaryStaffRole(row.roleType)
+      ) {
+        await this.writeStaffOperatingRateOverrideInTx(tx, {
+          staffId: params.staffId,
+          roleType: row.roleType,
+          operatingRatePercent: null,
+          staff: params.staff,
+          actor: params.actor,
+          removedWithRole: !params.nextRoles.includes(row.roleType),
+        });
+      }
+    }
+
+    for (const item of params.items) {
+      if (item.amount !== undefined) {
+        await this.writeStaffAmountOverrideInTx(tx, {
+          staffId: params.staffId,
+          roleType: item.roleType,
+          amount: this.normalizeAmount(item.amount),
+          staff: params.staff,
+          actor: params.actor,
+        });
+      }
+
+      if (item.operatingRatePercent !== undefined) {
+        await this.writeStaffOperatingRateOverrideInTx(tx, {
+          staffId: params.staffId,
+          roleType: item.roleType,
+          operatingRatePercent: this.normalizeOperatingRatePercent(
+            item.operatingRatePercent,
+          ),
+          staff: params.staff,
+          actor: params.actor,
+        });
+      }
+    }
+  }
+
   private async requireStaffRole(staffId: string, roleType: StaffRole) {
+    this.assertFixedSalaryStaffRole(roleType);
+
     const staff = await this.prisma.staffInfo.findUnique({
       where: { id: staffId },
       select: {
@@ -559,6 +545,187 @@ export class FixedSalarySettingsService {
     }
 
     return staff;
+  }
+
+  private assertFixedSalaryStaffRole(roleType: StaffRole) {
+    if (!isFixedSalaryStaffRole(roleType)) {
+      throw new BadRequestException(TEACHER_FIXED_SALARY_MESSAGE);
+    }
+  }
+
+  private async writeStaffAmountOverrideInTx(
+    tx: StaffOverrideWriteClient,
+    params: {
+      staffId: string;
+      roleType: StaffRole;
+      amount: number | null;
+      staff: StaffOverrideAuditStaff;
+      actor?: ActionHistoryActor;
+      removedWithRole?: boolean;
+    },
+  ) {
+    const existing = await tx.staffFixedSalaryOverride.findUnique({
+      where: {
+        staffId_roleType: {
+          staffId: params.staffId,
+          roleType: params.roleType,
+        },
+      },
+    });
+    const beforeView = existing
+      ? this.mapStaffSalaryOverrideView(existing, params.staff)
+      : null;
+
+    if (params.amount === null) {
+      if (!existing) {
+        return;
+      }
+
+      await tx.staffFixedSalaryOverride.delete({
+        where: { id: existing.id },
+      });
+
+      if (params.actor && beforeView) {
+        await this.actionHistoryService.recordDelete(tx, {
+          actor: params.actor,
+          entityType: 'staff_fixed_salary_override',
+          entityId: existing.id,
+          description: params.removedWithRole
+            ? `Xóa mức đè lương cứng vì tắt vai trò ${params.roleType}`
+            : 'Clear staff fixed salary override',
+          beforeValue: beforeView,
+        });
+      }
+
+      return;
+    }
+
+    if (existing?.amount === params.amount) {
+      return;
+    }
+
+    const row = existing
+      ? await tx.staffFixedSalaryOverride.update({
+          where: { id: existing.id },
+          data: { amount: params.amount },
+        })
+      : await tx.staffFixedSalaryOverride.create({
+          data: {
+            staffId: params.staffId,
+            roleType: params.roleType,
+            amount: params.amount,
+          },
+        });
+
+    if (params.actor) {
+      const afterView = this.mapStaffSalaryOverrideView(row, params.staff);
+      if (existing && beforeView) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: params.actor,
+          entityType: 'staff_fixed_salary_override',
+          entityId: row.id,
+          description: 'Update staff fixed salary override',
+          beforeValue: beforeView,
+          afterValue: afterView,
+        });
+      } else {
+        await this.actionHistoryService.recordCreate(tx, {
+          actor: params.actor,
+          entityType: 'staff_fixed_salary_override',
+          entityId: row.id,
+          description: 'Create staff fixed salary override',
+          afterValue: afterView,
+        });
+      }
+    }
+  }
+
+  private async writeStaffOperatingRateOverrideInTx(
+    tx: StaffOverrideWriteClient,
+    params: {
+      staffId: string;
+      roleType: StaffRole;
+      operatingRatePercent: number | null;
+      staff: StaffOverrideAuditStaff;
+      actor?: ActionHistoryActor;
+      removedWithRole?: boolean;
+    },
+  ) {
+    const existing = await tx.staffFixedSalaryOperatingRateOverride.findUnique({
+      where: {
+        staffId_roleType: {
+          staffId: params.staffId,
+          roleType: params.roleType,
+        },
+      },
+    });
+    const beforeView = existing
+      ? this.mapStaffOperatingOverrideView(existing, params.staff)
+      : null;
+    const beforePercent = this.mapPercent(existing?.ratePercent ?? null);
+
+    if (params.operatingRatePercent === null) {
+      if (!existing) {
+        return;
+      }
+
+      await tx.staffFixedSalaryOperatingRateOverride.delete({
+        where: { id: existing.id },
+      });
+
+      if (params.actor && beforeView) {
+        await this.actionHistoryService.recordDelete(tx, {
+          actor: params.actor,
+          entityType: 'staff_fixed_salary_operating_rate_override',
+          entityId: existing.id,
+          description: params.removedWithRole
+            ? `Xóa mức đè % vận hành lương cứng vì tắt vai trò ${params.roleType}`
+            : 'Clear staff fixed-salary operating-rate override',
+          beforeValue: beforeView,
+        });
+      }
+
+      return;
+    }
+
+    if (beforePercent === params.operatingRatePercent) {
+      return;
+    }
+
+    const row = existing
+      ? await tx.staffFixedSalaryOperatingRateOverride.update({
+          where: { id: existing.id },
+          data: { ratePercent: params.operatingRatePercent },
+        })
+      : await tx.staffFixedSalaryOperatingRateOverride.create({
+          data: {
+            staffId: params.staffId,
+            roleType: params.roleType,
+            ratePercent: params.operatingRatePercent,
+          },
+        });
+
+    if (params.actor) {
+      const afterView = this.mapStaffOperatingOverrideView(row, params.staff);
+      if (existing && beforeView) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: params.actor,
+          entityType: 'staff_fixed_salary_operating_rate_override',
+          entityId: row.id,
+          description: 'Update staff fixed-salary operating-rate override',
+          beforeValue: beforeView,
+          afterValue: afterView,
+        });
+      } else {
+        await this.actionHistoryService.recordCreate(tx, {
+          actor: params.actor,
+          entityType: 'staff_fixed_salary_operating_rate_override',
+          entityId: row.id,
+          description: 'Create staff fixed-salary operating-rate override',
+          afterValue: afterView,
+        });
+      }
+    }
   }
 
   private buildStaffSearchWhere(search?: string): Prisma.StaffInfoWhereInput {

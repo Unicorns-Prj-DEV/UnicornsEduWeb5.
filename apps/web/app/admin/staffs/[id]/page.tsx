@@ -18,7 +18,6 @@ import {
   EditStaffPopup,
   StaffBonusCard,
   StaffFixedSalaryIncomeCard,
-  StaffFixedSalaryOverrideCard,
   StaffCard,
   StaffIdentityOverview,
   QrLinkPopup,
@@ -376,8 +375,6 @@ export default function AdminStaffDetailPage({
     isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canManageMissedTeachingAlerts = isAdmin || isAssistant;
   const canEditStaffProfile =
-    (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
-  const canManageFixedSalaryOverrides =
     (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
 
   const {
@@ -2501,9 +2498,6 @@ export default function AdminStaffDetailPage({
           isLoading={isIncomeSummaryLoading && !incomeSummary}
           isError={isIncomeSummaryError}
         />
-        {canManageFixedSalaryOverrides ? (
-          <StaffFixedSalaryOverrideCard staffId={id} canEdit />
-        ) : null}
         <StaffCard title="Thống kê thuế theo role">
           {canEditTaxSettings ? (
             <div className="mb-4 flex justify-end">

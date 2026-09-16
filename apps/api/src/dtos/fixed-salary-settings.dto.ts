@@ -4,7 +4,7 @@ import { StaffRole } from 'generated/enums';
 import {
   ArrayMinSize,
   IsArray,
-  IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -14,6 +14,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { FIXED_SALARY_STAFF_ROLES } from '../fixed-salary-settings/fixed-salary-staff-roles';
 
 function toNullableNumber({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === '') {
@@ -23,12 +24,26 @@ function toNullableNumber({ value }: { value: unknown }) {
   return Number(value);
 }
 
+/** Keep omitted fields as undefined so one axis can be skipped without clearing the other. */
+function toOptionalNullableNumber({ value }: { value: unknown }) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  return Number(value);
+}
+
 export class UpsertRoleFixedSalaryDefaultItemDto {
   @ApiProperty({
-    description: 'Staff role this default fixed salary applies to.',
-    enum: StaffRole,
+    description:
+      'Staff role this default fixed salary applies to. Teacher is excluded — session allowance only.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({
@@ -62,10 +77,10 @@ export class UpsertRoleFixedSalaryDefaultsDto {
 export class UpsertRoleFixedSalaryOperatingRateItemDto {
   @ApiProperty({
     description:
-      'Staff role this default fixed-salary operating percent applies to.',
-    enum: StaffRole,
+      'Staff role this default fixed-salary operating percent applies to. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({
@@ -136,10 +151,11 @@ export class UpsertStaffFixedSalaryAmountDto {
   staffId: string;
 
   @ApiProperty({
-    description: 'Staff role to override independently of other roles on the same person.',
-    enum: StaffRole,
+    description:
+      'Staff role to override independently of other roles on the same person. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({
@@ -156,6 +172,44 @@ export class UpsertStaffFixedSalaryAmountDto {
   amount?: number | null;
 }
 
+export class StaffRoleFixedSalaryOverrideItemDto {
+  @ApiProperty({
+    description:
+      'Staff role to write overrides for. Must also appear in the accompanying roles list. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
+  })
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
+  roleType: StaffRole;
+
+  @ApiPropertyOptional({
+    description:
+      'Amount axis only. Null clears this override (role default applies). 0 stores an intentional exclusion. Omit to leave the amount override unchanged.',
+    nullable: true,
+    example: 0,
+    minimum: 0,
+  })
+  @Transform(toOptionalNullableNumber)
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsInt()
+  @Min(0)
+  amount?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      '% vận hành axis only. Null clears this override. 0 stores an intentional 0%. Omit to leave the operating-rate override unchanged.',
+    nullable: true,
+    example: 12,
+    minimum: 0,
+    maximum: 100,
+  })
+  @Transform(toOptionalNullableNumber)
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  operatingRatePercent?: number | null;
+}
+
 export class UpsertStaffFixedSalaryOperatingRateDto {
   @ApiProperty({
     description: 'Staff id. Override is only allowed for a role this staff currently holds.',
@@ -164,10 +218,11 @@ export class UpsertStaffFixedSalaryOperatingRateDto {
   staffId: string;
 
   @ApiProperty({
-    description: 'Staff role to override independently of other roles on the same person.',
-    enum: StaffRole,
+    description:
+      'Staff role to override independently of other roles on the same person. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({

@@ -21,7 +21,41 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **Cài đặt lương cứng gọn hơn + cron không chốt lại tháng đã chốt sớm:**
+  - Tab **Lương cứng**: mô tả khối chính sách / chốt tháng rút còn một câu; gợi ý “trống khác 0” nằm dưới ô nhập. Một nút **Lưu chính sách** gọi lần lượt hai PUT; toast không báo đủ khi mới lưu một nửa, draft trục lỗi được giữ.
+  - Cron 01:00 ngày 28 bỏ qua cả tháng nếu `staff_fixed_salary_payables` tháng hiện tại đã có dòng. Nút **Chốt lương tháng này** vẫn chạy `closeMonth` (có thể sinh thêm nhân sự/role mới). Không migration; không đụng dữ liệu khoản đã chốt.
+
+- **Lương cứng một dòng + bỏ lương cứng giáo viên:**
+  - Dialog **Chỉnh sửa thông tin nhân sự**: mỗi vai trò ăn lương cứng hiện **lương cứng và % vận hành trên một dòng ngang**; dòng chữ dưới ô ghi mức đang áp dụng và nguồn (mặc định vai trò / mức đè / cố ý loại / cố ý 0%). Hẹp thì xuống dòng có kiểm soát, ô % giữ bề rộng cố định.
+  - Vai trò **giáo viên** không còn ô lương cứng / % vận hành (popup sửa nhân sự và tab Cài đặt hệ thống). Chốt tháng **không sinh** khoản lương cứng cho `teacher`. Trợ cấp buổi học không đổi.
+  - Nguồn sự thật dùng chung: `FIXED_SALARY_STAFF_ROLES` (FE DTO + API `fixed-salary-staff-roles.ts`) cho lúc đọc cấu hình và lúc chốt lương.
+  - Migration mới `20260916100000_remove_teacher_fixed_salary_config` xoá dòng `teacher` ở `role_fixed_salary_defaults` và `staff_fixed_salary_overrides` (no-op nếu trống). **Không** đụng `staff_fixed_salary_payables`.
+
+### Added
+
+- **Lưu vai trò và lương cứng một lần bấm (hotfix):**
+  - Dialog **Chỉnh sửa thông tin nhân sự** đổi chip vai trò thành danh sách; bật một vai trò thì bung ô lương cứng và % vận hành của đúng vai trò đó. Để trống = mặc định vai trò; `0` / `0%` = cố ý loại.
+  - `PATCH /staff/:id/with-fixed-salary-overrides` ghi hồ sơ + `roles` + `roleFixedSalaryOverrides` trong một transaction (role trước, override sau) nên thêm vai trò mới kèm mức đè lần đầu không còn 400. Lỗi ở bất kỳ bước nào rollback hết. PUT từng trục `/fixed-salary-settings/staff-overrides/*` giữ nguyên.
+  - Card **Mức đè lương cứng theo nhân sự** gỡ khỏi `/admin/staffs/[id]` (mirror staff). Toast Sonner; invalidate cache staff + overrides.
+- **Tắt vai trò thì xóa mức đè, có cảnh báo (hotfix):**
+  - Trước khi lưu, tắt vai trò đang có mức đè mở `ConfirmDialog` (component xác nhận dùng chung, không overlay mới) nêu đúng số hai trục (ví dụ `12.000.000đ` và `15%`) và *Lương các tháng đã chốt không thay đổi*.
+  - Xác nhận → xóa vai trò + cả hai row override trong cùng transaction với lần lưu; hủy → không ghi gì, vai trò trở lại bật. Tắt vai trò không có mức đè thì không hỏi.
+  - `action_history` ghi `Xóa mức đè … vì tắt vai trò {role}`. Không đụng `staff_fixed_salary_payables`.
+
 ### Fixed
+
+- **QR thanh toán nhân sự luôn sinh từ link, bỏ nhúng ảnh (ticket 15):**
+  - Ô QR (`StaffQrCard` trên `/admin/staffs/:id` và mirror `/staff/staffs/:id` / `/staff/profile`) luôn xin mã `api.qrserver.com` mã hoá nguyên văn `bank_qr_link` — Drive / imgur / `.png` / link thanh toán đều là payload, không còn `<img>` trỏ máy chủ ảnh ngoài.
+  - Xoá helper Drive (`extractGoogleDriveFileId`, `toGoogleDriveDirectImageUrl`, `resolveStaffQrImageSrc`) khỏi `apps/web/lib/staff-qr-image.ts`. Overlay `ResponsiveDialog` vẫn xin 512px (không kéo giãn thumbnail); nút **Mở link gốc** giữ tab mới. Thông báo lỗi không còn nhắc chia sẻ công khai file Drive.
+  - Không đụng backend / schema / lương cứng. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
+
+- **QR thanh toán nhân sự vỡ ảnh Drive + không quét được (ticket 14):**
+  - Ô QR (`StaffQrCard`, `size="minimal"` trên `/admin/staffs/:id` và mirror `/staff/staffs/:id` / `/staff/profile`) không còn nhét URL HTML Drive `/file/d/<ID>/view` vào `<img>`. Helper thuần `apps/web/lib/staff-qr-image.ts` bóc ID (`/view`, `/edit`, `open?id=`, `uc?id=`) rồi dựng `https://drive.google.com/uc?export=view&id=<ID>`.
+  - Bấm ô QR mở `ResponsiveDialog` với mã đủ lớn để quét điện thoại: ảnh upload phóng to; link không phải ảnh thì xin mã `api.qrserver.com` 512px (không kéo giãn thumbnail 64px). Nút **Mở link gốc** giữ tab mới. Ảnh 403/hỏng hiện thông báo, không để ô trống.
+  - Không đụng backend / schema / lương cứng. Giữ `unoptimized` trên Next `<Image>`. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
+  - **Bị thay bởi ticket 15:** không nhúng ảnh Drive được vì CORP; hành vi hiện tại luôn sinh mã từ link.
 
 - **Typecheck `apps/api` vỡ sau khi bump axios 1.20:** `unioj.service.ts` đọc `pdfResponse.headers['content-type']` rồi gọi `.includes()` — axios 1.20 nới kiểu giá trị header thành `string | number | boolean | string[] | AxiosHeaders` nên `TS2339: Property 'includes' does not exist on type 'number'`. Bọc `String(... ?? '')` trước khi so khớp. `tsc --noEmit` sạch 0 lỗi.
 - **Lớp tính theo block 30 phút bị khoá không sửa được gì (hotfix):**

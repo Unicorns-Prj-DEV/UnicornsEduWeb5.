@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { getCurrentVietnamMonthKey } from './current-month.util';
 import { resolveFixedSalaryAxis } from './fixed-salary-resolution.util';
+import { isFixedSalaryStaffRole } from './fixed-salary-staff-roles';
 
 export type StaffFixedSalaryPayableView = {
   id: string;
@@ -32,6 +33,7 @@ export type CloseFixedSalaryMonthResult = {
   createdCount: number;
   skippedCount: number;
   items: StaffFixedSalaryPayableView[];
+  skippedBecauseAlreadyClosed?: boolean;
 };
 
 type PayableCreateRow = {
@@ -53,6 +55,36 @@ export class FixedSalaryCloseService {
 
   async closeCurrentMonth(): Promise<CloseFixedSalaryMonthResult> {
     return this.closeMonth(getCurrentVietnamMonthKey());
+  }
+
+  /**
+   * Day-28 cron entry: if the current month already has any frozen payables
+   * (typically from an early manual close), skip the whole run so later hires
+   * or newly configured roles are not added automatically.
+   */
+  async closeCurrentMonthAutomatically(): Promise<CloseFixedSalaryMonthResult> {
+    return this.closeMonthIfUnclosed(getCurrentVietnamMonthKey());
+  }
+
+  async closeMonthIfUnclosed(
+    monthKey: string,
+  ): Promise<CloseFixedSalaryMonthResult> {
+    const month = this.normalizeMonthKey(monthKey);
+    const existingCount = await this.prisma.staffFixedSalaryPayable.count({
+      where: { month },
+    });
+
+    if (existingCount > 0) {
+      return {
+        month,
+        createdCount: 0,
+        skippedCount: 0,
+        skippedBecauseAlreadyClosed: true,
+        items: await this.loadPayableViews(month),
+      };
+    }
+
+    return this.closeMonth(month);
   }
 
   async listPayables(monthKey?: string): Promise<{
@@ -145,6 +177,9 @@ export class FixedSalaryCloseService {
 
     for (const staff of activeStaff) {
       for (const roleType of staff.roles) {
+        if (!isFixedSalaryStaffRole(roleType)) {
+          continue;
+        }
         const salaryOverride = salaryOverrides.find(
           (row) => row.staffId === staff.id && row.roleType === roleType,
         );

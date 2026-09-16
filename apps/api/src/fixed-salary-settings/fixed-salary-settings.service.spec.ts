@@ -5,6 +5,7 @@ jest.mock('../prisma/prisma.service', () => ({
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { StaffRole, StaffStatus } from '../../generated/enums';
 import { FixedSalarySettingsService } from './fixed-salary-settings.service';
+import { FIXED_SALARY_STAFF_ROLES } from './fixed-salary-staff-roles';
 
 describe('FixedSalarySettingsService', () => {
   const salaryRows: Array<{
@@ -159,12 +160,23 @@ describe('FixedSalarySettingsService', () => {
         async ({
           where,
         }: {
-          where?: { staffId?: { in: string[] } };
+          where?: { staffId?: { in: string[] } | string };
         } = {}) => {
-          const ids = where?.staffId?.in;
-          return staffSalaryOverrideRows.filter(
-            (row) => !ids || ids.includes(row.staffId),
-          );
+          const ids =
+            where?.staffId && typeof where.staffId === 'object'
+              ? where.staffId.in
+              : undefined;
+          const staffId =
+            typeof where?.staffId === 'string' ? where.staffId : undefined;
+          return staffSalaryOverrideRows.filter((row) => {
+            if (ids && !ids.includes(row.staffId)) {
+              return false;
+            }
+            if (staffId && row.staffId !== staffId) {
+              return false;
+            }
+            return true;
+          });
         },
       ),
       findUnique: jest.fn(
@@ -230,12 +242,23 @@ describe('FixedSalarySettingsService', () => {
         async ({
           where,
         }: {
-          where?: { staffId?: { in: string[] } };
+          where?: { staffId?: { in: string[] } | string };
         } = {}) => {
-          const ids = where?.staffId?.in;
-          return staffOperatingOverrideRows.filter(
-            (row) => !ids || ids.includes(row.staffId),
-          );
+          const ids =
+            where?.staffId && typeof where.staffId === 'object'
+              ? where.staffId.in
+              : undefined;
+          const staffId =
+            typeof where?.staffId === 'string' ? where.staffId : undefined;
+          return staffOperatingOverrideRows.filter((row) => {
+            if (ids && !ids.includes(row.staffId)) {
+              return false;
+            }
+            if (staffId && row.staffId !== staffId) {
+              return false;
+            }
+            return true;
+          });
         },
       ),
       findUnique: jest.fn(
@@ -300,6 +323,12 @@ describe('FixedSalarySettingsService', () => {
         return removed;
       }),
     },
+    staffFixedSalaryPayable: {
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -327,20 +356,26 @@ describe('FixedSalarySettingsService', () => {
     );
   });
 
-  it('returns every StaffRole, with null amount when unconfigured', async () => {
+  it('returns every fixed-salary StaffRole except teacher, with null amount when unconfigured', async () => {
     salaryRows.push({
-      id: 'salary-teacher',
-      roleType: StaffRole.teacher,
+      id: 'salary-communication',
+      roleType: StaffRole.communication,
       amount: 8_000_000,
+      updatedAt: new Date('2026-09-09T00:00:00.000Z'),
+    });
+    salaryRows.push({
+      id: 'salary-teacher-leftover',
+      roleType: StaffRole.teacher,
+      amount: 9_000_000,
       updatedAt: new Date('2026-09-09T00:00:00.000Z'),
     });
 
     const result = await service.getRoleDefaults();
     const roleTypes = result.roles.map((row) => row.roleType);
 
-    expect(roleTypes).toHaveLength(Object.values(StaffRole).length);
-    expect(new Set(roleTypes).size).toBe(Object.values(StaffRole).length);
-    expect(result.roles.find((row) => row.roleType === StaffRole.teacher)).toEqual(
+    expect(roleTypes).toEqual(FIXED_SALARY_STAFF_ROLES);
+    expect(roleTypes).not.toContain(StaffRole.teacher);
+    expect(result.roles.find((row) => row.roleType === StaffRole.communication)).toEqual(
       expect.objectContaining({
         amount: 8_000_000,
       }),
@@ -354,8 +389,31 @@ describe('FixedSalarySettingsService', () => {
       }),
     );
     expect(
-      result.roles.find((row) => row.roleType === StaffRole.teacher),
+      result.roles.find((row) => row.roleType === StaffRole.communication),
     ).not.toHaveProperty('operatingRatePercent');
+  });
+
+  it('rejects teacher on role-default and override writes', async () => {
+    await expect(
+      service.upsertRoleDefaults({
+        items: [{ roleType: StaffRole.teacher, amount: 8_000_000 }],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    await expect(
+      service.upsertRoleOperatingRates({
+        items: [{ roleType: StaffRole.teacher, operatingRatePercent: 10 }],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    seedDualRoleStaff();
+    await expect(
+      service.upsertStaffAmountOverride({
+        staffId: 'staff-an',
+        roleType: StaffRole.teacher,
+        amount: 1,
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('upserts a role salary default, records before/after history, and rejects invalid values', async () => {
@@ -424,22 +482,22 @@ describe('FixedSalarySettingsService', () => {
 
   it('keeps 0 as a configured salary and treats null as unconfigured', async () => {
     await service.upsertRoleDefaults({
-      items: [{ roleType: StaffRole.teacher, amount: 0 }],
+      items: [{ roleType: StaffRole.communication, amount: 0 }],
     });
 
     expect(
       (await service.getRoleDefaults()).roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       ),
-    ).toEqual(expect.objectContaining({ amount: 0, id: 'salary-teacher' }));
+    ).toEqual(expect.objectContaining({ amount: 0, id: 'salary-communication' }));
 
     await service.upsertRoleDefaults({
-      items: [{ roleType: StaffRole.teacher, amount: null }],
+      items: [{ roleType: StaffRole.communication, amount: null }],
     });
 
     expect(
       (await service.getRoleDefaults()).roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       ),
     ).toEqual(expect.objectContaining({ amount: null, id: null }));
   });
@@ -456,7 +514,7 @@ describe('FixedSalarySettingsService', () => {
     await service.upsertRoleDefaults({
       items: [
         {
-          roleType: StaffRole.teacher,
+          roleType: StaffRole.communication,
           amount: 10_000_000,
         },
       ],
@@ -478,46 +536,46 @@ describe('FixedSalarySettingsService', () => {
     };
 
     await service.upsertRoleDefaults({
-      items: [{ roleType: StaffRole.teacher, amount: 8_000_000 }],
+      items: [{ roleType: StaffRole.communication, amount: 8_000_000 }],
     });
     await service.upsertRoleOperatingRates(
       {
-        items: [{ roleType: StaffRole.teacher, operatingRatePercent: 0 }],
+        items: [{ roleType: StaffRole.communication, operatingRatePercent: 0 }],
       },
       actor,
     );
 
     expect(
       (await service.getRoleOperatingRates()).roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       ),
     ).toEqual(
       expect.objectContaining({
         operatingRatePercent: 0,
-        id: 'operating-teacher',
+        id: 'operating-communication',
       }),
     );
 
     await service.upsertRoleDefaults(
       {
-        items: [{ roleType: StaffRole.teacher, amount: null }],
+        items: [{ roleType: StaffRole.communication, amount: null }],
       },
       actor,
     );
 
     expect(
       (await service.getRoleDefaults()).roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       ),
     ).toEqual(expect.objectContaining({ amount: null, id: null }));
     expect(
       (await service.getRoleOperatingRates()).roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       ),
     ).toEqual(
       expect.objectContaining({
         operatingRatePercent: 0,
-        id: 'operating-teacher',
+        id: 'operating-communication',
       }),
     );
     expect(actionHistoryService.recordDelete).toHaveBeenCalledWith(
@@ -528,12 +586,12 @@ describe('FixedSalarySettingsService', () => {
     );
 
     await service.upsertRoleOperatingRates({
-      items: [{ roleType: StaffRole.teacher, operatingRatePercent: null }],
+      items: [{ roleType: StaffRole.communication, operatingRatePercent: null }],
     });
 
     expect(
       (await service.getRoleOperatingRates()).roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       ),
     ).toEqual(expect.objectContaining({ operatingRatePercent: null, id: null }));
     expect(salaryRows).toHaveLength(0);
@@ -585,7 +643,7 @@ describe('FixedSalarySettingsService', () => {
   function seedDualRoleStaff() {
     staffRows.push({
       id: 'staff-an',
-      roles: [StaffRole.teacher, StaffRole.assistant],
+      roles: [StaffRole.communication, StaffRole.assistant],
       status: StaffStatus.active,
       user: {
         first_name: 'An',
@@ -600,26 +658,26 @@ describe('FixedSalarySettingsService', () => {
     seedDualRoleStaff();
     salaryRows.push({
       id: 'salary-teacher',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.communication,
       amount: 8_000_000,
       updatedAt: new Date('2026-09-09T00:00:00.000Z'),
     });
     staffSalaryOverrideRows.push({
       id: 'override-teacher-zero',
       staffId: 'staff-an',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.communication,
       amount: 0,
     });
     staffOperatingOverrideRows.push({
       id: 'override-teacher-rate',
       staffId: 'staff-an',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.communication,
       ratePercent: 12,
     });
 
     const result = await service.getStaffOverrides({});
     const teacherRow = result.staff[0]?.roles.find(
-      (row) => row.roleType === StaffRole.teacher,
+      (row) => row.roleType === StaffRole.communication,
     );
     const assistantRow = result.staff[0]?.roles.find(
       (row) => row.roleType === StaffRole.assistant,
@@ -658,13 +716,13 @@ describe('FixedSalarySettingsService', () => {
     seedDualRoleStaff();
     salaryRows.push({
       id: 'salary-teacher',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.communication,
       amount: 8_000_000,
       updatedAt: new Date('2026-09-09T00:00:00.000Z'),
     });
     operatingRows.push({
       id: 'operating-teacher',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.communication,
       ratePercent: 10,
       updatedAt: new Date('2026-09-09T00:00:00.000Z'),
     });
@@ -672,7 +730,7 @@ describe('FixedSalarySettingsService', () => {
     await service.upsertStaffOperatingRateOverride(
       {
         staffId: 'staff-an',
-        roleType: StaffRole.teacher,
+        roleType: StaffRole.communication,
         operatingRatePercent: 15,
       },
       actor,
@@ -693,7 +751,7 @@ describe('FixedSalarySettingsService', () => {
       staffId: 'staff-an',
     });
     const teacherRow = afterRoleChange.staff[0]?.roles.find(
-      (row) => row.roleType === StaffRole.teacher,
+      (row) => row.roleType === StaffRole.communication,
     );
 
     expect(teacherRow?.amount).toEqual(
@@ -719,7 +777,7 @@ describe('FixedSalarySettingsService', () => {
     seedDualRoleStaff();
     salaryRows.push({
       id: 'salary-teacher',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.communication,
       amount: 8_000_000,
       updatedAt: new Date('2026-09-09T00:00:00.000Z'),
     });
@@ -727,7 +785,7 @@ describe('FixedSalarySettingsService', () => {
     await service.upsertStaffAmountOverride(
       {
         staffId: 'staff-an',
-        roleType: StaffRole.teacher,
+        roleType: StaffRole.communication,
         amount: 0,
       },
       actor,
@@ -736,14 +794,14 @@ describe('FixedSalarySettingsService', () => {
     expect(staffSalaryOverrideRows[0]?.amount).toBe(0);
     expect(
       (await service.getStaffOverrides({ staffId: 'staff-an' })).staff[0]?.roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       )?.amount.source,
     ).toBe('override');
 
     await service.upsertStaffAmountOverride(
       {
         staffId: 'staff-an',
-        roleType: StaffRole.teacher,
+        roleType: StaffRole.communication,
         amount: null,
       },
       actor,
@@ -758,7 +816,7 @@ describe('FixedSalarySettingsService', () => {
     );
     expect(
       (await service.getStaffOverrides({ staffId: 'staff-an' })).staff[0]?.roles.find(
-        (row) => row.roleType === StaffRole.teacher,
+        (row) => row.roleType === StaffRole.communication,
       )?.amount,
     ).toEqual(
       expect.objectContaining({
@@ -778,9 +836,242 @@ describe('FixedSalarySettingsService', () => {
     await expect(
       service.upsertStaffAmountOverride({
         staffId: 'missing',
-        roleType: StaffRole.teacher,
+        roleType: StaffRole.communication,
         amount: 1,
       }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('applies a new-role amount override inside sync without requiring the role beforehand', async () => {
+    const actor = {
+      userId: 'admin-1',
+      userEmail: 'admin@example.com',
+      roleType: 'admin',
+    };
+    staffRows.push({
+      id: 'staff-an',
+      roles: [StaffRole.communication],
+      status: StaffStatus.active,
+      user: {
+        first_name: 'An',
+        last_name: 'Nguyen',
+        accountHandle: 'an',
+        email: 'an@example.com',
+      },
+    });
+    const staff = {
+      user: staffRows[0]?.user,
+    };
+
+    await service.syncStaffRoleOverridesInTx(mockPrisma as never, {
+      staffId: 'staff-an',
+      nextRoles: [StaffRole.communication, StaffRole.assistant],
+      items: [
+        {
+          roleType: StaffRole.assistant,
+          amount: 0,
+          operatingRatePercent: null,
+        },
+      ],
+      staff,
+      actor,
+    });
+
+    expect(staffSalaryOverrideRows).toEqual([
+      expect.objectContaining({
+        staffId: 'staff-an',
+        roleType: StaffRole.assistant,
+        amount: 0,
+      }),
+    ]);
+    expect(staffOperatingOverrideRows).toHaveLength(0);
+    expect(actionHistoryService.recordCreate).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'staff_fixed_salary_override',
+      }),
+    );
+  });
+
+  it('clears removed-role overrides and leaves the other axis untouched when only amount is sent', async () => {
+    seedDualRoleStaff();
+    staffSalaryOverrideRows.push({
+      id: 'override-teacher-amount',
+      staffId: 'staff-an',
+      roleType: StaffRole.communication,
+      amount: 1_000_000,
+    });
+    staffOperatingOverrideRows.push({
+      id: 'override-teacher-rate',
+      staffId: 'staff-an',
+      roleType: StaffRole.communication,
+      ratePercent: 9,
+    });
+    staffSalaryOverrideRows.push({
+      id: 'override-assistant-amount',
+      staffId: 'staff-an',
+      roleType: StaffRole.assistant,
+      amount: 500_000,
+    });
+
+    await service.syncStaffRoleOverridesInTx(mockPrisma as never, {
+      staffId: 'staff-an',
+      nextRoles: [StaffRole.communication],
+      items: [
+        {
+          roleType: StaffRole.communication,
+          amount: 2_000_000,
+        },
+      ],
+      staff: { user: staffRows[0]?.user },
+    });
+
+    expect(
+      staffSalaryOverrideRows.find((row) => row.roleType === StaffRole.assistant),
+    ).toBeUndefined();
+    expect(
+      staffSalaryOverrideRows.find((row) => row.roleType === StaffRole.communication)
+        ?.amount,
+    ).toBe(2_000_000);
+    expect(
+      staffOperatingOverrideRows.find((row) => row.roleType === StaffRole.communication)
+        ?.ratePercent,
+    ).toBe(9);
+  });
+
+  it('records override deletion with the disabled role and does not touch closed-month payables', async () => {
+    seedDualRoleStaff();
+    const actor = {
+      userId: 'admin-1',
+      userEmail: 'admin@example.com',
+      roleType: 'admin',
+    };
+    staffSalaryOverrideRows.push({
+      id: 'override-assistant-amount',
+      staffId: 'staff-an',
+      roleType: StaffRole.assistant,
+      amount: 12_000_000,
+    });
+    staffOperatingOverrideRows.push({
+      id: 'override-assistant-rate',
+      staffId: 'staff-an',
+      roleType: StaffRole.assistant,
+      ratePercent: 15,
+    });
+
+    await service.syncStaffRoleOverridesInTx(mockPrisma as never, {
+      staffId: 'staff-an',
+      nextRoles: [StaffRole.communication],
+      items: [],
+      staff: { user: staffRows[0]?.user },
+      actor,
+    });
+
+    expect(
+      staffSalaryOverrideRows.find((row) => row.roleType === StaffRole.assistant),
+    ).toBeUndefined();
+    expect(
+      staffOperatingOverrideRows.find(
+        (row) => row.roleType === StaffRole.assistant,
+      ),
+    ).toBeUndefined();
+    expect(actionHistoryService.recordDelete).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'staff_fixed_salary_override',
+        description: 'Xóa mức đè lương cứng vì tắt vai trò assistant',
+        beforeValue: expect.objectContaining({
+          roleType: StaffRole.assistant,
+          amount: 12_000_000,
+        }),
+      }),
+    );
+    expect(actionHistoryService.recordDelete).toHaveBeenCalledWith(
+      mockPrisma,
+      expect.objectContaining({
+        entityType: 'staff_fixed_salary_operating_rate_override',
+        description: 'Xóa mức đè % vận hành lương cứng vì tắt vai trò assistant',
+        beforeValue: expect.objectContaining({
+          roleType: StaffRole.assistant,
+          operatingRatePercent: 15,
+        }),
+      }),
+    );
+    expect(mockPrisma.staffFixedSalaryPayable.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.staffFixedSalaryPayable.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.staffFixedSalaryPayable.update).not.toHaveBeenCalled();
+    expect(mockPrisma.staffFixedSalaryPayable.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects an override for a role that is not in the accompanying roles list', async () => {
+    await expect(
+      service.syncStaffRoleOverridesInTx(mockPrisma as never, {
+        staffId: 'staff-an',
+        nextRoles: [StaffRole.communication],
+        items: [
+          {
+            roleType: StaffRole.assistant,
+            amount: 1,
+          },
+        ],
+        staff: {},
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('returns inactive staff when looking up overrides by exact staffId', async () => {
+    staffRows.push({
+      id: 'staff-idle',
+      roles: [StaffRole.communication],
+      status: StaffStatus.inactive,
+      user: {
+        first_name: 'Idle',
+        last_name: 'Staff',
+        accountHandle: 'idle',
+        email: 'idle@example.com',
+      },
+    });
+
+    const listed = await service.getStaffOverrides({ search: 'Idle' });
+    expect(listed.staff).toHaveLength(0);
+
+    const byId = await service.getStaffOverrides({ staffId: 'staff-idle' });
+    expect(byId.staff[0]?.staffId).toBe('staff-idle');
+  });
+
+  it('omits teacher from resolved override rows and clears leftover teacher overrides on sync', async () => {
+    staffRows.push({
+      id: 'staff-tutor',
+      roles: [StaffRole.teacher, StaffRole.assistant],
+      status: StaffStatus.active,
+      user: {
+        first_name: 'Tutor',
+        last_name: 'Staff',
+        accountHandle: 'tutor',
+        email: 'tutor@example.com',
+      },
+    });
+    staffSalaryOverrideRows.push({
+      id: 'override-teacher-leftover',
+      staffId: 'staff-tutor',
+      roleType: StaffRole.teacher,
+      amount: 8_000_000,
+    });
+
+    const listed = await service.getStaffOverrides({ staffId: 'staff-tutor' });
+    expect(listed.staff[0]?.roles.map((row) => row.roleType)).toEqual([
+      StaffRole.assistant,
+    ]);
+
+    await service.syncStaffRoleOverridesInTx(mockPrisma as never, {
+      staffId: 'staff-tutor',
+      nextRoles: [StaffRole.teacher, StaffRole.assistant],
+      items: [],
+      staff: { user: staffRows[0]?.user },
+    });
+
+    expect(
+      staffSalaryOverrideRows.find((row) => row.roleType === StaffRole.teacher),
+    ).toBeUndefined();
   });
 });

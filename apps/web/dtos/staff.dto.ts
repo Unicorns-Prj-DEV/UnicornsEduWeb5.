@@ -1,3 +1,4 @@
+import type { StaffRoleFixedSalaryOverrideItem } from "@/dtos/fixed-salary-settings.dto";
 
 export type StaffStatus = "active" | "inactive";
 export type StaffGender = "male" | "female";
@@ -103,6 +104,33 @@ export interface StaffDetail {
     classAllowance?: StaffClassAllowanceItem[];
     customerCareManagedByStaffId?: string | null;
     customerCareManagedBy?: { id: string; fullName: string } | null;
+}
+
+export interface UpdateStaffPayload {
+    id: string;
+    full_name?: string;
+    cccd_number?: string;
+    ethnicity?: string;
+    gender?: StaffGender;
+    current_address?: string;
+    cccd_issued_date?: string;
+    cccd_issued_place?: string;
+    birth_date?: string;
+    university?: string;
+    high_school?: string;
+    specialization?: string;
+    bank_account?: string;
+    bank_qr_link?: string;
+    personal_achievement_link?: string | null;
+    revenue_share_percent?: number | null;
+    roles?: string[];
+    status?: StaffStatus;
+    customer_care_managed_by_staff_id?: string | null;
+}
+
+export interface UpdateStaffWithFixedSalaryOverridesPayload extends UpdateStaffPayload {
+    roles: string[];
+    roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
 }
 
 export interface StaffAssignableUser {

@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Readable } from 'stream';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('UniojService', () => {
   let service: UniojService;
@@ -38,6 +39,10 @@ describe('UniojService', () => {
         {
           provide: HttpService,
           useValue: httpService,
+        },
+        {
+          provide: PrismaService,
+          useValue: {},
         },
       ],
     }).compile();
@@ -234,6 +239,10 @@ describe('UniojService', () => {
           {
             provide: HttpService,
             useValue: httpService,
+          },
+          {
+            provide: PrismaService,
+            useValue: {},
           },
         ],
       }).compile();

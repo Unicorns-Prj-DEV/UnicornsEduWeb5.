@@ -1,12 +1,31 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { DateInput } from "@/components/ui/DateInput";
+import { Switch } from "@/components/ui/switch";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
+import StaffRoleFixedSalaryFields from "@/components/admin/staff/StaffRoleFixedSalaryFields";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import type { StaffDetail, StaffGender } from "@/dtos/staff.dto";
+import {
+  isFixedSalaryStaffRole,
+  type StaffRoleFixedSalaryOverrideItem,
+} from "@/dtos/fixed-salary-settings.dto";
 import * as staffApi from "@/lib/apis/staff.api";
+import * as fixedSalarySettingsApi from "@/lib/apis/fixed-salary-settings.api";
+import {
+  collectDisabledRoleOverrideWarnings,
+  formatDisabledRoleOverrideWarningLine,
+  LOCKED_FIXED_SALARY_MONTH_NOTE,
+  parseOptionalFixedSalaryAmountInput,
+  parseOptionalFixedSalaryOperatingRateInput,
+  type DisabledRoleOverrideWarning,
+} from "@/lib/fixed-salary-settings.helpers";
+import { moneyInputInitialFromNumber } from "@/lib/money-input.helpers";
+import { ROLE_LABELS } from "@/lib/staff.constants";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
@@ -78,6 +97,11 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(
     () => new Set(staff.roles ?? []),
   );
+  const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
+  const [rateDraft, setRateDraft] = useState<Record<string, string>>({});
+  const [overrideRemovalWarnings, setOverrideRemovalWarnings] = useState<
+    DisabledRoleOverrideWarning[]
+  >([]);
   const [managedByStaffId, setManagedByStaffId] = useState<string | null>(() => {
     if (
       staff.customerCareManagedByStaffId &&
@@ -104,48 +128,88 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     (option) => option.id !== staff.id,
   );
 
-  const toggleRole = (role: string) => {
+  const overridesQuery = useQuery({
+    queryKey: ["fixed-salary-settings", "staff-overrides", { staffId: staff.id }],
+    queryFn: () =>
+      fixedSalarySettingsApi.getStaffFixedSalaryOverrides({
+        staffId: staff.id,
+        limit: 1,
+      }),
+    enabled: open,
+    staleTime: 15_000,
+  });
+  const roleDefaultsQuery = useQuery({
+    queryKey: ["fixed-salary-settings", "role-defaults"],
+    queryFn: fixedSalarySettingsApi.getRoleFixedSalaryDefaults,
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const roleOperatingRatesQuery = useQuery({
+    queryKey: ["fixed-salary-settings", "role-operating-rates"],
+    queryFn: fixedSalarySettingsApi.getRoleFixedSalaryOperatingRates,
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const overrideStaff = overridesQuery.data?.staff?.[0] ?? null;
+  const serverDrafts = useMemo(() => {
+    const amount: Record<string, string> = {};
+    const rate: Record<string, string> = {};
+    for (const row of overrideStaff?.roles ?? []) {
+      amount[row.roleType] = row.amount.hasOverride
+        ? moneyInputInitialFromNumber(row.amount.overrideValue)
+        : "";
+      rate[row.roleType] =
+        row.operatingRate.hasOverride && row.operatingRate.overrideValue != null
+          ? String(row.operatingRate.overrideValue)
+          : "";
+    }
+    return { amount, rate };
+  }, [overrideStaff]);
+
+  const amountValue = (role: string) =>
+    amountDraft[role] ?? serverDrafts.amount[role] ?? "";
+  const rateValue = (role: string) =>
+    rateDraft[role] ?? serverDrafts.rate[role] ?? "";
+  const roleDefaultAmount = (role: string) =>
+    roleDefaultsQuery.data?.roles.find((row) => row.roleType === role)?.amount ??
+    null;
+  const roleDefaultRate = (role: string) =>
+    roleOperatingRatesQuery.data?.roles.find((row) => row.roleType === role)
+      ?.operatingRatePercent ?? null;
+
+  const toggleRole = (role: string, enabled: boolean) => {
     setSelectedRoles((prev) => {
       const next = new Set(prev);
-      if (next.has(role)) {
-        next.delete(role);
-      } else {
+      if (enabled) {
         next.add(role);
+      } else {
+        next.delete(role);
       }
       return next;
     });
   };
 
-  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmedName = fullName.trim();
-    const normalizedCccd = cccdNumber.trim();
-    const isMarkingInactive = staff.status !== "inactive" && status === "inactive";
-    if (
-      isMarkingInactive &&
-      !window.confirm(
-        "Chuyển nhân sự sang Ngừng hoạt động? Nhân sự sẽ không thể truy cập workspace nhân sự hoặc nhận phân công mới, nhưng lịch sử vẫn được giữ.",
-      )
-    ) {
-      return;
-    }
-
-    const trimmedRevenueSharePercent = revenueSharePercent.trim();
-    if (showRevenueShareField && trimmedRevenueSharePercent) {
-      const parsed = Number(trimmedRevenueSharePercent);
-      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
-        window.alert("Tỷ lệ % hoa hồng doanh thu phải là số từ 0 đến 100.");
-        return;
-      }
-    }
-
+  const persistStaffUpdate = (params: {
+    roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
+    trimmedName: string;
+    normalizedCccd: string;
+    trimmedRevenueSharePercent: string;
+  }) => {
+    const {
+      roleFixedSalaryOverrides,
+      trimmedName,
+      normalizedCccd,
+      trimmedRevenueSharePercent,
+    } = params;
+    setOverrideRemovalWarnings([]);
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu thông tin nhân sự...",
       successMessage: "Đã lưu thông tin nhân sự.",
       errorMessage: "Không thể cập nhật thông tin nhân sự.",
       action: async () => {
-        await staffApi.updateStaff({
+        await staffApi.updateStaffWithFixedSalaryOverrides({
           id: staff.id,
           full_name: trimmedName || undefined,
           cccd_number: normalizedCccd || undefined,
@@ -160,6 +224,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           bank_account: bankAccount.trim() || undefined,
           bank_qr_link: bankQrLink.trim() || undefined,
           roles: Array.from(selectedRoles),
+          roleFixedSalaryOverrides,
           customer_care_managed_by_staff_id: showManagedByField
             ? (managedByStaffId || null)
             : null,
@@ -181,6 +246,10 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["staff", "detail", staff.id] }),
           queryClient.invalidateQueries({ queryKey: ["staff", "list"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["fixed-salary-settings", "staff-overrides"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["staff", "income-summary", staff.id] }),
           ...(statusChanged
             ? [queryClient.invalidateQueries({ queryKey: ["class", "list"] })]
             : []),
@@ -190,11 +259,122 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     });
   };
 
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (overridesQuery.isLoading || overridesQuery.isError) {
+      return;
+    }
+    const trimmedName = fullName.trim();
+    const normalizedCccd = cccdNumber.trim();
+    const isMarkingInactive = staff.status !== "inactive" && status === "inactive";
+    if (
+      isMarkingInactive &&
+      !window.confirm(
+        "Chuyển nhân sự sang Ngừng hoạt động? Nhân sự sẽ không thể truy cập workspace nhân sự hoặc nhận phân công mới, nhưng lịch sử vẫn được giữ.",
+      )
+    ) {
+      return;
+    }
+
+    const trimmedRevenueSharePercent = revenueSharePercent.trim();
+    if (showRevenueShareField && trimmedRevenueSharePercent) {
+      const parsed = Number(trimmedRevenueSharePercent);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        toast.error("Tỷ lệ % hoa hồng doanh thu phải là số từ 0 đến 100.");
+        return;
+      }
+    }
+
+    let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
+    try {
+      roleFixedSalaryOverrides = ROLE_OPTIONS.filter(
+        (opt) =>
+          selectedRoles.has(opt.value) && isFixedSalaryStaffRole(opt.value),
+      ).map((opt) => ({
+        roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
+        amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
+        operatingRatePercent: parseOptionalFixedSalaryOperatingRateInput(
+          rateValue(opt.value),
+        ),
+      }));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Mức đè lương cứng không hợp lệ.",
+      );
+      return;
+    }
+
+    const warnings = collectDisabledRoleOverrideWarnings({
+      originalRoles: staff.roles ?? [],
+      nextRoles: selectedRoles,
+      roleRows: overrideStaff?.roles,
+      roleLabels: ROLE_LABELS,
+    });
+    if (warnings.length > 0) {
+      setOverrideRemovalWarnings(warnings);
+      return;
+    }
+
+    persistStaffUpdate({
+      roleFixedSalaryOverrides,
+      trimmedName,
+      normalizedCccd,
+      trimmedRevenueSharePercent,
+    });
+  };
+
+  const confirmOverrideRemoval = () => {
+    const trimmedName = fullName.trim();
+    const normalizedCccd = cccdNumber.trim();
+    const trimmedRevenueSharePercent = revenueSharePercent.trim();
+    let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
+    try {
+      roleFixedSalaryOverrides = ROLE_OPTIONS.filter(
+        (opt) =>
+          selectedRoles.has(opt.value) && isFixedSalaryStaffRole(opt.value),
+      ).map((opt) => ({
+        roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
+        amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
+        operatingRatePercent: parseOptionalFixedSalaryOperatingRateInput(
+          rateValue(opt.value),
+        ),
+      }));
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Mức đè lương cứng không hợp lệ.",
+      );
+      return;
+    }
+
+    persistStaffUpdate({
+      roleFixedSalaryOverrides,
+      trimmedName,
+      normalizedCccd,
+      trimmedRevenueSharePercent,
+    });
+  };
+
+  const cancelOverrideRemoval = () => {
+    setSelectedRoles((prev) => {
+      const next = new Set(prev);
+      for (const warning of overrideRemovalWarnings) {
+        next.add(warning.roleType);
+      }
+      return next;
+    });
+    setOverrideRemovalWarnings([]);
+  };
+
   if (!open) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={() => {
+        if (overrideRemovalWarnings.length > 0) {
+          return;
+        }
+        onClose();
+      }} />
       <div
         role="dialog"
         aria-modal="true"
@@ -205,12 +385,13 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           <h2 id="edit-staff-title" className="text-lg font-semibold text-text-primary">
             Chỉnh sửa thông tin nhân sự
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-            aria-label="Đóng"
-          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded p-1 text-text-muted transition-colors duration-200 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              aria-label="Đóng"
+              disabled={overrideRemovalWarnings.length > 0}
+            >
             <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -403,34 +584,61 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
               </label>
 
               <div className="sm:col-span-2">
-                <p className="mb-2 text-sm font-medium text-text-secondary">Vai trò</p>
-                <div className="flex flex-wrap gap-2">
-                  {ROLE_OPTIONS.map((opt) => (
-                    <label
-                      key={opt.value}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors duration-200"
-                      style={{
-                        borderColor: selectedRoles.has(opt.value)
-                          ? "var(--ue-primary)"
-                          : "var(--ue-border-default)",
-                        backgroundColor: selectedRoles.has(opt.value)
-                          ? "color-mix(in srgb, var(--ue-primary) 15%, transparent)"
-                          : "transparent",
-                        color: selectedRoles.has(opt.value)
-                          ? "var(--ue-primary)"
-                          : "var(--ue-text-secondary)",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedRoles.has(opt.value)}
-                        onChange={() => toggleRole(opt.value)}
-                        className="sr-only"
-                      />
-                      {opt.label}
-                    </label>
-                  ))}
-                </div>
+                <p className="mb-1 text-sm font-medium text-text-secondary">Vai trò</p>
+                <p className="mb-2 text-xs text-text-muted">
+                  Giáo viên không có lương cứng (trợ cấp buổi học giữ nguyên). Vai trò
+                  khác: để trống = mặc định vai trò; nhập 0 = cố ý loại / 0%.
+                </p>
+                {overridesQuery.isError ? (
+                  <p className="mb-2 text-sm text-error">
+                    Không tải được mức đè lương cứng. Đóng dialog rồi mở lại để thử lại.
+                  </p>
+                ) : null}
+                <ul className="flex flex-col gap-2">
+                  {ROLE_OPTIONS.map((opt) => {
+                    const enabled = selectedRoles.has(opt.value);
+                    const showSalaryFields =
+                      enabled && isFixedSalaryStaffRole(opt.value);
+                    return (
+                      <li
+                        key={opt.value}
+                        className="rounded-lg border border-border-default bg-bg-surface px-3 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-medium text-text-primary">
+                            {ROLE_LABELS[opt.value] ?? opt.label}
+                          </span>
+                          <Switch
+                            checked={enabled}
+                            onCheckedChange={(next) => toggleRole(opt.value, next)}
+                            aria-label={opt.label}
+                          />
+                        </div>
+                        {showSalaryFields ? (
+                          <StaffRoleFixedSalaryFields
+                            roleLabel={ROLE_LABELS[opt.value] ?? opt.label}
+                            amountValue={amountValue(opt.value)}
+                            rateValue={rateValue(opt.value)}
+                            roleDefaultAmount={roleDefaultAmount(opt.value)}
+                            roleDefaultRate={roleDefaultRate(opt.value)}
+                            onAmountChange={(value) =>
+                              setAmountDraft((prev) => ({
+                                ...prev,
+                                [opt.value]: value,
+                              }))
+                            }
+                            onRateChange={(value) =>
+                              setRateDraft((prev) => ({
+                                ...prev,
+                                [opt.value]: value,
+                              }))
+                            }
+                          />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
 
               {showRevenueShareField && (
@@ -481,19 +689,45 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              disabled={overrideRemovalWarnings.length > 0}
+              className="rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              disabled={
+                overridesQuery.isLoading ||
+                overridesQuery.isError ||
+                overrideRemovalWarnings.length > 0
+              }
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors duration-200 hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
             >
               Lưu thông tin
             </button>
           </div>
         </form>
       </div>
+
+      <ConfirmDialog
+        open={overrideRemovalWarnings.length > 0}
+        nested
+        labelledBy="disable-role-override-title"
+        title="Tắt vai trò sẽ xóa mức đè lương cứng"
+        description={
+          <>
+            {overrideRemovalWarnings.map((warning) => (
+              <p key={warning.roleType}>
+                {formatDisabledRoleOverrideWarningLine(warning)}
+              </p>
+            ))}
+            <p>{LOCKED_FIXED_SALARY_MONTH_NOTE}</p>
+          </>
+        }
+        confirmLabel="Xóa mức đè và lưu"
+        onClose={cancelOverrideRemoval}
+        onConfirm={confirmOverrideRemoval}
+      />
     </>
   );
 }

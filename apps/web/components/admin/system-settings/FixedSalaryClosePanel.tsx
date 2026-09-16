@@ -70,10 +70,9 @@ export function FixedSalaryClosePanel({ canEdit }: { canEdit: boolean }) {
               Chốt lương tháng này
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
-              Sinh khoản lương cứng phải trả cho tháng hiện tại (theo giờ Việt
-              Nam). Mỗi cặp nhân sự đang hoạt động + role có mức &gt; 0 một
-              khoản. Chạy lại không tạo thêm và không sửa khoản đã đóng băng.
-              Tiến trình tự động cũng chạy ngày 28 hàng tháng.
+              Sinh khoản lương cứng tháng hiện tại. Ngày 28 hàng tháng hệ thống
+              tự chốt; nếu tháng này đã chốt sớm thì lần tự động đó bỏ qua. Bấm
+              chốt lại vẫn chạy như bình thường.
             </p>
           </div>
           <button
