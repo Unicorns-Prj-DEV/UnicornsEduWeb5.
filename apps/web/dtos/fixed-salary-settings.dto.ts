@@ -1,6 +1,5 @@
 export const FIXED_SALARY_STAFF_ROLES = [
   "admin",
-  "teacher",
   "lesson_plan",
   "lesson_plan_head",
   "accountant",
@@ -14,6 +13,15 @@ export const FIXED_SALARY_STAFF_ROLES = [
 ] as const;
 
 export type FixedSalaryStaffRole = (typeof FIXED_SALARY_STAFF_ROLES)[number];
+
+/** Closed-month payables may still be `teacher` from months before that role left fixed salary. */
+export type ClosedFixedSalaryRole = FixedSalaryStaffRole | "teacher";
+
+export function isFixedSalaryStaffRole(
+  role: string,
+): role is FixedSalaryStaffRole {
+  return (FIXED_SALARY_STAFF_ROLES as readonly string[]).includes(role);
+}
 
 export interface RoleFixedSalaryDefault {
   roleType: FixedSalaryStaffRole;
@@ -114,7 +122,7 @@ export interface StaffFixedSalaryPayable {
   id: string;
   staffId: string;
   staffFullName: string;
-  roleType: FixedSalaryStaffRole;
+  roleType: ClosedFixedSalaryRole;
   month: string;
   status: FixedSalaryPayableStatus;
   grossAmount: number;

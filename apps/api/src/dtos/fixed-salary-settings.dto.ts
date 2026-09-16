@@ -4,7 +4,7 @@ import { StaffRole } from 'generated/enums';
 import {
   ArrayMinSize,
   IsArray,
-  IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -14,6 +14,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { FIXED_SALARY_STAFF_ROLES } from '../fixed-salary-settings/fixed-salary-staff-roles';
 
 function toNullableNumber({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === '') {
@@ -38,10 +39,11 @@ function toOptionalNullableNumber({ value }: { value: unknown }) {
 
 export class UpsertRoleFixedSalaryDefaultItemDto {
   @ApiProperty({
-    description: 'Staff role this default fixed salary applies to.',
-    enum: StaffRole,
+    description:
+      'Staff role this default fixed salary applies to. Teacher is excluded — session allowance only.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({
@@ -75,10 +77,10 @@ export class UpsertRoleFixedSalaryDefaultsDto {
 export class UpsertRoleFixedSalaryOperatingRateItemDto {
   @ApiProperty({
     description:
-      'Staff role this default fixed-salary operating percent applies to.',
-    enum: StaffRole,
+      'Staff role this default fixed-salary operating percent applies to. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({
@@ -149,10 +151,11 @@ export class UpsertStaffFixedSalaryAmountDto {
   staffId: string;
 
   @ApiProperty({
-    description: 'Staff role to override independently of other roles on the same person.',
-    enum: StaffRole,
+    description:
+      'Staff role to override independently of other roles on the same person. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({
@@ -172,10 +175,10 @@ export class UpsertStaffFixedSalaryAmountDto {
 export class StaffRoleFixedSalaryOverrideItemDto {
   @ApiProperty({
     description:
-      'Staff role to write overrides for. Must also appear in the accompanying roles list.',
-    enum: StaffRole,
+      'Staff role to write overrides for. Must also appear in the accompanying roles list. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({
@@ -215,10 +218,11 @@ export class UpsertStaffFixedSalaryOperatingRateDto {
   staffId: string;
 
   @ApiProperty({
-    description: 'Staff role to override independently of other roles on the same person.',
-    enum: StaffRole,
+    description:
+      'Staff role to override independently of other roles on the same person. Teacher is excluded.',
+    enum: FIXED_SALARY_STAFF_ROLES,
   })
-  @IsEnum(StaffRole)
+  @IsIn(FIXED_SALARY_STAFF_ROLES)
   roleType: StaffRole;
 
   @ApiPropertyOptional({

@@ -54,7 +54,7 @@ export default function StaffRoleFixedSalaryFields({
     input: amountValue,
     roleDefault: roleDefaultAmount,
     formatApplied: formatFixedSalaryVnd,
-    zeroOverrideLabel: "cố ý loại — mức đè",
+    zeroOverrideLabel: "cố ý loại",
   });
   const parsedRate =
     rateValue.trim() === "" ? null : Number(rateValue.replace(",", "."));
@@ -62,7 +62,7 @@ export default function StaffRoleFixedSalaryFields({
     input: rateValue,
     roleDefault: roleDefaultRate,
     formatApplied: (value) => `${value}%`,
-    zeroOverrideLabel: "cố ý 0% — mức đè",
+    zeroOverrideLabel: "cố ý 0%",
   });
   const rateDisplay =
     rateValue.trim() !== "" &&
@@ -73,51 +73,45 @@ export default function StaffRoleFixedSalaryFields({
       : ratePreview;
 
   return (
-    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-      <label className="flex min-w-0 flex-col gap-1.5 text-sm text-text-secondary">
-        <span>Lương cứng</span>
-        <p className="text-xs text-text-secondary">
-          Đang áp dụng:{" "}
-          <span className="font-medium text-text-primary tabular-nums">
-            {amountPreview.value}
-          </span>
-          <span className="text-text-muted"> ({amountPreview.sourceLabel})</span>
-        </p>
-        <MoneyInput
-          name={`staff-role-amount-${roleLabel}`}
-          value={amountValue}
-          onValueChange={onAmountChange}
-          placeholder="Để trống = mặc định vai trò"
-          aria-label={`Lương cứng ${roleLabel}`}
-          className={fixedSalaryInputClassName}
-        />
-        <span className="text-xs text-text-muted">
-          Để trống = dùng mặc định vai trò. Nhập 0 = cố ý loại.
+    <div className="mt-2 flex min-w-0 flex-col gap-1.5">
+      <div className="flex min-w-0 flex-wrap items-end gap-2">
+        <label className="flex min-w-[10rem] flex-1 basis-[10rem] flex-col gap-1 text-sm text-text-secondary">
+          <span>Lương cứng</span>
+          <MoneyInput
+            name={`staff-role-amount-${roleLabel}`}
+            value={amountValue}
+            onValueChange={onAmountChange}
+            placeholder="Mặc định"
+            aria-label={`Lương cứng ${roleLabel}`}
+            className={fixedSalaryInputClassName}
+          />
+        </label>
+        <label className="flex w-[6.75rem] min-w-[6.75rem] flex-none flex-col gap-1 text-sm text-text-secondary">
+          <span>% vận hành</span>
+          <input
+            name={`staff-role-rate-${roleLabel}`}
+            inputMode="decimal"
+            value={rateValue}
+            onChange={(event) => onRateChange(event.target.value)}
+            placeholder="Mặc định"
+            aria-label={`% vận hành ${roleLabel}`}
+            className={fixedSalaryInputClassName}
+          />
+        </label>
+      </div>
+      <p className="text-xs leading-snug text-text-secondary">
+        <span className="font-medium tabular-nums text-text-primary">
+          {amountPreview.value}
         </span>
-      </label>
-
-      <label className="flex min-w-0 flex-col gap-1.5 text-sm text-text-secondary">
-        <span>% vận hành</span>
-        <p className="text-xs text-text-secondary">
-          Đang áp dụng:{" "}
-          <span className="font-medium text-text-primary tabular-nums">
-            {rateDisplay.value}
-          </span>
-          <span className="text-text-muted"> ({rateDisplay.sourceLabel})</span>
-        </p>
-        <input
-          name={`staff-role-rate-${roleLabel}`}
-          inputMode="decimal"
-          value={rateValue}
-          onChange={(event) => onRateChange(event.target.value)}
-          placeholder="Để trống = mặc định vai trò"
-          aria-label={`% vận hành ${roleLabel}`}
-          className={fixedSalaryInputClassName}
-        />
-        <span className="text-xs text-text-muted">
-          Để trống = dùng mặc định vai trò. Nhập 0 = cố ý 0%.
+        <span className="text-text-muted"> ({amountPreview.sourceLabel})</span>
+        <span aria-hidden="true" className="text-text-muted">
+          {" · "}
         </span>
-      </label>
+        <span className="font-medium tabular-nums text-text-primary">
+          {rateDisplay.value}
+        </span>
+        <span className="text-text-muted"> ({rateDisplay.sourceLabel})</span>
+      </p>
     </div>
   );
 }

@@ -299,7 +299,7 @@ export function FixedSalarySettingsPanel() {
 
       <RolePolicySettingsCard
         title="Chính sách lương cứng theo role"
-        description="Mức lương và % vận hành lưu độc lập: mỗi nút chỉ ghi trục của nó. Để trống = chưa cấu hình, khác với 0đ / 0%. Áp cho mọi nhân sự đang hoạt động mang role tương ứng; % chỉ trừ trên lương cứng — không đổi trợ cấp buổi học và không ghi đè % vận hành theo lớp. Thuế vẫn dùng tab Khấu trừ. Mức đè riêng từng nhân sự nằm ở trang chi tiết nhân sự."
+        description="Mức lương và % vận hành lưu độc lập: mỗi nút chỉ ghi trục của nó. Để trống = chưa cấu hình, khác với 0đ / 0%. Áp cho mọi nhân sự đang hoạt động mang role tương ứng, trừ giáo viên (chỉ trợ cấp buổi học). % chỉ trừ trên lương cứng — không đổi trợ cấp buổi học và không ghi đè % vận hành theo lớp. Thuế vẫn dùng tab Khấu trừ. Mức đè riêng từng nhân sự nằm ở trang chi tiết nhân sự."
         actions={
           <>
             <RolePolicySaveButton

@@ -21,6 +21,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **Lương cứng một dòng + bỏ lương cứng giáo viên:**
+  - Dialog **Chỉnh sửa thông tin nhân sự**: mỗi vai trò ăn lương cứng hiện **lương cứng và % vận hành trên một dòng ngang**; dòng chữ dưới ô ghi mức đang áp dụng và nguồn (mặc định vai trò / mức đè / cố ý loại / cố ý 0%). Hẹp thì xuống dòng có kiểm soát, ô % giữ bề rộng cố định.
+  - Vai trò **giáo viên** không còn ô lương cứng / % vận hành (popup sửa nhân sự và tab Cài đặt hệ thống). Chốt tháng **không sinh** khoản lương cứng cho `teacher`. Trợ cấp buổi học không đổi.
+  - Nguồn sự thật dùng chung: `FIXED_SALARY_STAFF_ROLES` (FE DTO + API `fixed-salary-staff-roles.ts`) cho lúc đọc cấu hình và lúc chốt lương.
+  - Migration mới `20260916100000_remove_teacher_fixed_salary_config` xoá dòng `teacher` ở `role_fixed_salary_defaults` và `staff_fixed_salary_overrides` (no-op nếu trống). **Không** đụng `staff_fixed_salary_payables`.
+
 ### Added
 
 - **Lưu vai trò và lương cứng một lần bấm (hotfix):**

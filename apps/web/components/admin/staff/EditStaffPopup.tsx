@@ -10,7 +10,10 @@ import AchievementListEditor from "@/components/shared/achievement/AchievementLi
 import StaffRoleFixedSalaryFields from "@/components/admin/staff/StaffRoleFixedSalaryFields";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import type { StaffDetail, StaffGender } from "@/dtos/staff.dto";
-import type { StaffRoleFixedSalaryOverrideItem } from "@/dtos/fixed-salary-settings.dto";
+import {
+  isFixedSalaryStaffRole,
+  type StaffRoleFixedSalaryOverrideItem,
+} from "@/dtos/fixed-salary-settings.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as fixedSalarySettingsApi from "@/lib/apis/fixed-salary-settings.api";
 import {
@@ -284,8 +287,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
 
     let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
     try {
-      roleFixedSalaryOverrides = ROLE_OPTIONS.filter((opt) =>
-        selectedRoles.has(opt.value),
+      roleFixedSalaryOverrides = ROLE_OPTIONS.filter(
+        (opt) =>
+          selectedRoles.has(opt.value) && isFixedSalaryStaffRole(opt.value),
       ).map((opt) => ({
         roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
         amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
@@ -325,8 +329,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     const trimmedRevenueSharePercent = revenueSharePercent.trim();
     let roleFixedSalaryOverrides: StaffRoleFixedSalaryOverrideItem[];
     try {
-      roleFixedSalaryOverrides = ROLE_OPTIONS.filter((opt) =>
-        selectedRoles.has(opt.value),
+      roleFixedSalaryOverrides = ROLE_OPTIONS.filter(
+        (opt) =>
+          selectedRoles.has(opt.value) && isFixedSalaryStaffRole(opt.value),
       ).map((opt) => ({
         roleType: opt.value as StaffRoleFixedSalaryOverrideItem["roleType"],
         amount: parseOptionalFixedSalaryAmountInput(amountValue(opt.value)),
@@ -579,7 +584,11 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
               </label>
 
               <div className="sm:col-span-2">
-                <p className="mb-2 text-sm font-medium text-text-secondary">Vai trò</p>
+                <p className="mb-1 text-sm font-medium text-text-secondary">Vai trò</p>
+                <p className="mb-2 text-xs text-text-muted">
+                  Giáo viên không có lương cứng (trợ cấp buổi học giữ nguyên). Vai trò
+                  khác: để trống = mặc định vai trò; nhập 0 = cố ý loại / 0%.
+                </p>
                 {overridesQuery.isError ? (
                   <p className="mb-2 text-sm text-error">
                     Không tải được mức đè lương cứng. Đóng dialog rồi mở lại để thử lại.
@@ -588,6 +597,8 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                 <ul className="flex flex-col gap-2">
                   {ROLE_OPTIONS.map((opt) => {
                     const enabled = selectedRoles.has(opt.value);
+                    const showSalaryFields =
+                      enabled && isFixedSalaryStaffRole(opt.value);
                     return (
                       <li
                         key={opt.value}
@@ -603,7 +614,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                             aria-label={opt.label}
                           />
                         </div>
-                        {enabled ? (
+                        {showSalaryFields ? (
                           <StaffRoleFixedSalaryFields
                             roleLabel={ROLE_LABELS[opt.value] ?? opt.label}
                             amountValue={amountValue(opt.value)}

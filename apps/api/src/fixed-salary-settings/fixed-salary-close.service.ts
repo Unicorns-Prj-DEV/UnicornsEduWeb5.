@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { getCurrentVietnamMonthKey } from './current-month.util';
 import { resolveFixedSalaryAxis } from './fixed-salary-resolution.util';
+import { isFixedSalaryStaffRole } from './fixed-salary-staff-roles';
 
 export type StaffFixedSalaryPayableView = {
   id: string;
@@ -145,6 +146,9 @@ export class FixedSalaryCloseService {
 
     for (const staff of activeStaff) {
       for (const roleType of staff.roles) {
+        if (!isFixedSalaryStaffRole(roleType)) {
+          continue;
+        }
         const salaryOverride = salaryOverrides.find(
           (row) => row.staffId === staff.id && row.roleType === roleType,
         );

@@ -20,8 +20,13 @@ import {
 } from '../dtos/fixed-salary-settings.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveFixedSalaryAxis } from './fixed-salary-resolution.util';
+import {
+  FIXED_SALARY_STAFF_ROLES,
+  isFixedSalaryStaffRole,
+} from './fixed-salary-staff-roles';
 
-const STAFF_ROLES = Object.values(StaffRole);
+const TEACHER_FIXED_SALARY_MESSAGE =
+  'Vai trò giáo viên không nhận lương cứng.';
 
 export type RoleFixedSalaryDefaultView = {
   roleType: StaffRole;
@@ -69,7 +74,7 @@ export class FixedSalarySettingsService {
     const byRole = new Map(rows.map((row) => [row.roleType, row]));
 
     return {
-      roles: STAFF_ROLES.map((roleType) =>
+      roles: FIXED_SALARY_STAFF_ROLES.map((roleType) =>
         this.mapSalaryView(roleType, byRole.get(roleType) ?? null),
       ),
     };
@@ -83,7 +88,7 @@ export class FixedSalarySettingsService {
     const byRole = new Map(rows.map((row) => [row.roleType, row]));
 
     return {
-      roles: STAFF_ROLES.map((roleType) =>
+      roles: FIXED_SALARY_STAFF_ROLES.map((roleType) =>
         this.mapOperatingRateView(roleType, byRole.get(roleType) ?? null),
       ),
     };
@@ -95,6 +100,7 @@ export class FixedSalarySettingsService {
   ) {
     const seen = new Set<StaffRole>();
     const normalizedItems = dto.items.map((item) => {
+      this.assertFixedSalaryStaffRole(item.roleType);
       if (seen.has(item.roleType)) {
         throw new BadRequestException(
           'Each roleType may appear only once in the payload.',
@@ -188,6 +194,7 @@ export class FixedSalarySettingsService {
   ) {
     const seen = new Set<StaffRole>();
     const normalizedItems = dto.items.map((item) => {
+      this.assertFixedSalaryStaffRole(item.roleType);
       if (seen.has(item.roleType)) {
         throw new BadRequestException(
           'Each roleType may appear only once in the payload.',
@@ -336,7 +343,7 @@ export class FixedSalarySettingsService {
       staff: staffWithRoles.map((staff) => ({
         staffId: staff.id,
         fullName: getPreferredUserFullName(staff.user) ?? staff.id,
-        roles: staff.roles.map((roleType) => {
+        roles: staff.roles.filter(isFixedSalaryStaffRole).map((roleType) => {
           const salaryOverride = salaryOverrides.find(
             (row) => row.staffId === staff.id && row.roleType === roleType,
           );
@@ -420,6 +427,8 @@ export class FixedSalarySettingsService {
       }
       seen.add(item.roleType);
 
+      this.assertFixedSalaryStaffRole(item.roleType);
+
       if (!nextRoles.includes(item.roleType)) {
         throw new BadRequestException(
           'Fixed-salary override is only allowed for a role this staff currently holds.',
@@ -450,27 +459,33 @@ export class FixedSalarySettingsService {
     ]);
 
     for (const row of salaryOverrides) {
-      if (!params.nextRoles.includes(row.roleType)) {
+      if (
+        !params.nextRoles.includes(row.roleType) ||
+        !isFixedSalaryStaffRole(row.roleType)
+      ) {
         await this.writeStaffAmountOverrideInTx(tx, {
           staffId: params.staffId,
           roleType: row.roleType,
           amount: null,
           staff: params.staff,
           actor: params.actor,
-          removedWithRole: true,
+          removedWithRole: !params.nextRoles.includes(row.roleType),
         });
       }
     }
 
     for (const row of operatingOverrides) {
-      if (!params.nextRoles.includes(row.roleType)) {
+      if (
+        !params.nextRoles.includes(row.roleType) ||
+        !isFixedSalaryStaffRole(row.roleType)
+      ) {
         await this.writeStaffOperatingRateOverrideInTx(tx, {
           staffId: params.staffId,
           roleType: row.roleType,
           operatingRatePercent: null,
           staff: params.staff,
           actor: params.actor,
-          removedWithRole: true,
+          removedWithRole: !params.nextRoles.includes(row.roleType),
         });
       }
     }
@@ -501,6 +516,8 @@ export class FixedSalarySettingsService {
   }
 
   private async requireStaffRole(staffId: string, roleType: StaffRole) {
+    this.assertFixedSalaryStaffRole(roleType);
+
     const staff = await this.prisma.staffInfo.findUnique({
       where: { id: staffId },
       select: {
@@ -528,6 +545,12 @@ export class FixedSalarySettingsService {
     }
 
     return staff;
+  }
+
+  private assertFixedSalaryStaffRole(roleType: StaffRole) {
+    if (!isFixedSalaryStaffRole(roleType)) {
+      throw new BadRequestException(TEACHER_FIXED_SALARY_MESSAGE);
+    }
   }
 
   private async writeStaffAmountOverrideInTx(

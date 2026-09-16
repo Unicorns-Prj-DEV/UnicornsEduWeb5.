@@ -173,12 +173,12 @@ describe('FixedSalaryCloseService', () => {
     staffRows.push({
       id: 'staff-a',
       status: StaffStatus.active,
-      roles: [StaffRole.teacher],
+      roles: [StaffRole.assistant],
       user: { first_name: 'An', last_name: 'Nguyen' },
     });
-    salaryDefaults.push({ roleType: StaffRole.teacher, amount: 1_000_000 });
-    operatingDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
-    roleTaxDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
+    salaryDefaults.push({ roleType: StaffRole.assistant, amount: 1_000_000 });
+    operatingDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
+    roleTaxDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
 
     const result = await service.closeMonth('2026-09');
     expect(result.createdCount).toBe(1);
@@ -186,7 +186,7 @@ describe('FixedSalaryCloseService', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       staffId: 'staff-a',
-      roleType: StaffRole.teacher,
+      roleType: StaffRole.assistant,
       month: '2026-09',
       status: 'pending',
       grossAmount: 1_000_000,
@@ -203,7 +203,7 @@ describe('FixedSalaryCloseService', () => {
       {
         id: 'inactive',
         status: StaffStatus.inactive,
-        roles: [StaffRole.teacher],
+        roles: [StaffRole.assistant],
         user: { first_name: 'Off', last_name: 'Staff' },
       },
       {
@@ -235,11 +235,47 @@ describe('FixedSalaryCloseService', () => {
     staffRows.push({
       id: 'dual',
       status: StaffStatus.active,
-      roles: [StaffRole.teacher, StaffRole.assistant],
+      roles: [StaffRole.communication, StaffRole.assistant],
       user: { first_name: 'Dual', last_name: 'Role' },
     });
     salaryDefaults.push(
-      { roleType: StaffRole.teacher, amount: 2_000_000 },
+      { roleType: StaffRole.communication, amount: 2_000_000 },
+      { roleType: StaffRole.assistant, amount: 500_000 },
+    );
+    operatingDefaults.push(
+      { roleType: StaffRole.communication, ratePercent: 10 },
+      { roleType: StaffRole.assistant, ratePercent: 0 },
+    );
+    roleTaxDefaults.push(
+      { roleType: StaffRole.communication, ratePercent: 10 },
+      { roleType: StaffRole.assistant, ratePercent: 5 },
+    );
+
+    const result = await service.closeMonth('2026-09');
+    expect(result.createdCount).toBe(2);
+    expect(result.items.map((item) => item.roleType).sort()).toEqual([
+      StaffRole.assistant,
+      StaffRole.communication,
+    ]);
+    expect(
+      result.items.find((item) => item.roleType === StaffRole.communication)
+        ?.grossAmount,
+    ).toBe(2_000_000);
+    expect(
+      result.items.find((item) => item.roleType === StaffRole.assistant)
+        ?.grossAmount,
+    ).toBe(500_000);
+  });
+
+  it('does not create a fixed-salary payable for teacher even when leftover config exists', async () => {
+    staffRows.push({
+      id: 'tutor',
+      status: StaffStatus.active,
+      roles: [StaffRole.teacher, StaffRole.assistant],
+      user: { first_name: 'Tutor', last_name: 'Plus' },
+    });
+    salaryDefaults.push(
+      { roleType: StaffRole.teacher, amount: 8_000_000 },
       { roleType: StaffRole.assistant, amount: 500_000 },
     );
     operatingDefaults.push(
@@ -252,30 +288,25 @@ describe('FixedSalaryCloseService', () => {
     );
 
     const result = await service.closeMonth('2026-09');
-    expect(result.createdCount).toBe(2);
-    expect(result.items.map((item) => item.roleType).sort()).toEqual([
-      StaffRole.assistant,
-      StaffRole.teacher,
-    ]);
+    expect(result.createdCount).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].roleType).toBe(StaffRole.assistant);
+    expect(result.items[0].grossAmount).toBe(500_000);
     expect(
-      result.items.find((item) => item.roleType === StaffRole.teacher)?.grossAmount,
-    ).toBe(2_000_000);
-    expect(
-      result.items.find((item) => item.roleType === StaffRole.assistant)
-        ?.grossAmount,
-    ).toBe(500_000);
+      result.items.find((item) => item.roleType === StaffRole.teacher),
+    ).toBeUndefined();
   });
 
   it('does not create or mutate existing rows on a second close of the same month', async () => {
     staffRows.push({
       id: 'staff-a',
       status: StaffStatus.active,
-      roles: [StaffRole.teacher],
+      roles: [StaffRole.assistant],
       user: { first_name: 'An', last_name: 'Nguyen' },
     });
-    salaryDefaults.push({ roleType: StaffRole.teacher, amount: 1_000_000 });
-    operatingDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
-    roleTaxDefaults.push({ roleType: StaffRole.teacher, ratePercent: 10 });
+    salaryDefaults.push({ roleType: StaffRole.assistant, amount: 1_000_000 });
+    operatingDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
+    roleTaxDefaults.push({ roleType: StaffRole.assistant, ratePercent: 10 });
 
     await service.closeMonth('2026-09');
     salaryDefaults[0].amount = 9_000_000;
