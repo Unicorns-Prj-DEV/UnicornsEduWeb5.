@@ -88,12 +88,12 @@ function QrLinkPopupContent({
             type="url"
             value={link}
             onChange={(e) => setLink(e.target.value)}
-            placeholder="https://... hoặc link ảnh QR"
+            placeholder="https://…"
             className="mb-2 w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           />
           <p className="mb-4 text-xs text-text-muted">
-            Thêm link ảnh QR thanh toán hoặc link chuyển khoản (để trống nếu
-            muốn xóa).
+            Thêm link thanh toán hoặc link bất kỳ. Hệ thống luôn sinh mã QR từ
+            chính link này (để trống nếu muốn xóa).
           </p>
           <div className="flex justify-end gap-2">
             <button

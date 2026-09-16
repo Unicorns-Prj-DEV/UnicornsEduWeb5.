@@ -53,7 +53,9 @@ export default function StaffQrCard({
 
   const hasLink = Boolean(qrLink?.trim());
   const displayUrl = qrLink?.trim() || "";
-  const thumbnail = hasLink ? buildStaffQrDisplaySrc(displayUrl, pixel) : null;
+  const thumbnail = hasLink
+    ? buildStaffQrDisplaySrc(displayUrl, pixel)
+    : null;
   const preview = hasLink
     ? buildStaffQrDisplaySrc(displayUrl, STAFF_QR_SCANNABLE_PIXEL)
     : null;
@@ -105,7 +107,7 @@ export default function StaffQrCard({
 
   const thumbnailLabel = hasLink
     ? imageFailed
-      ? "Không tải được ảnh QR, nhấn để xem chi tiết"
+      ? "Không sinh được mã QR, nhấn để xem chi tiết"
       : "Xem mã QR thanh toán đủ lớn để quét"
     : allowEdit
       ? "Thêm link QR thanh toán"
@@ -115,7 +117,7 @@ export default function StaffQrCard({
     <>
       {hasLink && thumbnail && !imageFailed ? (
         <Image
-          src={thumbnail.src}
+          src={thumbnail}
           alt=""
           width={isMinimal ? 48 : isCompact ? 72 : 112}
           height={isMinimal ? 48 : isCompact ? 72 : 112}
@@ -159,7 +161,7 @@ export default function StaffQrCard({
         <span className="sr-only">
           {hasLink
             ? imageFailed
-              ? "Không tải được ảnh QR thanh toán, nhấn để xem chi tiết"
+              ? "Không sinh được mã QR thanh toán, nhấn để xem chi tiết"
               : "Đã có QR thanh toán, nhấn để xem mã đủ lớn để quét"
             : allowEdit
               ? "Chưa có link QR, nhấn để thêm"
@@ -173,7 +175,7 @@ export default function StaffQrCard({
         >
           {hasLink
             ? imageFailed
-              ? "Không tải được ảnh"
+              ? "Không sinh được mã"
               : "Xem mã / quét QR"
             : allowEdit
               ? "Thêm link"
@@ -276,13 +278,13 @@ export default function StaffQrCard({
           <ResponsiveDialogBody className="space-y-3">
             {imageFailed ? (
               <p className="text-sm text-text-secondary">
-                Không tải được ảnh QR. File trên Google Drive cần được chia sẻ
-                công khai, hoặc mở link gốc để tự kiểm tra quyền.
+                Không sinh được mã QR. Hãy mở link gốc để kiểm tra, hoặc thử lại
+                sau.
               </p>
             ) : (
               <div className="mx-auto w-full max-w-none sm:max-w-sm">
                 <Image
-                  src={preview.src}
+                  src={preview}
                   alt="Mã QR thanh toán đủ lớn để quét"
                   width={STAFF_QR_SCANNABLE_PIXEL}
                   height={STAFF_QR_SCANNABLE_PIXEL}

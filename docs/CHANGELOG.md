@@ -46,10 +46,16 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **QR thanh toán nhân sự luôn sinh từ link, bỏ nhúng ảnh (ticket 15):**
+  - Ô QR (`StaffQrCard` trên `/admin/staffs/:id` và mirror `/staff/staffs/:id` / `/staff/profile`) luôn xin mã `api.qrserver.com` mã hoá nguyên văn `bank_qr_link` — Drive / imgur / `.png` / link thanh toán đều là payload, không còn `<img>` trỏ máy chủ ảnh ngoài.
+  - Xoá helper Drive (`extractGoogleDriveFileId`, `toGoogleDriveDirectImageUrl`, `resolveStaffQrImageSrc`) khỏi `apps/web/lib/staff-qr-image.ts`. Overlay `ResponsiveDialog` vẫn xin 512px (không kéo giãn thumbnail); nút **Mở link gốc** giữ tab mới. Thông báo lỗi không còn nhắc chia sẻ công khai file Drive.
+  - Không đụng backend / schema / lương cứng. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
+
 - **QR thanh toán nhân sự vỡ ảnh Drive + không quét được (ticket 14):**
   - Ô QR (`StaffQrCard`, `size="minimal"` trên `/admin/staffs/:id` và mirror `/staff/staffs/:id` / `/staff/profile`) không còn nhét URL HTML Drive `/file/d/<ID>/view` vào `<img>`. Helper thuần `apps/web/lib/staff-qr-image.ts` bóc ID (`/view`, `/edit`, `open?id=`, `uc?id=`) rồi dựng `https://drive.google.com/uc?export=view&id=<ID>`.
   - Bấm ô QR mở `ResponsiveDialog` với mã đủ lớn để quét điện thoại: ảnh upload phóng to; link không phải ảnh thì xin mã `api.qrserver.com` 512px (không kéo giãn thumbnail 64px). Nút **Mở link gốc** giữ tab mới. Ảnh 403/hỏng hiện thông báo, không để ô trống.
   - Không đụng backend / schema / lương cứng. Giữ `unoptimized` trên Next `<Image>`. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
+  - **Bị thay bởi ticket 15:** không nhúng ảnh Drive được vì CORP; hành vi hiện tại luôn sinh mã từ link.
 
 - **Typecheck `apps/api` vỡ sau khi bump axios 1.20:** `unioj.service.ts` đọc `pdfResponse.headers['content-type']` rồi gọi `.includes()` — axios 1.20 nới kiểu giá trị header thành `string | number | boolean | string[] | AxiosHeaders` nên `TS2339: Property 'includes' does not exist on type 'number'`. Bọc `String(... ?? '')` trước khi so khớp. `tsc --noEmit` sạch 0 lỗi.
 - **Lớp tính theo block 30 phút bị khoá không sửa được gì (hotfix):**
