@@ -18,51 +18,20 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as fixedSalarySettingsApi from "@/lib/apis/fixed-salary-settings.api";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import {
+  buildRolePolicySaveFeedback,
   fixedSalaryInputClassName,
   getFixedSalaryApiErrorMessage,
+  parseOptionalFixedSalaryAmountInput,
+  parseOptionalFixedSalaryOperatingRateInput,
+  type RolePolicySaveAxisResult,
 } from "@/lib/fixed-salary-settings.helpers";
-import {
-  moneyInputInitialFromNumber,
-  parseMoneyInput,
-} from "@/lib/money-input.helpers";
+import { moneyInputInitialFromNumber } from "@/lib/money-input.helpers";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import {
   RolePolicySaveButton,
   RolePolicySettingsCard,
 } from "./RolePolicySettingsCard";
 import { FixedSalaryClosePanel } from "./FixedSalaryClosePanel";
-
-function parseAmountOrThrow(rawValue: string): number | null {
-  const trimmed = rawValue.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (/-/.test(trimmed)) {
-    throw new Error("Số tiền lương cứng không được âm.");
-  }
-
-  const parsed = parseMoneyInput(trimmed);
-  if (parsed == null || parsed < 0) {
-    throw new Error("Số tiền lương cứng không hợp lệ.");
-  }
-
-  return parsed;
-}
-
-function parseOperatingRateOrThrow(rawValue: string): number | null {
-  const trimmed = rawValue.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const numericValue = Number(trimmed.replace(",", "."));
-  if (!Number.isFinite(numericValue) || numericValue < 0 || numericValue > 100) {
-    throw new Error("% khấu trừ vận hành lương cứng phải nằm trong khoảng 0–100.");
-  }
-
-  return Number(numericValue.toFixed(2));
-}
 
 function createAmountDraft(
   roles:
@@ -120,7 +89,7 @@ function AmountFields({
         className={`${fixedSalaryInputClassName} ${unconfigured ? "placeholder:text-text-muted" : ""}`}
       />
       {unconfigured ? (
-        <span className="text-xs text-text-muted">Chưa có mức lương</span>
+        <span className="text-xs text-text-muted">Chưa có mức lương — khác 0đ</span>
       ) : null}
     </label>
   );
@@ -203,8 +172,19 @@ export function FixedSalarySettingsPanel() {
 
   const saveAmountMutation = useMutation({
     mutationFn: fixedSalarySettingsApi.upsertRoleFixedSalaryDefaults,
-    onSuccess: async () => {
-      toast.success("Đã lưu mức lương cứng theo role.");
+  });
+
+  const saveRateMutation = useMutation({
+    mutationFn: fixedSalarySettingsApi.upsertRoleFixedSalaryOperatingRates,
+  });
+
+  const persistAmountAxis = async (): Promise<RolePolicySaveAxisResult> => {
+    try {
+      const items = FIXED_SALARY_STAFF_ROLES.map((roleType) => ({
+        roleType,
+        amount: parseOptionalFixedSalaryAmountInput(amountDraft[roleType]),
+      }));
+      await saveAmountMutation.mutateAsync({ items });
       setAmountDraftByRole(null);
       await queryClient.invalidateQueries({
         queryKey: ["fixed-salary-settings", "role-defaults"],
@@ -212,18 +192,29 @@ export function FixedSalarySettingsPanel() {
       await queryClient.invalidateQueries({
         queryKey: ["fixed-salary-settings", "staff-overrides"],
       });
-    },
-    onError: (error) => {
-      toast.error(
-        getFixedSalaryApiErrorMessage(error, "Không lưu được mức lương cứng."),
-      );
-    },
-  });
+      return { status: "saved" };
+    } catch (error) {
+      return {
+        status: "failed",
+        message: getFixedSalaryApiErrorMessage(
+          error,
+          error instanceof Error
+            ? error.message
+            : "Không lưu được mức lương cứng.",
+        ),
+      };
+    }
+  };
 
-  const saveRateMutation = useMutation({
-    mutationFn: fixedSalarySettingsApi.upsertRoleFixedSalaryOperatingRates,
-    onSuccess: async () => {
-      toast.success("Đã lưu % vận hành lương cứng theo role.");
+  const persistRateAxis = async (): Promise<RolePolicySaveAxisResult> => {
+    try {
+      const items = FIXED_SALARY_STAFF_ROLES.map((roleType) => ({
+        roleType,
+        operatingRatePercent: parseOptionalFixedSalaryOperatingRateInput(
+          rateDraft[roleType],
+        ),
+      }));
+      await saveRateMutation.mutateAsync({ items });
       setRateDraftByRole(null);
       await queryClient.invalidateQueries({
         queryKey: ["fixed-salary-settings", "role-operating-rates"],
@@ -231,47 +222,29 @@ export function FixedSalarySettingsPanel() {
       await queryClient.invalidateQueries({
         queryKey: ["fixed-salary-settings", "staff-overrides"],
       });
-    },
-    onError: (error) => {
-      toast.error(
-        getFixedSalaryApiErrorMessage(
-          error,
-          "Không lưu được % vận hành lương cứng.",
-        ),
-      );
-    },
-  });
-
-  const handleSaveAmounts = async () => {
-    try {
-      const items = FIXED_SALARY_STAFF_ROLES.map((roleType) => ({
-        roleType,
-        amount: parseAmountOrThrow(amountDraft[roleType]),
-      }));
-      await saveAmountMutation.mutateAsync({ items });
+      return { status: "saved" };
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Dữ liệu mức lương cứng không hợp lệ.",
-      );
+      return {
+        status: "failed",
+        message: getFixedSalaryApiErrorMessage(
+          error,
+          error instanceof Error
+            ? error.message
+            : "Không lưu được % vận hành lương cứng.",
+        ),
+      };
     }
   };
 
-  const handleSaveRates = async () => {
-    try {
-      const items = FIXED_SALARY_STAFF_ROLES.map((roleType) => ({
-        roleType,
-        operatingRatePercent: parseOperatingRateOrThrow(rateDraft[roleType]),
-      }));
-      await saveRateMutation.mutateAsync({ items });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Dữ liệu % vận hành lương cứng không hợp lệ.",
-      );
+  const handleSavePolicies = async () => {
+    const amountResult = await persistAmountAxis();
+    const rateResult = await persistRateAxis();
+    const feedback = buildRolePolicySaveFeedback(amountResult, rateResult);
+    if (feedback.type === "success") {
+      toast.success(feedback.message);
+      return;
     }
+    toast.error(feedback.message);
   };
 
   const isLoading = amountQuery.isLoading || rateQuery.isLoading;
@@ -299,23 +272,18 @@ export function FixedSalarySettingsPanel() {
 
       <RolePolicySettingsCard
         title="Chính sách lương cứng theo role"
-        description="Mức lương và % vận hành lưu độc lập: mỗi nút chỉ ghi trục của nó. Để trống = chưa cấu hình, khác với 0đ / 0%. Áp cho mọi nhân sự đang hoạt động mang role tương ứng, trừ giáo viên (chỉ trợ cấp buổi học). % chỉ trừ trên lương cứng — không đổi trợ cấp buổi học và không ghi đè % vận hành theo lớp. Thuế vẫn dùng tab Khấu trừ. Mức đè riêng từng nhân sự nằm ở trang chi tiết nhân sự."
+        description="Đặt mức lương cứng và % vận hành mặc định cho từng vai trò (không gồm giáo viên)."
         actions={
-          <>
-            <RolePolicySaveButton
-              label="Lưu mức lương"
-              onClick={handleSaveAmounts}
-              disabled={!canEditSettings || isLoading}
-              isSaving={saveAmountMutation.isPending}
-            />
-            <RolePolicySaveButton
-              label="Lưu % vận hành"
-              onClick={handleSaveRates}
-              disabled={!canEditSettings || isLoading}
-              isSaving={saveRateMutation.isPending}
-              variant="outline"
-            />
-          </>
+          <RolePolicySaveButton
+            label="Lưu chính sách"
+            onClick={() => {
+              void handleSavePolicies();
+            }}
+            disabled={!canEditSettings || isLoading}
+            isSaving={
+              saveAmountMutation.isPending || saveRateMutation.isPending
+            }
+          />
         }
       >
         {amountQuery.isError || rateQuery.isError ? (

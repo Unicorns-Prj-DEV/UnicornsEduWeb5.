@@ -135,6 +135,9 @@ describe('FixedSalaryCloseService', () => {
           return { count };
         },
       ),
+      count: jest.fn(async ({ where }: { where: { month: string } }) =>
+        payables.filter((row) => row.month === where.month).length,
+      ),
       findMany: jest.fn(async ({ where }: { where: { month: string } }) =>
         payables
           .filter((row) => row.month === where.month)
@@ -319,6 +322,95 @@ describe('FixedSalaryCloseService', () => {
     expect(mockPrisma.staffFixedSalaryPayable.createMany).toHaveBeenCalledWith(
       expect.objectContaining({ skipDuplicates: true }),
     );
+  });
+
+  it('automatic close skips the whole month when any payable already exists', async () => {
+    staffRows.push(
+      {
+        id: 'staff-a',
+        status: StaffStatus.active,
+        roles: [StaffRole.assistant],
+        user: { first_name: 'An', last_name: 'Nguyen' },
+      },
+      {
+        id: 'staff-b',
+        status: StaffStatus.active,
+        roles: [StaffRole.communication],
+        user: { first_name: 'Binh', last_name: 'Tran' },
+      },
+    );
+    salaryDefaults.push(
+      { roleType: StaffRole.assistant, amount: 1_000_000 },
+      { roleType: StaffRole.communication, amount: 2_000_000 },
+    );
+    payables.push({
+      id: 'existing',
+      staffId: 'staff-a',
+      roleType: StaffRole.assistant,
+      month: '2026-09',
+      status: 'pending',
+      grossAmount: 1_000_000,
+      operatingRatePercent: 0,
+      taxRatePercent: 0,
+      operatingDeductionAmount: 0,
+      taxDeductionAmount: 0,
+      netAmount: 1_000_000,
+      createdAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+
+    const result = await service.closeMonthIfUnclosed('2026-09');
+
+    expect(result.skippedBecauseAlreadyClosed).toBe(true);
+    expect(result.createdCount).toBe(0);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].staffId).toBe('staff-a');
+    expect(mockPrisma.staffFixedSalaryPayable.createMany).not.toHaveBeenCalled();
+  });
+
+  it('manual close still creates payables for newly eligible staff after an early close', async () => {
+    staffRows.push(
+      {
+        id: 'staff-a',
+        status: StaffStatus.active,
+        roles: [StaffRole.assistant],
+        user: { first_name: 'An', last_name: 'Nguyen' },
+      },
+      {
+        id: 'staff-b',
+        status: StaffStatus.active,
+        roles: [StaffRole.communication],
+        user: { first_name: 'Binh', last_name: 'Tran' },
+      },
+    );
+    salaryDefaults.push(
+      { roleType: StaffRole.assistant, amount: 1_000_000 },
+      { roleType: StaffRole.communication, amount: 2_000_000 },
+    );
+    payables.push({
+      id: 'existing',
+      staffId: 'staff-a',
+      roleType: StaffRole.assistant,
+      month: '2026-09',
+      status: 'pending',
+      grossAmount: 1_000_000,
+      operatingRatePercent: 0,
+      taxRatePercent: 0,
+      operatingDeductionAmount: 0,
+      taxDeductionAmount: 0,
+      netAmount: 1_000_000,
+      createdAt: new Date('2026-09-10T00:00:00.000Z'),
+    });
+
+    const result = await service.closeMonth('2026-09');
+
+    expect(result.skippedBecauseAlreadyClosed).toBeUndefined();
+    expect(result.createdCount).toBe(1);
+    expect(result.skippedCount).toBe(1);
+    expect(result.items).toHaveLength(2);
+    expect(
+      result.items.map((item) => item.staffId).sort(),
+    ).toEqual(['staff-a', 'staff-b']);
+    expect(mockPrisma.staffFixedSalaryPayable.createMany).toHaveBeenCalled();
   });
 
   it('snapshots operating then tax using the shared deduction helper', () => {

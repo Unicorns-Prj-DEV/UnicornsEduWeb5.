@@ -8,6 +8,7 @@ import {
   collectDisabledRoleOverrideWarnings,
   formatDisabledRoleOverrideWarningLine,
   LOCKED_FIXED_SALARY_MONTH_NOTE,
+  buildRolePolicySaveFeedback,
 } from "./fixed-salary-settings.helpers";
 
 const ROLE_LABELS = { assistant: "Trợ lí", communication: "Truyền thông" };
@@ -106,5 +107,49 @@ describe("collectDisabledRoleOverrideWarnings", () => {
     expect(formatDisabledRoleOverrideWarningLine(warnings[0])).toBe(
       "Tắt vai trò Trợ lí sẽ xóa mức đè lương cứng 0đ và % vận hành không có mức đè.",
     );
+  });
+});
+
+describe("buildRolePolicySaveFeedback", () => {
+  it("reports full success only when both axes saved", () => {
+    expect(
+      buildRolePolicySaveFeedback({ status: "saved" }, { status: "saved" }),
+    ).toEqual({
+      type: "success",
+      message: "Đã lưu mức lương và % vận hành.",
+    });
+  });
+
+  it("keeps the saved axis visible when the other axis fails", () => {
+    expect(
+      buildRolePolicySaveFeedback(
+        { status: "saved" },
+        { status: "failed", message: "mạng lỗi" },
+      ),
+    ).toEqual({
+      type: "error",
+      message: "Đã lưu mức lương. Chưa lưu được % vận hành: mạng lỗi",
+    });
+    expect(
+      buildRolePolicySaveFeedback(
+        { status: "failed", message: "số không hợp lệ" },
+        { status: "saved" },
+      ),
+    ).toEqual({
+      type: "error",
+      message: "Đã lưu % vận hành. Chưa lưu được mức lương: số không hợp lệ",
+    });
+  });
+
+  it("does not claim a save when both axes fail", () => {
+    expect(
+      buildRolePolicySaveFeedback(
+        { status: "failed", message: "lương lỗi" },
+        { status: "failed", message: "% lỗi" },
+      ),
+    ).toEqual({
+      type: "error",
+      message: "Chưa lưu được mức lương (lương lỗi) và % vận hành (% lỗi).",
+    });
   });
 });

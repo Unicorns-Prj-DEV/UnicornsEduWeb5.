@@ -7,25 +7,18 @@ export function RolePolicySaveButton({
   onClick,
   disabled,
   isSaving,
-  variant = "primary",
 }: {
   label: string;
   onClick: () => void;
   disabled: boolean;
   isSaving: boolean;
-  variant?: "primary" | "outline";
 }) {
-  const variantClassName =
-    variant === "primary"
-      ? "bg-primary text-text-inverse hover:opacity-90"
-      : "border border-border-default text-text-primary hover:bg-bg-secondary";
-
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || isSaving}
-      className={`inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10 sm:w-auto ${variantClassName}`}
+      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-text-inverse transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10 sm:w-auto"
     >
       {isSaving ? "Đang lưu…" : label}
     </button>
@@ -40,7 +33,7 @@ export function RolePolicySettingsCard({
 }: {
   title: string;
   description: string;
-  /** Nút lưu (có thể nhiều nút cho các trục lưu độc lập). */
+  /** Nút lưu cả hai trục chính sách. */
   actions: ReactNode;
   children: ReactNode;
 }) {

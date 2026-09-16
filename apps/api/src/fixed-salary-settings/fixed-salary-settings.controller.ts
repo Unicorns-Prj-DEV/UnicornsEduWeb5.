@@ -217,7 +217,7 @@ export class FixedSalarySettingsController {
   @ApiOperation({
     summary: 'Close the current month’s fixed salaries',
     description:
-      'Generate pending lương cứng payables for the current Asia/Ho_Chi_Minh month. One row per (active staff, current fixed-salary role) with applied amount > 0. Teacher is skipped even if leftover config exists. Snapshots gross, operating %, tax %, deduction amounts, and net using calculateDeductionAmounts (operating on gross, then tax on remainder). Idempotent: unique (staff, role, month) at the database; reruns skip existing rows without changing them. Same function as the day-28 cron.',
+      'Generate pending lương cứng payables for the current Asia/Ho_Chi_Minh month. One row per (active staff, current fixed-salary role) with applied amount > 0. Teacher is skipped even if leftover config exists. Snapshots gross, operating %, tax %, deduction amounts, and net using calculateDeductionAmounts (operating on gross, then tax on remainder). Idempotent: unique (staff, role, month) at the database; reruns skip existing rows without changing them. Manual close always runs this path. The day-28 cron uses a separate automatic entry that skips the whole month when any payable already exists.',
   })
   @ApiResponse({
     status: 201,

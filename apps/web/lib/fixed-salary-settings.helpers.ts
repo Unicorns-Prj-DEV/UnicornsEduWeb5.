@@ -137,3 +137,42 @@ export function parseOptionalFixedSalaryOperatingRateInput(
 
   return Number(numericValue.toFixed(2));
 }
+
+export type RolePolicySaveAxisResult =
+  | { status: "saved" }
+  | { status: "failed"; message: string };
+
+export function buildRolePolicySaveFeedback(
+  amount: RolePolicySaveAxisResult,
+  rate: RolePolicySaveAxisResult,
+): { type: "success" | "error"; message: string } {
+  if (amount.status === "saved" && rate.status === "saved") {
+    return {
+      type: "success",
+      message: "Đã lưu mức lương và % vận hành.",
+    };
+  }
+
+  if (amount.status === "saved" && rate.status === "failed") {
+    return {
+      type: "error",
+      message: `Đã lưu mức lương. Chưa lưu được % vận hành: ${rate.message}`,
+    };
+  }
+
+  if (amount.status === "failed" && rate.status === "saved") {
+    return {
+      type: "error",
+      message: `Đã lưu % vận hành. Chưa lưu được mức lương: ${amount.message}`,
+    };
+  }
+
+  const amountMessage =
+    amount.status === "failed" ? amount.message : "lỗi không xác định";
+  const rateMessage =
+    rate.status === "failed" ? rate.message : "lỗi không xác định";
+  return {
+    type: "error",
+    message: `Chưa lưu được mức lương (${amountMessage}) và % vận hành (${rateMessage}).`,
+  };
+}
