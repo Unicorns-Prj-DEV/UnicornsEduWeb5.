@@ -46,6 +46,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **QR thanh toán nhân sự vỡ ảnh Drive + không quét được (ticket 14):**
+  - Ô QR (`StaffQrCard`, `size="minimal"` trên `/admin/staffs/:id` và mirror `/staff/staffs/:id` / `/staff/profile`) không còn nhét URL HTML Drive `/file/d/<ID>/view` vào `<img>`. Helper thuần `apps/web/lib/staff-qr-image.ts` bóc ID (`/view`, `/edit`, `open?id=`, `uc?id=`) rồi dựng `https://drive.google.com/uc?export=view&id=<ID>`.
+  - Bấm ô QR mở `ResponsiveDialog` với mã đủ lớn để quét điện thoại: ảnh upload phóng to; link không phải ảnh thì xin mã `api.qrserver.com` 512px (không kéo giãn thumbnail 64px). Nút **Mở link gốc** giữ tab mới. Ảnh 403/hỏng hiện thông báo, không để ô trống.
+  - Không đụng backend / schema / lương cứng. Giữ `unoptimized` trên Next `<Image>`. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
+
 - **Typecheck `apps/api` vỡ sau khi bump axios 1.20:** `unioj.service.ts` đọc `pdfResponse.headers['content-type']` rồi gọi `.includes()` — axios 1.20 nới kiểu giá trị header thành `string | number | boolean | string[] | AxiosHeaders` nên `TS2339: Property 'includes' does not exist on type 'number'`. Bọc `String(... ?? '')` trước khi so khớp. `tsc --noEmit` sạch 0 lỗi.
 - **Lớp tính theo block 30 phút bị khoá không sửa được gì (hotfix):**
   - **Triệu chứng:** lớp đang ở `pricing_mode = per_block` mà lịch cố định có các khung giờ lệch thời lượng thì **mọi** thao tác lưu trên popup **Thông tin lớp** đều bị chặn — đổi học phí, sĩ số tối đa, tên lớp, trạng thái — đều hiện cùng toast *"…các khung giờ không cùng một thời lượng chuẩn."* Phát hiện trên `UNICL-37f607c5df` (CN 2h, T7 4h, T4 1h).
