@@ -78,6 +78,9 @@ describe('SessionCreateService', () => {
       walletTransactionsHistory: {
         createManyAndReturn: jest.fn().mockResolvedValue([]),
       },
+      classScheduleEntry: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       ...overrides,
     };
   }
