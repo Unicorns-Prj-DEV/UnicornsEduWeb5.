@@ -41,9 +41,27 @@ If you change project workflow/conventions for agents (commands, required checks
 
 ## Agent skills
 
-- **Issue tracker**: use local markdown issues under `.scratch/` unless the user explicitly asks to publish to GitHub. See `docs/agents/issue-tracker.md`.
-- **Triage labels**: use the canonical triage labels documented in `docs/agents/triage-labels.md` (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`).
-- **Domain docs**: treat this as a single-context monorepo and use the docs listed in Source of truth first. See `docs/agents/domain.md`.
+- **Issue tracker**: issues and specs live in GitHub Issues, via the `gh` CLI. The repo name genuinely ends in a dot (`UnicornsEduWeb5.`) — don't "fix" the remote URL. See `docs/agents/issue-tracker.md`.
+- **Triage labels**: use the canonical triage labels documented in `docs/agents/triage-labels.md` (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). All five exist on the repo.
+- **Domain docs**: single-context — one `CONTEXT.md` glossary plus `docs/adr/` at the repo root, read alongside the docs listed in Source of truth. See `docs/agents/domain.md`.
+
+## Branching (mandatory)
+
+| Branch | Role | Who touches it |
+| --- | --- | --- |
+| `main` | **Production.** Never commit directly, never merge a feature slice into it. | Nobody, until a release is explicitly decided by the repo owner. |
+| `dev` | Integration branch for the in-flight course-restructuring work. | Every slice merges here. |
+| `feat/<NN>-<slug>` | One branch per ticket, cut from `dev`. `<NN>` is the ticket's number in the breakdown. | The agent implementing that ticket. |
+
+Rules:
+
+- Cut your branch from the **current tip of `dev`**, not from `main`.
+- Open the PR with **`dev` as the base**. A PR based on `main` is wrong and should be re-targeted, not merged.
+- Rebase onto `dev` before asking for review; the slices land in dependency order and `dev` moves under you.
+- For an **expand–contract** pair, the contract ticket may only merge after every migration ticket between them is already on `dev`. Merging it early leaves `dev` red.
+- `main` and `dev` may diverge for a long time. Do not "sync" `dev` back into `main` on your own initiative.
+
+**Review gate before merging into `dev` (mandatory).** A slice branch is not merged the moment its acceptance criteria pass. Every branch goes through `/code-review low` first, and only merges after the findings are addressed or explicitly waived by the repo owner. This applies to work produced by dispatched agents as much as to hand-written work — an agent reporting "done" is the trigger to review, not to merge.
 
 ## Frontend rules (`apps/web`) (mandatory)
 
@@ -60,7 +78,8 @@ If you change project workflow/conventions for agents (commands, required checks
 - **Mock data for UI-first work (preferred)**: if backend data is not required yet, create page-local mock data directly inside the relevant `apps/web/app/**/page.tsx` to render UI immediately. When switching to real data, replace the mock with TanStack Query + DTOs in `apps/web/dtos/`.
 - **Notifications**: use **Sonner** for success/error toasts (avoid inline alert blocks unless explicitly required).
 - **UI components**: prefer **shadcn/ui** components; compose/extend before hand-rolling new components.
-- **Native temporal inputs**: use shared `apps/web/components/ui/DateInput.tsx` and `MonthInput.tsx` for native date/month fields so clicking the whole input opens the picker. Use shared `TimeInput.tsx` for time-of-day fields: **24h** UI (display `HH:mm`, value `HH:mm:ss` with seconds `00`, minute grid 15′); empty/create start prefills via `currentTimePrefillValue()` (minutes snapped to nearest 15′); picker commits update the field draft immediately; clicking the whole field or the clock button opens an inline dual scroll-column hour/minute picker (no nested select); see `docs/adr/2026-07-28-timeinput-24h-minute-precision.md`.
+- **Dialogs / confirms**: do **not** hand-code overlay modals (`<div className="fixed inset-0">`) or `window.confirm`. Form/content overlays use `apps/web/components/ui/ResponsiveDialog.tsx` (role=dialog, focus trap, Escape, body scroll lock, mobile edge padding). Destructive/yes-no prompts use `apps/web/components/ui/ConfirmDialog.tsx` (composes shadcn `AlertDialog`). Backdrop/Escape on a dirty form must confirm before discarding.
+- **Native temporal inputs**: use shared `apps/web/components/ui/DateInput.tsx` and `MonthInput.tsx` for native date/month fields so clicking the whole input opens the picker. Use shared `TimeInput.tsx` for time-of-day fields: **24h** UI (display `HH:mm`, value `HH:mm:ss` with seconds `00`, minute grid 15′); empty/create start prefills via `currentTimePrefillValue()` (minutes snapped to nearest 15′) unless `prefillEmpty={false}` (optional open time, e.g. practice lần giao); picker commits update the field draft immediately; clicking the whole field or the clock button opens an inline dual scroll-column hour/minute picker (no nested select); typed/off-grid minutes (e.g. `10:07`) stay as-is — do not floor to the 15′ grid on load; see `docs/adr/2026-07-28-timeinput-24h-minute-precision.md`.
 - **Dropdowns**: for simple single-select dropdowns, use the shared upgraded dropdown at `apps/web/components/ui/UpgradedSelect.tsx` instead of native `<select>`.
   - Keep a custom combobox/listbox only when the UX truly needs search, multi-select, async suggestions, or richer option content.
 - **Mobile-first**: implement for small screens first, then add larger breakpoints.

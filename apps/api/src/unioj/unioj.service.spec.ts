@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UniojService } from './unioj.service';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   BadGatewayException,
   ServiceUnavailableException,

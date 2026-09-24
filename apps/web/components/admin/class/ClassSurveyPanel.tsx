@@ -6,7 +6,7 @@ import {
   TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { useMemo, useState, type ReactNode, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useState, type ReactNode, type SyntheticEvent } from "react";
 import { toast } from "sonner";
 import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
@@ -79,6 +79,9 @@ type Props = {
     payload: UpdateClassSurveyPayload,
   ) => Promise<unknown>;
   onDelete: (surveyId: string) => Promise<unknown>;
+  hideList?: boolean;
+  autoOpenSurveyId?: string | null;
+  autoOpenToken?: number;
 };
 
 function getTodayInputValue() {
@@ -336,10 +339,10 @@ function SurveyFormDialog({
     survey?.surveyId ?? availableSurveys[0]?.id ?? "",
   );
   const [reportDate, setReportDate] = useState(
-    getSurveyDateInput(survey?.reportDate),
+    () => getSurveyDateInput(survey?.reportDate),
   );
   const [teacherId, setTeacherId] = useState(
-    resolveInitialTeacherId(teachers, defaultTeacherId, survey),
+    () => resolveInitialTeacherId(teachers, defaultTeacherId, survey),
   );
   const [knowledgeAssessment, setKnowledgeAssessment] = useState(
     survey?.knowledgeAssessment ?? "",
@@ -729,6 +732,9 @@ export default function ClassSurveyPanel({
   onCreate,
   onUpdate,
   onDelete,
+  hideList = false,
+  autoOpenSurveyId = null,
+  autoOpenToken = 0,
 }: Props) {
   const [viewingSurvey, setViewingSurvey] = useState<ClassSurveyRecord | null>(null);
   const [editingSurvey, setEditingSurvey] = useState<ClassSurveyRecord | null>(null);
@@ -739,6 +745,14 @@ export default function ClassSurveyPanel({
     () => [...surveys].sort((a, b) => b.reportDate.localeCompare(a.reportDate)),
     [surveys],
   );
+
+  useEffect(() => {
+    if (!autoOpenSurveyId) return;
+    const survey = surveys.find((item) => item.id === autoOpenSurveyId);
+    if (!survey) return;
+    if (canManage) setEditingSurvey(survey);
+    else setViewingSurvey(survey);
+  }, [autoOpenSurveyId, autoOpenToken, surveys, canManage]);
 
   const runSave = async (
     action: () => Promise<unknown>,
@@ -778,12 +792,14 @@ export default function ClassSurveyPanel({
     }
   };
 
-  if (loading) {
+  if (loading && !hideList) {
     return <SurveyTableSkeleton />;
   }
 
   return (
     <div className={fetching ? "transition-opacity opacity-70" : "transition-opacity"}>
+      {!hideList ? (
+      <>
       {teachers.length === 0 && canManage ? (
         <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           Lớp chưa có gia sư phụ trách nên chưa thể tạo báo cáo khảo sát.
@@ -988,6 +1004,8 @@ export default function ClassSurveyPanel({
         <p className="mt-3 text-sm text-error" role="alert">
           Không tải được danh sách báo cáo khảo sát.
         </p>
+      ) : null}
+      </>
       ) : null}
 
       <SurveyFormDialog

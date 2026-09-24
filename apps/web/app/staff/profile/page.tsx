@@ -49,15 +49,12 @@ import { ROLE_LABELS } from "@/lib/staff.constants";
 import { pickAvatarUrl } from "@/lib/avatar";
 import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import { useAuth } from "@/context/AuthContext";
+import { formatVnDate } from "@/lib/formatters";
 
 function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDate(new Date(iso));
   } catch {
     return "—";
   }
@@ -1603,6 +1600,7 @@ export default function StaffSelfDetailPage() {
                           type="search"
                           value={workTypeSearch}
                           onChange={(e) => setWorkTypeSearch(e.target.value)}
+                          aria-label="Tìm công việc"
                           placeholder="Tìm công việc…"
                           className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         />
@@ -1663,7 +1661,7 @@ export default function StaffSelfDetailPage() {
                 />
               </label>
 
-              <label className="block">
+              <div className="block">
                 <span className="mb-1 block text-sm font-medium text-text-secondary">
                   Trạng thái thanh toán
                 </span>
@@ -1687,7 +1685,7 @@ export default function StaffSelfDetailPage() {
                     chỉnh nội dung khoản thưởng.
                   </p>
                 </div>
-              </label>
+              </div>
 
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-text-secondary">

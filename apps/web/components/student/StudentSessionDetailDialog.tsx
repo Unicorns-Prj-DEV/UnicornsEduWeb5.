@@ -8,14 +8,11 @@ import {
 import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { Badge } from "@/components/ui/badge";
 import MathContent from "@/components/ui/MathContent";
+import { attendanceStatusLabel } from "./StudentTimelineCards";
+import { formatVnWeekdayDate } from "@/lib/formatters";
 
 function formatDateTime(date: Date, startTime?: string | null, endTime?: string | null): string {
-  const d = new Intl.DateTimeFormat("vi-VN", {
-    weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(date));
+  const d = formatVnWeekdayDate(new Date(date));
 
   if (startTime && endTime) {
     return `${d} • ${startTime.slice(0, 5)} - ${endTime.slice(0, 5)}`;
@@ -50,7 +47,7 @@ export default function StudentSessionDetailDialog({
                 <Badge variant="default" className="text-xs">Buổi học</Badge>
                 {myAttendance?.status && (
                   <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                    Điểm danh: {myAttendance.status === "attended" ? "Có mặt" : myAttendance.status === "absent" ? "Vắng mặt" : myAttendance.status}
+                    Điểm danh: {attendanceStatusLabel(myAttendance.status)}
                   </span>
                 )}
               </div>

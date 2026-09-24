@@ -1,17 +1,17 @@
 import { api } from "@/lib/client";
+import { contentApiPaths } from "@/lib/content-api-paths";
 import type {
   StudentClassItem,
   StudentSessionItem,
   StudentSurveyItem,
-  StudentTopicItem,
 } from "@/dtos/student-class.dto";
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-}
+import type {
+  CourseLesson,
+  LessonQuizQuestion,
+  LessonQuizAnswer,
+  SubmitQuizAnswerPayload,
+} from "@/dtos/course-content.dto";
+import type { TheoryLessonViewDto } from "@/dtos/class-theory-progress.dto";
 
 export async function getMyClasses(): Promise<StudentClassItem[]> {
   const { data } = await api.get("/users/me/student-classes");
@@ -43,24 +43,57 @@ export async function getMyClassSurveys(
   return data;
 }
 
-export async function getMyClassTopics(
+export async function getMyClassLesson(
   classId: string,
-  page = 1,
-  limit = 20,
-): Promise<PaginatedResponse<StudentTopicItem>> {
+  lessonId: string,
+): Promise<CourseLesson> {
   const { data } = await api.get(
-    `/users/me/student-classes/${classId}/topics`,
-    { params: { page, limit } },
+    contentApiPaths.studentClassLesson(classId, lessonId),
   );
   return data;
 }
 
-export async function getMyClassTopic(
-  classId: string,
-  topicId: string,
-): Promise<StudentTopicItem> {
-  const { data } = await api.get(
-    `/users/me/student-classes/${classId}/topics/${topicId}`,
+export async function recordMyTheoryLessonView({
+  classId,
+  lessonId,
+}: {
+  classId: string;
+  lessonId: string;
+}): Promise<TheoryLessonViewDto> {
+  const { data } = await api.post(
+    contentApiPaths.studentClassLessonView(classId, lessonId),
   );
   return data;
+}
+
+export async function getMyLessonQuizzes(
+  classId: string,
+  lessonId: string,
+): Promise<LessonQuizQuestion[]> {
+  const { data } = await api.get(
+    contentApiPaths.studentLessonQuizzes(classId, lessonId),
+  );
+  return Array.isArray(data) ? data : [];
+}
+
+export async function submitMyQuizAnswers(
+  classId: string,
+  lessonId: string,
+  answers: SubmitQuizAnswerPayload[],
+): Promise<LessonQuizAnswer[]> {
+  const { data } = await api.post(
+    contentApiPaths.studentLessonQuizAnswers(classId, lessonId),
+    answers,
+  );
+  return data;
+}
+
+export async function getMyQuizAnswers(
+  classId: string,
+  lessonId: string,
+): Promise<LessonQuizAnswer[]> {
+  const { data } = await api.get(
+    contentApiPaths.studentLessonQuizAnswers(classId, lessonId),
+  );
+  return Array.isArray(data) ? data : [];
 }

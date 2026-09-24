@@ -30,9 +30,10 @@
     "db:generate": "prisma generate --schema=./prisma/schema/",
     "db:deploy": "sh -c 'if [ -n \"${DIRECT_URL:-}\" ]; then export DATABASE_URL=\"$DIRECT_URL\"; fi; prisma migrate deploy --schema=./prisma/schema/'",
     "db:migrate": "prisma migrate dev --schema=./prisma/schema/",
-    "sessions:list-missing-time": "pnpm dlx tsx scripts/list-sessions-missing-time.ts",
     "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
     "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
+    "sessions:list-missing-time": "pnpm dlx tsx scripts/list-sessions-missing-time.ts",
+    "seed:question-bank": "tsx scripts/seed-question-bank.ts",
     "db:delete-admins-except-official": "prisma db execute --file scripts/delete-admins-except-official.sql",
     "db:fix-users-columns": "prisma db execute --file scripts/fix-users-add-student-staff-id.sql"
   },
@@ -58,7 +59,7 @@
     "@supabase/supabase-js": "^2.102.1",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
-    "axios": "^1.13.6",
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -113,6 +114,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
@@ -131,13 +133,23 @@
     },
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)sx?$": "ts-jest"
+      "^.+\\.(t|j)sx?$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "allowJs": true
+          }
+        }
+      ]
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "transformIgnorePatterns": [
+      "node_modules/(?!.*@nestjs[+/]schedule)"
+    ]
   },
   "prisma": {
     "schema": "./prisma/schema/"

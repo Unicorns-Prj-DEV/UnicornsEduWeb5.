@@ -247,7 +247,7 @@ function SortableStaffRow({
       {editable ? (
         <button
           type="button"
-          className={`${iconBtnClass} cursor-grab active:cursor-grabbing`}
+          className={`${iconBtnClass} cursor-grab touch-none active:cursor-grabbing`}
           aria-label="Kéo để sắp xếp"
           disabled={busy}
           {...attributes}
@@ -374,7 +374,7 @@ function SortableStudentRow({
       {editable ? (
         <button
           type="button"
-          className={`${iconBtnClass} cursor-grab active:cursor-grabbing`}
+          className={`${iconBtnClass} cursor-grab touch-none active:cursor-grabbing`}
           aria-label="Kéo để sắp xếp"
           disabled={busy}
           {...attributes}
@@ -779,6 +779,7 @@ export default function AchievementListEditor({
               onChange={(e) => setNewTitle(e.target.value)}
               disabled={busy}
               className={`min-w-0 flex-1 ${fieldClass}`}
+              aria-label="Thêm thành tích mới"
               placeholder="Thêm thành tích mới…"
             />
             <label
@@ -832,6 +833,7 @@ export default function AchievementListEditor({
               }
               disabled={busy}
               className={fieldClass}
+              aria-label="Giải thưởng"
               placeholder="Giải thưởng"
             />
             <input
@@ -841,6 +843,7 @@ export default function AchievementListEditor({
               }
               disabled={busy}
               className={fieldClass}
+              aria-label="Kỳ thi"
               placeholder="Kỳ thi"
             />
             <input

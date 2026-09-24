@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent, Suspense } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -74,7 +74,7 @@ function UserListTableSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
-export default function AdminUsersPage() {
+function AdminUsersPageContent() {
   const queryClient = useQueryClient();
   const { replace } = useRouter();
   const pathname = usePathname();
@@ -498,7 +498,7 @@ export default function AdminUsersPage() {
                               title="Xóa user"
                               disabled={deleteMutation.isPending}
                               onClick={(e) => openDeleteFromList(u, e)}
-                              className="rounded-lg p-2 text-text-muted opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded-lg p-2 text-text-muted opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                               aria-label={`Xóa user ${u.accountHandle}`}
                             >
                               <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -568,5 +568,14 @@ export default function AdminUsersPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+export default function AdminUsersPage() {
+  // useSearchParams cần <Suspense>, nếu không Next.js sẽ bỏ static render cả route.
+  return (
+    <Suspense fallback={null}>
+      <AdminUsersPageContent />
+    </Suspense>
   );
 }

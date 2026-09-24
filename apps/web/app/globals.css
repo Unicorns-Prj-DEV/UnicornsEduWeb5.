@@ -15,6 +15,10 @@
   --ue-bg-surface: #FFFFFF;
   --ue-bg-elevated: #FFFFFF;
 
+  /* Panel tối cố định (thẻ số dư ví học phí) — luôn tối ở mọi theme */
+  --ue-panel-inverse: #0F172A;
+  --ue-panel-inverse-fg: #FFFFFF;
+
   --ue-text-primary: #0F172A;
   --ue-text-secondary: #334155;
   --ue-text-muted: #64748B;
@@ -63,6 +67,9 @@
   --ue-bg-surface: #1F2937;
   --ue-bg-elevated: #273449;
 
+  --ue-panel-inverse: #0B1220;
+  --ue-panel-inverse-fg: #F8FAFC;
+
   --ue-text-primary: #F1F5F9;
   --ue-text-secondary: #CBD5E1;
   --ue-text-muted: #94A3B8;
@@ -105,6 +112,9 @@
   --ue-bg-surface: #FFFFFF;
   --ue-bg-elevated: #FFF1F5;
 
+  --ue-panel-inverse: #3B0D33;
+  --ue-panel-inverse-fg: #FFF5F7;
+
   --ue-text-primary: #4A1942;
   --ue-text-secondary: #831843;
   --ue-text-muted: #9D174D;
@@ -139,6 +149,9 @@
   --color-bg-elevated: var(--ue-bg-elevated);
 
   /* Text */
+  --color-panel-inverse: var(--ue-panel-inverse);
+  --color-panel-inverse-fg: var(--ue-panel-inverse-fg);
+
   --color-text-primary: var(--ue-text-primary);
   --color-text-secondary: var(--ue-text-secondary);
   --color-text-muted: var(--ue-text-muted);

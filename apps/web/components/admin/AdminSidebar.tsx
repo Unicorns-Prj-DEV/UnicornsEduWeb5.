@@ -34,6 +34,11 @@ const MENU_ITEMS: {
   { href: "/admin/staffs", label: "Nhân sự", icon: <IconStaff /> },
   { href: "/admin/classes", label: "Lớp học", icon: <IconClasses /> },
   {
+    href: "/admin/courses",
+    label: "Nội dung khoá",
+    icon: <IconExamLibrary />,
+  },
+  {
     href: "/admin/surveys",
     label: "Khảo sát",
     icon: <IconSurveys />,
@@ -207,6 +212,19 @@ function IconCalendar() {
   );
 }
 
+function IconExamLibrary() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+      />
+    </svg>
+  );
+}
+
 export default function AdminSidebar() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -361,7 +379,7 @@ export default function AdminSidebar() {
               variant="navbar"
               showWordmark={!compact}
               dense={compact}
-              className="w-full min-w-0 transition-all duration-300 ease-out"
+              className="w-full min-w-0 transition-[width,opacity] duration-300 ease-out"
               wordmarkClassName="truncate"
             />
           </div>

@@ -9,6 +9,10 @@ import {
   SessionCreatePayload,
   SessionItem,
 } from "@/dtos/session.dto";
+import {
+  CONTENT_LIMITS,
+  firstOverLimit,
+} from "@/dtos/content-limits";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as sessionApi from "@/lib/apis/session.api";
 import { formatCurrency } from "@/lib/class.helpers";
@@ -205,7 +209,6 @@ function normalizeTimeInput(value: string): string {
   return `${h}:${m}:${s}`;
 }
 
-const MAX_ATTENDANCE_NOTES_LENGTH = 500;
 function toAttendancePayload(
   items: AttendanceFormItem[],
   includeTuition: boolean,
@@ -253,12 +256,15 @@ function resolveSelectedTeacherId(options: {
   return "";
 }
 
+/** Tham chiếu ổn định: default `[]` inline tạo mảng mới mỗi render, phá memo. */
+const EMPTY_TEACHERS: SessionTeacherItem[] = [];
+
 export default function AddSessionPopup({
   open,
   classId,
   className = "",
   defaultTeacherId,
-  teachers = [],
+  teachers = EMPTY_TEACHERS,
   students,
   sessionTuitionTotal = 0,
   classPricing,
@@ -296,13 +302,11 @@ export default function AddSessionPopup({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
-  const [selectedTeacherId, setSelectedTeacherId] = useState(
-    resolveSelectedTeacherId({
+  const [selectedTeacherId, setSelectedTeacherId] = useState(() => resolveSelectedTeacherId({
       defaultTeacherId,
       teacherMode,
       teachers,
-    }),
-  );
+    }),);
   const [attendanceItems, setAttendanceItems] = useState<AttendanceFormItem[]>(() =>
     students.map((student) => ({
       studentId: student.id,
@@ -479,11 +483,18 @@ export default function AddSessionPopup({
       return sessionTuitionTotal;
     }
 
+    if (noAttendance) {
+      return previewAttendanceItems.reduce(
+        (sum, item) => sum + (normalizeMoneyValue(item.defaultTuitionFee) ?? 0),
+        0,
+      );
+    }
+
     return previewAttendanceItems.reduce(
       (sum, item) => sum + resolveAttendanceTuitionValue(item),
       0,
     );
-  }, [previewAttendanceItems, sessionTuitionTotal]);
+  }, [previewAttendanceItems, sessionTuitionTotal, noAttendance]);
   const attendanceDefaultTuitionTotal = useMemo(
     () =>
       previewAttendanceItems.reduce(
@@ -524,9 +535,11 @@ export default function AddSessionPopup({
 
   const chargeableAttendanceCount = useMemo(
     () =>
-      attendanceItems.filter((item) => isChargeableAttendanceStatus(item.status))
-        .length,
-    [attendanceItems],
+      noAttendance
+        ? attendanceItems.length
+        : attendanceItems.filter((item) => isChargeableAttendanceStatus(item.status))
+            .length,
+    [attendanceItems, noAttendance],
   );
 
   const allowanceRawBasePreview = useMemo(() => {
@@ -693,6 +706,33 @@ export default function AddSessionPopup({
       return;
     }
 
+    const sessionTextTooLong = firstOverLimit([
+      {
+        label: "Nội dung bài học",
+        value: trimmedLessonContent,
+        max: CONTENT_LIMITS.sessionRichText,
+      },
+      {
+        label: "Bài tập về nhà",
+        value: trimmedHomework,
+        max: CONTENT_LIMITS.sessionRichText,
+      },
+      {
+        label: "Tutorial",
+        value: trimmedTutorial,
+        max: CONTENT_LIMITS.sessionRichText,
+      },
+      {
+        label: "Link recording",
+        value: recordingUrl.trim(),
+        max: CONTENT_LIMITS.url,
+      },
+    ]);
+    if (sessionTextTooLong) {
+      toast.error(sessionTextTooLong);
+      return;
+    }
+
     if (recordingUrl.trim() && !extractYouTubeVideoId(recordingUrl.trim())) {
       setRecordingUrlError("Link video YouTube không hợp lệ.");
       toast.error("Link video YouTube không hợp lệ.");
@@ -709,11 +749,11 @@ export default function AddSessionPopup({
       }
 
       const hasAttendanceNotesTooLong = attendanceItems.some(
-        (item) => item.notes.trim().length > MAX_ATTENDANCE_NOTES_LENGTH,
+        (item) => item.notes.trim().length > CONTENT_LIMITS.attendanceNotes,
       );
 
       if (hasAttendanceNotesTooLong) {
-        toast.error(`Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`);
+        toast.error(`Ghi chú điểm danh tối đa ${CONTENT_LIMITS.attendanceNotes} ký tự.`);
         return;
       }
 
@@ -809,7 +849,7 @@ export default function AddSessionPopup({
       <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SessionFormDialogBody>
                   <div className="space-y-5">
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>
                         Ngày học <RequiredMark />
                       </span>
@@ -821,7 +861,7 @@ export default function AddSessionPopup({
                         className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         required
                       />
-                    </label>
+                    </div>
 
                     <div>
                       <p className="mb-1.5 text-sm font-medium text-text-primary">
@@ -863,7 +903,7 @@ export default function AddSessionPopup({
                     </div>
 
                     {teacherMode === "select" ? (
-                      <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>
                           Gia sư dạy <RequiredMark />
                         </span>
@@ -881,7 +921,7 @@ export default function AddSessionPopup({
                         <span className="text-xs font-normal text-text-muted">
                           Chỉ hiển thị gia sư đã được phân công phụ trách lớp này.
                         </span>
-                      </label>
+                      </div>
                     ) : (
                       <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>

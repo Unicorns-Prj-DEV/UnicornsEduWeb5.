@@ -80,6 +80,9 @@ describe('ClassService', () => {
       createMany: jest.fn(),
       create: jest.fn(),
     },
+    course: {
+      findUnique: jest.fn(),
+    },
     classScheduleEntry: {
       findMany: jest.fn(),
       updateMany: jest.fn(),
@@ -158,7 +161,7 @@ describe('ClassService', () => {
     mockTx.class.create.mockResolvedValue({
       id: 'class-1',
       name: 'Math 10A',
-      classCategoryId: 'basic-category-id',
+      courseId: 'basic-category-id',
       status: ClassStatus.running,
       maxStudents: null,
       allowancePerSessionPerStudent: null,
@@ -174,7 +177,7 @@ describe('ClassService', () => {
     mockTx.class.findUnique.mockResolvedValue({
       id: 'class-1',
       name: 'Math 10A',
-      classCategoryId: 'basic-category-id',
+      courseId: 'basic-category-id',
       status: ClassStatus.running,
       maxStudents: null,
       allowancePerSessionPerStudent: null,
@@ -464,14 +467,14 @@ describe('ClassService', () => {
 
       await service.createClassForStaff('user-1', UserRole.staff, {
         name: 'Math 10A',
-        class_category_id: 'basic-category-id',
+        course_id: 'basic-category-id',
         status: 'running',
       } as never);
 
       expect(createClassSpy).toHaveBeenCalledWith(
         {
           name: 'Math 10A',
-          class_category_id: 'basic-category-id',
+          course_id: 'basic-category-id',
           status: 'running',
           schedule: undefined,
         },
@@ -488,7 +491,7 @@ describe('ClassService', () => {
       await expect(
         service.createClassForStaff('user-1', UserRole.staff, {
           name: 'Math 10A',
-          class_category_id: 'basic-category-id',
+          course_id: 'basic-category-id',
           status: 'running',
         } as never),
       ).rejects.toThrow('Giáo viên không được phép tạo lớp học.');
@@ -497,10 +500,14 @@ describe('ClassService', () => {
 
   describe('createClass', () => {
     it('returns selected students in the created class detail', async () => {
+      mockTx.course.findUnique.mockResolvedValue({
+        id: 'basic-category-id',
+        defaultDurationDays: null,
+      });
       mockTx.class.create.mockResolvedValue({
         id: 'class-1',
         name: 'Math 10A',
-        classCategoryId: 'basic-category-id',
+        courseId: 'basic-category-id',
         status: ClassStatus.running,
         maxStudents: 12,
         allowancePerSessionPerStudent: null,
@@ -516,7 +523,7 @@ describe('ClassService', () => {
       mockTx.class.findUnique.mockResolvedValue({
         id: 'class-1',
         name: 'Math 10A',
-        classCategoryId: 'basic-category-id',
+        courseId: 'basic-category-id',
         status: ClassStatus.running,
         maxStudents: 12,
         allowancePerSessionPerStudent: null,
@@ -548,7 +555,7 @@ describe('ClassService', () => {
 
       const result = await service.createClass({
         name: 'Math 10A',
-        class_category_id: 'basic-category-id',
+        course_id: 'basic-category-id',
         status: ClassStatus.running,
         max_students: 12,
         student_tuition_per_session: 250000,

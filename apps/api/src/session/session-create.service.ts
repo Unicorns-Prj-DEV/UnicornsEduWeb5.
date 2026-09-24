@@ -10,6 +10,7 @@ import {
   StudentClassStatus,
   UserRole,
   WalletTransactionType,
+  ClassTimelineItemKind,
 } from '../../generated/enums';
 import {
   ActionHistoryActor,
@@ -29,6 +30,12 @@ import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
 import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
 import { resolveLiveSessionAllowanceSnapshots } from './session-allowance.util';
+import {
+  computeDefaultSessionAllowanceAmountVnd,
+  resolveSnapshotPerStudentAllowanceVnd,
+  resolveSnapshotScaleAmountVnd,
+} from './session-allowance.util';
+import { appendClassTimelineItem } from '../class-timeline/append-timeline-item';
 import {
   presentCustomAllowanceAsPerSession,
   standardBlockCountFromSlots,
@@ -136,6 +143,7 @@ export class SessionCreateService {
               class: {
                 select: {
                   name: true,
+                  noAttendance: true,
                   pricingMode: true,
                   noAttendance: true,
                   allowancePerSessionPerStudent: true,
@@ -598,6 +606,12 @@ export class SessionCreateService {
               afterValue,
             });
           }
+
+          await appendClassTimelineItem(tx, {
+            classId: data.classId,
+            kind: ClassTimelineItemKind.session,
+            sessionId: createdSession.id,
+          });
 
           return createdSession;
         },

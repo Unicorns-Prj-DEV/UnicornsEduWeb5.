@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QrCodeIcon } from "@heroicons/react/24/outline";
@@ -103,7 +103,7 @@ function formatActiveClassNames(
   return names.length > 0 ? names.join(", ") : "Chưa xếp lớp";
 }
 
-export default function AdminStudentsPage() {
+function AdminStudentsPageContent() {
   const { push, replace } = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -786,7 +786,7 @@ export default function AdminStudentsPage() {
                                 title="Xóa học sinh"
                                 disabled={deleteMutation.isPending}
                                 onClick={() => openDeleteConfirm(student.id, student.fullName?.trim() || "")}
-                                className="rounded-lg p-2 text-text-muted opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                                className="rounded-lg p-2 text-text-muted opacity-0 transition-[opacity,background-color,color] duration-200 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                                 aria-label={`Xóa học sinh ${student.fullName?.trim() || ""}`}
                               >
                                 <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -896,5 +896,14 @@ export default function AdminStudentsPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function AdminStudentsPage() {
+  // useSearchParams cần <Suspense>, nếu không Next.js sẽ bỏ static render cả route.
+  return (
+    <Suspense fallback={null}>
+      <AdminStudentsPageContent />
+    </Suspense>
   );
 }

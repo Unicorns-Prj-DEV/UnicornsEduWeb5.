@@ -23,7 +23,7 @@ export default function StudentHeader() {
   });
 
   const logoutMutation = useMutation({
-    mutationFn: () => authApi.logout(),
+    mutationFn: () => authApi.studentLogout(),
     onSuccess: async () => {
       clearLogoutScopedQueries(queryClient);
       toast.success("Đã đăng xuất");
@@ -43,7 +43,7 @@ export default function StudentHeader() {
   const avatarInitial = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border-default bg-bg-surface/90 backdrop-blur-md transition-colors">
+    <header className="sticky top-0 z-40 w-full shrink-0 border-b border-border-default bg-bg-surface/90 backdrop-blur-md transition-colors">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Left: Brand Logo */}
         <div className="flex items-center gap-6">

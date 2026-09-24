@@ -35,6 +35,7 @@ import {
 import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
 import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
+import { syncClassTimelineSortByTime } from '../class-timeline/append-timeline-item';
 import {
   computeDefaultSessionAllowanceAmountVnd,
   hasSessionAllowanceSnapshots,
@@ -1503,6 +1504,13 @@ export class SessionUpdateService {
               });
             }),
           );
+        }
+
+        if (
+          sessionDate !== undefined ||
+          sessionStartTime !== undefined
+        ) {
+          await syncClassTimelineSortByTime(tx, nextClassId);
         }
 
         const updatedSession = await tx.session.findUnique({

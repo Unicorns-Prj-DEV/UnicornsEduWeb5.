@@ -11,6 +11,10 @@ import {
   SessionAttendanceRecord,
   SessionUpdatePayload,
 } from "@/dtos/session.dto";
+import {
+  CONTENT_LIMITS,
+  firstOverLimit,
+} from "@/dtos/content-limits";
 
 type SessionAttendanceRecordWithStudent = SessionAttendanceRecord & {
   student?: { fullName?: string | null } | null;
@@ -124,6 +128,9 @@ type Props = {
     data: SessionUpdatePayload,
   ) => Promise<SessionItem>;
   deleteSessionFn?: (id: string) => Promise<void>;
+  hideList?: boolean;
+  autoOpenSessionId?: string | null;
+  autoOpenToken?: number;
 };
 
 type AttendanceFormItem = {
@@ -155,8 +162,6 @@ function mapSessionAttendanceToFormItems(
     defaultTuitionFee: normalizeMoneyValue(attendanceItem.tuitionFee),
   }));
 }
-
-const MAX_ATTENDANCE_NOTES_LENGTH = 500;
 
 function formatDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -217,7 +222,7 @@ function renderClassDetailSessionTime(session: SessionItem): string {
   return start !== "—" ? start : end;
 }
 
-function ClassDetailDateTimeBlock({ session }: { session: SessionItem }) {
+export function ClassDetailDateTimeBlock({ session }: { session: SessionItem }) {
   return (
     <div className="flex min-w-[5.5rem] flex-col gap-0.5 text-left">
       <p className="text-xs leading-tight text-text-secondary">
@@ -274,7 +279,7 @@ function renderSessionDeleteSummary(session: SessionItem): string {
   return time !== "—" ? `${date} (${time})` : date;
 }
 
-function renderSessionStatus(
+export function renderSessionStatus(
   session: SessionItem,
   statusMode: SessionStatusMode,
 ): { label: string; className: string } {
@@ -640,7 +645,7 @@ function SelectionCheckbox({
       />
       {checked ? (
         <span
-          className="pointer-events-none absolute left-1/2 top-1/2 z-0 size-[1.45rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-success/35 bg-success shadow-[0_0_0_4px_color-mix(in_srgb,var(--ue-success)_12%,transparent),0_12px_26px_-14px_color-mix(in_srgb,var(--ue-success)_70%,transparent)] transition-all duration-200 motion-reduce:transition-none"
+          className="pointer-events-none absolute left-1/2 top-1/2 z-0 size-[1.45rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-success/35 bg-success shadow-[0_0_0_4px_color-mix(in_srgb,var(--ue-success)_12%,transparent),0_12px_26px_-14px_color-mix(in_srgb,var(--ue-success)_70%,transparent)] transition-colors duration-200 motion-reduce:transition-none"
           aria-hidden
         />
       ) : null}
@@ -700,7 +705,7 @@ function renderCoefficientLabel(raw: unknown): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
-function ClassDetailInfoColumn({
+export function ClassDetailInfoColumn({
   session,
   entityMode,
   status,
@@ -827,6 +832,9 @@ export default function SessionHistoryTable({
   showTrainingManagerAllowance = false,
   updateSessionFn = sessionApi.updateSession,
   deleteSessionFn = sessionApi.deleteSession,
+  hideList = false,
+  autoOpenSessionId = null,
+  autoOpenToken = 0,
 }: Props) {
   const isWideEditor = editorLayout === "wide";
   const showActionsColumn = showActionsColumnProp ?? Boolean(onSessionUpdated);
@@ -873,6 +881,7 @@ export default function SessionHistoryTable({
     [],
   );
   const attendanceDirtyRef = useRef(false);
+  const openedTimelineTokenRef = useRef(0);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
     new Set(),
@@ -1198,6 +1207,18 @@ export default function SessionHistoryTable({
     loadAttendanceForEdit(session);
   };
 
+  useEffect(() => {
+    if (!autoOpenSessionId || !autoOpenToken) return;
+    if (openedTimelineTokenRef.current === autoOpenToken) return;
+    const session = sessions.find((item) => item.id === autoOpenSessionId);
+    if (!session) return;
+    openedTimelineTokenRef.current = autoOpenToken;
+    openEdit(session);
+    // openEdit is recreated each render; open once per click token after the
+    // month-scoped session list arrives (timeline click fetches that list lazily).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenSessionId, autoOpenToken, sessions]);
+
   const closeEdit = useCallback(() => {
     setEditingSession(null);
     setEditRecordingUrl("");
@@ -1304,6 +1325,32 @@ export default function SessionHistoryTable({
       toast.error("Vui lòng nhập tutorial các buổi học.");
       return;
     }
+    const sessionTextTooLong = firstOverLimit([
+      {
+        label: "Nội dung bài học",
+        value: editLessonContent,
+        max: CONTENT_LIMITS.sessionRichText,
+      },
+      {
+        label: "Bài tập về nhà",
+        value: editHomework,
+        max: CONTENT_LIMITS.sessionRichText,
+      },
+      {
+        label: "Tutorial",
+        value: editTutorial,
+        max: CONTENT_LIMITS.sessionRichText,
+      },
+      {
+        label: "Link recording",
+        value: editRecordingUrl.trim(),
+        max: CONTENT_LIMITS.url,
+      },
+    ]);
+    if (sessionTextTooLong) {
+      toast.error(sessionTextTooLong);
+      return;
+    }
     const missingStudentComments = findStudentsMissingRequiredComments(
       attendanceItems,
     );
@@ -1312,11 +1359,11 @@ export default function SessionHistoryTable({
       return;
     }
     const hasAttendanceNotesTooLong = attendanceItems.some(
-      (item) => item.notes.length > MAX_ATTENDANCE_NOTES_LENGTH,
+      (item) => item.notes.length > CONTENT_LIMITS.attendanceNotes,
     );
     if (hasAttendanceNotesTooLong) {
       toast.error(
-        `Ghi chú điểm danh tối đa ${MAX_ATTENDANCE_NOTES_LENGTH} ký tự.`,
+        `Ghi chú điểm danh tối đa ${CONTENT_LIMITS.attendanceNotes} ký tự.`,
       );
       return;
     }
@@ -1843,7 +1890,7 @@ export default function SessionHistoryTable({
 
       {/* Mobile layout: card list */}
       <div
-        className={`${isClassDetailRowLayout ? "space-y-2" : "space-y-3"} ${className} lg:hidden`}
+        className={`${isClassDetailRowLayout ? "space-y-2" : "space-y-3"} ${className} lg:hidden ${hideList ? "hidden" : ""}`}
       >
         {sessions.length > 0 ? (
           sessions.map((session) => {
@@ -2119,7 +2166,7 @@ export default function SessionHistoryTable({
       </div>
 
       {/* Desktop / tablet layout: table */}
-      <div className={`hidden overflow-x-auto lg:block ${className}`}>
+      <div className={`hidden overflow-x-auto lg:block ${className} ${hideList ? "!hidden" : ""}`}>
         {isClassDetailRowLayout ? (
           <table className="w-full min-w-[880px] border-collapse text-left text-sm">
             <caption className="sr-only">Lịch sử buổi học</caption>
@@ -2782,7 +2829,7 @@ export default function SessionHistoryTable({
 
         <SessionFormDialogBody>
           <div className="space-y-5">
-                      <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                         <span>
                           Ngày học <RequiredMark />
                         </span>
@@ -2794,7 +2841,7 @@ export default function SessionHistoryTable({
                           disabled={readOnlySessionDetails}
                           className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         />
-                      </label>
+                      </div>
 
                       <div>
                         <p className="mb-1.5 text-sm font-medium text-text-primary">
@@ -3034,7 +3081,7 @@ export default function SessionHistoryTable({
                       </section>
                     ) : null}
 
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>
                         Nội dung bài học <RequiredMark />
                       </span>
@@ -3057,7 +3104,7 @@ export default function SessionHistoryTable({
                           {lessonContentError}
                         </span>
                       ) : null}
-                    </label>
+                    </div>
 
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>

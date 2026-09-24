@@ -33,7 +33,7 @@ export default function StaffLayout({
           <StaffSidebar />
           <main
             id="staff-main-content"
-            className="min-w-0 flex-1 overflow-auto px-4 pb-4 pt-16 md:py-4 md:pt-4 lg:px-6 lg:py-6"
+            className="flex min-w-0 flex-1 flex-col overflow-auto px-4 pb-4 pt-16 md:py-4 md:pt-4 lg:px-6 lg:py-6"
           >
             {children}
           </main>

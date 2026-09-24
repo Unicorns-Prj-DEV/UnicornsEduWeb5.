@@ -42,7 +42,7 @@ import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
-import { classCategoryKeys } from "@/lib/query-keys";
+import { courseKeys } from "@/lib/query-keys";
 import type {
   CreateSurveyPayload,
   SurveyRecord,
@@ -494,7 +494,7 @@ const CLASS_PICKER_FULL_FETCH_LIMIT = 100;
 
 async function fetchAllMatchingClasses(params: {
   search?: string;
-  classCategoryId?: string;
+  courseId?: string;
   total: number;
 }): Promise<{ id: string; name: string }[]> {
   const pageCount = Math.max(
@@ -507,7 +507,7 @@ async function fetchAllMatchingClasses(params: {
         page: index + 1,
         limit: CLASS_PICKER_FULL_FETCH_LIMIT,
         search: params.search,
-        classCategoryId: params.classCategoryId || undefined,
+        courseId: params.courseId || undefined,
       }),
     ),
   );
@@ -534,19 +534,19 @@ function ClassExclusionDialog({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const { data: classCategories = [] } = useQuery({
-    queryKey: classCategoryKeys.list(),
-    queryFn: () => classApi.getClassCategories(),
+  const { data: courses = [] } = useQuery({
+    queryKey: courseKeys.list(),
+    queryFn: () => classApi.getCourses(),
   });
   const classTypeFilterOptions = useMemo(
     () => [
       { value: "", label: "Tất cả loại lớp" },
-      ...classCategories.map((category) => ({
-        value: category.id,
-        label: category.name,
+      ...courses.map((course) => ({
+        value: course.id,
+        label: course.name,
       })),
     ],
-    [classCategories],
+    [courses],
   );
   const [selectingAll, setSelectingAll] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -571,7 +571,7 @@ function ClassExclusionDialog({
         page: pageParam,
         limit: CLASS_PICKER_PAGE_SIZE,
         search: debouncedSearch || undefined,
-        classCategoryId: typeFilter || undefined,
+        courseId: typeFilter || undefined,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
@@ -617,9 +617,11 @@ function ClassExclusionDialog({
 
   if (!open) return null;
 
+  // Set: danh sách lớp có thể tới hàng nghìn, tra cứu O(1) thay vì quét mảng.
+  const selectedIdSet = new Set(selectedIds);
   const allLoadedSelected =
-    items.length > 0 && items.every((item) => selectedIds.includes(item.id));
-  const someLoadedSelected = items.some((item) => selectedIds.includes(item.id));
+    items.length > 0 && items.every((item) => selectedIdSet.has(item.id));
+  const someLoadedSelected = items.some((item) => selectedIdSet.has(item.id));
 
   const handleSelectAll = async () => {
     if (totalCount === 0 || selectingAll) return;
@@ -627,7 +629,7 @@ function ClassExclusionDialog({
     try {
       const matching = await fetchAllMatchingClasses({
         search: debouncedSearch || undefined,
-        classCategoryId: typeFilter,
+        courseId: typeFilter,
         total: totalCount,
       });
       onNamesLoaded(matching);
@@ -674,6 +676,7 @@ function ClassExclusionDialog({
           type="text"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          aria-label="Tìm lớp cần loại trừ"
           placeholder="Tìm lớp cần loại trừ…"
           autoFocus
           className="w-full flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none"
@@ -717,7 +720,7 @@ function ClassExclusionDialog({
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-secondary"
               >
                 <SelectionCheckbox
-                  checked={selectedIds.includes(item.id)}
+                  checked={selectedIdSet.has(item.id)}
                   onChange={() => onToggle(item.id)}
                   ariaLabel={`Chọn ${item.name}`}
                 />
@@ -862,10 +865,10 @@ function SurveyFormDialog({
 }) {
   const [name, setName] = useState(survey?.name ?? "");
   const [startDate, setStartDate] = useState(
-    survey?.startDate?.slice(0, 10) ?? getTodayInputValue(),
+    () => survey?.startDate?.slice(0, 10) ?? getTodayInputValue(),
   );
   const [endDate, setEndDate] = useState(
-    survey?.endDate?.slice(0, 10) ?? getTodayInputValue(),
+    () => survey?.endDate?.slice(0, 10) ?? getTodayInputValue(),
   );
   const [notificationContent, setNotificationContent] = useState(
     survey?.notificationContent ?? "",
@@ -1333,6 +1336,7 @@ function SurveyClassesDialog({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Tìm lớp, gia sư"
             placeholder="Tìm lớp, gia sư…"
             className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs text-text-primary focus:border-border-focus focus:outline-none sm:w-48"
           />

@@ -33,7 +33,11 @@ import { DeductionSettingsModule } from './deduction-settings/deduction-settings
 import { FixedSalarySettingsModule } from './fixed-salary-settings/fixed-salary-settings.module';
 import { AchievementModule } from './achievements/achievement.module';
 import { StudentGalleryModule } from './student-gallery/student-gallery.module';
-import { TopicModule } from './topic/topic.module';
+import { DeviceModule } from './device/device.module';
+import { QuestionModule } from './question/question.module';
+import { AttemptModule } from './attempt/attempt.module';
+import { ClassTimelineModule } from './class-timeline/class-timeline.module';
+import { CourseContentModule } from './course-content/course-content.module';
 
 function parsePositiveIntegerEnv(
   value: string | undefined,
@@ -50,6 +54,10 @@ function parsePositiveIntegerEnv(
 
 @Module({
   imports: [
+    ScheduleModule.forRoot({
+      // Jest boots AppModule in e2e; keep cron timers off so existing tests stay isolated.
+      cronJobs: process.env.NODE_ENV !== 'test',
+    }),
     ThrottlerModule.forRoot([
       {
         ttl: parsePositiveIntegerEnv(
@@ -91,7 +99,11 @@ function parsePositiveIntegerEnv(
     FixedSalarySettingsModule,
     AchievementModule,
     StudentGalleryModule,
-    TopicModule,
+    DeviceModule,
+    QuestionModule,
+    CourseContentModule,
+    AttemptModule,
+    ClassTimelineModule,
   ],
   controllers: [AppController],
   providers: [

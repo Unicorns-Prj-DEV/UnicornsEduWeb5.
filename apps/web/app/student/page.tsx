@@ -1,27 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  StudentBalancePopup,
-  StudentWalletCard,
-  StudentWalletHistoryPopup,
-} from "@/components/admin/student";
 import { StudentDashboardSkeleton } from "@/components/student/StudentDashboardSkeleton";
 import OjProgressSection from "@/components/student/OjProgressSection";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
-import type {
-  StudentSelfClassItem,
-  StudentSelfDetail,
-  StudentStatus,
-} from "@/dtos/student.dto";
+import type { StudentSelfDetail, StudentStatus } from "@/dtos/student.dto";
+import { getMyStudentDetail } from "@/lib/apis/auth.api";
 import {
-  getMyStudentSePayStaticQr,
-  getMyStudentDetail,
-  getMyStudentWalletHistory,
-} from "@/lib/apis/auth.api";
-import { formatCurrency } from "@/lib/class.helpers";
+  formatTuitionPackage,
+  formatTuitionPerSession,
+  getClassStatusLabel,
+  getTuitionSourceClass,
+  getTuitionSourceLabel,
+} from "@/lib/student-tuition.helpers";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
@@ -29,69 +22,11 @@ const STATUS_LABELS: Record<StudentStatus, string> = {
   inactive: "Ngừng theo dõi",
 };
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
-  } catch {
-    return "—";
-  }
-}
-
 function normalizeStatus(status?: StudentStatus): StudentStatus {
   return status === "inactive" ? "inactive" : "active";
 }
 
-function getClassStatusLabel(status?: StudentSelfClassItem["class"]["status"]): string {
-  if (status === "running") return "Đang mở";
-  if (status === "ended") return "Đã kết thúc";
-  return "—";
-}
-
-function getTuitionSourceLabel(source?: StudentSelfClassItem["tuitionPackageSource"]): string {
-  if (source === "custom") return "Mức riêng";
-  if (source === "class") return "Theo lớp";
-  return "Chưa thiết lập";
-}
-
-function getTuitionSourceClass(source?: StudentSelfClassItem["tuitionPackageSource"]): string {
-  if (source === "custom") {
-    return "bg-primary/10 text-primary ring-primary/20";
-  }
-  if (source === "class") {
-    return "bg-info/10 text-info ring-info/20";
-  }
-  return "bg-bg-tertiary text-text-secondary ring-border-default";
-}
-
-function formatTuitionPerSession(value?: number | null): string {
-  return value != null ? formatCurrency(value) : "Chưa thiết lập";
-}
-
-function formatTuitionPackage(item: StudentSelfClassItem): string {
-  if (
-    item.effectiveTuitionPackageTotal != null &&
-    item.effectiveTuitionPackageSession != null
-  ) {
-    return `${formatCurrency(item.effectiveTuitionPackageTotal)} / ${item.effectiveTuitionPackageSession} buổi`;
-  }
-  if (item.effectiveTuitionPackageTotal != null) {
-    return formatCurrency(item.effectiveTuitionPackageTotal);
-  }
-  if (item.effectiveTuitionPackageSession != null) {
-    return `${item.effectiveTuitionPackageSession} buổi`;
-  }
-  return "Không áp dụng";
-}
-
 export default function StudentSelfPage() {
-  const [balancePopupMode, setBalancePopupMode] = useState<"topup" | "withdraw" | null>(null);
-  const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
-
   const {
     data: student,
     isLoading,
@@ -103,18 +38,6 @@ export default function StudentSelfPage() {
     queryFn: getMyStudentDetail,
     retry: false,
     staleTime: 60_000,
-  });
-
-  const {
-    data: sePayStaticQr,
-    isLoading: isSePayStaticQrLoading,
-    error: sePayStaticQrError,
-  } = useQuery({
-    queryKey: ["student", "self", "sepay-static-qr"],
-    queryFn: getMyStudentSePayStaticQr,
-    enabled: balancePopupMode === "topup" && Boolean(student?.id),
-    retry: false,
-    staleTime: 5 * 60_000,
   });
 
   const classItems = useMemo(
@@ -157,40 +80,9 @@ export default function StudentSelfPage() {
 
   const normalizedStatus = normalizeStatus(student.status);
   const initials = (student.fullName?.trim() || student.email || "?").charAt(0).toUpperCase();
-  const sePayStaticQrErrorMessage =
-    (sePayStaticQrError as { response?: { data?: { message?: string } } } | null)?.response?.data?.message ??
-    (sePayStaticQrError ? "Không tải được QR SePay. Vui lòng thử lại sau." : null);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
-      {/* Balance popup */}
-      <StudentBalancePopup
-        key={`${student.id}-${balancePopupMode ?? "closed"}`}
-        open={balancePopupMode !== null}
-        mode={balancePopupMode ?? "topup"}
-        student={{
-          id: student.id,
-          fullName: student.fullName,
-          accountBalance: student.accountBalance,
-        }}
-        directBalanceChangeEnabled={false}
-        sePayStaticQr={sePayStaticQr ?? null}
-        isSePayStaticQrLoading={isSePayStaticQrLoading}
-        sePayStaticQrErrorMessage={sePayStaticQrErrorMessage}
-        onClose={() => setBalancePopupMode(null)}
-      />
-
-      {/* Wallet transactions history popup */}
-      <StudentWalletHistoryPopup
-        key={`${student.id}-${walletHistoryOpen ? "open" : "closed"}`}
-        open={walletHistoryOpen}
-        studentId={student.id}
-        studentName={student.fullName || "học sinh"}
-        currentBalance={student.accountBalance ?? 0}
-        onClose={() => setWalletHistoryOpen(false)}
-        loadTransactions={({ limit }) => getMyStudentWalletHistory({ limit })}
-      />
-
       <QueryRefreshStrip
         active={isStudentFetching && !isLoading}
         label="Đang đồng bộ dữ liệu học sinh mới nhất…"
@@ -222,44 +114,28 @@ export default function StudentSelfPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/user-profile"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none"
             >
               <svg className="size-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               Hồ sơ & Lịch thi
             </Link>
+            <Link
+              href="/student/tuition"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none"
+            >
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h4m-7 4h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Học phí
+            </Link>
           </div>
         </div>
       </header>
-
-      {/* Top summary & Wallet card */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <StudentWalletCard
-            balance={student.accountBalance ?? 0}
-            onTopUp={() => setBalancePopupMode("topup")}
-            onOpenHistory={() => setWalletHistoryOpen(true)}
-          />
-        </div>
-
-        <div className="flex flex-col justify-between gap-3 rounded-2xl border border-border-default bg-bg-surface p-5 shadow-sm">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Lớp đang tham gia
-            </p>
-            <p className="mt-2 text-2xl font-bold text-text-primary">
-              {classItems.length} <span className="text-sm font-normal text-text-muted">lớp học</span>
-            </p>
-          </div>
-          <div className="border-t border-border-subtle pt-3 text-xs text-text-muted">
-            Cập nhật lần cuối: <span className="font-medium text-text-secondary">{formatDate(student.updatedAt)}</span>
-          </div>
-        </div>
-      </div>
 
       {/* Enrolled Classes List */}
       <section className="rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6 shadow-sm space-y-4">
@@ -267,7 +143,7 @@ export default function StudentSelfPage() {
           <div>
             <h2 className="text-lg font-bold text-text-primary">Danh sách lớp học</h2>
             <p className="text-sm text-text-muted">
-              Chọn lớp học để xem lịch sử buổi học, video bài giảng recording và chuyên đề kiến thức.
+              Chọn lớp học để xem lịch sử buổi học, video recording và tiết học.
             </p>
           </div>
         </div>
@@ -278,7 +154,7 @@ export default function StudentSelfPage() {
               <Link
                 key={item.class.id}
                 href={`/student/classes/${item.class.id}`}
-                className="group relative flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary/40 p-4 transition-all duration-200 hover:border-primary/50 hover:bg-bg-secondary hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                className="group relative flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary/40 p-4 transition-[color,background-color,border-color,box-shadow] duration-200 hover:border-primary/50 hover:bg-bg-secondary hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <span

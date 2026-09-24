@@ -15,5 +15,16 @@
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.1",
     "turbo": "latest"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/engines",
+      "bcrypt",
+      "esbuild",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

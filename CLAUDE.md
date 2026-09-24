@@ -48,6 +48,7 @@ Khi thay đổi code, **luôn cập nhật tài liệu liên quan trong cùng ph
 - **Reusable components (React best practices) – Bắt buộc:** Luôn tách UI thành các reusable components khi có phần lặp lại hoặc logic dùng lại, ưu tiên component nhỏ, rõ trách nhiệm, dễ test và dễ bảo trì.
 - **shadcn/ui – Bắt buộc ưu tiên:** Khi xây UI trong `apps/web`, ưu tiên dùng component từ `shadcn/ui` thay vì tự code component mới từ đầu.
 - **shadcn/ui – Quy tắc mở rộng:** Nếu cần custom, hãy compose/extend từ component shadcn hiện có; chỉ tự code component mới khi shadcn chưa đáp ứng được yêu cầu cụ thể.
+- **Dialog / confirm:** Không tự code overlay (`<div className="fixed inset-0">`) hay `window.confirm`. Overlay form/nội dung dùng `apps/web/components/ui/ResponsiveDialog.tsx`; hỏi xác nhận dùng `apps/web/components/ui/ConfirmDialog.tsx` (compose shadcn AlertDialog). Backdrop/Escape khi form dirty phải hỏi trước khi bỏ thay đổi.
 - **Dropdown nâng cấp – Bắt buộc:** Với simple single-select dropdown trong `apps/web`, luôn dùng `apps/web/components/ui/UpgradedSelect.tsx`; không thêm lại native `<select>` cho UI đã style.
 - **Ngoại lệ dropdown:** Chỉ giữ hoặc tự làm custom combobox/listbox khi thật sự cần search, multi-select, async suggestion hoặc option content phức tạp hơn simple dropdown.
 - **Mobile-first – Bắt buộc:** **LUÔN LUÔN CODE MOBILE-FIRST**. Thiết kế và implement UI từ màn hình nhỏ trước, sau đó mới mở rộng breakpoint cho tablet/desktop.

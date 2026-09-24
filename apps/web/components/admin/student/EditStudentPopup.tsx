@@ -139,10 +139,10 @@ export default function EditStudentPopup({
   const [goal, setGoal] = useState(student.goal ?? "");
   const [dropOutDate, setDropOutDate] = useState(student.dropOutDate ?? "");
   const [selectedCustomerCare, setSelectedCustomerCare] = useState<CustomerCareStaffOption | null>(
-    getInitialCustomerCareSelection(student),
+    () => getInitialCustomerCareSelection(student),
   );
   const [customerCareProfitPercentInput, setCustomerCareProfitPercentInput] = useState(
-    toPercentInputValue(student.customerCare?.profitPercent),
+    () => toPercentInputValue(student.customerCare?.profitPercent),
   );
   const [customerCareSearchInput, setCustomerCareSearchInput] = useState("");
   const [customerCareSearchFocused, setCustomerCareSearchFocused] = useState(false);

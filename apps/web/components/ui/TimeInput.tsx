@@ -26,7 +26,10 @@ import {
   toTimeDisplay,
 } from "./time-input.helpers";
 
-export type TimeInputProps = Omit<ComponentProps<"input">, "type" | "step">;
+export type TimeInputProps = Omit<ComponentProps<"input">, "type" | "step"> & {
+  /** When true (default), empty fields prefill current time on focus/open. */
+  prefillEmpty?: boolean;
+};
 
 type MenuPosition = {
   left: number;
@@ -153,6 +156,7 @@ function TimeInputComponent({
   onFocus,
   onClick,
   onKeyDown,
+  prefillEmpty = true,
   ref,
   ...props
 }: TimeInputProps) {
@@ -222,6 +226,7 @@ function TimeInputComponent({
     const liveValue =
       draft != null ? (normalizeTypedTime(draft) ?? committedValue) : committedValue;
     if (liveValue.trim() !== "") return liveValue;
+    if (!prefillEmpty) return liveValue;
 
     const prefilled = currentTimePrefillValue();
     commitValue(prefilled);

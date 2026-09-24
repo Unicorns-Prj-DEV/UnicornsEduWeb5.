@@ -78,6 +78,16 @@ describe('SessionCreateService', () => {
       walletTransactionsHistory: {
         createManyAndReturn: jest.fn().mockResolvedValue([]),
       },
+      class: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ timelineCustomOrder: true }),
+      },
+      classTimelineItem: {
+        aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
+        create: jest.fn().mockResolvedValue({ id: 'timeline-1' }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       classScheduleEntry: {
         findMany: jest.fn().mockResolvedValue([]),
       },

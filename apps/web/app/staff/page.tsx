@@ -34,6 +34,7 @@ import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { formatCurrency, normalizeTimeOnly } from "@/lib/class.helpers";
 import { formatMonthPartsLabel } from "@/lib/month-format";
 import { ROLE_LABELS } from "@/lib/staff.constants";
+import { formatVnDate } from "@/lib/formatters";
 
 const TASK_STATUS_LABELS: Record<string, string> = {
   pending: "Chờ xử lý",
@@ -75,11 +76,7 @@ function formatShortDate(raw?: string | null) {
   if (!raw) return "Chưa đặt hạn";
 
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(raw));
+    return formatVnDate(new Date(raw));
   } catch {
     return "Chưa đặt hạn";
   }
@@ -249,11 +246,7 @@ function MiniStat({
 function formatStudentChangeDate(iso: string | null): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDate(new Date(iso));
   } catch {
     return "—";
   }

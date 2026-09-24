@@ -26,6 +26,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDevToolsDetector, nukeProtectedMedia } from "@/lib/useDevToolsDetector";
+import { extractYouTubeVideoId } from "@/lib/youtube";
+
+export { extractYouTubeVideoId } from "@/lib/youtube";
 
 export type YouTubeEmbedProps = {
   url: string;
@@ -33,19 +36,6 @@ export type YouTubeEmbedProps = {
   className?: string;
   title?: string;
 };
-
-export function extractYouTubeVideoId(url: string): string | null {
-  if (!url) return null;
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
-    /^([a-zA-Z0-9_-]{11})$/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.trim().match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
@@ -149,7 +139,7 @@ export default function YouTubeEmbed({
   url,
   protected: isProtected = true,
   className = "w-full aspect-video",
-  title = "Video bài học",
+  title = "Video tiết học",
 }: YouTubeEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -665,7 +655,7 @@ export default function YouTubeEmbed({
         <svg className="size-8 text-text-muted/60 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
-        <span>{hasError ? "Không thể tải video bài giảng." : "Link video không hợp lệ hoặc chưa được cập nhật."}</span>
+        <span>{hasError ? "Không thể tải video tiết học." : "Link video không hợp lệ hoặc chưa được cập nhật."}</span>
       </div>
     );
   }
@@ -693,7 +683,7 @@ export default function YouTubeEmbed({
           Nội dung video được bảo vệ bản quyền
         </p>
         <p className="mt-1 text-xs text-white/70 max-w-sm">
-          Vui lòng đóng công cụ kiểm tra (Developer Tools) và tải lại trang để tiếp tục xem video bài giảng.
+          Vui lòng đóng công cụ kiểm tra (Developer Tools) và tải lại trang để tiếp tục xem video tiết học.
         </p>
         <button
           type="button"
@@ -749,7 +739,16 @@ export default function YouTubeEmbed({
         {/* Custom Poster Cover */}
         {!hasStarted && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Phát video"
             onClick={togglePlayPause}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                togglePlayPause();
+              }
+            }}
             className="absolute inset-0 z-12 flex items-center justify-center bg-black cursor-pointer"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -786,7 +785,16 @@ export default function YouTubeEmbed({
         {/* Center Play Button when paused */}
         {hasStarted && !isPlaying && isApiReady && !isBuffering && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Tiếp tục phát"
             onClick={togglePlayPause}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                togglePlayPause();
+              }
+            }}
             className="absolute inset-0 z-15 flex items-center justify-center cursor-pointer"
           >
             <div className="flex size-16 sm:size-20 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md shadow-2xl transition-transform hover:scale-110 active:scale-95 border border-white/20">
@@ -814,7 +822,7 @@ export default function YouTubeEmbed({
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="pointer-events-auto flex size-8 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:scale-105 active:scale-95 border border-white/20 shadow-md"
+          className="pointer-events-auto flex size-8 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-md transition-[background-color,transform] hover:bg-black/80 hover:scale-105 active:scale-95 border border-white/20 shadow-md"
           title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
           aria-label={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
         >
@@ -841,11 +849,26 @@ export default function YouTubeEmbed({
         {/* Progress Scrubber Bar */}
         <div
           ref={progressBarRef}
+          role="slider"
+          tabIndex={0}
+          aria-label="Thanh tua video"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duration) || 0}
+          aria-valuenow={Math.round(currentTime) || 0}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              skipSeconds(5);
+            } else if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              skipSeconds(-5);
+            }
+          }}
           onClick={handleSeek}
           onMouseMove={handleProgressBarMouseMove}
           onMouseEnter={() => setIsHoveringProgressBar(true)}
           onMouseLeave={() => setIsHoveringProgressBar(false)}
-          className="group/bar relative mb-3 h-2 sm:h-2.5 w-full cursor-pointer rounded-full bg-white/25 transition-all hover:h-3"
+          className="group/bar relative mb-3 h-2 sm:h-2.5 w-full cursor-pointer rounded-full bg-white/25 transition-[height] hover:h-3"
         >
           {/* Hover Time Tooltip */}
           {isHoveringProgressBar && hoverTime !== null && (
@@ -935,7 +958,7 @@ export default function YouTubeEmbed({
                 max={100}
                 value={isMuted ? 0 : volume}
                 onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                className="w-0 sm:w-16 h-1.5 cursor-pointer accent-primary bg-white/30 rounded-lg appearance-none transition-all group-hover/vol:w-16 focus:w-16 focus:outline-none"
+                className="w-0 sm:w-16 h-1.5 cursor-pointer accent-primary bg-white/30 rounded-lg appearance-none transition-[width] group-hover/vol:w-16 focus:w-16 focus:outline-none"
                 aria-label="Âm lượng"
               />
             </div>

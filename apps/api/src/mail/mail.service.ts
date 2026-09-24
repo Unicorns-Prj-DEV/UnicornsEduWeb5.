@@ -235,6 +235,51 @@ export class MailService {
     });
   }
 
+  async sendLoginVerificationEmail(
+    email: string,
+    verifyUrl: string,
+  ): Promise<void> {
+    if (!this.transporter) {
+      throw new ServiceUnavailableException(
+        'Chưa cấu hình gửi email (SMTP). Vui lòng cấu hình SMTP trong .env hoặc liên hệ quản trị viên.',
+      );
+    }
+    const inlineLogo = this.buildAuthBrandLogoInlineImage();
+    const html = [
+      '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">',
+      inlineLogo.logoSrc
+        ? `<img src="${inlineLogo.logoSrc}" alt="Unicorns Edu" style="height: 40px; margin-bottom: 20px;" />`
+        : '',
+      '<h2 style="color: #1a1a2e;">Xác minh đăng nhập</h2>',
+      '<p>Bạn đã yêu cầu đăng nhập vào tài khoản Unicorns Edu.</p>',
+      '<p>Bấm nút bên dưới để xác minh đăng nhập:</p>',
+      `<a href="${verifyUrl}" style="display: inline-block; padding: 12px 24px; background-color: #6c63ff; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">Xác minh đăng nhập</a>`,
+      '<p style="color: #666; font-size: 14px;">Liên kết hết hạn sau 10 phút.</p>',
+      '<p style="color: #666; font-size: 14px;">Nếu bạn không yêu cầu đăng nhập, hãy bỏ qua email này.</p>',
+      '</div>',
+    ].join('\n');
+    const text = [
+      'Xác minh đăng nhập Unicorns Edu',
+      '',
+      'Bạn đã yêu cầu đăng nhập vào tài khoản Unicorns Edu.',
+      `Liên kết xác minh (hiệu lực 10 phút):`,
+      verifyUrl,
+      '',
+      'Nếu bạn không yêu cầu đăng nhập, hãy bỏ qua email này.',
+    ].join('\n');
+
+    await this.sendMailOrThrow({
+      from: this.mailFrom,
+      to: email,
+      subject: '[Unicorns Edu] Xác minh đăng nhập',
+      text,
+      html,
+      ...(inlineLogo.attachments.length
+        ? { attachments: inlineLogo.attachments }
+        : {}),
+    });
+  }
+
   async sendStudentWalletDirectTopUpApprovalEmail(
     params: DirectTopUpApprovalEmailParams,
   ): Promise<void> {

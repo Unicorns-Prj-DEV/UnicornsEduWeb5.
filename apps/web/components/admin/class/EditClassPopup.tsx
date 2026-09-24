@@ -17,7 +17,7 @@ import type {
   UpdateClassStudentsPayload,
   UpdateClassTeachersPayload,
 } from "@/dtos/class.dto";
-import ClassCategorySelect from "@/components/shared/class/ClassCategorySelect";
+import CourseSelect from "@/components/shared/class/CourseSelect";
 import * as classApi from "@/lib/apis/class.api";
 import * as staffApi from "@/lib/apis/staff.api";
 import * as studentApi from "@/lib/apis/student.api";
@@ -303,7 +303,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState(classDetail.name ?? "");
-  const [classCategoryId, setClassCategoryId] = useState(classDetail.classCategoryId);
+  const [courseId, setCourseId] = useState(classDetail.courseId);
   const [status, setStatus] = useState<ClassStatus>(classDetail.status);
   const [maxStudentsInput, setMaxStudentsInput] = useState(String(classDetail.maxStudents ?? ""));
   const [allowancePerSessionInput, setAllowancePerSessionInput] = useState(() =>
@@ -510,7 +510,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     }));
     const currentBasicInfo = {
       name: classDetail.name ?? "",
-      class_category_id: classDetail.classCategoryId,
+      course_id: classDetail.courseId,
       status: classDetail.status,
       max_students: normalizeOptionalInteger(classDetail.maxStudents),
       allowance_per_session_per_student: normalizeOptionalInteger(
@@ -526,7 +526,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     };
     const nextBasicInfo = {
       name: trimmedName,
-      class_category_id: classCategoryId,
+      course_id: courseId,
       status,
       max_students: maxStudents,
       allowance_per_session_per_student: allowancePerSessionPerStudent,
@@ -538,7 +538,7 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
     };
     const basicInfoChanged =
       currentBasicInfo.name !== nextBasicInfo.name ||
-      currentBasicInfo.class_category_id !== nextBasicInfo.class_category_id ||
+      currentBasicInfo.course_id !== nextBasicInfo.course_id ||
       currentBasicInfo.status !== nextBasicInfo.status ||
       currentBasicInfo.max_students !== nextBasicInfo.max_students ||
       currentBasicInfo.allowance_per_session_per_student !==
@@ -694,12 +694,12 @@ function EditClassDialog({ onClose, classDetail }: Omit<Props, "open">) {
               </label>
 
               <div className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span id="edit-class-type-label">Phân loại</span>
-                <ClassCategorySelect
+                <span id="edit-class-type-label">Khoá học</span>
+                <CourseSelect
                   id="edit-class-type"
                   name="edit-class-type"
-                  value={classCategoryId}
-                  onValueChange={setClassCategoryId}
+                  value={courseId}
+                  onValueChange={setCourseId}
                   labelId="edit-class-type-label"
                   buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />

@@ -9,6 +9,7 @@ import {
   formatLessonOutputDifficultyOption,
 } from "@/lib/lesson-output-pricing";
 import { moneyInputInitialFromNumber } from "@/lib/money-input.helpers";
+import { formatVnNumber } from "@/lib/formatters";
 
 const DIFFICULTY_OPTIONS = [
   { value: "", label: "Chưa chọn bậc" },
@@ -19,7 +20,7 @@ const DIFFICULTY_OPTIONS = [
 ];
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("vi-VN").format(value);
+  return formatVnNumber(value);
 }
 
 type Props = {

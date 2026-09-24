@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import * as surveysApi from "@/lib/apis/surveys.api";
@@ -41,11 +41,17 @@ function getTodayIsoDate(): string {
  * đến khi báo cáo xong. Nếu không có bài quá hạn, "Để sau" ẩn cho hết phiên
  * (sessionStorage) như trước.
  */
+/** Giá trị chỉ đọc một lần lúc mount nên không cần subscribe thật. */
+const subscribeNoop = () => () => {};
+
 export default function SurveyReminderGate() {
-  const [dismissedThisSession, setDismissedThisSession] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.sessionStorage.getItem(SESSION_DISMISS_KEY) === "1",
+  // Đọc sessionStorage qua useSyncExternalStore: server snapshot luôn là false
+  // nên HTML server và lần hydrate đầu khớp nhau, sau đó React đọc lại giá trị
+  // thật ở client. Không dùng lazy useState vì sẽ gây hydration mismatch.
+  const dismissedThisSession = useSyncExternalStore(
+    subscribeNoop,
+    () => window.sessionStorage.getItem(SESSION_DISMISS_KEY) === "1",
+    () => false,
   );
   const [dismissedLocally, setDismissedLocally] = useState(false);
 
@@ -72,7 +78,6 @@ export default function SurveyReminderGate() {
   const handleDismiss = () => {
     if (!hasOverdue) {
       window.sessionStorage.setItem(SESSION_DISMISS_KEY, "1");
-      setDismissedThisSession(true);
     }
     setDismissedLocally(true);
   };

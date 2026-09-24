@@ -10,10 +10,13 @@ import {
     StudentBalancePopup,
     StudentDetailRow,
     StudentInfoCard,
+    STUDENT_DETAIL_BASIC_INFO_OPEN_KEY,
+    STUDENT_DETAIL_PARENT_CONTACT_OPEN_KEY,
     StudentExamCard,
     StudentWalletHistoryPopup,
     StudentWalletCard,
     StudentClassTuitionPopup,
+    StudentDevicePopup,
 } from "@/components/admin/student";
 import { UserLinkedProfileLinks } from "@/components/admin/user";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
@@ -34,6 +37,8 @@ import * as studentApi from "@/lib/apis/student.api";
 import { pickAvatarUrl } from "@/lib/avatar";
 import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
+import { forceLogoutStudent } from "@/lib/apis/auth.api";
+import { formatVnDate } from "@/lib/formatters";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -48,11 +53,7 @@ const GENDER_LABELS: Record<StudentGender, string> = {
 function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   try {
-        return new Intl.DateTimeFormat("vi-VN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        }).format(new Date(iso));
+        return formatVnDate(new Date(iso));
     } catch {
         return "—";
   }
@@ -111,6 +112,7 @@ export default function AdminStudentDetailPage() {
     const [classesPopupOpen, setClassesPopupOpen] = useState(false);
     const [balancePopupMode, setBalancePopupMode] = useState<"topup" | "withdraw" | null>(null);
     const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
+    const [devicePopupOpen, setDevicePopupOpen] = useState(false);
     const [editingPackageForClassId, setEditingPackageForClassId] = useState<string | null>(null);
     const queryClient = useQueryClient();
     const { data: fullProfile } = useQuery({
@@ -178,6 +180,24 @@ export default function AdminStudentDetailPage() {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["student", "detail", id] });
             toast.success("Đã cập nhật cài đặt gửi biên lai.");
+        },
+    });
+
+    const forceLogoutMutation = useMutation({
+        mutationFn: () => {
+            if (!student?.userId) {
+                throw new Error("Student userId not available");
+            }
+            return forceLogoutStudent(student.userId);
+        },
+        onSuccess: async () => {
+            toast.success("Đã buộc đăng xuất học sinh.");
+        },
+        onError: (err: unknown) => {
+            const msg =
+                (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+                "Không thể buộc đăng xuất.";
+            toast.error(msg);
         },
     });
 
@@ -454,6 +474,14 @@ export default function AdminStudentDetailPage() {
                     currentBalance={student.accountBalance ?? 0}
                 />
             ) : null}
+            {canManageStudent ? (
+                <StudentDevicePopup
+                    open={devicePopupOpen}
+                    onClose={() => setDevicePopupOpen(false)}
+                    studentId={student.id}
+                    studentName={student.fullName?.trim() || "Học sinh"}
+                />
+            ) : null}
             {canEditStudentClassTuition && editingPackageForClassId ? (() => {
                 const item = classItemsWithTuition.find((classItem) => classItem.classId === editingPackageForClassId);
 
@@ -556,6 +584,37 @@ export default function AdminStudentDetailPage() {
                                                 </svg>
                                             </button>
                                         ) : null}
+                                        {canManageUsers && student.userId ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (confirm("Buộc đăng xuất học sinh này? Thiết bị hiện tại sẽ bị ngắt kết nối.")) {
+                                                        forceLogoutMutation.mutate();
+                                                    }
+                                                }}
+                                                disabled={forceLogoutMutation.isPending}
+                                                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8 disabled:opacity-50"
+                                                aria-label="Buộc đăng xuất học sinh"
+                                                title="Buộc đăng xuất"
+                                            >
+                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                </svg>
+                                            </button>
+                                        ) : null}
+                                        {canManageStudent ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setDevicePopupOpen(true)}
+                                                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8"
+                                                aria-label="Quản trị thiết bị"
+                                                title="Quản trị thiết bị"
+                                            >
+                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                            </button>
+                                        ) : null}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         <span
@@ -604,8 +663,28 @@ export default function AdminStudentDetailPage() {
                     </div>
 
                     <div className="mt-4 grid gap-3.5 sm:mt-5 sm:gap-4">
-                        <div className="grid min-w-0 gap-3.5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,1.1fr)] sm:gap-4">
-                            <StudentInfoCard title="Thông tin cơ bản">
+                        <div className="grid min-w-0 gap-3.5 sm:grid-cols-2 sm:gap-4">
+                            <StudentWalletCard
+                                className="min-w-0"
+                                balance={student.accountBalance ?? 0}
+                                onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}
+                                onWithdraw={canDirectlyWithdrawWallet ? handleWithdraw : undefined}
+                                onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
+                            />
+                            <StudentExamCard
+                                className="min-w-0"
+                                key={student.id}
+                                studentId={student.id}
+                            />
+                        </div>
+
+                        <div className="grid min-w-0 gap-3.5 sm:grid-cols-2 sm:gap-4">
+                            <StudentInfoCard
+                                title="Thông tin cơ bản"
+                                collapsible
+                                defaultOpen={false}
+                                storageKey={STUDENT_DETAIL_BASIC_INFO_OPEN_KEY}
+                            >
                                 <dl className="divide-y divide-border-subtle">
                                     <StudentDetailRow label="Email" value={student.email?.trim() || "—"} />
                                     <StudentDetailRow label="Trường" value={student.school?.trim() || "—"} />
@@ -629,7 +708,12 @@ export default function AdminStudentDetailPage() {
                                 </dl>
                             </StudentInfoCard>
 
-                            <StudentInfoCard title="Liên hệ phụ huynh">
+                            <StudentInfoCard
+                                title="Liên hệ phụ huynh"
+                                collapsible
+                                defaultOpen={false}
+                                storageKey={STUDENT_DETAIL_PARENT_CONTACT_OPEN_KEY}
+                            >
                                 <dl className="divide-y divide-border-subtle">
                                     <StudentDetailRow label="Họ tên" value={student.parentName?.trim() || "—"} />
                                     <StudentDetailRow label="Số điện thoại" value={student.parentPhone?.trim() || "—"} />
@@ -665,16 +749,6 @@ export default function AdminStudentDetailPage() {
                                     </p>
                                 )}
                             </StudentInfoCard>
-
-                            <div className="min-w-0 space-y-3.5 xl:col-span-1 xl:space-y-4">
-                                <StudentWalletCard
-                                    balance={student.accountBalance ?? 0}
-                                    onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}
-                                    onWithdraw={canDirectlyWithdrawWallet ? handleWithdraw : undefined}
-                                    onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
-                                />
-                                <StudentExamCard key={student.id} studentId={student.id} />
-                            </div>
                         </div>
 
                         <StudentInfoCard title="Thành tích">

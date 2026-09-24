@@ -15,6 +15,12 @@ describe('UserProfileController', () => {
     createStudentSePayTopUpOrder: jest.fn(),
     getStudentSePayStaticQr: jest.fn(),
   };
+  const contentService = {
+    getLessonQuizzesForStudent: jest.fn(),
+    submitQuizAnswers: jest.fn(),
+    getQuizAnswers: jest.fn(),
+    getAssignedLessonForStudent: jest.fn(),
+  };
 
   let controller: UserProfileController;
 
@@ -30,6 +36,7 @@ describe('UserProfileController', () => {
       studentService as never,
       {} as never,
       {} as never,
+      contentService as never,
     );
   });
 

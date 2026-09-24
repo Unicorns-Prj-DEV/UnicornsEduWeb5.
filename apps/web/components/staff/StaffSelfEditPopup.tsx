@@ -46,7 +46,7 @@ export default function StaffSelfEditPopup({
   const staffInfo = profile.staffInfo;
 
   const [fullName, setFullName] = useState(
-    resolveCanonicalUserName(profile, staffInfo?.fullName),
+    () => resolveCanonicalUserName(profile, staffInfo?.fullName),
   );
   const [cccdNumber, setCccdNumber] = useState(staffInfo?.cccdNumber ?? "");
   const [ethnicity, setEthnicity] = useState(staffInfo?.ethnicity ?? "");
@@ -57,13 +57,13 @@ export default function StaffSelfEditPopup({
     staffInfo?.currentAddress ?? "",
   );
   const [cccdIssuedDateInput, setCccdIssuedDateInput] = useState(
-    formatDateInput(staffInfo?.cccdIssuedDate),
+    () => formatDateInput(staffInfo?.cccdIssuedDate),
   );
   const [cccdIssuedPlace, setCccdIssuedPlace] = useState(
     staffInfo?.cccdIssuedPlace ?? "",
   );
   const [birthDateInput, setBirthDateInput] = useState(
-    formatDateInput(staffInfo?.birthDate),
+    () => formatDateInput(staffInfo?.birthDate),
   );
   const [university, setUniversity] = useState(staffInfo?.university ?? "");
   const [highSchool, setHighSchool] = useState(staffInfo?.highSchool ?? "");

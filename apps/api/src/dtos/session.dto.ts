@@ -10,9 +10,11 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUrl,
   IsUUID,
   Matches,
   Max,
+  MaxLength,
   Min,
   ValidateIf,
   ValidateNested,
@@ -24,6 +26,7 @@ import {
 } from '../common/entity-id.validators';
 import { AttendanceStatus, SessionPaymentStatus } from '../../generated/enums';
 import { AttendanceCreateDto, AttendanceUpdateDto } from './attendance.dto';
+import { CONTENT_LIMITS, HTTP_URL_OPTIONS } from './content-limits';
 
 export class MissedTeachingAlertExplanationDto {
   @ApiProperty({ example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
@@ -202,38 +205,49 @@ export class SessionCreateDto {
   @ApiPropertyOptional({
     description:
       'Session note (HTML/plain text accepted). Legacy field; prefer lessonContent.',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   notes?: string | null;
 
   @ApiProperty({
     description: 'Lesson content for the session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   lessonContent: string;
 
   @ApiProperty({
     description:
       'Homework assignment for the session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   homework: string;
 
   @ApiProperty({
     description:
       'Session tutorial for the class session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   tutorial: string;
 
   @ApiPropertyOptional({
     description: 'YouTube video recording URL for this session.',
     example: 'https://youtube.com/watch?v=abc123',
     nullable: true,
+    maxLength: CONTENT_LIMITS.url,
   })
   @IsOptional()
-  @IsString()
+  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
+  @IsUrl(HTTP_URL_OPTIONS)
+  @MaxLength(CONTENT_LIMITS.url)
   recordingUrl?: string | null;
 
   @ApiPropertyOptional({
@@ -297,25 +311,31 @@ export class SessionUpdateDto extends PartialType(SessionCreateDto) {
 
   @ApiPropertyOptional({
     description: 'Lesson content for the session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   declare lessonContent?: string;
 
   @ApiPropertyOptional({
     description:
       'Homework assignment for the session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   declare homework?: string;
 
   @ApiPropertyOptional({
     description:
       'Session tutorial for the class session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   declare tutorial?: string;
 
   @ApiPropertyOptional({
@@ -386,9 +406,11 @@ export class StaffOpsAttendanceDto {
   @ApiPropertyOptional({
     description: 'Attendance note',
     example: 'Đi trễ 10 phút.',
+    maxLength: CONTENT_LIMITS.attendanceNotes,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(CONTENT_LIMITS.attendanceNotes)
   notes?: string | null;
 }
 
@@ -431,38 +453,49 @@ export class CreateStaffOpsSessionDto {
   @ApiPropertyOptional({
     description:
       'Session note (HTML/plain text accepted). Legacy field; prefer lessonContent.',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   notes?: string | null;
 
   @ApiProperty({
     description: 'Lesson content for the session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   lessonContent: string;
 
   @ApiProperty({
     description:
       'Homework assignment for the session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   homework: string;
 
   @ApiProperty({
     description:
       'Session tutorial for the class session (HTML/plain text accepted).',
+    maxLength: CONTENT_LIMITS.sessionRichText,
   })
   @IsString()
+  @MaxLength(CONTENT_LIMITS.sessionRichText)
   tutorial: string;
 
   @ApiPropertyOptional({
     description: 'YouTube video recording URL for this session.',
     example: 'https://youtube.com/watch?v=abc123',
     nullable: true,
+    maxLength: CONTENT_LIMITS.url,
   })
   @IsOptional()
-  @IsString()
+  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
+  @IsUrl(HTTP_URL_OPTIONS)
+  @MaxLength(CONTENT_LIMITS.url)
   recordingUrl?: string | null;
 
   @ApiPropertyOptional({

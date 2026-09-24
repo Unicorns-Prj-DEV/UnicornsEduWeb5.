@@ -1,8 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { AttendanceStatus } from '../../generated/enums';
 import { IsStudentId } from '../common/entity-id.validators';
+import { CONTENT_LIMITS } from './content-limits';
 
 export class AttendanceCreateDto {
   @ApiProperty({
@@ -19,9 +27,11 @@ export class AttendanceCreateDto {
   @ApiPropertyOptional({
     description: 'Attendance note',
     example: 'Đi trễ 10 phút.',
+    maxLength: CONTENT_LIMITS.attendanceNotes,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(CONTENT_LIMITS.attendanceNotes)
   notes?: string | null;
 
   @ApiPropertyOptional({

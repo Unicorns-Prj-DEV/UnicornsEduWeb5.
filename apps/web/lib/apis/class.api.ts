@@ -1,5 +1,8 @@
 import {
-  ClassCategory,
+  AssignCourseLessonPlanMembersPayload,
+  Course,
+  CourseDetail,
+  CourseDifficultyLevel,
   ClassEndEligibility,
   ClassListItem,
   ClassListResponse,
@@ -7,8 +10,11 @@ import {
   ClassStatusActionPayload,
   ClassTeacher,
   ClassTeacherPayload,
-  CreateClassCategoryPayload,
-  UpdateClassCategoryPayload,
+  CreateCourseDifficultyLevelPayload,
+  CreateCoursePayload,
+  LessonPlanStaffOption,
+  UpdateCourseDifficultyLevelPayload,
+  UpdateCoursePayload,
 } from '@/dtos/class.dto';
 import {
   ClassDetail,
@@ -38,6 +44,14 @@ import type {
 } from "@/dtos/class-survey.dto";
 import { normalizeMakeupScheduleEvent, normalizeMakeupScheduleFeedResponse } from "./class-schedule.api";
 import { api } from "../client";
+import { contentApiPaths } from "@/lib/content-api-paths";
+import type { ClassContentItemDto, ClassContentCreatePayload, ClassContentScheduleUpdatePayload } from "@/dtos/class-content.dto";
+import type { ClassTheoryProgressDto } from "@/dtos/class-theory-progress.dto";
+import type {
+  ClassTimelineItemDto,
+  ClassTimelinePageDto,
+} from "@/dtos/class-timeline.dto";
+import type { CourseLessonForClassDto } from "@/dtos/course-content.dto";
 
 function normalizeOperatingDeductionRatePercent(
   teacher: Record<string, unknown>,
@@ -231,7 +245,7 @@ export async function getClasses(params: {
   limit: number;
   search?: string;
   status?: "" | ClassStatus;
-  classCategoryId?: string;
+  courseId?: string;
 }): Promise<ClassListResponse> {
   const response = await api.get("/class", {
     params: {
@@ -239,8 +253,8 @@ export async function getClasses(params: {
       limit: params.limit,
       ...(params.search ? { search: params.search } : {}),
       ...(params.status ? { status: params.status } : {}),
-      ...(params.classCategoryId
-        ? { classCategoryId: params.classCategoryId }
+      ...(params.courseId
+        ? { courseId: params.courseId }
         : {}),
     },
   });
@@ -258,37 +272,278 @@ export async function getClasses(params: {
   };
 }
 
-export async function getClassCategories(
+export async function getCourses(
   includeInactive = false,
-): Promise<ClassCategory[]> {
-  const response = await api.get<ClassCategory[]>("/class-categories", {
+): Promise<Course[]> {
+  const response = await api.get<Course[]>("/courses", {
     params: includeInactive ? { includeInactive: "true" } : undefined,
   });
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function createClassCategory(
-  data: CreateClassCategoryPayload,
-): Promise<ClassCategory> {
-  const response = await api.post<ClassCategory>("/class-categories", data);
+export async function createCourse(
+  data: CreateCoursePayload,
+): Promise<Course> {
+  const response = await api.post<Course>("/courses", data);
   return response.data;
 }
 
-export async function updateClassCategory(
+export async function updateCourse(
   id: string,
-  data: UpdateClassCategoryPayload,
-): Promise<ClassCategory> {
+  data: UpdateCoursePayload,
+): Promise<Course> {
   const safeId = encodeURIComponent(id);
-  const response = await api.patch<ClassCategory>(
-    `/class-categories/${safeId}`,
+  const response = await api.patch<Course>(
+    `/courses/${safeId}`,
     data,
   );
   return response.data;
 }
 
-export async function deleteClassCategory(id: string): Promise<void> {
+export async function deleteCourse(id: string): Promise<void> {
   const safeId = encodeURIComponent(id);
-  await api.delete(`/class-categories/${safeId}`);
+  await api.delete(`/courses/${safeId}`);
+}
+
+export async function getCourseById(id: string): Promise<CourseDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.get<CourseDetail>(`/courses/${safeId}`);
+  return response.data;
+}
+
+export async function searchLessonPlanStaff(params: {
+  search?: string;
+  limit?: number;
+}): Promise<LessonPlanStaffOption[]> {
+  const response = await api.get<LessonPlanStaffOption[]>(
+    "/courses/lesson-plan-staff",
+    {
+      params: {
+        ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+        ...(typeof params.limit === "number" ? { limit: params.limit } : {}),
+      },
+    },
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getCourseDifficultyLevels(
+  courseId: string,
+  includeInactive = false,
+): Promise<CourseDifficultyLevel[]> {
+  const safeId = encodeURIComponent(courseId);
+  const response = await api.get<CourseDifficultyLevel[]>(
+    `/courses/${safeId}/difficulty-levels`,
+    { params: includeInactive ? { includeInactive: "true" } : undefined },
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createCourseDifficultyLevel(
+  courseId: string,
+  data: CreateCourseDifficultyLevelPayload,
+): Promise<CourseDifficultyLevel> {
+  const safeId = encodeURIComponent(courseId);
+  const response = await api.post<CourseDifficultyLevel>(
+    `/courses/${safeId}/difficulty-levels`,
+    data,
+  );
+  return response.data;
+}
+
+export async function updateCourseDifficultyLevel(
+  courseId: string,
+  levelId: string,
+  data: UpdateCourseDifficultyLevelPayload,
+): Promise<CourseDifficultyLevel> {
+  const safeCourseId = encodeURIComponent(courseId);
+  const safeLevelId = encodeURIComponent(levelId);
+  const response = await api.patch<CourseDifficultyLevel>(
+    `/courses/${safeCourseId}/difficulty-levels/${safeLevelId}`,
+    data,
+  );
+  return response.data;
+}
+
+export async function reorderCourseDifficultyLevels(
+  courseId: string,
+  levels: { id: string; sort_order: number }[],
+): Promise<CourseDifficultyLevel[]> {
+  const safeId = encodeURIComponent(courseId);
+  const response = await api.patch<CourseDifficultyLevel[]>(
+    `/courses/${safeId}/difficulty-levels/reorder`,
+    { levels },
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function deleteCourseDifficultyLevel(
+  courseId: string,
+  levelId: string,
+): Promise<void> {
+  const safeCourseId = encodeURIComponent(courseId);
+  const safeLevelId = encodeURIComponent(levelId);
+  await api.delete(`/courses/${safeCourseId}/difficulty-levels/${safeLevelId}`);
+}
+
+export async function assignCourseLessonPlanMembers(
+  courseId: string,
+  data: AssignCourseLessonPlanMembersPayload,
+): Promise<CourseDetail["lessonPlanMembers"]> {
+  const safeId = encodeURIComponent(courseId);
+  const response = await api.put(
+    `/courses/${safeId}/lesson-plan-members`,
+    data,
+  );
+  return response.data;
+}
+
+export async function getClassContent(classId: string): Promise<ClassContentItemDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassContentItemDto[]>(`/class/${safeId}/content`);
+  return response.data;
+}
+
+export async function createClassContent(
+  classId: string,
+  payload: ClassContentCreatePayload,
+): Promise<ClassContentItemDto> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post<ClassContentItemDto>(`/class/${safeId}/content`, payload);
+  return response.data;
+}
+
+export async function reorderClassContent(
+  classId: string,
+  orderedIds: string[],
+): Promise<ClassContentItemDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post<ClassContentItemDto[]>(`/class/${safeId}/content/reorder`, {
+    orderedIds,
+  });
+  return response.data;
+}
+
+export async function updateClassContentSchedule(
+  classId: string,
+  itemId: string,
+  payload: ClassContentScheduleUpdatePayload,
+): Promise<ClassContentItemDto> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeItemId = encodeURIComponent(itemId);
+  const response = await api.patch<ClassContentItemDto>(
+    `/class/${safeClassId}/content/${safeItemId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function getClassTheoryProgress(
+  classId: string,
+  itemId: string,
+): Promise<ClassTheoryProgressDto> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeItemId = encodeURIComponent(itemId);
+  const response = await api.get<ClassTheoryProgressDto>(
+    `/class/${safeClassId}/content/${safeItemId}/theory-progress`,
+  );
+  return response.data;
+}
+
+export async function deleteClassContentItem(
+  classId: string,
+  itemId: string,
+): Promise<ClassContentItemDto[]> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeItemId = encodeURIComponent(itemId);
+  const response = await api.delete<ClassContentItemDto[]>(
+    `/class/${safeClassId}/content/${safeItemId}`,
+  );
+  return response.data;
+}
+
+export async function restoreClassContentItem(
+  classId: string,
+  itemId: string,
+): Promise<ClassContentItemDto[]> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeItemId = encodeURIComponent(itemId);
+  const response = await api.post<ClassContentItemDto[]>(
+    `/class/${safeClassId}/content/${safeItemId}/restore`,
+  );
+  return response.data;
+}
+
+export async function getStudentClassContent(classId: string): Promise<ClassContentItemDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassContentItemDto[]>(`/class/${safeId}/content/student`);
+  return response.data;
+}
+
+export async function getClassTimeline(classId: string): Promise<ClassTimelineItemDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassTimelineItemDto[]>(`/class/${safeId}/timeline`);
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function reorderClassTimeline(
+  classId: string,
+  orderedIds: string[],
+): Promise<ClassTimelineItemDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post<ClassTimelineItemDto[]>(
+    `/class/${safeId}/timeline/reorder`,
+    { orderedIds },
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getStudentClassTimeline(
+  classId: string,
+  params?: { cursor?: string; limit?: number },
+): Promise<ClassTimelinePageDto> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassTimelinePageDto>(
+    `/class/${safeId}/timeline/student`,
+    { params },
+  );
+  return {
+    items: Array.isArray(response.data?.items) ? response.data.items : [],
+    nextCursor: response.data?.nextCursor ?? null,
+  };
+}
+
+export async function getCourseLessonsForClass(classId: string): Promise<CourseLessonForClassDto[]> {
+  const response = await api.get<CourseLessonForClassDto[]>(
+    contentApiPaths.classCourseLessons(classId),
+  );
+  return response.data;
+}
+
+export async function getClassLesson(
+  classId: string,
+  lessonId: string,
+): Promise<CourseLesson> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeLessonId = encodeURIComponent(lessonId);
+  const response = await api.get<CourseLesson>(
+    `/class/${safeClassId}/lessons/${safeLessonId}`,
+  );
+  return response.data;
+}
+
+export async function updateClassLesson(
+  classId: string,
+  lessonId: string,
+  data: UpdateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeLessonId = encodeURIComponent(lessonId);
+  const response = await api.patch<CourseLesson>(
+    `/class/${safeClassId}/lessons/${safeLessonId}`,
+    data,
+  );
+  return response.data;
 }
 
 export async function getClassById(id: string): Promise<ClassDetail> {
@@ -517,4 +772,288 @@ export async function resyncClassMakeupGoogleCalendar(
     GoogleCalendarResyncResponse<MakeupGoogleCalendarResyncSummary>
   >(`/class/${safeClassId}/makeup-events/${safeEventId}/google-calendar/resync`);
   return response.data;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Knowledge Tree (Module / Lesson)
+// ─────────────────────────────────────────────────────────────
+
+import type {
+  CourseModule,
+  CreateCourseModulePayload,
+  UpdateCourseModulePayload,
+  CourseLesson,
+  CreateCourseLessonPayload,
+  UpdateCourseLessonPayload,
+  QuestionLink,
+  QuestionLinkSummary,
+  CreateQuestionLinkPayload,
+  UpdateQuestionLinkPayload,
+  LessonQuizQuestion,
+  ExamLibraryListResult,
+  ExamLibraryFilters,
+} from "@/dtos/course-content.dto";
+
+export async function getModules(courseId: string): Promise<CourseModule[]> {
+  const response = await api.get<CourseModule[]>(
+    contentApiPaths.courseModules(courseId),
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getModule(
+  courseId: string,
+  moduleId: string,
+): Promise<CourseModule> {
+  const response = await api.get<CourseModule>(
+    contentApiPaths.courseModule(courseId, moduleId),
+  );
+  return response.data;
+}
+
+export async function createModule(
+  courseId: string,
+  data: CreateCourseModulePayload,
+): Promise<CourseModule> {
+  const response = await api.post<CourseModule>(
+    contentApiPaths.courseModules(courseId),
+    data,
+  );
+  return response.data;
+}
+
+export async function updateModule(
+  courseId: string,
+  moduleId: string,
+  data: UpdateCourseModulePayload,
+): Promise<CourseModule> {
+  const response = await api.patch<CourseModule>(
+    contentApiPaths.courseModule(courseId, moduleId),
+    data,
+  );
+  return response.data;
+}
+
+export async function deleteModule(
+  courseId: string,
+  moduleId: string,
+): Promise<void> {
+  await api.delete(contentApiPaths.courseModule(courseId, moduleId));
+}
+
+export async function reorderModules(
+  courseId: string,
+  moduleIds: string[],
+): Promise<void> {
+  await api.post(contentApiPaths.courseModulesReorder(courseId), {
+    moduleIds,
+  });
+}
+
+export async function getLessonsByModule(
+  courseId: string,
+  moduleId: string,
+): Promise<CourseLesson[]> {
+  const response = await api.get<CourseLesson[]>(
+    contentApiPaths.courseModuleLessons(courseId, moduleId),
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getCourseLesson(
+  courseId: string,
+  moduleId: string,
+  lessonId: string,
+): Promise<CourseLesson> {
+  const response = await api.get<CourseLesson>(
+    contentApiPaths.courseModuleLesson(courseId, moduleId, lessonId),
+  );
+  return response.data;
+}
+
+export async function createCourseLesson(
+  courseId: string,
+  moduleId: string,
+  data: CreateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const response = await api.post<CourseLesson>(
+    contentApiPaths.courseModuleLessons(courseId, moduleId),
+    data,
+  );
+  return response.data;
+}
+
+export async function updateCourseLesson(
+  courseId: string,
+  moduleId: string,
+  lessonId: string,
+  data: UpdateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const response = await api.patch<CourseLesson>(
+    contentApiPaths.courseModuleLesson(courseId, moduleId, lessonId),
+    data,
+  );
+  return response.data;
+}
+
+export async function deleteCourseLesson(
+  courseId: string,
+  moduleId: string,
+  lessonId: string,
+): Promise<void> {
+  await api.delete(
+    contentApiPaths.courseModuleLesson(courseId, moduleId, lessonId),
+  );
+}
+
+export async function reorderCourseLessons(
+  courseId: string,
+  moduleId: string,
+  lessonIds: string[],
+): Promise<void> {
+  await api.post(
+    contentApiPaths.courseModuleLessonsReorder(courseId, moduleId),
+    { lessonIds },
+  );
+}
+
+export async function getPracticeLessonQuestions(
+  lessonId: string,
+): Promise<QuestionLink[]> {
+  const response = await api.get<QuestionLink[]>(
+    contentApiPaths.lessonQuestions(lessonId),
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function addPracticeLessonQuestion(
+  lessonId: string,
+  data: CreateQuestionLinkPayload,
+): Promise<QuestionLink> {
+  const response = await api.post<QuestionLink>(
+    contentApiPaths.lessonQuestions(lessonId),
+    data,
+  );
+  return response.data;
+}
+
+export async function updatePracticeLessonQuestion(
+  lessonId: string,
+  linkId: string,
+  data: UpdateQuestionLinkPayload,
+): Promise<QuestionLink> {
+  const response = await api.patch<QuestionLink>(
+    contentApiPaths.lessonQuestion(lessonId, linkId),
+    data,
+  );
+  return response.data;
+}
+
+export async function removePracticeLessonQuestion(
+  lessonId: string,
+  linkId: string,
+): Promise<void> {
+  await api.delete(contentApiPaths.lessonQuestion(lessonId, linkId));
+}
+
+export async function reorderPracticeLessonQuestions(
+  lessonId: string,
+  linkIds: string[],
+): Promise<void> {
+  await api.post(contentApiPaths.lessonQuestionsReorder(lessonId), { linkIds });
+}
+
+export async function getPracticeLessonQuestionSummary(
+  lessonId: string,
+): Promise<QuestionLinkSummary> {
+  const response = await api.get<QuestionLinkSummary>(
+    contentApiPaths.lessonQuestionsSummary(lessonId),
+  );
+  return response.data;
+}
+
+export async function isPracticeLessonAssigned(
+  lessonId: string,
+): Promise<boolean> {
+  const response = await api.get<{ assigned: boolean }>(
+    contentApiPaths.lessonQuestionsIsAssigned(lessonId),
+  );
+  return response.data.assigned;
+}
+
+export async function getLessonQuizzes(
+  lessonId: string,
+): Promise<LessonQuizQuestion[]> {
+  const response = await api.get<LessonQuizQuestion[]>(
+    contentApiPaths.lessonQuizzes(lessonId),
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function linkQuizQuestions(
+  lessonId: string,
+  questionIds: string[],
+): Promise<void> {
+  await api.post(contentApiPaths.lessonQuizzes(lessonId), {
+    questionIds,
+  });
+}
+
+export async function unlinkQuizQuestion(
+  lessonId: string,
+  questionId: string,
+): Promise<void> {
+  await api.delete(contentApiPaths.lessonQuiz(lessonId, questionId));
+}
+
+export async function getExamLibrary(
+  courseId: string,
+  params?: ExamLibraryFilters,
+): Promise<ExamLibraryListResult> {
+  const safeId = encodeURIComponent(courseId);
+  const response = await api.get(`/course/${safeId}/exam-library`, { params });
+  return response.data;
+}
+
+export async function createExamLesson(
+  courseId: string,
+  data: CreateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const safeId = encodeURIComponent(courseId);
+  const response = await api.post<CourseLesson>(
+    `/course/${safeId}/exam-library`,
+    data,
+  );
+  return response.data;
+}
+
+export async function updateExamLesson(
+  courseId: string,
+  lessonId: string,
+  data: UpdateCourseLessonPayload,
+): Promise<CourseLesson> {
+  const safeCourseId = encodeURIComponent(courseId);
+  const safeLessonId = encodeURIComponent(lessonId);
+  const response = await api.patch<CourseLesson>(
+    `/course/${safeCourseId}/exam-library/${safeLessonId}`,
+    data,
+  );
+  return response.data;
+}
+
+export async function deleteExamLesson(
+  courseId: string,
+  lessonId: string,
+): Promise<void> {
+  const safeCourseId = encodeURIComponent(courseId);
+  const safeLessonId = encodeURIComponent(lessonId);
+  await api.delete(`/course/${safeCourseId}/exam-library/${safeLessonId}`);
+}
+
+export async function reorderExamLessons(
+  courseId: string,
+  lessonIds: string[],
+): Promise<void> {
+  const safeId = encodeURIComponent(courseId);
+  await api.post(`/course/${safeId}/exam-library/reorder`, { lessonIds });
 }

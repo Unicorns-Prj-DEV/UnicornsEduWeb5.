@@ -3317,7 +3317,7 @@ export class StaffService {
           })
           .map((source) => ({
             ...source,
-            items: [...source.items].sort(comparePaymentPreviewItems),
+            items: source.items.toSorted(comparePaymentPreviewItems),
           }));
 
         return {
@@ -3634,7 +3634,7 @@ export class StaffService {
       )
       .map((bucket) => ({
         ...bucket,
-        sessions: [...bucket.sessions].sort((left, right) => {
+        sessions: bucket.sessions.toSorted((left, right) => {
           const leftTime = Date.parse(left.date);
           const rightTime = Date.parse(right.date);
 

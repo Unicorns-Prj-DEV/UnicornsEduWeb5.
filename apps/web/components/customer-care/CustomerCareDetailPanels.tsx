@@ -17,7 +17,7 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   AnimatePresence,
-  motion,
+  m,
   useReducedMotion,
   type Transition,
 } from "framer-motion";
@@ -44,6 +44,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SelectionCheckbox from "@/components/ui/SelectionCheckbox";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { MonthInput } from "@/components/ui/MonthInput";
+import {
+  formatVnDate,
+  formatVnDateTime,
+} from "@/lib/formatters";
 import {
   formatMonthKeyLabel,
   getDefaultMonthKey,
@@ -229,11 +233,7 @@ function SessionCommissionSkeleton() {
 function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDate(new Date(iso));
   } catch {
     return "—";
   }
@@ -242,13 +242,7 @@ function formatDate(iso?: string | null): string {
 function formatDateTime(iso?: string | null): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return formatVnDateTime(new Date(iso));
   } catch {
     return "—";
   }
@@ -1009,7 +1003,7 @@ export default function CustomerCareDetailPanels({
   const renderPaymentHistoryModal = () => (
     <AnimatePresence>
       {paymentHistoryStudent ? (
-        <motion.div
+        <m.div
           className="fixed inset-0 z-50 flex items-end justify-center bg-bg-primary/75 px-3 py-4 sm:items-center sm:p-6"
           role="dialog"
           aria-modal="true"
@@ -1092,7 +1086,7 @@ export default function CustomerCareDetailPanels({
               )}
             </div>
           </div>
-        </motion.div>
+        </m.div>
       ) : null}
     </AnimatePresence>
   );
@@ -1105,7 +1099,7 @@ export default function CustomerCareDetailPanels({
         aria-label="Học sinh, Thanh Toán hoặc Hoa hồng"
       >
         <div className="relative grid w-full min-w-0 grid-cols-3 sm:min-w-[336px]">
-          <motion.span
+          <m.span
             aria-hidden
             className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 rounded-[1rem] bg-primary shadow-sm ring-1 ring-primary/10"
             animate={{ x: `${activeTabIndex * 100}%` }}
@@ -1159,7 +1153,7 @@ export default function CustomerCareDetailPanels({
 
       <AnimatePresence mode="wait" initial={false}>
         {activeTab === "students" ? (
-        <motion.section
+        <m.section
           key="students"
           id="customer-care-panel-students"
           role="tabpanel"
@@ -1563,9 +1557,9 @@ export default function CustomerCareDetailPanels({
               </div>
             </div>
           )}
-        </motion.section>
+        </m.section>
       ) : activeTab === "payments" ? (
-        <motion.section
+        <m.section
           key="payments"
           id="customer-care-panel-payments"
           role="tabpanel"
@@ -1710,9 +1704,9 @@ export default function CustomerCareDetailPanels({
               </div>
             </div>
           )}
-        </motion.section>
+        </m.section>
       ) : (
-        <motion.section
+        <m.section
           key="commissions"
           id="customer-care-panel-commissions"
           role="tabpanel"
@@ -2084,7 +2078,7 @@ export default function CustomerCareDetailPanels({
               })}
             </div>
           )}
-        </motion.section>
+        </m.section>
       )}
       </AnimatePresence>
       {renderPaymentHistoryModal()}

@@ -2137,7 +2137,7 @@ export class DashboardService {
   }
 
   private sortTaskItems(items: StaffDashboardTaskItemDto[]) {
-    return [...items].sort((left, right) => {
+    return items.toSorted((left, right) => {
       if (left.dueDate && right.dueDate) {
         return left.dueDate.localeCompare(right.dueDate);
       }

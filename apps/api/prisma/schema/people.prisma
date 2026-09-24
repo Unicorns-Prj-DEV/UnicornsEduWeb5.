@@ -50,6 +50,9 @@ model StaffInfo {
   monthlyStats                 StaffMonthlyStat[]
   lessonPlanHeadCommissions    LessonPlanHeadCommission[]
   achievements                 StaffAchievement[]
+  courseLessonPlanMembers      CourseLessonPlanMember[]
+  hiddenClassContentItems      ClassContentItem[]          @relation("ClassContentHiddenBy")
+  hiddenClassTimelineItems     ClassTimelineItem[]         @relation("ClassTimelineHiddenBy")
 
   @@unique([userId], map: "staff_info_user_id_key")
   @@index([customerCareManagedByStaffId])
@@ -86,6 +89,9 @@ model StudentInfo {
   achievements              StudentAchievement[]
   galleryItems              StudentGalleryItem[]
   surveyAssessments         ClassSurveyStudentAssessment[]
+  lessonQuizAnswers         LessonQuizAnswer[]
+  attempts                  Attempt[]
+  theoryLessonViews         ClassTheoryLessonView[]
 
   @@map("student_info")
 }

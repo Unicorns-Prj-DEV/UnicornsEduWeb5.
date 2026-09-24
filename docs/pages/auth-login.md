@@ -29,7 +29,7 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 - Error network/API: `toast.error(...)`.
 - Login fail thông thường: `toast.error("Đăng nhập thất bại.")`.
 - Nếu backend trả `429 Too Many Requests`, màn login ưu tiên hiện toast rate-limit thay vì toast thất bại chung.
-- Success login: `toast.success("Đăng nhập thành công.")`.
+- Success login: `toast.success("Đăng nhập thành công.")` chỉ sau khi `bootstrapPostLoginSession` (và với học sinh, `getSession` sau activate) thành công; lỗi bootstrap/session → `toast.error`, không báo đăng nhập thành công.
 - Không render alert box inline trong form.
 
 ## Email vs account handle (login)

@@ -174,7 +174,7 @@ export class StaffOpsSessionController {
   @ApiOperation({
     summary: 'Create class session for staff operations',
     description:
-      'Creates a session allowing date/time/notes/attendance and coefficient only. startTime and endTime are required; endTime must be after startTime. Teacher, allowance and tuition overrides are not accepted.',
+      'Creates a session allowing date/time/notes/attendance and coefficient. No-attendance classes snapshot Class.noAttendance; the payload has no noAttendance override. startTime and endTime are required; endTime must be after startTime. Teacher, allowance and tuition overrides are not accepted.',
   })
   @ApiParam({ name: 'classId', description: 'Class id' })
   @ApiBody({ type: CreateStaffOpsSessionDto })

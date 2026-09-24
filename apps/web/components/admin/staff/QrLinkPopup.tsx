@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
+import { useId, useState, type SyntheticEvent } from "react";
 import { toast } from "sonner";
 
 type Props = {
@@ -16,6 +16,7 @@ function QrLinkPopupContent({
   onSave,
 }: Omit<Props, "open">) {
   const [link, setLink] = useState(currentLink);
+  const qrLinkFieldId = useId();
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
@@ -81,10 +82,14 @@ function QrLinkPopupContent({
           </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <label className="mb-2 block text-sm font-medium text-text-secondary">
+          <label
+            htmlFor={qrLinkFieldId}
+            className="mb-2 block text-sm font-medium text-text-secondary"
+          >
             Link QR thanh toán
           </label>
           <input
+            id={qrLinkFieldId}
             type="url"
             value={link}
             onChange={(e) => setLink(e.target.value)}

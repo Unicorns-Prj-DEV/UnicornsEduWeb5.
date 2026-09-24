@@ -1,6 +1,6 @@
 "use client";
 
-import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type Props = {
   open: boolean;
@@ -24,13 +24,17 @@ export default function LessonDeleteConfirmPopup({
   return (
     <ConfirmDialog
       open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
       title={title}
       description={description}
       confirmLabel={confirmLabel}
-      onClose={onClose}
-      onConfirm={onConfirm}
-      isSubmitting={isSubmitting}
-      labelledBy="lesson-delete-popup-title"
+      variant="destructive"
+      onConfirm={() => {
+        void onConfirm();
+      }}
+      confirmPending={isSubmitting}
     />
   );
 }

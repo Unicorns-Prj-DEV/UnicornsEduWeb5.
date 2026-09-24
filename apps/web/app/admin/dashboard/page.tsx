@@ -40,9 +40,10 @@ import type {
   AdminDashboardSummary,
 } from "@/dtos/dashboard.dto";
 import { toast } from "sonner";
+import { formatVnInteger } from "@/lib/formatters";
 
 function formatCurrency(value: number) {
-  return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)} đ`;
+  return `${formatVnInteger(value)} đ`;
 }
 
 function getErrorMessage(error: unknown) {

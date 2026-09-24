@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { StaffRole, StudentClassStatus, UserRole } from 'generated/enums';
+import { StaffRole, StudentClassStatus, UserRole, ClassTimelineItemKind } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -18,6 +18,7 @@ import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
+import { appendClassTimelineItem, syncClassTimelineSortByTime } from 'src/class-timeline/append-timeline-item';
 
 type SurveyMonthQuery = {
   month: string;
@@ -311,6 +312,12 @@ export class ClassSurveyService {
         });
       }
 
+      await appendClassTimelineItem(tx, {
+        classId,
+        kind: ClassTimelineItemKind.class_survey,
+        classSurveyId: createdSurvey.id,
+      });
+
       return this.mapSurvey(createdSurvey);
     });
   }
@@ -372,6 +379,10 @@ export class ClassSurveyService {
           beforeValue,
           afterValue: updatedSurvey,
         });
+      }
+
+      if (dto.report_date !== undefined) {
+        await syncClassTimelineSortByTime(tx, classId);
       }
 
       return this.mapSurvey(updatedSurvey);

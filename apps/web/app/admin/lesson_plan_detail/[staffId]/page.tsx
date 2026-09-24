@@ -27,6 +27,7 @@ import type { StaffDetail, StaffRevenueShare } from "@/dtos/staff.dto";
 import { MonthInput } from "@/components/ui/MonthInput";
 import { getDefaultMonthKey, parseMonthKey } from "@/lib/month-format";
 import { toast } from "sonner";
+import { formatVnNumber } from "@/lib/formatters";
 
 const RECENT_DAYS = 30;
 const EMPTY_OUTPUTS: LessonWorkOutputItem[] = [];
@@ -49,7 +50,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("vi-VN").format(value);
+  return formatVnNumber(value);
 }
 
 function resolvePrimaryLink(output: LessonWorkOutputItem) {
@@ -602,7 +603,7 @@ export default function AdminLessonPlanDetailPage() {
                       type="button"
                       onClick={openBulkEditPopup}
                       disabled={bulkStatusMutation.isPending}
-                      className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_color-mix(in_srgb,var(--ue-primary)_45%,transparent)] transition-all hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+                      className="touch-manipulation inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-[0_14px_30px_-18px_color-mix(in_srgb,var(--ue-primary)_45%,transparent)] transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Sửa trạng thái thanh toán cho ${selectedCount} lesson output đã chọn`}
                     >
                       <svg

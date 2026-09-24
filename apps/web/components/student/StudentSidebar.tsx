@@ -158,7 +158,7 @@ export default function StudentSidebar() {
     : "translateX(0)";
 
   const logoutMutation = useMutation({
-    mutationFn: authApi.logout,
+    mutationFn: authApi.studentLogout,
     onSuccess: async () => {
       await clearLogoutScopedQueries(queryClient);
       setUser({
@@ -221,7 +221,7 @@ export default function StudentSidebar() {
               variant="navbar"
               showWordmark={!compact}
               dense={compact}
-              className="w-full min-w-0 transition-all duration-300 ease-out"
+              className="w-full min-w-0 transition-[width,opacity] duration-300 ease-out"
               wordmarkClassName="truncate"
             />
           </div>

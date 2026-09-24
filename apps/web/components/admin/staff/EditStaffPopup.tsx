@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import StaffRoleFixedSalaryFields from "@/components/admin/staff/StaffRoleFixedSalaryFields";
-import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { StaffDetail, StaffGender } from "@/dtos/staff.dto";
 import {
   isFixedSalaryStaffRole,
@@ -79,14 +79,14 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
     staff.currentAddress ?? "",
   );
   const [cccdIssuedDateInput, setCccdIssuedDateInput] = useState(
-    formatDateInput(staff.cccdIssuedDate),
+    () => formatDateInput(staff.cccdIssuedDate),
   );
   const [cccdIssuedPlace, setCccdIssuedPlace] = useState(
     staff.cccdIssuedPlace ?? "",
   );
   const [status, setStatus] = useState<StaffDetail["status"]>(staff.status ?? "active");
   const [statusReason, setStatusReason] = useState("");
-  const [birthDateInput, setBirthDateInput] = useState(formatDateInput(staff.birthDate));
+  const [birthDateInput, setBirthDateInput] = useState(() => formatDateInput(staff.birthDate));
   const [university, setUniversity] = useState(staff.university ?? "");
   const [highSchool, setHighSchool] = useState(staff.highSchool ?? "");
   const [bankAccount, setBankAccount] = useState(staff.bankAccount ?? "");
@@ -711,8 +711,9 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
 
       <ConfirmDialog
         open={overrideRemovalWarnings.length > 0}
-        nested
-        labelledBy="disable-role-override-title"
+        onOpenChange={(open) => {
+          if (!open) cancelOverrideRemoval();
+        }}
         title="Tắt vai trò sẽ xóa mức đè lương cứng"
         description={
           <>
@@ -725,7 +726,7 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
           </>
         }
         confirmLabel="Xóa mức đè và lưu"
-        onClose={cancelOverrideRemoval}
+        variant="destructive"
         onConfirm={confirmOverrideRemoval}
       />
     </>

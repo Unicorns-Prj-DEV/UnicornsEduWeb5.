@@ -158,3 +158,8 @@ enum AchievementLevel {
   TIN_HOC_TRE
   KHAC
 }
+
+enum LessonKind {
+  theory
+  practice
+}

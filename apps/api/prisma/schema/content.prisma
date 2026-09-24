@@ -17,6 +17,7 @@ model ClassSurvey {
   teacher             StaffInfo?                     @relation(fields: [teacherId], references: [id])
   survey              Survey?                        @relation(fields: [surveyId], references: [id])
   studentAssessments  ClassSurveyStudentAssessment[]
+  timelineItem        ClassTimelineItem?
 
   @@index([classId])
   @@index([classId, testNumber])

@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-28
+- **Updated:** 2026-09-07 (`prefillEmpty={false}` for optional times that must stay blank)
 - **Updated:** 2026-08-02 (portal menu `z-[120]` to sit above modal dialogs like makeup editor `z-[110]`, matching `UpgradedSelect`)
 
 ## Context
@@ -26,8 +27,9 @@ Picker UI is a `document.body` portal panel (`fixed z-[120]`, same stacking as `
 - Typing and picker both allowed; typed/blurred values normalize to `HH:mm:ss`.
 - Off-grid legacy minutes (e.g. `18:10`) are kept as-is and shown as a temporary minute option until the user picks a grid value.
 - **Immediate draft commit:** picker commits set local `draft` to the new `HH:mm` and call parent `onChange` synchronously so the text field updates in the same turn. Hour selection keeps the panel open; minute selection closes it and refocuses the field. Typing keystrokes stay local (`draft`) until blur/normalize.
-- **Start-time prefill:** empty fields on focus/click, and create-form start defaults, use `currentTimePrefillValue()` — current local hour, minutes snapped to the nearest `00 / 15 / 30 / 45` (roll to next hour when rounding to `:60`), seconds `00`. Do not overwrite existing values. Opening the picker scrolls the current hour/minute into view.
+- **Start-time prefill:** empty fields on focus/click, and create-form start defaults, use `currentTimePrefillValue()` — current local hour, minutes snapped to the nearest `00 / 15 / 30 / 45` (roll to next hour when rounding to `:60`), seconds `00`. Do not overwrite existing values. Opening the picker scrolls the current hour/minute into view. Call sites that must allow a blank time (practice lần giao `openAt` optional) pass `prefillEmpty={false}` so focus/open does not fill “now”.
 - Empty end-time fields are not prefilled on form mount and are not auto-derived from start (+2h, etc.).
+- Typed or stored off-grid minutes (e.g. `10:07`) stay as-is; callers must not floor to the 15′ grid when loading a value.
 - `TimeInput` is wrapped in `memo` to skip re-renders when props are unchanged.
 
 ## Considered options

@@ -65,6 +65,7 @@ export class SessionService {
       lessonContent: string;
       homework: string;
       tutorial: string;
+      recordingUrl?: string | null;
       coefficient?: number;
       attendance?: Array<{
         studentId: string;

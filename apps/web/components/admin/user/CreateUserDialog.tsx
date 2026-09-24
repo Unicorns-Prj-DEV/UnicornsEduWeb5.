@@ -66,6 +66,7 @@ export default function CreateUserDialog({
   const visibleStaffRoles = hideAdminOptions
     ? STAFF_ROLES.filter((role) => role !== "admin")
     : STAFF_ROLES;
+  const selectedStaffRoleSet = new Set(form.staffRoles);
 
   const handleClose = () => {
     setForm(EMPTY_CREATE_USER_FORM);
@@ -247,7 +248,7 @@ export default function CreateUserDialog({
                         <label key={role} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-text-primary">
                           <input
                             type="checkbox"
-                            checked={form.staffRoles.includes(role)}
+                            checked={selectedStaffRoleSet.has(role)}
                             onChange={(e) => toggleStaffRole(role, e.target.checked)}
                             className="size-4 rounded border-border-default text-primary focus:ring-border-focus"
                           />

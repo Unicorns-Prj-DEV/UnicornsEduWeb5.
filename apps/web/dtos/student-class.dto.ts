@@ -12,7 +12,7 @@ export interface StudentClassItem {
     id: string;
     name: string;
     status: string;
-    classCategory: {
+    course: {
       id: string;
       name: string;
     };
@@ -82,16 +82,4 @@ export interface StudentSurveyItem {
     knowledgeAssessment: string | null;
     comment: string | null;
   }>;
-}
-
-export interface StudentTopicItem {
-  id: string;
-  classId: string;
-  title: string;
-  videoUrl: string | null;
-  content: string | null;
-  createdBy: string | null;
-  updatedBy: string | null;
-  createdAt: Date;
-  updatedAt: Date;
 }

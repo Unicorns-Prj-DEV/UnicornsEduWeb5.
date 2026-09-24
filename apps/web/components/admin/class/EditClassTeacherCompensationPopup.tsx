@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ClassDetail } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
@@ -10,6 +9,7 @@ import {
   moneyInputInitialFromNumber,
   parseMoneyInput,
 } from "@/lib/money-input.helpers";
+import { BodyPortal } from "@/components/ui/BodyPortal";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import {
@@ -161,8 +161,8 @@ function EditClassTeacherCompensationPopupContent({
     });
   };
 
-  return createPortal(
-    <>
+  return (
+    <BodyPortal>
       <div
         className="fixed inset-0 z-40 bg-bg-primary/70 backdrop-blur-sm"
         aria-hidden
@@ -285,8 +285,7 @@ function EditClassTeacherCompensationPopupContent({
           </button>
         </div>
       </div>
-    </>,
-    document.body,
+    </BodyPortal>
   );
 }
 
