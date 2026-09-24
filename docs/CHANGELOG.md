@@ -60,6 +60,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **`YouTubeEmbed` crash `playVideo is not a function`:** `new YT.Player()` trả stub trước `onReady`; lớp click shield gọi play/pause lúc đó. Chỉ gọi API player khi `playVideo` đã là function. Dialog recording học sinh không còn TypeError khi bấm phát sớm.
+
 - **QR thanh toán nhân sự luôn sinh từ link, bỏ nhúng ảnh (ticket 15):**
   - Ô QR (`StaffQrCard` trên `/admin/staffs/:id` và mirror `/staff/staffs/:id` / `/staff/profile`) luôn xin mã `api.qrserver.com` mã hoá nguyên văn `bank_qr_link` — Drive / imgur / `.png` / link thanh toán đều là payload, không còn `<img>` trỏ máy chủ ảnh ngoài.
   - Xoá helper Drive (`extractGoogleDriveFileId`, `toGoogleDriveDirectImageUrl`, `resolveStaffQrImageSrc`) khỏi `apps/web/lib/staff-qr-image.ts`. Overlay `ResponsiveDialog` vẫn xin 512px (không kéo giãn thumbnail); nút **Mở link gốc** giữ tab mới. Thông báo lỗi không còn nhắc chia sẻ công khai file Drive.

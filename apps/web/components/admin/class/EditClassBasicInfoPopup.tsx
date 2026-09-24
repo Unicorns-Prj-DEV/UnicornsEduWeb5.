@@ -157,7 +157,6 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
       }),
     ),
   );
-  const [noAttendance, setNoAttendance] = useState(classDetail.noAttendance ?? false);
 
   const canEndClass = classDetail.endClassEligibility?.canEnd ?? false;
   const endClassBlockReason =

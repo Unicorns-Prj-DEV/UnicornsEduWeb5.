@@ -145,7 +145,6 @@ export class SessionCreateService {
                   name: true,
                   noAttendance: true,
                   pricingMode: true,
-                  noAttendance: true,
                   allowancePerSessionPerStudent: true,
                   allowancePerBlockPerStudent: true,
                   scaleAmount: true,

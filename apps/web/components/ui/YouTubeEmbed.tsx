@@ -106,6 +106,12 @@ interface YTPlayerInstance {
   destroy: () => void;
 }
 
+/** `new YT.Player()` returns a stub; methods exist only after `onReady`. */
+function getReadyPlayer(player: YTPlayerInstance | null): YTPlayerInstance | null {
+  if (!player || typeof player.playVideo !== "function") return null;
+  return player;
+}
+
 interface FullscreenDocument extends Document {
   webkitFullscreenElement?: Element;
   mozFullScreenElement?: Element;
@@ -335,7 +341,8 @@ export default function YouTubeEmbed({
               setHasStarted(false);
             }
             if (playerRef.current) {
-              setDuration(playerRef.current.getDuration() || 0);
+              const player = getReadyPlayer(playerRef.current);
+              if (player) setDuration(player.getDuration() || 0);
             }
           },
           onPlaybackRateChange: (event: { data: number; target: YTPlayerInstance }) => {
@@ -403,11 +410,12 @@ export default function YouTubeEmbed({
       setHasStarted(true);
       return;
     }
-    if (!playerRef.current) return;
+    const player = getReadyPlayer(playerRef.current);
+    if (!player) return;
     if (isPlaying) {
-      playerRef.current.pauseVideo();
+      player.pauseVideo();
     } else {
-      playerRef.current.playVideo();
+      player.playVideo();
     }
     resetControlsTimeout();
   }, [hasStarted, isPlaying, resetControlsTimeout]);
@@ -417,12 +425,13 @@ export default function YouTubeEmbed({
       if (!hasStarted) {
         setHasStarted(true);
       }
-      if (!progressBarRef.current || !playerRef.current || duration <= 0) return;
+      const player = getReadyPlayer(playerRef.current);
+      if (!progressBarRef.current || !player || duration <= 0) return;
       const rect = progressBarRef.current.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const fraction = Math.max(0, Math.min(1, clickX / rect.width));
       const targetTime = fraction * duration;
-      playerRef.current.seekTo(targetTime, true);
+      player.seekTo(targetTime, true);
       setCurrentTime(targetTime);
       resetControlsTimeout();
     },
@@ -443,9 +452,10 @@ export default function YouTubeEmbed({
 
   const skipSeconds = useCallback(
     (seconds: number) => {
-      if (!playerRef.current || duration <= 0) return;
+      const player = getReadyPlayer(playerRef.current);
+      if (!player || duration <= 0) return;
       const target = Math.max(0, Math.min(duration, currentTime + seconds));
-      playerRef.current.seekTo(target, true);
+      player.seekTo(target, true);
       setCurrentTime(target);
       resetControlsTimeout();
     },
@@ -453,29 +463,32 @@ export default function YouTubeEmbed({
   );
 
   const handleVolumeChange = useCallback((newVolume: number) => {
-    if (!playerRef.current) return;
-    playerRef.current.setVolume(newVolume);
+    const player = getReadyPlayer(playerRef.current);
+    if (!player) return;
+    player.setVolume(newVolume);
     setVolume(newVolume);
     if (newVolume > 0 && isMuted) {
-      playerRef.current.unMute();
+      player.unMute();
       setIsMuted(false);
     }
   }, [isMuted]);
 
   const toggleMute = useCallback(() => {
-    if (!playerRef.current) return;
+    const player = getReadyPlayer(playerRef.current);
+    if (!player) return;
     if (isMuted) {
-      playerRef.current.unMute();
+      player.unMute();
       setIsMuted(false);
     } else {
-      playerRef.current.mute();
+      player.mute();
       setIsMuted(true);
     }
   }, [isMuted]);
 
   const changePlaybackSpeed = useCallback((speed: number) => {
-    if (!playerRef.current) return;
-    playerRef.current.setPlaybackRate(speed);
+    const player = getReadyPlayer(playerRef.current);
+    if (!player) return;
+    player.setPlaybackRate(speed);
     setPlaybackSpeed(speed);
     setIsSettingsOpen(false);
   }, []);
