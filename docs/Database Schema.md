@@ -147,6 +147,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - Không còn field legacy `person_profile_id` trong schema được hỗ trợ.
 - Index: `email`, `phone`, `account_handle`, `link_id`, `role_type`, `status`, `created_at`
 
+Bảng `user_devices` và `login_requests` được tạo bởi migration `20260905120000_create_user_devices_and_login_requests` (production chưa có hai bảng này trước khi deploy chuỗi 20260905+). `activate_secret_hash` trên `login_requests` do `20260906000000_add_activate_secret_hash`. Bảng `questions` (ngân hàng, cột `chapter_id` lúc tạo) do `20260912500000_create_questions`; `20260921000000_rename_three_level_content` đổi `chapter_id` → `module_id`.
+
 ### 4.1.1 `user_devices` (phiên đăng nhập gắn thiết bị)
 
 - PK: `id` (UUID default). Giá trị này được nhúng vào access/refresh JWT dưới claim `deviceId` (không dùng tên `sessionId` — `Session` là Buổi học).
