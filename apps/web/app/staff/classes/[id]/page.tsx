@@ -286,7 +286,6 @@ function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
     recordingUrl: payload.recordingUrl ?? null,
     notes: payload.notes ?? null,
     coefficient: payload.coefficient,
-    noAttendance: payload.noAttendance,
     attendance: (payload.attendance ?? []).map((item) => ({
       studentId: item.studentId,
       status: item.status,

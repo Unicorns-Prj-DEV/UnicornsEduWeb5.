@@ -60,6 +60,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **CI web build fail trên `main`:** `toStaffCreateSessionPayload` còn map `noAttendance` dù `SessionCreatePayload` không còn field đó (Lớp không điểm danh luôn lấy từ Class). Gỡ dòng — Next typecheck `/staff/classes/[id]` pass.
+
 - **`migrate deploy` vỡ trên snapshot production vì thiếu bảng schema-only:** `user_devices` / `login_requests` và `questions` có model Prisma nhưng không có `CREATE TABLE`. Thêm `20260905120000_create_user_devices_and_login_requests` (trước ALTER `activate_secret_hash`) và `20260912500000_create_questions` (trước FK `attempt_answers` → `questions`; cột `chapter_id` để `20260921` rename thành `module_id`).
 
 - **`YouTubeEmbed` crash `playVideo is not a function`:** `new YT.Player()` trả stub trước `onReady`; lớp click shield gọi play/pause lúc đó. Chỉ gọi API player khi `playVideo` đã là function. Dialog recording học sinh không còn TypeError khi bấm phát sớm.
