@@ -17,6 +17,7 @@ import {
   ActionHistoryService,
 } from 'src/action-history/action-history.service';
 import { AuthService } from 'src/auth/auth.service';
+import type { PublicRequestOrigin } from 'src/mail/public-frontend-url';
 import { STAFF_DATA_CONSENT_VERSION } from 'src/auth/constants';
 import {
   UpdateMyProfileDto,
@@ -408,7 +409,11 @@ export class UserService {
     return this.serializeUserDetail(user);
   }
 
-  async createUser(data: AdminCreateUserDto, auditActor?: ActionHistoryActor) {
+  async createUser(
+    data: AdminCreateUserDto,
+    auditActor?: ActionHistoryActor,
+    emailLinkOrigin?: PublicRequestOrigin,
+  ) {
     const nextRoleType = data.roleType ?? UserRole.guest;
     if (nextRoleType === UserRole.student && !getUserFullNameFromParts(data)) {
       throw new BadRequestException('Vui lòng nhập tên học sinh.');
@@ -423,6 +428,7 @@ export class UserService {
           ? 'Tạo user thành công (đã xác thực email).'
           : 'Tạo user thành công. Email xác thực đã được gửi.',
         emailVerified: data.emailVerified,
+        emailLinkOrigin,
       });
 
     if (nextRoleType === UserRole.guest) {
@@ -460,6 +466,7 @@ export class UserService {
   async createStudentUser(
     data: AdminCreateStudentUserDto,
     auditActor?: ActionHistoryActor,
+    emailLinkOrigin?: PublicRequestOrigin,
   ) {
     const classIds = Array.from(new Set(data.class_ids));
     if (classIds.length > 0) {
@@ -481,6 +488,7 @@ export class UserService {
           ? 'Tạo học sinh thành công (đã xác thực email).'
           : 'Tạo học sinh thành công. Email xác thực đã được gửi.',
         emailVerified: data.emailVerified,
+        emailLinkOrigin,
       });
 
     const createdUser = await this.prisma.user.findUnique({

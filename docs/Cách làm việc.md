@@ -97,7 +97,7 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 ## Yêu cầu hệ thống
 
 - **Node.js** >= 20
-- **pnpm** >= 10 (dự án dùng `pnpm@10.27.0`)
+- **pnpm** >= 10 (dự án dùng `pnpm@10.27.0`) hoặc **Bun** >= 1.3 (cài local: `bun install`)
 
 ## Cài đặt
 
@@ -107,7 +107,10 @@ Dùng làm context khi implement hoặc review code frontend; giúp model chọn
 git clone <repo-url>
 cd UnicornsEduWeb5.
 pnpm install
+# hoặc: bun install
 ```
+
+`package.json` có `workspaces: ["apps/*", "packages/*"]` (cùng glob với `pnpm-workspace.yaml`) để Bun nhìn thấy `apps/web` và `apps/api`. `bun.lock` nằm trong `.gitignore`; CI/CD vẫn dùng `pnpm-lock.yaml`. Root `overrides.google-auth-library` ghim một version để isolated linker của Bun không kéo hai bản `google-auth-library` (lỗi TS duplicate `OAuth2Client`). Next.js `turbopack.root` trỏ về root monorepo để không nhận nhầm lockfile ở home directory.
 
 **Cách 2 — Cài trong từng app (chỉ app cần dùng):**
 
@@ -323,7 +326,7 @@ Pipeline: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 | `eng` | `/root/UnicornsEduEng` | `127.0.0.1:8080` | cùng images; khác `.env` (DB, domain, JWT) |
 | `jp` | `/root/UnicornsEduJP` | `127.0.0.1:8081` | cùng images; khác `.env` (DB, domain, JWT) |
 
-Web browser gọi `/api` same-origin; server-side dùng `INTERNAL_API_URL=http://api:4000` trong compose. `FRONTEND_URL` / `BACKEND_URL` trong `.env` mỗi instance vẫn phải khớp domain public (CORS, OAuth, email).
+Web browser gọi `/api` same-origin; server-side dùng `INTERNAL_API_URL=http://api:4000` trong compose. `FRONTEND_URL` / `BACKEND_URL` trong `.env` mỗi instance vẫn phải khớp domain public (CORS, OAuth, email). Email học sinh (magic link đăng nhập, xác thực email, đặt lại mật khẩu) không dùng `localhost` khi `NODE_ENV=production`: nếu `FRONTEND_URL` còn là localhost, link lấy `https://` + `VPS_PUBLIC_HOST`, rồi origin `BACKEND_URL`, rồi host `*.uniedu.vn` hoặc `*.unicornsedu.com` của request đi qua Nginx.
 
 **Kiến trúc VPS:** VPS production là **ARM64** (`uname -m` thường là `aarch64`), nên image `unicorns-api` / `unicorns-web` build **arm64-only** trên runner `ubuntu-24.04-arm`. Không build ARM64 qua QEMU trên runner x86 vì step `pnpm install --frozen-lockfile` có thể treo rất lâu. Nếu chuyển VPS sang amd64 (`x86_64`), đổi workflow về `runs-on: ubuntu-latest` và `platforms: linux/amd64`.
 

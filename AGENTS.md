@@ -17,13 +17,14 @@ Instructions for coding agents working in this monorepo. Keep changes minimal, f
   - **Frontend**: `apps/web` (Next.js 16, React 19, Tailwind v4)
   - **Backend**: `apps/api` (NestJS)
 - **Preferred commands (from repo root)**
-  - Dev: `pnpm dev` (all) or `pnpm --filter web dev` / `pnpm --filter api dev`
+  - Dev: `pnpm dev` or `bun run dev` (all) or `pnpm --filter web dev` / `pnpm --filter api dev`
   - Types: `pnpm check-types` (and for web: `pnpm --filter web exec tsc --noEmit`)
   - Lint: `pnpm lint` or `pnpm --filter web lint`
 - **Dependency installation**
+  - Local: `bun install` or `pnpm install` from repo root. Root `package.json` lists `workspaces: ["apps/*", "packages/*"]` so Bun links `apps/web` and `apps/api` (same glob as `pnpm-workspace.yaml`). `bun.lock` is gitignored; committed lockfile remains `pnpm-lock.yaml`.
   - Install dependencies inside the app scope (recommended):
-    - `cd apps/web && pnpm add <pkg>`
-    - `cd apps/api && pnpm add <pkg>`
+    - `cd apps/web && pnpm add <pkg>` (or `bun add <pkg>`)
+    - `cd apps/api && pnpm add <pkg>` (or `bun add <pkg>`)
   - Do **not** create/use a project-local `.pnpm-store`. Prefer a global pnpm store.
 
 ## Documentation sync (mandatory)

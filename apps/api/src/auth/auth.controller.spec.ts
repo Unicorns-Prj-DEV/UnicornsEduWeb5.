@@ -226,6 +226,7 @@ describe('AuthController', () => {
     expect(authService.resendVerificationEmail).toHaveBeenCalledWith(
       'user-1',
       undefined,
+      { host: undefined, protocol: undefined },
     );
   });
 

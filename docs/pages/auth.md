@@ -136,7 +136,7 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
   - Nếu `roleType !== student` → trả `400` với `error: NOT_STUDENT_ACCOUNT`.
   - Nếu email chưa xác minh → trả `400` với `error: EMAIL_NOT_VERIFIED`.
   - Nếu student đã có device active → trả `409` với `error: DEVICE_ACTIVE`.
-  - Tạo `login_requests` record, gửi magic link email tới student.
+  - Tạo `login_requests` record, gửi magic link email tới student. Link mở `/auth/verify-login` trên origin public. Thứ tự: `FRONTEND_URL` nếu là HTTPS public; nếu giá trị đó còn là localhost thì `https://` + `VPS_PUBLIC_HOST`, rồi origin của `BACKEND_URL` (bỏ hậu tố `/api`), rồi `Host` + `X-Forwarded-Proto` khi host là `*.uniedu.vn` hoặc `*.unicornsedu.com`. Production không gửi link `localhost`. Host lạ bị từ chối.
   - Response: `{ requestId, activateSecret, message }`. `activateSecret` là one-time secret dùng ở bước activate; frontend lưu trong memory, không lưu localStorage.
   - Rate limit: `5` request / `60s` / IP.
 

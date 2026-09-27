@@ -3,7 +3,8 @@
 ## Cài đặt dependencies (Package installation)
 
 - **Luôn cài đặt thư viện vào `node_modules` của từng app**, không dùng `.pnpm-store` trong project.
-- Khi thêm package mới, chạy `pnpm add <package>` **từ thư mục của app**:
+- Cài cả monorepo: `bun install` hoặc `pnpm install` từ root (`package.json` `workspaces` + `pnpm-workspace.yaml`).
+- Khi thêm package mới, chạy `pnpm add <package>` **từ thư mục của app** (hoặc `bun add`):
   - API: `cd apps/api && pnpm add <package>`
   - Web: `cd apps/web && pnpm add <package>`
 - Để tránh tạo `.pnpm-store` trong project, chạy một lần trên máy:  

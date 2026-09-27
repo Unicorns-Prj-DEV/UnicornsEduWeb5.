@@ -23,6 +23,10 @@ import { AuthAccessService } from './auth-access.service';
 import { CreateUserDto } from '../dtos/user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import {
+  resolvePublicFrontendUrl,
+  type PublicRequestOrigin,
+} from '../mail/public-frontend-url';
 import { AuthProfileDto, LoginResponseDto } from 'src/dtos/auth.dto';
 import type { RequestWithResolvedAuthContext } from './auth-request-context';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
@@ -53,6 +57,7 @@ interface ProvisionUserOptions {
   updateDescription?: string;
   successMessage?: string;
   emailVerified?: boolean;
+  emailLinkOrigin?: PublicRequestOrigin;
 }
 
 type ProvisionUserInput = Pick<
@@ -351,6 +356,7 @@ export class AuthService {
   async resendVerificationEmail(
     userId: string,
     nextEmail?: string,
+    emailLinkOrigin?: PublicRequestOrigin,
   ): Promise<{ message: string; email: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -399,7 +405,11 @@ export class AuthService {
       'email-verify',
     );
 
-    await this.sendVerificationEmailOrThrow(targetEmail, verificationToken);
+    await this.sendVerificationEmailOrThrow(
+      targetEmail,
+      verificationToken,
+      emailLinkOrigin,
+    );
 
     return {
       message: 'Verification email sent successfully.',
@@ -570,7 +580,11 @@ export class AuthService {
         'email-verify',
       );
 
-      await this.sendVerificationEmailOrThrow(data.email, verificationToken);
+      await this.sendVerificationEmailOrThrow(
+        data.email,
+        verificationToken,
+        options.emailLinkOrigin,
+      );
     }
 
     return {
@@ -655,7 +669,10 @@ export class AuthService {
     return { message: 'Email verified successfully' };
   }
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(
+    email: string,
+    emailLinkOrigin?: PublicRequestOrigin,
+  ): Promise<{ message: string }> {
     const genericResponse = {
       message:
         'If the account exists and is verified, a password reset email will be sent.',
@@ -682,6 +699,7 @@ export class AuthService {
       await this.mailService.sendForgotPasswordEmail(
         user.email,
         forgotPasswordToken,
+        emailLinkOrigin,
       );
     } catch {
       throw new InternalServerErrorException(
@@ -979,9 +997,14 @@ export class AuthService {
   private async sendVerificationEmailOrThrow(
     email: string,
     token: string,
+    emailLinkOrigin?: PublicRequestOrigin,
   ): Promise<void> {
     try {
-      await this.mailService.sendVerificationEmail(email, token);
+      await this.mailService.sendVerificationEmail(
+        email,
+        token,
+        emailLinkOrigin,
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -1066,6 +1089,7 @@ export class AuthService {
     password: string,
     deviceInfo?: DeviceInfo,
     ipAddress?: string,
+    emailLinkOrigin?: PublicRequestOrigin,
   ): Promise<{ requestId: string; activateSecret: string; message: string }> {
     const user = await this.prisma.user.findFirst({
       where: {
@@ -1136,10 +1160,14 @@ export class AuthService {
       ipAddress,
     });
 
-    // Send magic link email
-    const frontendUrl = this.configService
-      .get<string>('FRONTEND_URL')
-      ?.replace(/\/$/, '');
+    const frontendUrl = resolvePublicFrontendUrl({
+      configuredUrl: this.configService.get<string>('FRONTEND_URL'),
+      backendUrl: this.configService.get<string>('BACKEND_URL'),
+      publicHost: this.configService.get<string>('VPS_PUBLIC_HOST'),
+      requestHost: emailLinkOrigin?.host,
+      requestProtocol: emailLinkOrigin?.protocol,
+      nodeEnv: process.env.NODE_ENV,
+    });
     const verifyUrl = `${frontendUrl}/auth/verify-login?token=${encodeURIComponent(loginRequestToken)}`;
 
     try {

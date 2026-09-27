@@ -18,6 +18,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { readProxyPublicOrigin } from '../mail/public-frontend-url';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { Public } from './decorators/public.decorator';
 import { AuthGuard } from '@nestjs/passport';
@@ -491,8 +492,11 @@ export class AuthController {
     description: 'Reset email sent if account exists.',
   })
   @ApiResponse({ status: 429, description: 'Too many requests.' })
-  async forgotPassword(@Body() body: ForgotPasswordDto) {
-    return this.authService.forgotPassword(body.email);
+  async forgotPassword(@Body() body: ForgotPasswordDto, @Req() req: Request) {
+    return this.authService.forgotPassword(
+      body.email,
+      readProxyPublicOrigin(req),
+    );
   }
 
   @Public()
@@ -581,7 +585,11 @@ export class AuthController {
     @Body() body?: ResendVerificationDto,
   ) {
     const userId = await this.getAuthenticatedUserIdFromCookies(req);
-    return this.authService.resendVerificationEmail(userId, body?.email);
+    return this.authService.resendVerificationEmail(
+      userId,
+      body?.email,
+      readProxyPublicOrigin(req),
+    );
   }
 
   @Public()
@@ -630,6 +638,7 @@ export class AuthController {
       body.password,
       deviceInfo,
       ipAddress,
+      readProxyPublicOrigin(req),
     );
   }
 

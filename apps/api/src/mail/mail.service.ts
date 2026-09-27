@@ -29,21 +29,14 @@ import {
   type PasswordResetEmailProps,
 } from './templates/password-reset.email';
 import { TuitionReceiptEmail } from './templates/tuition-receipt.email';
+import {
+  resolvePublicFrontendUrl,
+  type PublicRequestOrigin,
+} from './public-frontend-url';
 
 /** Khớp `AuthService.verifyTokenExpiresIn` (giây) / 3600 */
 const EMAIL_VERIFICATION_EXPIRES_HOURS = 24;
 const FORGOT_PASSWORD_EXPIRES_HOURS = 24 * 7;
-
-const LOCAL_FRONTEND_URL = 'http://localhost:3000';
-const UNSAFE_PRODUCTION_FRONTEND_HOSTS = new Set([
-  'localhost',
-  '127.0.0.1',
-  '0.0.0.0',
-  '[::1]',
-  'example.com',
-  'example.net',
-  'example.org',
-]);
 
 interface SmtpError {
   code?: string;
@@ -147,14 +140,17 @@ export class MailService {
       this.configService.get<string>('MAIL_FROM') ?? 'no-reply@localhost';
   }
 
-  async sendVerificationEmail(email: string, token: string): Promise<void> {
+  async sendVerificationEmail(
+    email: string,
+    token: string,
+    requestOrigin?: PublicRequestOrigin,
+  ): Promise<void> {
     if (!this.transporter) {
       throw new ServiceUnavailableException(
         'Chưa cấu hình gửi email (SMTP). Vui lòng cấu hình SMTP trong .env hoặc liên hệ quản trị viên.',
       );
     }
-    const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const frontendUrl = this.getEmailFrontendUrl(requestOrigin);
     const verificationLink = `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
     const inlineLogo = this.buildAuthBrandLogoInlineImage();
     const props: EmailVerificationEmailProps = {
@@ -191,14 +187,17 @@ export class MailService {
     });
   }
 
-  async sendForgotPasswordEmail(email: string, token: string): Promise<void> {
+  async sendForgotPasswordEmail(
+    email: string,
+    token: string,
+    requestOrigin?: PublicRequestOrigin,
+  ): Promise<void> {
     if (!this.transporter) {
       throw new ServiceUnavailableException(
         'Chưa cấu hình gửi email (SMTP). Vui lòng cấu hình SMTP trong .env hoặc liên hệ quản trị viên.',
       );
     }
-    const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    const frontendUrl = this.getEmailFrontendUrl(requestOrigin);
     const forgotPasswordLink = `${frontendUrl}/auth/reset-password?token=${encodeURIComponent(token)}`;
     const inlineLogo = this.buildAuthBrandLogoInlineImage();
     const props: PasswordResetEmailProps = {
@@ -283,7 +282,7 @@ export class MailService {
   async sendStudentWalletDirectTopUpApprovalEmail(
     params: DirectTopUpApprovalEmailParams,
   ): Promise<void> {
-    const frontendUrl = this.getDirectTopUpApprovalFrontendUrl();
+    const frontendUrl = this.getEmailFrontendUrl();
     const approvalUrl = `${frontendUrl}/wallet-direct-topup-approval?token=${encodeURIComponent(params.token)}`;
     const expiresAt = params.expiresAt.toLocaleString('vi-VN', {
       timeZone: 'Asia/Ho_Chi_Minh',
@@ -746,61 +745,15 @@ export class MailService {
     return password;
   }
 
-  private getDirectTopUpApprovalFrontendUrl(): string {
-    const configuredUrl = this.configService
-      .get<string>('FRONTEND_URL')
-      ?.trim();
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (!configuredUrl) {
-      if (isProduction) {
-        throw new ServiceUnavailableException(
-          'FRONTEND_URL chưa được cấu hình nên không thể tạo link duyệt nạp thẳng cho production.',
-        );
-      }
-      return LOCAL_FRONTEND_URL;
-    }
-
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(configuredUrl);
-    } catch {
-      throw new ServiceUnavailableException(
-        'FRONTEND_URL không hợp lệ nên không thể tạo link duyệt nạp thẳng.',
-      );
-    }
-
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      throw new ServiceUnavailableException(
-        'FRONTEND_URL phải dùng giao thức http hoặc https.',
-      );
-    }
-
-    if (isProduction) {
-      if (parsedUrl.protocol !== 'https:') {
-        throw new ServiceUnavailableException(
-          'FRONTEND_URL production phải dùng HTTPS để bảo vệ link duyệt nạp thẳng.',
-        );
-      }
-      if (this.isUnsafeProductionFrontendHost(parsedUrl.hostname)) {
-        throw new ServiceUnavailableException(
-          'FRONTEND_URL production phải trỏ tới domain public thật, không dùng localhost hoặc example.com.',
-        );
-      }
-    }
-
-    return configuredUrl.replace(/\/+$/, '');
-  }
-
-  private isUnsafeProductionFrontendHost(hostname: string): boolean {
-    const normalizedHostname = hostname.trim().toLowerCase();
-    return (
-      UNSAFE_PRODUCTION_FRONTEND_HOSTS.has(normalizedHostname) ||
-      normalizedHostname.endsWith('.localhost') ||
-      normalizedHostname.endsWith('.example.com') ||
-      normalizedHostname.endsWith('.example.net') ||
-      normalizedHostname.endsWith('.example.org')
-    );
+  private getEmailFrontendUrl(requestOrigin?: PublicRequestOrigin): string {
+    return resolvePublicFrontendUrl({
+      configuredUrl: this.configService.get<string>('FRONTEND_URL'),
+      backendUrl: this.configService.get<string>('BACKEND_URL'),
+      publicHost: this.configService.get<string>('VPS_PUBLIC_HOST'),
+      requestHost: requestOrigin?.host,
+      requestProtocol: requestOrigin?.protocol,
+      nodeEnv: process.env.NODE_ENV,
+    });
   }
 
   private normalizeReceiptText(value: string | null | undefined): string {

@@ -185,6 +185,7 @@ describe('AuthService', () => {
     expect(mailService.sendForgotPasswordEmail).toHaveBeenCalledWith(
       'user@example.com',
       'token',
+      undefined,
     );
   });
 
@@ -268,6 +269,7 @@ describe('AuthService', () => {
     expect(mailService.sendVerificationEmail).toHaveBeenCalledWith(
       'new-user@example.com',
       'token',
+      undefined,
     );
   });
 
@@ -748,6 +750,7 @@ describe('AuthService', () => {
     expect(mailService.sendVerificationEmail).toHaveBeenCalledWith(
       'new@example.com',
       'token',
+      undefined,
     );
   });
 
