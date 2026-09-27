@@ -14,7 +14,7 @@ export class CourseModuleService extends CourseContentSupportService {
   protected readonly logger = new Logger(CourseModuleService.name);
 
   async createModule(
-    dto: ModuleCreateDto,
+    dto: ModuleCreateDto & { courseId: string },
     actor: ActionHistoryActor,
   ): Promise<ModuleResponseDto> {
     await this.validateCourseExists(dto.courseId);

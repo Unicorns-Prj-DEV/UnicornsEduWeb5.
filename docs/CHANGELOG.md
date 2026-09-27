@@ -60,6 +60,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Tạo chuyên đề 400 `courseId must be a string`:** `POST /course/:courseId/modules` nhận body `{ title }` — `courseId` lấy từ path. `ModuleCreateDto.courseId` thành optional để ValidationPipe không từ chối trước khi controller gán param.
+
 - **CI web build fail trên `main`:** `toStaffCreateSessionPayload` còn map `noAttendance` dù `SessionCreatePayload` không còn field đó (Lớp không điểm danh luôn lấy từ Class). Gỡ dòng — Next typecheck `/staff/classes/[id]` pass.
 
 - **`migrate deploy` vỡ trên snapshot production vì thiếu bảng schema-only:** `user_devices` / `login_requests` và `questions` có model Prisma nhưng không có `CREATE TABLE`. Thêm `20260905120000_create_user_devices_and_login_requests` (trước ALTER `activate_secret_hash`) và `20260912500000_create_questions` (trước FK `attempt_answers` → `questions`; cột `chapter_id` để `20260921` rename thành `module_id`).

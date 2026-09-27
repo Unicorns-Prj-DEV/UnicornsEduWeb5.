@@ -1,5 +1,7 @@
+import { ValidationPipe } from '@nestjs/common';
 import { StaffRole, UserRole } from 'generated/enums';
 import { DECORATORS } from '@nestjs/swagger/dist/constants';
+import { ModuleCreateDto } from 'src/dtos/course-content.dto';
 import { ALLOW_STAFF_ROLES_ON_ADMIN_KEY } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { ROLES_KEY } from 'src/auth/decorators/roles.decorator';
 import {
@@ -145,6 +147,32 @@ describe('CourseModuleController course-manage 403', () => {
     expect(moduleService.reorderModules).toHaveBeenCalledWith(
       'course-x',
       ['mod-1'],
+      {
+        userId: staffUser.id,
+        userEmail: staffUser.email,
+        roleType: staffUser.roleType,
+      },
+    );
+  });
+
+  it('accepts a title-only body and takes courseId from the path', async () => {
+    const pipe = new ValidationPipe({ transform: true, whitelist: true });
+    const dto = (await pipe.transform(
+      { title: 'Đại số' },
+      { type: 'body', metatype: ModuleCreateDto },
+    )) as ModuleCreateDto;
+
+    const moduleService = {
+      createModule: jest.fn().mockResolvedValue({ id: 'mod-1' }),
+    };
+    const controller = new CourseModuleController(
+      moduleService as unknown as CourseModuleService,
+    );
+
+    await controller.createModule(staffUser, 'course-x', dto);
+
+    expect(moduleService.createModule).toHaveBeenCalledWith(
+      { title: 'Đại số', courseId: 'course-x' },
       {
         userId: staffUser.id,
         userEmail: staffUser.email,

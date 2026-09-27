@@ -142,11 +142,13 @@ export interface ExamLibraryItemDto extends LessonResponseDto {
 }
 
 export class ModuleCreateDto {
-  @ApiProperty({
-    description: 'ID khoá học',
+  @ApiPropertyOptional({
+    description:
+      'ID khoá học. POST /course/:courseId/modules lấy id từ path; body có thể bỏ qua.',
   })
+  @IsOptional()
   @IsString()
-  courseId: string;
+  courseId?: string;
 
   @ApiProperty({
     description: 'Tiêu đề chuyên đề',

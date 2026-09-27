@@ -62,6 +62,8 @@ Controller: `apps/api/src/course-content/` — `course-module.controller.ts`, `c
 | Quiz ôn nhẹ: `GET/POST/DELETE /lessons/:lessonId/quizzes` | ✅ | ✅ | ✅ | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
 | Câu hỏi tiết thực hành: `GET/POST/PATCH/DELETE /lessons/:lessonId/questions` | ✅ | ✅ | ✅ | ✅ khoá được gán | Cùng quy tắc `teacher` |
 
+Tạo chuyên đề: body `POST /course/:courseId/modules` là `{ "title": "..." }`. `courseId` lấy từ path; gửi thêm trong body cũng được, controller ghi đè bằng param.
+
 Loại tiết: `LessonKind` = `theory` (video/nội dung) hoặc `practice` (chỉ tập câu hỏi). Tạo/sửa tiết thực hành kèm `videoUrl` hoặc `content` → `400` *«Tiết thực hành không được kèm video hoặc nội dung — chỉ gồm tập câu hỏi.»*
 
 Xoá chuyên đề hoặc tiết học khi còn `class_content_items` tham chiếu **kể cả item đang ẩn** → `409` *«Không thể xoá chuyên đề/tiết học: còn N lớp đang tham chiếu — {tên lớp} (X lần giao đang hiện, Y lần giao đang ẩn).»*
