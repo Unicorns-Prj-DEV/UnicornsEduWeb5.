@@ -11,6 +11,7 @@ import { courseKeys, classKeys, authKeys } from "@/lib/query-keys";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import { resolveCourseWorkspaceCapabilities } from "@/lib/course-workspace-access";
+import { CourseListSkeleton } from "@/components/course-workspace/CourseWorkspaceSkeletons";
 import type { Course } from "@/dtos/class.dto";
 import type { CourseWorkspaceRouteBase } from "@/dtos/course-workspace.dto";
 
@@ -124,6 +125,10 @@ export default function CourseListWorkspace({
     });
   };
 
+  if (isLoading) {
+    return <CourseListSkeleton />;
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
       <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm sm:rounded-lg sm:p-5">
@@ -165,9 +170,7 @@ export default function CourseListWorkspace({
         </section>
 
         <div className="min-w-0 flex-1 overflow-auto">
-          {isLoading ? (
-            <p className="p-4 text-sm text-text-secondary">Đang tải...</p>
-          ) : isError ? (
+          {isError ? (
             <div className="p-4 text-sm text-error">
               Không tải được danh sách khoá học.{" "}
               <button type="button" onClick={() => refetch()} className="underline">

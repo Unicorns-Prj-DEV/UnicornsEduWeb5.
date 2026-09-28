@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import { courseKeys } from "@/lib/query-keys";
 import { invalidateCoursePracticeLessonQueries } from "@/lib/query-invalidation";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CourseContentListSkeleton } from "@/components/course-workspace/CourseWorkspaceSkeletons";
 import {
   confirmOrderDirtyLeave,
   useConfirmDialog,
@@ -136,15 +136,7 @@ export function CourseLessonsPanel({
   const canReorder = canEdit && items.length > 1;
 
   if (isLoading) {
-    return (
-      <section className="rounded-xl border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
-        <Skeleton className="h-5 w-40" />
-        <div className="mt-4 space-y-2" role="status" aria-label="Đang tải tiết học">
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
-        </div>
-      </section>
-    );
+    return <CourseContentListSkeleton label="Đang tải tiết học" />;
   }
 
   if (!courseModule) {

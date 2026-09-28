@@ -50,7 +50,7 @@
 
 ## Features
 
-- **Loading:** Segment fallback for `/staff/**` is a neutral shell only; route-specific `loading.tsx` files and shared component skeletons own table/card/calendar/form fidelity so dashboards, forms, and tabs are not shown as a generic table.
+- **Loading:** Segment fallback for `/staff/**` is a neutral shell only; route-specific `loading.tsx` files and shared component skeletons own table/card/calendar/form fidelity so dashboards, forms, and tabs are not shown as a generic table. Mirror nội dung khoá (`/staff/courses`, `/staff/courses/:id`, trang tiết học) dùng cùng skeleton với admin (`CourseListSkeleton`, `CourseDetailSkeleton`, `LessonWorkspaceSkeleton`): route đổi là hiện skeleton ngay; đổi `?tab=` / `?module=` cũng đổi panel ngay rồi mới chờ dữ liệu.
 
 - **Save/refetch UX cho staff mirror + self-service:** các flow **Save** không destructive ở route mirror `/staff/classes`, `/staff/staffs`, `/staff/students` và self route như `/staff/profile` dùng fast-close UX: pass validate là đóng popup/thoát edit mode ngay, hiện `toast.loading`, rồi mutation tiếp tục chạy nền và resolve success/error bằng chính toast đó; lỗi chỉ hiện toast, không tự mở lại form. Áp dụng cả thao tác tạo/sửa khảo sát lớp. Khi query refetch mà đã có dữ liệu cũ, section giữ nguyên nội dung, dim nhẹ và hiện refresh strip/skeleton mảnh thay vì loading toàn trang.
 - `/staff`

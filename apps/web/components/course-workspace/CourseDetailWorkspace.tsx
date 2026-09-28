@@ -20,12 +20,14 @@ import {
 import { ContentTab } from "@/components/course-workspace/tabs/ContentTab";
 import { QuestionBankTab } from "@/components/course-workspace/tabs/QuestionBankTab";
 import { SettingsTab } from "@/components/course-workspace/tabs/SettingsTab";
+import { CourseDetailSkeleton } from "@/components/course-workspace/CourseWorkspaceSkeletons";
 import {
   COURSE_WORKSPACE_TAB_LABELS,
   LEGACY_EXAM_TAB_ID,
   type CourseWorkspaceRouteBase,
   type CourseWorkspaceTabId,
 } from "@/dtos/course-workspace.dto";
+import { replaceCourseWorkspaceUrl } from "@/lib/course-content-routes";
 
 const INVALID_TAB_TOAST_ID = "course-workspace-invalid-tab";
 const FORBIDDEN_TAB_TOAST_ID = "course-workspace-forbidden-tab";
@@ -55,8 +57,16 @@ function CourseDetailWorkspaceInner({
   const tabParam = searchParams.get("tab");
   const normalizedTabParam =
     tabParam === LEGACY_EXAM_TAB_ID ? "noi-dung" : tabParam;
+  // Đổi tab ngay khi bấm, không chờ Next.js commit URL.
+  const [pendingTab, setPendingTab] = useState<string | null | undefined>(
+    undefined,
+  );
+  if (pendingTab !== undefined && pendingTab === normalizedTabParam) {
+    setPendingTab(undefined);
+  }
+  const visibleTabParam = pendingTab !== undefined ? pendingTab : normalizedTabParam;
   const tabResolve = resolveCourseWorkspaceTab(
-    normalizedTabParam,
+    visibleTabParam,
     capabilities.visibleTabIds,
   );
 
@@ -64,8 +74,8 @@ function CourseDetailWorkspaceInner({
     if (tabParam !== LEGACY_EXAM_TAB_ID) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", "noi-dung");
-    replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, replace, searchParams, tabParam]);
+    replaceCourseWorkspaceUrl(`${pathname}?${params.toString()}`);
+  }, [pathname, searchParams, tabParam]);
 
   useEffect(() => {
     if (isProfileLoading) return;
@@ -157,17 +167,14 @@ function CourseDetailWorkspaceInner({
     }
     const next = new URLSearchParams(searchParams.toString());
     next.set("tab", tabId);
-    replace(`${pathname}?${next.toString()}`, { scroll: false });
+    setPendingTab(tabId);
+    replaceCourseWorkspaceUrl(`${pathname}?${next.toString()}`);
   };
 
   const activeTab = tabResolve.tab;
 
   if (isLoading || isProfileLoading) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
-        <p className="text-sm text-text-secondary">Đang tải...</p>
-      </div>
-    );
+    return <CourseDetailSkeleton />;
   }
 
   if (tabResolve.status === "unknown" || tabResolve.status === "forbidden") {
@@ -296,7 +303,7 @@ function CourseDetailWorkspaceInner({
           </div>
         </div>
 
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence initial={false}>
           {activeTab ? (
             <m.section
               key={activeTab}
@@ -357,13 +364,7 @@ export default function CourseDetailWorkspace({
   routeBase: CourseWorkspaceRouteBase;
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 pb-8 sm:p-6">
-          <p className="text-sm text-text-secondary">Đang tải...</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<CourseDetailSkeleton />}>
       <CourseDetailWorkspaceInner routeBase={routeBase} />
     </Suspense>
   );

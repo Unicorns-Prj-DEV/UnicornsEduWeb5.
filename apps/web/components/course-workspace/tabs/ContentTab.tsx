@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CourseModulesPanel } from "@/components/course-workspace/CourseModulesPanel";
 import { CourseLessonsPanel } from "@/components/course-workspace/CourseLessonsPanel";
@@ -8,6 +9,7 @@ import {
   courseDetailHref,
   newLessonHref,
   lessonHref,
+  replaceCourseWorkspaceUrl,
 } from "@/lib/course-content-routes";
 
 export function ContentTab({
@@ -21,17 +23,26 @@ export function ContentTab({
   routeBase: CourseWorkspaceRouteBase;
   onOrderDirtyChange?: (dirty: boolean) => void;
 }) {
-  const { push, replace } = useRouter();
+  const { push } = useRouter();
   const searchParams = useSearchParams();
-  const moduleId = searchParams.get("module");
+  const urlModuleId = searchParams.get("module");
+  // Hiện panel mới ngay khi bấm; URL bắt kịp sau đó. `undefined` = theo URL.
+  const [pendingModuleId, setPendingModuleId] = useState<
+    string | null | undefined
+  >(undefined);
+  if (pendingModuleId !== undefined && pendingModuleId === urlModuleId) {
+    setPendingModuleId(undefined);
+  }
+  const moduleId =
+    pendingModuleId !== undefined ? pendingModuleId : urlModuleId;
 
   const setModuleQuery = (nextModuleId: string | null) => {
-    replace(
+    setPendingModuleId(nextModuleId);
+    replaceCourseWorkspaceUrl(
       courseDetailHref(routeBase, courseId, {
         tab: "noi-dung",
         module: nextModuleId,
       }),
-      { scroll: false },
     );
   };
 

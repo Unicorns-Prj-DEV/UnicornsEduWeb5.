@@ -6,6 +6,15 @@ import type { CourseWorkspaceRouteBase } from "@/dtos/course-workspace.dto";
  * Keep this module separate from `content-api-paths.ts` (Axios endpoints).
  */
 
+/**
+ * Đổi query trên cùng trang khoá (tab, chuyên đề) ngay lập tức.
+ * `router.replace` chờ RSC nên trang cũ đứng yên đến khi server trả lời.
+ * `history.replaceState` được Next.js đồng bộ vào `useSearchParams` mà không giữ UI cũ.
+ */
+export function replaceCourseWorkspaceUrl(href: string) {
+  window.history.replaceState(null, "", href);
+}
+
 export function courseDetailHref(
   routeBase: CourseWorkspaceRouteBase,
   courseId: string,

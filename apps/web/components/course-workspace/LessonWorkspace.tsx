@@ -16,7 +16,10 @@ import {
   moduleLessonsHref,
 } from "@/lib/course-content-routes";
 import { PracticeLessonQuestionsCard } from "@/components/admin/PracticeLessonQuestionsCard";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  LessonEditorSkeleton,
+  LessonWorkspaceSkeleton,
+} from "@/components/course-workspace/CourseWorkspaceSkeletons";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CourseWorkspaceRouteBase } from "@/dtos/course-workspace.dto";
 import type { LessonKind } from "@/dtos/course-content.dto";
@@ -158,11 +161,7 @@ function LessonWorkspaceInner({
   ]);
 
   if (profileLoading || !capabilities.canEnterWorkspace || !capabilities.canViewContentTab) {
-    return (
-      <div className={SHELL_CLASS}>
-        <p className="text-sm text-text-secondary">Đang tải...</p>
-      </div>
-    );
+    return <LessonWorkspaceSkeleton />;
   }
 
   if (mode === "edit" && (lessonError || (!lessonLoading && !lesson))) {
@@ -338,7 +337,7 @@ function LessonWorkspaceInner({
               )}
             </div>
           ) : (
-            <Skeleton className="h-40 w-full" />
+            <LessonEditorSkeleton />
           )}
         </section>
       </div>
@@ -355,13 +354,7 @@ export default function LessonWorkspace({
   mode: "create" | "edit";
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className={SHELL_CLASS}>
-          <p className="text-sm text-text-secondary">Đang tải...</p>
-        </div>
-      }
-    >
+    <Suspense fallback={<LessonWorkspaceSkeleton />}>
       <LessonWorkspaceInner routeBase={routeBase} mode={mode} />
     </Suspense>
   );
