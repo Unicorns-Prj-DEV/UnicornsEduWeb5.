@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Dashboard — bấm KPI Lớp học xem phân loại:** `GET /dashboard/active-class-breakdown` nhóm lớp `running` theo khoá học, mỗi dòng có số lớp và số học sinh active của khoá đó. Popup trên `/admin/dashboard` hiện số loại lớp, tổng lớp (khớp card) và tổng học sinh không trùng. Snapshot, không theo tháng đang chọn.
 - **Nguồn khách trên hồ sơ học sinh:**
   - Trường `customer_source` (Tiktok, Fanpage Học Tin Cùng Chuyên Tin, Fanpage Luyện Tin THPT, Giới thiệu từ người quen của khách, Nguồn riêng của bản thân, Khác) và `customer_source_note` khi chọn Khác. Tạo mới bắt buộc chọn nguồn.
   - Dashboard admin có bảng số học sinh, học phí đã học và tỷ trọng theo kỳ; bấm một dòng mở chi tiết cùng cột với Học phí đã học (dòng Khác thêm chú thích). Đổi nguồn thì các kỳ đã qua tính lại theo giá trị hiện tại.

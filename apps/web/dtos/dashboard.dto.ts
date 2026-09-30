@@ -166,6 +166,20 @@ export interface AdminDashboardStudentChurnItem {
   eventDate: string;
 }
 
+export interface AdminDashboardActiveClassBreakdownItem {
+  courseId: string;
+  courseName: string;
+  classCount: number;
+  studentCount: number;
+}
+
+export interface AdminDashboardActiveClassBreakdown {
+  courseTypeCount: number;
+  classCount: number;
+  studentCount: number;
+  items: AdminDashboardActiveClassBreakdownItem[];
+}
+
 export type AdminDashboardFinancialDetailRowKey =
   | "topup"
   | "revenue"

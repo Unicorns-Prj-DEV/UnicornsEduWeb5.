@@ -17,6 +17,7 @@ import {
   type AdminDashboardFinancialExportDto,
   type AdminDashboardMonthlyStatisticsDto,
   type AdminDashboardTopupHistoryItemDto,
+  type AdminDashboardActiveClassBreakdownDto,
   type AdminDashboardStudentBalanceItemDto,
   type AdminDashboardStudentChurnItemDto,
   type AdminDashboardDto,
@@ -304,6 +305,20 @@ export class DashboardController {
     @Query() query: GetAdminStudentChurnDetailsQueryDto,
   ): Promise<AdminDashboardStudentChurnItemDto[]> {
     return this.dashboardService.getAdminStudentChurnDetails(query);
+  }
+
+  @Get('active-class-breakdown')
+  @ApiOperation({
+    summary: 'Get running classes grouped by course',
+    description:
+      'Snapshot of classes with status running, grouped by course (khoá học). Each row has the running class count and the distinct active-student count for that course. The top-level studentCount is distinct across courses and matches summary.activeStudents. Not filtered by the dashboard month.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Running class breakdown by course.',
+  })
+  async getAdminActiveClassBreakdown(): Promise<AdminDashboardActiveClassBreakdownDto> {
+    return this.dashboardService.getAdminActiveClassBreakdown();
   }
 
   @Get('monthly-statistics')

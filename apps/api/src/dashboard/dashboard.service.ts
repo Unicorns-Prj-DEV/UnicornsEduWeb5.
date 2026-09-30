@@ -31,6 +31,7 @@ import {
   type AdminDashboardMonthlyStatisticDto,
   type AdminDashboardMonthlyStatisticsDto,
   type AdminDashboardPendingPayrollBreakdownDto,
+  type AdminDashboardActiveClassBreakdownDto,
   type AdminDashboardStudentBalanceItemDto,
   type AdminDashboardStudentChurnItemDto,
   type AdminDashboardTopupHistoryItemDto,
@@ -80,6 +81,13 @@ import { SurveyRoundService } from '../class/survey-round.service';
 type SummaryCountRow = {
   activeClasses: number | string | null;
   activeStudents: number | string | null;
+};
+
+type ActiveClassBreakdownSqlRow = {
+  courseId: string;
+  courseName: string;
+  classCount: number | string | null;
+  studentCount: number | string | null;
 };
 
 type StudentChurnCountRow = {
@@ -5927,6 +5935,56 @@ export class DashboardService {
               ? row.eventDate.toISOString()
               : new Date(row.eventDate).toISOString(),
         }));
+      },
+    });
+  }
+
+  /**
+   * Snapshot lớp `running`, nhóm theo khoá học.
+   * Số lớp và số học sinh dùng cùng điều kiện với `summary.activeClasses` / `summary.activeStudents`.
+   */
+  async getAdminActiveClassBreakdown(): Promise<AdminDashboardActiveClassBreakdownDto> {
+    const cacheKey = buildCacheKey('active-class-breakdown', {
+      scope: 'snapshot',
+    });
+
+    return this.dashboardCacheService.wrapJson({
+      key: cacheKey,
+      cacheType: 'active-class-breakdown',
+      loader: async () => {
+        const [rows, summary] = await Promise.all([
+          this.prisma.$queryRaw<ActiveClassBreakdownSqlRow[]>(Prisma.sql`
+            SELECT
+              courses.id AS "courseId",
+              courses.name AS "courseName",
+              COUNT(DISTINCT classes.id) AS "classCount",
+              COUNT(DISTINCT CASE
+                WHEN student_info.status = 'active' THEN student_classes.student_id
+              END) AS "studentCount"
+            FROM classes
+            INNER JOIN courses ON courses.id = classes.course_id
+            LEFT JOIN student_classes ON student_classes.class_id = classes.id
+            LEFT JOIN student_info ON student_info.id = student_classes.student_id
+            WHERE classes.status = 'running'
+            GROUP BY courses.id, courses.name, courses.sort_order
+            ORDER BY courses.sort_order ASC, courses.name ASC
+          `),
+          this.getSummaryCounts(),
+        ]);
+
+        const items = rows.map((row) => ({
+          courseId: row.courseId,
+          courseName: row.courseName,
+          classCount: normalizeInteger(row.classCount),
+          studentCount: normalizeInteger(row.studentCount),
+        }));
+
+        return {
+          courseTypeCount: items.length,
+          classCount: normalizeInteger(summary.activeClasses),
+          studentCount: normalizeInteger(summary.activeStudents),
+          items,
+        };
       },
     });
   }

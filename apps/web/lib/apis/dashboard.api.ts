@@ -6,6 +6,7 @@ import {
   AdminDashboardFinancialDetailRowKey,
   AdminDashboardFinancialExport,
   AdminDashboardMonthlyStatistics,
+  AdminDashboardActiveClassBreakdown,
   AdminDashboardStudentBalanceItem,
   AdminDashboardStudentChurnItem,
   AdminDashboardStudentChurnType,
@@ -114,6 +115,13 @@ export async function getAdminStudentChurnDetails(params: {
     },
   });
 
+  return response.data;
+}
+
+export async function getAdminActiveClassBreakdown(): Promise<AdminDashboardActiveClassBreakdown> {
+  const response = await api.get<AdminDashboardActiveClassBreakdown>(
+    "/dashboard/active-class-breakdown",
+  );
   return response.data;
 }
 

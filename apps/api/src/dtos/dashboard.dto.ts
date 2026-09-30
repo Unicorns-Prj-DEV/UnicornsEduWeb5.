@@ -625,6 +625,26 @@ export interface AdminDashboardStudentChurnItemDto {
   eventDate: string;
 }
 
+/** Một khoá học (phân loại lớp) đang có lớp `running`. */
+export interface AdminDashboardActiveClassBreakdownItemDto {
+  courseId: string;
+  courseName: string;
+  classCount: number;
+  studentCount: number;
+}
+
+/**
+ * Snapshot lớp đang chạy, nhóm theo khoá học.
+ * `studentCount` ở gốc là số học sinh không trùng (khớp `summary.activeStudents`).
+ * Tổng `items[].studentCount` có thể lớn hơn vì một học sinh học nhiều khoá.
+ */
+export interface AdminDashboardActiveClassBreakdownDto {
+  courseTypeCount: number;
+  classCount: number;
+  studentCount: number;
+  items: AdminDashboardActiveClassBreakdownItemDto[];
+}
+
 export interface AdminDashboardFinancialDetailSourceDto {
   key: string;
   label: string;

@@ -31,6 +31,7 @@ import {
 } from "@/components/admin/dashboard/AdminDashboardSkeleton";
 import { DashboardIcon } from "@/components/admin/dashboard/DashboardIcon";
 import { CustomerSourceSection } from "@/components/admin/dashboard/CustomerSourceSection";
+import { ActiveClassBreakdownDialog } from "@/components/admin/dashboard/ActiveClassBreakdownDialog";
 import { FinancialDetailModal } from "@/components/admin/dashboard/FinancialDetailModal";
 import type { AlertGroupTone } from "@/components/admin/dashboard/alert-group-styles";
 import type {
@@ -468,6 +469,7 @@ export default function AdminDashboardTabPage() {
   const [selectedFinancialRowKey, setSelectedFinancialRowKey] = useState<AdminDashboardFinancialDetailRowKey | null>(null);
   const [selectedCustomerSourceKey, setSelectedCustomerSourceKey] = useState<AdminDashboardCustomerSourceRow["key"] | null>(null);
   const [studentChurnTab, setStudentChurnTab] = useState<AdminDashboardStudentChurnType | null>(null);
+  const [classBreakdownOpen, setClassBreakdownOpen] = useState(false);
   const [openAlertGroup, setOpenAlertGroup] = useState<{
     group: AdminDashboardActionAlertGroup;
     title: string;
@@ -1008,7 +1010,13 @@ export default function AdminDashboardTabPage() {
             isMonthDashboardRefreshing ? "opacity-70" : ""
           }`}
         >
-          <KpiCard title="Lớp học" value={String(dashboard.summary.activeClasses)} note={`${dashboard.summary.activeClasses} đang hoạt động`} tone="primary" />
+          <KpiCard
+            title="Lớp học"
+            value={String(dashboard.summary.activeClasses)}
+            note={`${dashboard.summary.activeClasses} đang hoạt động`}
+            tone="primary"
+            onClick={() => setClassBreakdownOpen(true)}
+          />
           <KpiCard
             title="Học sinh"
             value={String(dashboard.summary.activeStudents)}
@@ -1253,6 +1261,10 @@ export default function AdminDashboardTabPage() {
               setSelectedCustomerSourceKey(null);
             }}
           />
+        ) : null}
+
+        {classBreakdownOpen ? (
+          <ActiveClassBreakdownDialog onClose={() => setClassBreakdownOpen(false)} />
         ) : null}
 
         {studentChurnTab ? (
