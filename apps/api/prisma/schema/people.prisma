@@ -73,6 +73,8 @@ model StudentInfo {
   status                    StudentStatus                     @default(active)
   gender                    Gender                            @default(male)
   goal                      String?
+  customerSource            StudentCustomerSource?            @map("customer_source")
+  customerSourceNote        String?                           @map("customer_source_note") @db.VarChar(200)
   dropOutDate               DateTime?                         @map("drop_out_date") @db.Date
   createdAt                 DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)

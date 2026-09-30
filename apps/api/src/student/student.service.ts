@@ -17,6 +17,7 @@ import {
   Gender,
   StaffRole,
   StudentClassStatus,
+  StudentCustomerSource,
   StudentStatus,
   StudentWalletDirectTopUpRequestStatus,
   UserRole,
@@ -492,6 +493,8 @@ export class StudentService {
       parentReceiptEmailEnabled: student.parentReceiptEmailEnabled,
       goal: student.goal,
       dropOutDate: student.dropOutDate,
+      customerSource: student.customerSource,
+      customerSourceNote: student.customerSourceNote,
       customerCare: student.customerCareServices
         ? {
             staff: {
@@ -935,6 +938,61 @@ export class StudentService {
         'Only admin or assistant staff can change customer care profit percent',
       );
     }
+  }
+
+  private resolveCustomerSourceWrite(
+    source: StudentCustomerSource,
+    note: string | null | undefined,
+  ): {
+    customerSource: StudentCustomerSource;
+    customerSourceNote: string | null;
+  } {
+    if (source !== StudentCustomerSource.other) {
+      return { customerSource: source, customerSourceNote: null };
+    }
+
+    const normalized = note?.trim() ?? '';
+    if (!normalized) {
+      throw new BadRequestException(
+        'Chú thích nguồn là bắt buộc khi chọn Khác.',
+      );
+    }
+
+    return { customerSource: source, customerSourceNote: normalized };
+  }
+
+  private resolveCustomerSourceUpdate(
+    dto: UpdateStudentBodyDto,
+    current: {
+      customerSource: StudentCustomerSource | null;
+      customerSourceNote: string | null;
+    },
+  ): {
+    customerSource?: StudentCustomerSource;
+    customerSourceNote?: string | null;
+  } {
+    if (
+      dto.customer_source === undefined &&
+      dto.customer_source_note === undefined
+    ) {
+      return {};
+    }
+
+    if (dto.customer_source !== undefined) {
+      return this.resolveCustomerSourceWrite(
+        dto.customer_source,
+        dto.customer_source_note,
+      );
+    }
+
+    if (current.customerSource !== StudentCustomerSource.other) {
+      throw new BadRequestException('Chú thích nguồn chỉ dùng khi chọn Khác.');
+    }
+
+    return this.resolveCustomerSourceWrite(
+      StudentCustomerSource.other,
+      dto.customer_source_note,
+    );
   }
 
   private buildUpdateData(dto: UpdateStudentBodyDto) {
@@ -2533,7 +2591,10 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    const updateData = this.buildUpdateData(dto);
+    const updateData = {
+      ...this.buildUpdateData(dto),
+      ...this.resolveCustomerSourceUpdate(dto, student),
+    };
     const shouldSyncCustomerCare =
       dto.customer_care_staff_id !== undefined ||
       dto.customer_care_profit_percent !== undefined;
@@ -2918,8 +2979,19 @@ export class StudentService {
       throw new BadRequestException('Student full name is required.');
     }
 
+    const customerSource = this.resolveCustomerSourceWrite(
+      data.customer_source,
+      data.customer_source_note,
+    );
+
     return this.withEntityIdRetry(() =>
-      this.createStudentOnce(data, auditActor, user, trimmedFullName),
+      this.createStudentOnce(
+        data,
+        auditActor,
+        user,
+        trimmedFullName,
+        customerSource,
+      ),
     );
   }
 
@@ -2933,12 +3005,18 @@ export class StudentService {
       roleType: UserRole;
     },
     trimmedFullName: string,
+    customerSource: {
+      customerSource: StudentCustomerSource;
+      customerSourceNote: string | null;
+    },
   ) {
     return this.prisma.$transaction(async (tx) => {
       const createdStudent = await tx.studentInfo.create({
         data: {
           id: generateStudentId(),
           fullName: trimmedFullName,
+          customerSource: customerSource.customerSource,
+          customerSourceNote: customerSource.customerSourceNote,
           email: normalizeOptionalText(data.email) ?? user.email,
           school: normalizeOptionalText(data.school),
           province:

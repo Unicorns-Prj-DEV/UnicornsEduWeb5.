@@ -2,6 +2,31 @@ import type { StaffStatus } from "./staff.dto";
 
 export type StudentStatus = "active" | "inactive";
 export type StudentGender = "male" | "female";
+
+export const STUDENT_CUSTOMER_SOURCES = [
+  "tiktok",
+  "fanpage_hoc_tin",
+  "fanpage_luyen_tin",
+  "referral",
+  "personal",
+  "other",
+] as const;
+
+export type StudentCustomerSource = (typeof STUDENT_CUSTOMER_SOURCES)[number];
+
+export const STUDENT_CUSTOMER_SOURCE_LABELS: Record<StudentCustomerSource, string> = {
+  tiktok: "Tiktok",
+  fanpage_hoc_tin: "Fanpage Học Tin Cùng Chuyên Tin",
+  fanpage_luyen_tin: "Fanpage Luyện Tin THPT",
+  referral: "Giới thiệu từ người quen của khách",
+  personal: "Nguồn riêng của bản thân",
+  other: "Khác",
+};
+
+export const STUDENT_CUSTOMER_SOURCE_OPTIONS = STUDENT_CUSTOMER_SOURCES.map((value) => ({
+  value,
+  label: STUDENT_CUSTOMER_SOURCE_LABELS[value],
+}));
 export type StudentWalletTransactionType =
   | "topup"
   | "loan"
@@ -66,6 +91,8 @@ export interface StudentDetail extends StudentListItem {
   parentPhone?: string | null;
   goal?: string | null;
   dropOutDate?: string | null;
+  customerSource?: StudentCustomerSource | null;
+  customerSourceNote?: string | null;
   customerCare?: {
     staff: {
       id: string;
@@ -221,6 +248,8 @@ export interface UpdateStudentPayload {
   drop_out_date?: string;
   customer_care_staff_id?: string | null;
   customer_care_profit_percent?: number | null;
+  customer_source?: StudentCustomerSource;
+  customer_source_note?: string | null;
 }
 
 export interface CreateStudentPayload {
@@ -238,6 +267,8 @@ export interface CreateStudentPayload {
   goal?: string;
   drop_out_date?: string;
   user_id: string;
+  customer_source: StudentCustomerSource;
+  customer_source_note?: string;
 }
 
 export interface UpdateStudentAccountBalancePayload {

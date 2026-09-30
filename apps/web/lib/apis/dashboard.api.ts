@@ -168,6 +168,7 @@ export async function getAdminDashboardFinancialDetail(params: {
   limit?: number;
   dateFrom?: string;
   dateTo?: string;
+  customerSource?: string;
 }): Promise<AdminDashboardFinancialDetail> {
   const response = await api.get<AdminDashboardFinancialDetail>("/dashboard/financial-detail", {
     params: {
@@ -177,6 +178,7 @@ export async function getAdminDashboardFinancialDetail(params: {
       ...(typeof params.limit === "number" ? { limit: params.limit } : {}),
       ...(params.dateFrom ? { dateFrom: params.dateFrom } : {}),
       ...(params.dateTo ? { dateTo: params.dateTo } : {}),
+      ...(params.customerSource ? { customerSource: params.customerSource } : {}),
     },
   });
 

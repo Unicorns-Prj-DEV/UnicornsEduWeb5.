@@ -460,6 +460,14 @@ export class DashboardController {
       'Date range end (inclusive) in YYYY-MM-DD format. Must be used together with dateFrom.',
     example: '2026-04-30',
   })
+  @ApiQuery({
+    name: 'customerSource',
+    required: false,
+    type: String,
+    description:
+      'Nguồn khách khi rowKey=customer-source. Giá trị unassigned là nhóm Chưa gán.',
+    example: 'tiktok',
+  })
   @ApiResponse({
     status: 200,
     description: 'Financial detail payload for popup rendering.',

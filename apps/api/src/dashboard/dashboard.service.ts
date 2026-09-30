@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
+import {
+  STUDENT_CUSTOMER_SOURCE_LABELS,
+  STUDENT_CUSTOMER_SOURCE_VALUES,
+  UNASSIGNED_CUSTOMER_SOURCE_KEY,
+  UNASSIGNED_CUSTOMER_SOURCE_LABEL,
+} from '../dtos/student.dto';
 import { ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL } from 'src/payroll/assistant-share.util';
 import {
   AttendanceStatus,
@@ -14,6 +20,7 @@ import {
   type AdminDashboardActionAlertListDto,
   type AdminDashboardBreakdownItemDto,
   type AdminDashboardClassPerformanceDto,
+  type AdminDashboardCustomerSourceRowDto,
   type AdminDashboardDto,
   type AdminDashboardFinancialDetailDto,
   type AdminDashboardFinancialDetailItemDto,
@@ -270,7 +277,46 @@ type LearnedTuitionByStudentSqlRow = {
   className: string;
   totalAmount: number | string | null;
   attendanceCount: number | string | null;
+  customerSourceNote?: string | null;
 };
+
+type CustomerSourceAggregateSqlRow = {
+  customerSource: string | null;
+  studentCount: number | string | null;
+  revenue: number | string | null;
+};
+
+const CUSTOMER_SOURCE_ROW_ORDER = [
+  ...STUDENT_CUSTOMER_SOURCE_VALUES,
+  UNASSIGNED_CUSTOMER_SOURCE_KEY,
+] as const;
+
+function allocateSharePercents(amounts: number[]): number[] {
+  const total = amounts.reduce((sum, amount) => sum + amount, 0);
+  if (total <= 0) {
+    return amounts.map(() => 0);
+  }
+
+  const numerators = amounts.map((amount) => amount * 1000);
+  const floors = numerators.map((numerator) => Math.floor(numerator / total));
+  let leftover = 1000 - floors.reduce((sum, value) => sum + value, 0);
+  const ranked = numerators
+    .map((numerator, index) => ({
+      index,
+      remainder: numerator % total,
+    }))
+    .sort(
+      (left, right) =>
+        right.remainder - left.remainder || left.index - right.index,
+    );
+  const shares = [...floors];
+
+  for (let step = 0; step < leftover; step += 1) {
+    shares[ranked[step].index] += 1;
+  }
+
+  return shares.map((value) => value / 10);
+}
 
 const DASHBOARD_EXPIRING_BALANCE_MAX = 800_000;
 
@@ -848,6 +894,88 @@ export class DashboardService {
         AND sessions.date >= ${params.monthStart}
         AND sessions.date < ${params.monthEnd}
       GROUP BY student_info.id, student_info.full_name
+      ORDER BY "totalAmount" DESC, student_info.full_name ASC
+      LIMIT ${params.limit}
+    `);
+  }
+
+  private async getCustomerSourceStats(params: {
+    monthStart: Date;
+    monthEnd: Date;
+  }): Promise<AdminDashboardCustomerSourceRowDto[]> {
+    const rows = await this.prisma.$queryRaw<CustomerSourceAggregateSqlRow[]>(
+      Prisma.sql`
+        SELECT
+          student_info.customer_source::text AS "customerSource",
+          COUNT(DISTINCT student_info.id) AS "studentCount",
+          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
+        FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
+        INNER JOIN student_info ON student_info.id = attendance.student_id
+        WHERE attendance.status IN ('present', 'excused')
+          AND sessions.date >= ${params.monthStart}
+          AND sessions.date < ${params.monthEnd}
+        GROUP BY student_info.customer_source
+      `,
+    );
+
+    const byKey = new Map(
+      rows.map((row) => [
+        row.customerSource ?? UNASSIGNED_CUSTOMER_SOURCE_KEY,
+        {
+          studentCount: normalizeInteger(row.studentCount),
+          revenue: normalizeMoneyAmount(row.revenue),
+        },
+      ]),
+    );
+    const amounts = CUSTOMER_SOURCE_ROW_ORDER.map(
+      (key) => byKey.get(key)?.revenue ?? 0,
+    );
+    const shares = allocateSharePercents(amounts);
+
+    return CUSTOMER_SOURCE_ROW_ORDER.map((key, index) => ({
+      key,
+      label:
+        key === UNASSIGNED_CUSTOMER_SOURCE_KEY
+          ? UNASSIGNED_CUSTOMER_SOURCE_LABEL
+          : STUDENT_CUSTOMER_SOURCE_LABELS[key],
+      studentCount: byKey.get(key)?.studentCount ?? 0,
+      revenue: amounts[index],
+      sharePercent: shares[index],
+    }));
+  }
+
+  private async getLearnedTuitionByStudentForCustomerSource(params: {
+    monthStart: Date;
+    monthEnd: Date;
+    limit: number;
+    customerSource: (typeof CUSTOMER_SOURCE_ROW_ORDER)[number];
+  }) {
+    const sourceFilter =
+      params.customerSource === UNASSIGNED_CUSTOMER_SOURCE_KEY
+        ? Prisma.sql`student_info.customer_source IS NULL`
+        : Prisma.sql`student_info.customer_source::text = ${params.customerSource}`;
+
+    return this.prisma.$queryRaw<LearnedTuitionByStudentSqlRow[]>(Prisma.sql`
+      SELECT
+        student_info.id AS "studentId",
+        student_info.full_name AS "studentName",
+        COALESCE(
+          STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name),
+          ''
+        ) AS "className",
+        COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount",
+        COUNT(attendance.id) AS "attendanceCount",
+        student_info.customer_source_note AS "customerSourceNote"
+      FROM attendance
+      INNER JOIN sessions ON sessions.id = attendance.session_id
+      INNER JOIN classes ON classes.id = sessions.class_id
+      INNER JOIN student_info ON student_info.id = attendance.student_id
+      WHERE attendance.status IN ('present', 'excused')
+        AND sessions.date >= ${params.monthStart}
+        AND sessions.date < ${params.monthEnd}
+        AND ${sourceFilter}
+      GROUP BY student_info.id, student_info.full_name, student_info.customer_source_note
       ORDER BY "totalAmount" DESC, student_info.full_name ASC
       LIMIT ${params.limit}
     `);
@@ -4108,11 +4236,13 @@ export class DashboardService {
           dateFrom: period.dateFrom,
           dateTo: period.dateTo,
           topClassLimit,
+          v: 'customer-source',
         })
       : buildCacheKey('aggregate', {
           alertLimit,
           month: period.month,
           topClassLimit,
+          v: 'customer-source',
           year: period.year,
         });
 
@@ -4145,6 +4275,7 @@ export class DashboardService {
             topClasses,
             classAlertRows,
             pendingCollectionTotal,
+            customerSources,
           ] = await Promise.all([
             this.getSummaryCounts(),
             this.getStudentChurnCounts({
@@ -4169,6 +4300,10 @@ export class DashboardService {
               limit: alertLimit,
             }),
             this.getPendingCollectionTotal(),
+            this.getCustomerSourceStats({
+              monthStart: period.monthStart,
+              monthEnd: period.monthEnd,
+            }),
           ]);
 
           const expiringStudentsCount = normalizeInteger(
@@ -4309,6 +4444,7 @@ export class DashboardService {
             actionAlerts,
             classPerformance,
             yearlySummary: [],
+            customerSources,
           };
         }
 
@@ -4326,6 +4462,7 @@ export class DashboardService {
           classAlertRows,
           quarterClassCounts,
           pendingCollectionTotal,
+          customerSources,
         ] = await Promise.all([
           this.getSummaryCounts(),
           this.getStudentChurnCounts({
@@ -4356,6 +4493,10 @@ export class DashboardService {
             monthEnd: period.monthEnd,
           }),
           this.getPendingCollectionTotal(),
+          this.getCustomerSourceStats({
+            monthStart: period.monthStart,
+            monthEnd: period.monthEnd,
+          }),
         ]);
 
         const selectedMonthTrend = this.resolveSelectedMonthTrend(
@@ -4531,6 +4672,7 @@ export class DashboardService {
           actionAlerts,
           classPerformance,
           yearlySummary,
+          customerSources,
         };
       },
     });
@@ -4799,12 +4941,14 @@ export class DashboardService {
 
     const cacheKey = period.isDateRange
       ? buildCacheKey('financial-detail', {
+          customerSource: query.customerSource ?? '',
           limit,
           dateFrom: period.dateFrom,
           dateTo: period.dateTo,
           rowKey: query.rowKey,
         })
       : buildCacheKey('financial-detail', {
+          customerSource: query.customerSource ?? '',
           limit,
           month: period.month,
           rowKey: query.rowKey,
@@ -4913,6 +5057,60 @@ export class DashboardService {
                 }),
               ),
               emptyState: 'Chưa có dữ liệu học phí đã học.',
+            };
+          }
+          case 'customer-source': {
+            const sourceKey = query.customerSource;
+            if (!sourceKey) {
+              throw new BadRequestException(
+                'customerSource is required for this row.',
+              );
+            }
+
+            const [stats, studentRows] = await Promise.all([
+              this.getCustomerSourceStats({
+                monthStart: period.monthStart,
+                monthEnd: period.monthEnd,
+              }),
+              this.getLearnedTuitionByStudentForCustomerSource({
+                monthStart: period.monthStart,
+                monthEnd: period.monthEnd,
+                limit,
+                customerSource: sourceKey,
+              }),
+            ]);
+            const sourceRow = stats.find((row) => row.key === sourceKey);
+            const label = sourceRow?.label ?? sourceKey;
+            const amount = sourceRow?.revenue ?? 0;
+
+            return {
+              rowKey: query.rowKey,
+              title: `Chi tiết nguồn khách · ${label}`,
+              description: `Học sinh đang mang nguồn ${label} và có học phí đã học trong ${periodLabel}.`,
+              amount,
+              sources: [
+                {
+                  key: sourceKey,
+                  label: `Học phí đã học · ${label}`,
+                  amount,
+                  note: `${sourceRow?.studentCount ?? 0} học sinh · tỷ trọng ${sourceRow?.sharePercent ?? 0}%`,
+                  tone: 'positive',
+                },
+              ],
+              items: studentRows.map<AdminDashboardFinancialDetailItemDto>(
+                (row) => ({
+                  id: row.studentId,
+                  label: row.studentName,
+                  secondaryLabel: row.className || null,
+                  amount: normalizeMoneyAmount(row.totalAmount),
+                  note: `${normalizeInteger(row.attendanceCount)} lượt học có mặt/vắng phép`,
+                  ...(sourceKey === 'other'
+                    ? { sourceNote: row.customerSourceNote?.trim() || null }
+                    : {}),
+                }),
+              ),
+              emptyState:
+                'Chưa có học sinh nào phát sinh học phí đã học từ nguồn này trong kỳ.',
             };
           }
           case 'prepaid': {

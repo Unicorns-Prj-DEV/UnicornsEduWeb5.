@@ -34,6 +34,7 @@ import {
   AchievementLevel,
   StaffRole,
   StudentWalletDirectTopUpRequestStatus,
+  StudentCustomerSource,
   StudentStatus,
   UserRole,
   WalletTransactionType,
@@ -284,6 +285,7 @@ describe('StudentService', () => {
         gender: 'male',
         goal: 'Top 1',
         user_id: 'user-1',
+        customer_source: StudentCustomerSource.tiktok,
       },
       {
         userId: 'admin-1',
@@ -325,6 +327,7 @@ describe('StudentService', () => {
       service.createStudent({
         full_name: 'Nguyen Van A',
         user_id: 'user-1',
+        customer_source: StudentCustomerSource.tiktok,
       }),
     ).rejects.toThrow(
       'User này đang có hồ sơ nhân sự nên không thể gán làm học sinh.',

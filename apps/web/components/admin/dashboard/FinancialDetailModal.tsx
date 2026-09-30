@@ -167,6 +167,8 @@ function FinancialDetailModalContent({ rowLabel, detail, isLoading, error }: Fin
       .filter((item) => item.amount !== 0);
   }, [detail, selectedSourceKey]);
 
+  const showSourceNote = Boolean(detail?.items.some((item) => "sourceNote" in item));
+
   if (isLoading) {
     return <AdminDashboardFinancialDetailSkeleton />;
   }
@@ -284,6 +286,11 @@ function FinancialDetailModalContent({ rowLabel, detail, isLoading, error }: Fin
                       {item.note}
                     </p>
                   ) : null}
+                  {showSourceNote ? (
+                    <p className="mt-2 text-sm leading-6 text-text-secondary">
+                      Chú thích: {item.sourceNote?.trim() || "—"}
+                    </p>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -296,6 +303,7 @@ function FinancialDetailModalContent({ rowLabel, detail, isLoading, error }: Fin
                     <TableHead className="min-w-[180px]">Nguồn</TableHead>
                     <TableHead className="min-w-[180px] text-right">Giá trị</TableHead>
                     <TableHead className="min-w-[260px]">Ghi chú</TableHead>
+                    {showSourceNote ? <TableHead className="min-w-[220px]">Chú thích</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -307,6 +315,9 @@ function FinancialDetailModalContent({ rowLabel, detail, isLoading, error }: Fin
                         {formatCurrency(item.amount)}
                       </TableCell>
                       <TableCell className="align-top text-text-secondary">{item.note ?? "—"}</TableCell>
+                      {showSourceNote ? (
+                        <TableCell className="align-top text-text-secondary">{item.sourceNote?.trim() || "—"}</TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

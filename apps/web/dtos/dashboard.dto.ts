@@ -175,7 +175,25 @@ export type AdminDashboardFinancialDetailRowKey =
   | "personnel-cost"
   | "other-cost"
   | "profit"
-  | "total-in";
+  | "total-in"
+  | "customer-source";
+
+export type AdminDashboardCustomerSourceKey =
+  | "tiktok"
+  | "fanpage_hoc_tin"
+  | "fanpage_luyen_tin"
+  | "referral"
+  | "personal"
+  | "other"
+  | "unassigned";
+
+export interface AdminDashboardCustomerSourceRow {
+  key: AdminDashboardCustomerSourceKey;
+  label: string;
+  studentCount: number;
+  revenue: number;
+  sharePercent: number;
+}
 
 export interface AdminDashboardFinancialDetailSource {
   key: string;
@@ -191,6 +209,7 @@ export interface AdminDashboardFinancialDetailItem {
   secondaryLabel: string | null;
   amount: number;
   note: string | null;
+  sourceNote?: string | null;
 }
 
 export interface AdminDashboardFinancialDetail {
@@ -260,6 +279,7 @@ export interface AdminDashboardDto {
   actionAlerts: AdminDashboardActionAlert[];
   classPerformance: AdminDashboardClassPerformance[];
   yearlySummary: AdminDashboardYearlySummary[];
+  customerSources?: AdminDashboardCustomerSourceRow[];
 }
 
 export interface StaffDashboardClassItem {

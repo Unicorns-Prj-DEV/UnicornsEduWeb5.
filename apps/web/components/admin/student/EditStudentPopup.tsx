@@ -9,7 +9,9 @@ import { DateInput } from "@/components/ui/DateInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import StudentGalleryEditor from "@/components/shared/student-gallery/StudentGalleryEditor";
+import { CustomerSourceFields } from "@/components/admin/student/CustomerSourceFields";
 import type {
+  StudentCustomerSource,
   StudentDetail,
   StudentExamScheduleItem,
   StudentGender,
@@ -137,6 +139,10 @@ export default function EditStudentPopup({
   const [status, setStatus] = useState<StudentStatus>(student.status ?? "active");
   const [statusReason, setStatusReason] = useState("");
   const [goal, setGoal] = useState(student.goal ?? "");
+  const [customerSource, setCustomerSource] = useState<StudentCustomerSource | "">(
+    student.customerSource ?? "",
+  );
+  const [customerSourceNote, setCustomerSourceNote] = useState(student.customerSourceNote ?? "");
   const [dropOutDate, setDropOutDate] = useState(student.dropOutDate ?? "");
   const [selectedCustomerCare, setSelectedCustomerCare] = useState<CustomerCareStaffOption | null>(
     () => getInitialCustomerCareSelection(student),
@@ -238,6 +244,12 @@ export default function EditStudentPopup({
       return;
     }
 
+    const trimmedSourceNote = customerSourceNote.trim();
+    if (customerSource === "other" && !trimmedSourceNote) {
+      toast.error("Chú thích nguồn là bắt buộc khi chọn Khác.");
+      return;
+    }
+
     const hasInvalidExamItem = examItems.some((item) => {
       const hasAnyContent = Boolean(item.examDate?.trim() || item.note?.trim());
       if (!hasAnyContent) return false;
@@ -325,6 +337,12 @@ export default function EditStudentPopup({
           gender,
           goal: goal.trim() || undefined,
           drop_out_date: dropOutDate.trim() || undefined,
+          ...(customerSource
+            ? {
+                customer_source: customerSource,
+                customer_source_note: customerSource === "other" ? trimmedSourceNote : null,
+              }
+            : {}),
           customer_care_staff_id: selectedCustomerCare?.id ?? null,
           ...(canEditCustomerCareProfitPercent
             ? {
@@ -452,8 +470,20 @@ export default function EditStudentPopup({
                   />
                 </label>
 
-                <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                  <span>Trường</span>
+                    <CustomerSourceFields
+                      idPrefix="edit-student"
+                      source={customerSource}
+                      note={customerSourceNote}
+                      emptyLabel="Chưa gán"
+                      onSourceChange={(nextSource) => {
+                        setCustomerSource(nextSource);
+                        if (nextSource !== "other") setCustomerSourceNote("");
+                      }}
+                      onNoteChange={setCustomerSourceNote}
+                    />
+
+                    <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                      <span>Trường</span>
                   <input
                     name="school"
                     autoComplete="off"

@@ -23,6 +23,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Nguồn khách trên hồ sơ học sinh:**
+  - Trường `customer_source` (Tiktok, Fanpage Học Tin Cùng Chuyên Tin, Fanpage Luyện Tin THPT, Giới thiệu từ người quen của khách, Nguồn riêng của bản thân, Khác) và `customer_source_note` khi chọn Khác. Tạo mới bắt buộc chọn nguồn.
+  - Dashboard admin có bảng số học sinh, học phí đã học và tỷ trọng theo kỳ; bấm một dòng mở chi tiết cùng cột với Học phí đã học (dòng Khác thêm chú thích). Đổi nguồn thì các kỳ đã qua tính lại theo giá trị hiện tại.
+  - **Migration:** `20260929140000_student_customer_source` thêm cột; `20260929220000_backfill_student_customer_source` gán hồ sơ còn trống thành Khác với chú thích `Nguồn cũ`.
+  - Docs: `CONTEXT.md`, `docs/Database Schema.md`, `docs/pages/admin.md`, `docs/pages/staff.md`, ADR `docs/adr/2026-09-29-customer-source-follows-current-value.md`.
 - **Timeline lớp admin ẩn tiết học mặc định (vé 10):** `/admin/classes/[id]` truyền `lessonVisibility="opt-in"` vào `ClassTimelineManager` — mặc định chỉ buổi học + khảo sát; switch **Hiện tiết học** (dễ bấm trên điện thoại) mới hiện tiết lý thuyết/thực hành. Staff không truyền prop (mặc định `always`), UI giữ nguyên. Component không đoán role. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
 - **Thumbnail video buổi học trên timeline học sinh (vé 11):** Row buổi học có `recordingUrl` hiện ảnh poster YouTube tĩnh (lazy, `alt` theo ngày buổi), không nhúng trình phát cho tới khi bấm mở dialog. Buổi không có recording không chừa ô trống. Nội dung / bài tập / hướng dẫn / nhận xét riêng hiện đầy đủ, bỏ **Xem thêm**. Helper `apps/web/lib/youtube.ts`. Docs: `docs/pages/student.md`.
 - **Lớp không điểm danh (`noAttendance`) — Tự động điểm danh present khi tạo buổi học:**

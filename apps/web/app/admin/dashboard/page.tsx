@@ -27,13 +27,16 @@ import {
   AdminDashboardFinancialReportSkeleton,
   AdminDashboardRefreshStrip,
   AdminDashboardSkeleton,
+  CustomerSourceSectionSkeleton,
 } from "@/components/admin/dashboard/AdminDashboardSkeleton";
 import { DashboardIcon } from "@/components/admin/dashboard/DashboardIcon";
+import { CustomerSourceSection } from "@/components/admin/dashboard/CustomerSourceSection";
 import { FinancialDetailModal } from "@/components/admin/dashboard/FinancialDetailModal";
 import type { AlertGroupTone } from "@/components/admin/dashboard/alert-group-styles";
 import type {
   AdminDashboardActionAlert,
   AdminDashboardActionAlertGroup,
+  AdminDashboardCustomerSourceRow,
   AdminDashboardDto,
   AdminDashboardFinancialDetailRowKey,
   AdminDashboardStudentChurnType,
@@ -463,6 +466,7 @@ export default function AdminDashboardTabPage() {
   const [year, setYear] = useState(defaultPeriod.year);
   const [quickView, setQuickView] = useState<QuickViewKey>("finance");
   const [selectedFinancialRowKey, setSelectedFinancialRowKey] = useState<AdminDashboardFinancialDetailRowKey | null>(null);
+  const [selectedCustomerSourceKey, setSelectedCustomerSourceKey] = useState<AdminDashboardCustomerSourceRow["key"] | null>(null);
   const [studentChurnTab, setStudentChurnTab] = useState<AdminDashboardStudentChurnType | null>(null);
   const [openAlertGroup, setOpenAlertGroup] = useState<{
     group: AdminDashboardActionAlertGroup;
@@ -514,37 +518,40 @@ export default function AdminDashboardTabPage() {
 
   const financialDetailQuery = useQuery({
     queryKey: [
-      "dashboard", "admin", "financial-detail", selectedFinancialRowKey,
-      isRangeMode && selectedFinancialRowKey && !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey)
+      "dashboard", "admin", "financial-detail", selectedFinancialRowKey, selectedCustomerSourceKey,
+      isRangeMode && (selectedCustomerSourceKey != null || (selectedFinancialRowKey != null && !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey)))
         ? dateFrom
         : year,
-      isRangeMode && selectedFinancialRowKey && !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey)
+      isRangeMode && (selectedCustomerSourceKey != null || (selectedFinancialRowKey != null && !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey)))
         ? dateTo
         : month,
     ],
     queryFn: () => {
+      const rowKey = selectedCustomerSourceKey ? "customer-source" as const : selectedFinancialRowKey!;
       const useRangeDetail =
         isRangeMode &&
-        selectedFinancialRowKey != null &&
-        !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey);
+        (selectedCustomerSourceKey != null ||
+          (selectedFinancialRowKey != null && !SNAPSHOT_FINANCIAL_ROW_KEYS.has(selectedFinancialRowKey)));
 
       if (useRangeDetail) {
         return getAdminDashboardFinancialDetail({
-          rowKey: selectedFinancialRowKey!,
+          rowKey,
           dateFrom,
           dateTo,
           limit: 500,
+          ...(selectedCustomerSourceKey ? { customerSource: selectedCustomerSourceKey } : {}),
         });
       }
 
       return getAdminDashboardFinancialDetail({
-        rowKey: selectedFinancialRowKey!,
+        rowKey,
         month,
         year,
         limit: 500,
+        ...(selectedCustomerSourceKey ? { customerSource: selectedCustomerSourceKey } : {}),
       });
     },
-    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && selectedFinancialRowKey != null,
+    enabled: fullProfileQuery.isSuccess && !isAssistantStaff && (selectedFinancialRowKey != null || selectedCustomerSourceKey != null),
     staleTime: 20_000,
   });
 
@@ -795,6 +802,7 @@ export default function AdminDashboardTabPage() {
   };
 
   const openFinancialDetail = (rowKey: AdminDashboardFinancialDetailRowKey) => {
+    setSelectedCustomerSourceKey(null);
     setSelectedFinancialRowKey(rowKey);
   };
 
@@ -1148,6 +1156,17 @@ export default function AdminDashboardTabPage() {
         </section>
         )}
 
+        {showFinancialReportSkeleton ? <CustomerSourceSectionSkeleton /> : (
+          <CustomerSourceSection
+            rows={periodFinancialDashboard?.customerSources ?? []}
+            dimmed={dimFinancialReport}
+            onOpen={(row) => {
+              setSelectedFinancialRowKey(null);
+              setSelectedCustomerSourceKey(row.key);
+            }}
+          />
+        )}
+
         <section className="rounded-xl border border-border-default bg-bg-surface p-4">
           <div className="mb-3 flex items-center gap-2">
             <DashboardIcon path="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
@@ -1219,13 +1238,20 @@ export default function AdminDashboardTabPage() {
               </div>
         </section>
 
-        {selectedFinancialRow ? (
+        {selectedFinancialRow || selectedCustomerSourceKey ? (
           <FinancialDetailModal
-            rowLabel={selectedFinancialRow.label}
+            rowLabel={
+              selectedFinancialRow?.label ??
+              periodFinancialDashboard?.customerSources?.find((row) => row.key === selectedCustomerSourceKey)?.label ??
+              "Nguồn khách"
+            }
             detail={financialDetailQuery.data}
             isLoading={financialDetailQuery.isLoading}
             error={financialDetailQuery.error}
-            onClose={() => setSelectedFinancialRowKey(null)}
+            onClose={() => {
+              setSelectedFinancialRowKey(null);
+              setSelectedCustomerSourceKey(null);
+            }}
           />
         ) : null}
 

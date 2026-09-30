@@ -36,6 +36,16 @@ enum StudentStatus {
   inactive
 }
 
+/// Kênh Nguồn khách trên hồ sơ học sinh. Null trên cột = Chưa gán, không phải giá trị enum.
+enum StudentCustomerSource {
+  tiktok
+  fanpage_hoc_tin
+  fanpage_luyen_tin
+  referral
+  personal
+  other
+}
+
 enum StudentClassStatus {
   active
   inactive

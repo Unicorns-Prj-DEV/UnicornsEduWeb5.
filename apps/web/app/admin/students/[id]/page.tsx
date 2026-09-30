@@ -25,7 +25,7 @@ import AchievementListEditor from "@/components/shared/achievement/AchievementLi
 import StudentGalleryEditor from "@/components/shared/student-gallery/StudentGalleryEditor";
 import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
-import type { StudentDetail, StudentGender, StudentStatus } from "@/dtos/student.dto";
+import { STUDENT_CUSTOMER_SOURCE_LABELS, type StudentDetail, type StudentGender, type StudentStatus } from "@/dtos/student.dto";
 import { StudentLevelBadge } from "@/components/ui/LevelBadge";
 import {
     buildAdminLikePath,
@@ -688,6 +688,16 @@ export default function AdminStudentDetailPage() {
                                 <dl className="divide-y divide-border-subtle">
                                     <StudentDetailRow label="Email" value={student.email?.trim() || "—"} />
                                     <StudentDetailRow label="Trường" value={student.school?.trim() || "—"} />
+                                    <StudentDetailRow
+                                        label="Nguồn khách"
+                                        value={
+                                            student.customerSource
+                                                ? student.customerSource === "other" && student.customerSourceNote?.trim()
+                                                    ? `${STUDENT_CUSTOMER_SOURCE_LABELS.other} · ${student.customerSourceNote.trim()}`
+                                                    : STUDENT_CUSTOMER_SOURCE_LABELS[student.customerSource]
+                                                : "Chưa gán"
+                                        }
+                                    />
                                     <StudentDetailRow label="Tỉnh / Thành phố" value={student.province?.trim() || "—"} />
                                     <StudentDetailRow
                                         label="CSKH phụ trách"

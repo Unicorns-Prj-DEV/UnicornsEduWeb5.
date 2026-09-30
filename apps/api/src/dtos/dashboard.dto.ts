@@ -8,7 +8,12 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
+import {
+  STUDENT_CUSTOMER_SOURCE_VALUES,
+  UNASSIGNED_CUSTOMER_SOURCE_KEY,
+} from './student.dto';
 
 export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
   'topup',
@@ -20,6 +25,12 @@ export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
   'other-cost',
   'profit',
   'total-in',
+  'customer-source',
+] as const;
+
+export const ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS = [
+  ...STUDENT_CUSTOMER_SOURCE_VALUES,
+  UNASSIGNED_CUSTOMER_SOURCE_KEY,
 ] as const;
 
 export type AdminDashboardFinancialDetailRowKeyDto =
@@ -278,6 +289,19 @@ export class GetAdminDashboardFinancialDetailQueryDto {
   })
   @IsIn(ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS)
   rowKey!: AdminDashboardFinancialDetailRowKeyDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Nguồn khách cần mở chi tiết. Bắt buộc khi rowKey là customer-source. unassigned = Chưa gán.',
+    enum: ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS,
+    example: 'tiktok',
+  })
+  @ValidateIf(
+    (dto: GetAdminDashboardFinancialDetailQueryDto) =>
+      dto.rowKey === 'customer-source',
+  )
+  @IsIn(ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS)
+  customerSource?: (typeof ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS)[number];
 
   @ApiPropertyOptional({
     description: 'Month in 01-12 format. Defaults to current month.',
@@ -615,6 +639,17 @@ export interface AdminDashboardFinancialDetailItemDto {
   secondaryLabel: string | null;
   amount: number;
   note: string | null;
+  /** Chú thích nguồn thực tế. Chỉ có trên dòng Khác. */
+  sourceNote?: string | null;
+}
+
+export interface AdminDashboardCustomerSourceRowDto {
+  key: (typeof ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS)[number];
+  label: string;
+  studentCount: number;
+  revenue: number;
+  /** Một chữ số thập phân. Tổng bảy dòng là 100 khi doanh thu kỳ > 0, và 0 khi doanh thu kỳ = 0. */
+  sharePercent: number;
 }
 
 export interface AdminDashboardFinancialDetailDto {
@@ -740,6 +775,7 @@ export interface AdminDashboardDto {
   actionAlerts: AdminDashboardActionAlertDto[];
   classPerformance: AdminDashboardClassPerformanceDto[];
   yearlySummary: AdminDashboardYearlySummaryDto[];
+  customerSources: AdminDashboardCustomerSourceRowDto[];
 }
 
 export class GetStaffDashboardQueryDto {
