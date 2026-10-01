@@ -48,6 +48,12 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Hồ sơ nhân sự và QR thanh toán:**
+  - `/user-profile` khi sửa dùng cùng khung hàng nhãn căn phải / ô nhập cột giá trị với chế độ xem.
+  - Card **Hồ sơ nhân sự** (`/staff/profile`, `/admin/staffs/[id]`, mirror `/staff/staffs/[id]`) hiện đủ email, SĐT, handle, CCCD, học vấn, địa chỉ và số tài khoản. `GET /staff/:id` trả thêm `user.phone`.
+  - Bấm ô QR mở thẳng `bank_qr_link` ở tab mới, không còn dialog phóng to mã.
+  - Docs: `docs/pages/auth.md`, `docs/pages/admin.md`, `docs/pages/staff.md`.
+
 - **Nghiệm thu đổi tên ba cấp (vé 08):** Toàn bộ đợt 05–07 nói Chuyên đề (`modules`) / Tiết học (`lessons`). Glossary ghi cặp dễ nhầm Tiết học vs Buổi học (cấm viết tắt) và danh sách tên đã khai tử. Hai ADR: mỗi Bài học cũ = một tiết (số mục lớp nhân lên) `docs/adr/2026-09-16-one-lecture-becomes-one-lesson.md`; tiết riêng lớp XOR chuyên đề `docs/adr/2026-09-16-class-owned-lesson-xor.md`. Docs schema/API/trang khớp code. Không sửa migration đã có.
 - **UI/URL nội dung ba cấp (vé 07):** Admin/staff/học sinh nhìn **Chuyên đề** và **Tiết học**; không còn chương/chủ đề/bài học/chuyên đề lý thuyết/chuyên đề luyện tập trên màn hình. Href `/courses/:id/modules/:moduleId/lessons/*`, học sinh `/student/classes/:id/lessons/:lessonId`. Timeline: Buổi học (CalendarDays + success) vs Tiết học (BookOpen + primary), nhãn đủ chữ; tiết lý thuyết/thực hành khác màu trong danh sách. Flatten lecture editor vào chính tiết (`PATCH /class/:id/lessons/:lessonId`). Docs: `docs/pages/admin.md`, `docs/pages/staff.md`, `docs/pages/student.md`, `docs/pages/README.md`. Nghiệm thu typecheck/test: vé 08.
 - **Buổi học không điểm danh (`noAttendance`) — backend guard khi cập nhật session:**

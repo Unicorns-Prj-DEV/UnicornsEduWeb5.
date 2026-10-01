@@ -63,11 +63,24 @@ type FieldProps = {
   max?: number;
   autoComplete?: string;
   required?: boolean;
+  fullWidth?: boolean;
 };
 
 const inputClassName =
   "w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2.5 text-sm text-text-primary transition-colors placeholder:text-text-muted focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-border-focus/20";
-const labelClassName = "mb-1.5 block text-xs font-medium text-text-muted";
+/** Cùng gutter với DetailRows: nhãn phải, giá trị trái. */
+const detailRowClassName =
+  "grid grid-cols-1 gap-x-8 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] sm:items-baseline";
+const detailRowFullWidthClassName =
+  "grid grid-cols-1 gap-y-1.5 py-3 first:pt-0 last:pb-0";
+const editRowClassName =
+  "grid grid-cols-1 gap-x-8 gap-y-1.5 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] sm:items-center";
+const editActionsClassName =
+  "mt-1 grid grid-cols-1 gap-x-8 border-t border-border-default pt-4 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)]";
+const detailLabelClassName =
+  "text-sm font-semibold text-text-primary sm:text-right";
+const detailLabelStackedClassName = "text-sm font-semibold text-text-primary";
+const detailListClassName = "min-w-0 divide-y divide-border-default/80";
 const surfaceCardClassName =
   "rounded-xl border border-border-default bg-bg-surface shadow-sm";
 const ghostButtonClassName =
@@ -230,21 +243,19 @@ function ProfileSectionNav({
 /** Hàng nhãn căn phải / giá trị căn trái (gutter cố định), giống reference */
 function DetailRows({ items }: { items: DetailItem[] }) {
   return (
-    <dl className="min-w-0 divide-y divide-border-default/80">
+    <dl className={detailListClassName}>
       {items.map((item) => (
         <div
           key={item.label}
           className={
-            item.fullWidth
-              ? "grid grid-cols-1 gap-y-1.5 py-3 first:pt-0 last:pb-0"
-              : "grid grid-cols-1 gap-x-8 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] sm:items-baseline"
+            item.fullWidth ? detailRowFullWidthClassName : detailRowClassName
           }
         >
           <dt
             className={
               item.fullWidth
-                ? "text-sm font-semibold text-text-primary"
-                : "text-sm font-semibold text-text-primary sm:text-right"
+                ? detailLabelStackedClassName
+                : detailLabelClassName
             }
           >
             {item.label}
@@ -263,6 +274,39 @@ function DetailRows({ items }: { items: DetailItem[] }) {
   );
 }
 
+function EditFieldList({ children }: { children: ReactNode }) {
+  return <div className={detailListClassName}>{children}</div>;
+}
+
+function FieldRow({
+  id,
+  labelId,
+  label,
+  fullWidth,
+  children,
+}: {
+  id?: string;
+  labelId?: string;
+  label: string;
+  fullWidth?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={fullWidth ? detailRowFullWidthClassName : editRowClassName}>
+      <label
+        id={labelId}
+        htmlFor={id}
+        className={
+          fullWidth ? detailLabelStackedClassName : detailLabelClassName
+        }
+      >
+        {label}
+      </label>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
 function TextField({
   id,
   name,
@@ -274,12 +318,10 @@ function TextField({
   max,
   autoComplete,
   required,
+  fullWidth,
 }: FieldProps) {
   return (
-    <div>
-      <label htmlFor={id} className={labelClassName}>
-        {label}
-      </label>
+    <FieldRow id={id} label={label} fullWidth={fullWidth}>
       {type === "date" ? (
         <DateInput
           id={id}
@@ -306,7 +348,7 @@ function TextField({
           required={required}
         />
       )}
-    </div>
+    </FieldRow>
   );
 }
 
@@ -319,6 +361,7 @@ function TextAreaField({
   rows = 8,
   showMarkdownHint = true,
   minHeightClassName = "min-h-[180px]",
+  fullWidth,
 }: {
   id: string;
   name: string;
@@ -328,12 +371,10 @@ function TextAreaField({
   rows?: number;
   showMarkdownHint?: boolean;
   minHeightClassName?: string;
+  fullWidth?: boolean;
 }) {
   return (
-    <div>
-      <label htmlFor={id} className={labelClassName}>
-        {label}
-      </label>
+    <FieldRow id={id} label={label} fullWidth={fullWidth}>
       <textarea
         id={id}
         name={name}
@@ -345,11 +386,11 @@ function TextAreaField({
       {showMarkdownHint ? (
         <p className="mt-1.5 text-xs text-text-muted">
           Mỗi dòng sẽ được lưu trực tiếp vào hồ sơ. Dùng{" "}
-          <code className="rounded bg-bg-tertiary px-1">- </code>ở đầu dòng để tạo
-          danh sách Markdown.
+          <code className="rounded bg-bg-tertiary px-1">- </code>ở đầu dòng để
+          tạo danh sách Markdown.
         </p>
       ) : null}
-    </div>
+    </FieldRow>
   );
 }
 
@@ -359,19 +400,18 @@ function SelectField({
   label,
   defaultValue,
   options,
+  fullWidth,
 }: {
   id: string;
   name: string;
   label: string;
   defaultValue?: string;
   options: UpgradedSelectOption[];
+  fullWidth?: boolean;
 }) {
   const labelId = `${id}-label`;
   return (
-    <div>
-      <label id={labelId} htmlFor={id} className={labelClassName}>
-        {label}
-      </label>
+    <FieldRow id={id} labelId={labelId} label={label} fullWidth={fullWidth}>
       <UpgradedSelect
         key={`${id}-${defaultValue ?? ""}`}
         id={id}
@@ -381,7 +421,7 @@ function SelectField({
         labelId={labelId}
         buttonClassName={inputClassName}
       />
-    </div>
+    </FieldRow>
   );
 }
 
@@ -393,17 +433,24 @@ function FormActions({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2 border-t border-border-default pt-4">
-      <button
-        type="submit"
-        disabled={pending}
-        className={primaryButtonClassName}
-      >
-        {pending ? "Đang lưu…" : "Lưu thay đổi"}
-      </button>
-      <button type="button" onClick={onCancel} className={ghostButtonClassName}>
-        Hủy
-      </button>
+    <div className={editActionsClassName}>
+      <div className="hidden sm:block" aria-hidden />
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className={primaryButtonClassName}
+        >
+          {pending ? "Đang lưu…" : "Lưu thay đổi"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className={ghostButtonClassName}
+        >
+          Hủy
+        </button>
+      </div>
     </div>
   );
 }
@@ -1318,8 +1365,8 @@ function UserProfilePageContent() {
               onEdit={() => setEditUser(true)}
             >
               {editUser ? (
-                <form onSubmit={handleSubmitUser} className="space-y-6">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                <form onSubmit={handleSubmitUser}>
+                  <EditFieldList>
                     <TextField
                       id="user-first_name"
                       name="first_name"
@@ -1357,7 +1404,7 @@ function UserProfilePageContent() {
                     <TextField
                       id="user-accountHandle"
                       name="accountHandle"
-                      label="Account handle"
+                      label="Handle"
                       defaultValue={profile.accountHandle ?? ""}
                       placeholder="nguyenvana"
                       autoComplete="username"
@@ -1370,7 +1417,7 @@ function UserProfilePageContent() {
                       placeholder="TP. HCM"
                       autoComplete="address-level1"
                     />
-                  </div>
+                  </EditFieldList>
 
                   <FormActions
                     pending={updateProfileMutation.isPending}
@@ -1394,20 +1441,21 @@ function UserProfilePageContent() {
                   onEdit={() => setEditStaff(true)}
                 >
                   {editStaff ? (
-                    <form onSubmit={handleSubmitStaff} className="space-y-6">
-                      <div className="rounded-lg border border-border-default bg-bg-secondary/50 px-4 py-3 text-sm text-text-secondary">
+                    <form onSubmit={handleSubmitStaff}>
+                      <div className="mb-4 rounded-lg border border-border-default bg-bg-secondary/50 px-4 py-3 text-sm text-text-secondary">
                         Tên nhân sự hiện lấy từ mục{" "}
                         <span className="font-medium text-text-primary">
                           Thông tin chung
                         </span>
-                        . Nếu cần đổi tên hiển thị, hãy cập nhật `Tên` và `Họ và
-                        tên đệm` ở phần đó.
+                        . Nếu cần đổi tên hiển thị, hãy cập nhật Tên và Họ và
+                        tên đệm ở phần đó.
                       </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <EditFieldList>
                         <TextField
                           id="staff-cccd_number"
                           name="cccd_number"
-                          label="Số CCCD (12 số)"
+                          label="Số CCCD"
+                          placeholder="12 số"
                           defaultValue={profile.staffInfo.cccdNumber ?? ""}
                         />
                         <TextField
@@ -1426,17 +1474,16 @@ function UserProfilePageContent() {
                             { value: "female", label: "Nữ" },
                           ]}
                         />
-                        <div className="sm:col-span-2">
-                          <TextAreaField
-                            id="staff-current_address"
-                            name="current_address"
-                            label="Địa chỉ hiện tại"
-                            defaultValue={profile.staffInfo.currentAddress ?? ""}
-                            rows={3}
-                            showMarkdownHint={false}
-                            minHeightClassName="min-h-24"
-                          />
-                        </div>
+                        <TextAreaField
+                          id="staff-current_address"
+                          name="current_address"
+                          label="Địa chỉ hiện tại"
+                          defaultValue={profile.staffInfo.currentAddress ?? ""}
+                          rows={3}
+                          showMarkdownHint={false}
+                          minHeightClassName="min-h-24"
+                          fullWidth
+                        />
                         <TextField
                           id="staff-cccd_issued_date"
                           name="cccd_issued_date"
@@ -1484,20 +1531,19 @@ function UserProfilePageContent() {
                         <TextField
                           id="staff-bank_account"
                           name="bank_account"
-                          label="Số tài khoản ngân hàng"
+                          label="Số tài khoản"
                           defaultValue={profile.staffInfo.bankAccount ?? ""}
                         />
-                        <div className="sm:col-span-2">
-                          <TextField
-                            id="staff-bank_qr_link"
-                            name="bank_qr_link"
-                            label="Link QR ngân hàng"
-                            type="url"
-                            defaultValue={profile.staffInfo.bankQrLink ?? ""}
-                            placeholder="https://..."
-                          />
-                        </div>
-                      </div>
+                        <TextField
+                          id="staff-bank_qr_link"
+                          name="bank_qr_link"
+                          label="Link QR ngân hàng"
+                          type="url"
+                          defaultValue={profile.staffInfo.bankQrLink ?? ""}
+                          placeholder="https://..."
+                          fullWidth
+                        />
+                      </EditFieldList>
 
                       <FormActions
                         pending={updateStaffMutation.isPending}
@@ -1548,12 +1594,12 @@ function UserProfilePageContent() {
                   onEdit={() => setEditStudent(true)}
                 >
                   {editStudent ? (
-                    <form onSubmit={handleSubmitStudent} className="space-y-6">
-                      <div className="grid gap-4 sm:grid-cols-2">
+                    <form onSubmit={handleSubmitStudent}>
+                      <EditFieldList>
                         <TextField
                           id="student-full_name"
                           name="full_name"
-                          label="Họ tên đầy đủ"
+                          label="Họ tên"
                           defaultValue={profile.studentInfo.fullName ?? ""}
                         />
                         <TextField
@@ -1597,7 +1643,7 @@ function UserProfilePageContent() {
                         <TextField
                           id="student-parent_name"
                           name="parent_name"
-                          label="Tên phụ huynh"
+                          label="Phụ huynh"
                           defaultValue={profile.studentInfo.parentName ?? ""}
                         />
                         <TextField
@@ -1615,16 +1661,15 @@ function UserProfilePageContent() {
                           defaultValue={profile.studentInfo.parentEmail ?? ""}
                           placeholder="parent@example.com"
                         />
-                        <div className="sm:col-span-2">
-                          <TextField
-                            id="student-goal"
-                            name="goal"
-                            label="Mục tiêu học tập"
-                            defaultValue={profile.studentInfo.goal ?? ""}
-                            placeholder="Ví dụ: 7.5 IELTS hoặc đỗ chuyên Tin"
-                          />
-                        </div>
-                      </div>
+                        <TextField
+                          id="student-goal"
+                          name="goal"
+                          label="Mục tiêu học tập"
+                          defaultValue={profile.studentInfo.goal ?? ""}
+                          placeholder="Ví dụ: 7.5 IELTS hoặc đỗ chuyên Tin"
+                          fullWidth
+                        />
+                      </EditFieldList>
 
                       <FormActions
                         pending={updateStudentMutation.isPending}

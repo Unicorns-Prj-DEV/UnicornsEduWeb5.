@@ -1830,12 +1830,20 @@ export default function AdminStaffDetailPage({
       <div className="flex flex-col gap-4">
         <StaffIdentityOverview
           staffId={staff.id}
+          email={staff.user?.email}
+          phone={staff.user?.phone}
+          accountHandle={staff.user?.accountHandle}
           birthDateLabel={formatDate(staff.birthDate)}
           province={province}
           ethnicity={staff.ethnicity}
           gender={staff.gender}
+          cccdNumber={staff.cccdNumber}
+          cccdIssuedDateLabel={formatDate(staff.cccdIssuedDate)}
+          cccdIssuedPlace={staff.cccdIssuedPlace}
           currentAddress={staff.currentAddress}
           university={staff.university}
+          highSchool={staff.highSchool}
+          bankAccount={staff.bankAccount}
           googleMeetLink={staff.googleMeetLink}
           qrLink={qrLink ?? resolvedQrLink}
           onQrEdit={() => setQrPopupOpen(true)}

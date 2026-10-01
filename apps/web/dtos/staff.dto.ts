@@ -90,6 +90,8 @@ export interface StaffDetail {
     user?: {
         id: string;
         email: string;
+        phone?: string | null;
+        accountHandle?: string | null;
         province?: string | null;
         fullName?: string | null;
         first_name?: string | null;

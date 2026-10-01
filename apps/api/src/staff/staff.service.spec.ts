@@ -2953,6 +2953,7 @@ describe('StaffService', () => {
         last_name: 'Teacher',
         accountHandle: 'teacher-a',
         email: 'teacher@example.com',
+        phone: '0901234567',
         province: 'Hanoi',
         avatarPath: 'users/user-1/avatar',
       },
@@ -2970,6 +2971,7 @@ describe('StaffService', () => {
           user: expect.objectContaining({
             select: expect.objectContaining({
               avatarPath: true,
+              phone: true,
             }),
           }),
         }),
@@ -2979,6 +2981,7 @@ describe('StaffService', () => {
       expect.objectContaining({
         fullName: 'Teacher A',
         avatarUrl: 'signed:users/user-1/avatar',
+        phone: '0901234567',
       }),
     );
     expect(result.user).not.toHaveProperty('avatarPath');

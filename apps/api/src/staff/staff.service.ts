@@ -5364,6 +5364,7 @@ export class StaffService {
             select: {
               ...STAFF_NAME_USER_SELECT,
               province: true,
+              phone: true,
               avatarPath: true,
             },
           },
