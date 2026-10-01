@@ -39,7 +39,27 @@ export async function listAchievements(
 export async function createAchievement(
   owner: AchievementOwnerRef,
   payload: CreateStaffAchievementPayload | CreateStudentAchievementPayload,
+  file?: File,
 ): Promise<AchievementDto> {
+  if (owner.kind === "staff") {
+    const staffPayload = payload as CreateStaffAchievementPayload;
+    if (!file) {
+      throw new Error("Thành tích nhân sự phải kèm ảnh minh chứng.");
+    }
+    const formData = new FormData();
+    formData.append("title", staffPayload.title);
+    if (staffPayload.sortOrder != null) {
+      formData.append("sortOrder", String(staffPayload.sortOrder));
+    }
+    formData.append("image", file);
+    const response = await api.post<AchievementDto>(
+      ownerBasePath(owner),
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return response.data;
+  }
+
   const response = await api.post<AchievementDto>(ownerBasePath(owner), payload);
   return response.data;
 }

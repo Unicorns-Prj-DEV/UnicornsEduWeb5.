@@ -203,7 +203,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 ### 4.2.1 `staff_achievements`
 
-- Thành tích của nhân sự: nhiều row/title + ảnh minh chứng tuỳ chọn (1 ảnh/row).
+- Thành tích của nhân sự: nhiều row/title. Tạo mới bắt buộc đúng một ảnh minh chứng trong cùng thao tác; ảnh đã có chỉ được thay, không gỡ. `image_path` vẫn nullable cho dòng backfill thiếu minh chứng.
 - Trường chính:
   - `staff_id` (FK → `staff_info.id`, `ON DELETE CASCADE`)
   - `title` (`TEXT`, bắt buộc, không giới hạn cứng)
@@ -212,10 +212,10 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `sort_order` (`INT`, mặc định 0): thứ tự kéo-thả; API reorder yêu cầu **full permutation** của mọi id hiện có
   - `created_at`, `updated_at`
 - Index: `(staff_id, sort_order)`
-- API: `GET/POST/PATCH/DELETE /staff/:staffId/achievements`, `PUT .../reorder`, `POST/DELETE .../:id/image`; self-service ` /users/me/achievements/*`. Không ghi `action_history`.
+- API: `GET/PATCH/DELETE /staff/:staffId/achievements`, `PUT .../reorder`, `POST .../:id/image` (thay ảnh). `POST /staff/:staffId/achievements` nhận multipart `title` + `image` (thiếu ảnh thì 400, và không giữ dòng nếu upload lỗi). `DELETE .../:id/image` của nhân sự trả 400. Self-service cùng rule tại `/users/me/achievements/*`. Không ghi `action_history`.
 - Backfill từ `staff_info.specialization`: tách bullet Markdown (`-` / `*` / `•`, kể cả `-Giải` không space; chèn newline trước pattern `.- ` bị dính), bỏ header ngắn kết thúc bằng `:`; nếu không có bullet thì mỗi dòng non-empty là 1 row; cuối cùng fallback cả khối text. Không backfill `personal_achievement_link`.
 - Watermark twins: script `apps/api/scripts/backfill-watermarked-images.ts`; ADR landing watermark.
-- ADR: `docs/adr/2026-08-11-achievement-separate-owner-tables.md`, `...-single-image-per-row.md`, `...-gate-and-legacy-columns.md`, `...-landing-watermarked-public-images.md`
+- ADR: `docs/adr/2026-08-11-achievement-separate-owner-tables.md`, `...-single-image-per-row.md`, `...-gate-and-legacy-columns.md`, `...-landing-watermarked-public-images.md`, `docs/adr/2026-10-01-staff-achievement-proof-required.md`
 
 ### 4.3 `student_info`
 

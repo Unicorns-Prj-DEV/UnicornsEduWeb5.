@@ -96,10 +96,10 @@
   - tên staff canonical luôn đọc từ `User` và hiển thị theo thứ tự Việt Nam `last_name` + `first_name` qua `GET /users/me/full`; `staff.fullName` / `staffInfo.fullName` chỉ còn là fallback derived trong giai đoạn rollout
   - popup tự sửa hồ sơ cơ bản tách cập nhật: tên hiển thị đi qua `PATCH /users/me`, còn phần hồ sơ staff đi qua `PATCH /users/me/staff`
   - chỉ cho sửa trong popup: tên canonical, `birth_date`, `university`, `high_school`, `bank_account`, `bank_qr_link`, `cccd_*`; **Thành tích** quản lý riêng qua `AchievementListEditor` + `/users/me/achievements` (không còn `specialization` / `personal_achievement_link` trên form)
-  - `bank_qr_link` và `personal_achievement_link` self-service chỉ nhận URL `http/https` (trim trước khi lưu); link schema khác (`javascript:`, `data:`, ...) bị backend từ chối
-  - `personal_achievement_link` bắt buộc cho gate hoàn thiện hồ sơ staff; khi có giá trị hợp lệ, hiển thị ở phần `Hồ sơ nhân sự` dưới dạng link text rút gọn "Xem thành tích" mở tab mới
+  - `bank_qr_link` self-service chỉ nhận URL `http/https` (trim trước khi lưu); link schema khác (`javascript:`, `data:`, ...) bị backend từ chối
+  - thành tích nhân sự không nằm trong gate hoàn thiện hồ sơ. Tạo mới bắt buộc ảnh minh chứng trong cùng request; ảnh đã có chỉ được thay, không gỡ. Dòng backfill chưa có ảnh vẫn hiện với nhãn thiếu minh chứng
+  - trường **Thành tích** trên `/staff/profile`, `/user-profile` và card `StaffIdentityOverview`: `AchievementListEditor` (CRUD + thay ảnh + kéo-thả), API `/users/me/achievements`; không còn textarea Markdown `specialization` hay link `personal_achievement_link`
   - `googleMeetLink` hiển thị trong card `Hồ sơ nhân sự`; nút **Copy & vào lớp** luôn hiện cho staff đang xem self profile, vừa mở tab mới Google Meet vừa copy link, và bị disable khi hồ sơ chưa có Meet link hoặc link không phải `http/https`
-  - trường **Thành tích** trên `/staff/profile` và card `StaffIdentityOverview`: `AchievementListEditor` (CRUD + ảnh + kéo-thả), API `/users/me/achievements`; không còn textarea Markdown `specialization`
   - hiển thị QR thanh toán từ hồ sơ staff hiện tại và tái dùng popup self-edit để cập nhật
   - ô QR (`StaffQrCard`, `size="minimal"`): luôn sinh mã QR từ nguyên văn `bank_qr_link` (Drive / imgur / `.png` / link thanh toán đều là payload, không nhúng `<img>` từ máy chủ ảnh ngoài). Helper thuần `apps/web/lib/staff-qr-image.ts` xin mã `api.qrserver.com` — thumbnail theo `size`, overlay 512px. Bấm ô QR mở `ResponsiveDialog` với mã đủ lớn để quét (không kéo giãn thumbnail). Vẫn có nút **Mở link gốc**. Không sinh được mã thì hiện thông báo, không nhắc chia sẻ Drive. Cùng component với admin staff detail.
   - hiển thị đầy đủ các section cùng contract dữ liệu với admin detail:

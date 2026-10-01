@@ -11,9 +11,9 @@ import UpgradedSelect, {
 import { DateInput } from "@/components/ui/DateInput";
 import EmailVerificationInline from "@/components/user-profile/EmailVerificationInline";
 import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
-import StaffSpecializationMarkdown from "@/components/staff/StaffSpecializationMarkdown";
 import DataConsentSection from "@/components/user-profile/DataConsentSection";
 import { StudentExamCard } from "@/components/admin/student";
+import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import { useAuth } from "@/context/AuthContext";
 import { resolveEmailVerified } from "@/mocks/user-profile-verification.mock";
@@ -746,7 +746,6 @@ function UserProfilePageContent() {
   const handleSubmitStaff = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
-    const achievementRaw = getFieldValue(form, "personal_achievement_link");
     const payload: UpdateMyStaffProfileDto = {
       cccd_number: getFieldValue(form, "cccd_number"),
       ethnicity: getFieldValue(form, "ethnicity"),
@@ -757,12 +756,8 @@ function UserProfilePageContent() {
       birth_date: getFieldValue(form, "birth_date"),
       university: getFieldValue(form, "university"),
       high_school: getFieldValue(form, "high_school"),
-      specialization: getFieldValue(form, "specialization"),
       bank_account: getFieldValue(form, "bank_account"),
       bank_qr_link: getFieldValue(form, "bank_qr_link"),
-      personal_achievement_link: achievementRaw?.trim()
-        ? achievementRaw.trim()
-        : null,
     };
     updateStaffMutation.mutate(payload);
   };
@@ -851,10 +846,8 @@ function UserProfilePageContent() {
         profile.staffInfo.birthDate,
         profile.staffInfo.university,
         profile.staffInfo.highSchool,
-        profile.staffInfo.specialization,
         profile.staffInfo.bankAccount,
         profile.staffInfo.bankQrLink,
-        profile.staffInfo.personalAchievementLink,
         profile.staffInfo.cccdNumber,
         profile.staffInfo.ethnicity,
         profile.staffInfo.gender,
@@ -897,10 +890,8 @@ function UserProfilePageContent() {
       profile.staffInfo.birthDate,
       profile.staffInfo.university,
       profile.staffInfo.highSchool,
-      profile.staffInfo.specialization,
       profile.staffInfo.bankAccount,
       profile.staffInfo.bankQrLink,
-      profile.staffInfo.personalAchievementLink,
       profile.staffInfo.cccdNumber,
       profile.staffInfo.ethnicity,
       profile.staffInfo.gender,
@@ -991,13 +982,6 @@ function UserProfilePageContent() {
         detail: "Cần thiết để hoàn thiện luồng thanh toán cho nhân sự.",
       },
     profile.staffInfo &&
-      !profile.staffInfo.personalAchievementLink?.trim() && {
-        label: "Thêm link minh chứng thành tích",
-        href: "#profile-staff",
-        detail:
-          "Link minh chứng thành tích là bắt buộc để hoàn tất hồ sơ nhân sự.",
-      },
-    profile.staffInfo &&
       !profile.staffInfo.cccdNumber && {
         label: "Điền số CCCD",
         href: "#profile-staff",
@@ -1020,13 +1004,6 @@ function UserProfilePageContent() {
         label: "Điền địa chỉ hiện tại",
         href: "#profile-staff",
         detail: "Địa chỉ hiện tại là bắt buộc để hoàn tất hồ sơ nhân sự.",
-      },
-    profile.staffInfo &&
-      !profile.staffInfo.specialization && {
-        label: "Điền chuyên ngành",
-        href: "#profile-staff",
-        detail:
-          "Làm rõ năng lực chuyên môn và thuận tiện khi phân công công việc.",
       },
     profile.staffInfo &&
       !staffDataConsentComplete && {
@@ -1097,9 +1074,6 @@ function UserProfilePageContent() {
     { label: "Vai trò", value: getRoleLabel(profile.roleType) },
   ];
 
-  const staffAchievementLink =
-    profile.staffInfo?.personalAchievementLink?.trim() || null;
-
   const staffDetails: DetailItem[] | null = profile.staffInfo
     ? [
         {
@@ -1129,41 +1103,11 @@ function UserProfilePageContent() {
         { label: "Ngày sinh", value: formatDate(profile.staffInfo.birthDate) },
         { label: "Trường đại học", value: profile.staffInfo.university ?? "—" },
         { label: "Trường THPT", value: profile.staffInfo.highSchool ?? "—" },
-        {
-          label: "Chuyên ngành",
-          value: profile.staffInfo.specialization?.trim() ? (
-            <StaffSpecializationMarkdown
-              text={profile.staffInfo.specialization}
-              emptyFallback="—"
-            />
-          ) : (
-            "—"
-          ),
-          fullWidth: true,
-        },
         { label: "Số tài khoản", value: profile.staffInfo.bankAccount ?? "—" },
         {
           label: "Link QR ngân hàng",
           value: profile.staffInfo.bankQrLink ?? "—",
           fullWidth: true,
-        },
-        {
-          label: "Minh chứng thành tích",
-          value: staffAchievementLink ? (
-            <a
-              href={staffAchievementLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-primary underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
-              title={staffAchievementLink}
-            >
-              Xem liên kết
-            </a>
-          ) : (
-            "—"
-          ),
-          fullWidth: true,
-          hint: "URL http(s) tới tài liệu minh chứng (ví dụ Google Drive).",
         },
         {
           label: "Trạng thái",
@@ -1537,19 +1481,6 @@ function UserProfilePageContent() {
                           label="Trường THPT"
                           defaultValue={profile.staffInfo.highSchool ?? ""}
                         />
-                        <div className="sm:col-span-2">
-                          <TextAreaField
-                            id="staff-specialization"
-                            name="specialization"
-                            label="Chuyên ngành"
-                            defaultValue={
-                              profile.staffInfo.specialization ?? ""
-                            }
-                            placeholder={
-                              "Thành tích cá nhân:\n- Giải Nhì HSG Quốc gia môn Tin học\n- Huy chương Bạc Olympic..."
-                            }
-                          />
-                        </div>
                         <TextField
                           id="staff-bank_account"
                           name="bank_account"
@@ -1566,23 +1497,6 @@ function UserProfilePageContent() {
                             placeholder="https://..."
                           />
                         </div>
-                        <div className="sm:col-span-2">
-                          <TextField
-                            id="staff-personal_achievement_link"
-                            name="personal_achievement_link"
-                            label="Minh chứng thành tích"
-                            type="url"
-                            required
-                            defaultValue={
-                              profile.staffInfo.personalAchievementLink ?? ""
-                            }
-                            placeholder="https://drive.google.com/…"
-                          />
-                          <p className="mt-1.5 text-xs text-text-muted">
-                            Link Google Drive hoặc trang http(s) lưu minh chứng
-                            thành tích. Bắt buộc để hoàn tất hồ sơ nhân sự.
-                          </p>
-                        </div>
                       </div>
 
                       <FormActions
@@ -1593,6 +1507,11 @@ function UserProfilePageContent() {
                   ) : (
                     <DetailRows items={staffDetails ?? []} />
                   )}
+                  <div className="mt-6 border-t border-border-default pt-6">
+                    <AchievementListEditor
+                      owner={{ kind: "staff", mode: "self" }}
+                    />
+                  </div>
                 </ProfileSection>
                 <hr className="border-border-default" />
                 <ProfileSection
