@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Giao tiết thực hành từ chuyên đề đã thêm (#151):** dialog **Giao tiết thực hành** chọn chuyên đề lớp đã thêm rồi mới chọn tiết thực hành của chuyên đề đó. `GET /class/:id/content/course-lessons` chỉ trả tiết của chuyên đề lớp đã thêm; `POST /class/:id/content` từ chối (400) tiết thuộc chuyên đề lớp chưa thêm. Lần giao đã có giữ nguyên.
 - **Lớp thêm nội dung theo Chuyên đề (#150):**
   - Bảng `class_modules`; `GET/POST /class/:classId/modules`, `DELETE /class/:classId/modules/:moduleId`. Thêm chuyên đề kéo mọi tiết lý thuyết (item + dòng timeline), gỡ thì ẩn mềm. Tiết lý thuyết mới tạo trong chuyên đề tự hiện trên mọi lớp đã thêm; xoá tiết lý thuyết gỡ khỏi mọi lớp. Tiết thực hành không tự kéo theo.
   - UI: nút **Chuyên đề** trên toolbar timeline lớp mở `ClassModulesDialog` (Thêm/Gỡ, ConfirmDialog khi gỡ). Nút **Tiết học** đổi thành **Tiết thực hành**; dialog chỉ còn giao tiết thực hành có sẵn của khoá.

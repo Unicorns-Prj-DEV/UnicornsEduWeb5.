@@ -28,6 +28,7 @@ import {
 import {
   ActionHistoryActor,
   CLASS_OWNED_LESSON_DISABLED_MESSAGE,
+  PRACTICE_MODULE_NOT_ADDED_MESSAGE,
   CourseContentSupportService,
 } from './course-content-support.service';
 
@@ -366,11 +367,23 @@ export class ClassContentService extends CourseContentSupportService {
     }
     const lessonId = dto.lessonId;
     const lessonKind: string = topic.kind;
+    const moduleId = topic.moduleId;
 
     const schedule = this.parsePracticeSchedule(lessonKind, dto, false);
 
     const item = await this.prisma.$transaction(
       async (tx) => {
+        // Chỉ giao tiết thực hành thuộc chuyên đề lớp đã thêm (cũng chặn tiết khoá khác).
+        const classModule = moduleId
+          ? await tx.classModule.findUnique({
+              where: { classId_moduleId: { classId, moduleId } },
+              select: { id: true },
+            })
+          : null;
+        if (!classModule) {
+          throw new BadRequestException(PRACTICE_MODULE_NOT_ADDED_MESSAGE);
+        }
+
         const existing = await tx.classContentItem.findUnique({
           where: { classId_lessonId: { classId, lessonId } },
         });
@@ -777,12 +790,13 @@ export class ClassContentService extends CourseContentSupportService {
 
     const [courseTopics, existingItemTopicIds] = await Promise.all([
       this.prisma.lesson.findMany({
-        // Tiết lý thuyết vào lớp theo chuyên đề; chỉ tiết thực hành được giao từng tiết.
+        // Tiết lý thuyết vào lớp theo chuyên đề; chỉ tiết thực hành của chuyên đề lớp đã thêm được giao từng tiết.
         where: {
           courseId: cls.courseId,
           classId: null,
           kind: LessonKind.practice,
           archivedAt: null,
+          module: { classModules: { some: { classId } } },
         },
         include: {
           module: { select: { id: true, title: true } },

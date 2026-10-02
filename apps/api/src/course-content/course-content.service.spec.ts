@@ -72,7 +72,7 @@ describe('CourseContentService — ClassContent methods', () => {
         deleteMany: jest.fn(),
       },
       classModule: {
-        findUnique: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({ id: 'cm-1' }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       classTimelineItem: {
@@ -124,6 +124,7 @@ describe('CourseContentService — ClassContent methods', () => {
         id: 'topic-existing',
         title: 'Existing topic',
         kind: 'practice',
+        moduleId: 'm-1',
         courseId: 'course-1',
         classId: null,
       });
@@ -195,6 +196,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-practice',
         kind: 'practice',
+        moduleId: 'm-1',
       });
       mockPrisma.classContentItem.findUnique.mockResolvedValue(null);
 
@@ -215,6 +217,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-practice',
         kind: 'practice',
+        moduleId: 'm-1',
       });
       mockPrisma.classContentItem.findUnique.mockResolvedValue(null);
       mockPrisma.classContentItem.aggregate.mockResolvedValue({
@@ -259,6 +262,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-practice',
         kind: 'practice',
+        moduleId: 'm-1',
       });
       mockPrisma.classContentItem.findUnique.mockResolvedValue(null);
 
@@ -277,6 +281,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-practice',
         kind: 'practice',
+        moduleId: 'm-1',
         classId: null,
         archivedAt: null,
       });
@@ -318,6 +323,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-practice',
         kind: 'practice',
+        moduleId: 'm-1',
         classId: null,
         archivedAt: null,
       });
@@ -334,6 +340,9 @@ describe('CourseContentService — ClassContent methods', () => {
             timeline: [] as unknown[],
           };
           const tx = {
+            classModule: {
+              findUnique: jest.fn().mockResolvedValue({ id: 'cm-1' }),
+            },
             classContentItem: {
               aggregate: jest.fn().mockResolvedValue({
                 _max: { sortOrder: -1 },
@@ -1873,6 +1882,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-1',
         kind: 'practice',
+        moduleId: 'm-1',
         classId: null,
         courseId: 'course-1',
       });
@@ -1894,6 +1904,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-free',
         kind: 'practice',
+        moduleId: 'm-1',
         classId: null,
         courseId: 'course-1',
       });
@@ -2096,6 +2107,7 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-y',
         kind: 'practice',
+        moduleId: 'm-1',
         courseId: 'course-y',
         classId: null,
       });
