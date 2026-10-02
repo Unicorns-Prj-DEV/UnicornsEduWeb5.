@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Trang lớp học sinh: thẻ chuyên đề (#156):** tab Chuyên đề hiện mỗi chuyên đề một thẻ thu gọn (tên, số tiết lý thuyết / thực hành đã giao), mở nhiều thẻ cùng lúc, trình duyệt nhớ thẻ đang mở theo lớp. API mới `GET /class/:classId/content/student/groups` (chỉ item học sinh thấy).
 - **Trang lớp học sinh: 2 tab Chuyên đề / Buổi học (#155):** `/student/classes/[id]` tách timeline thành tab **Chuyên đề** (mặc định, chỉ tiết học) và **Buổi học** (buổi học + khảo sát); tab giữ trên `?tab=chuyen-de|buoi-hoc` nên quay lại từ trang tiết học về đúng tab (`?tab=lessons` cũ → Chuyên đề); mục lục chỉ liệt kê mục của tab đang mở.
 - **Gia sư đứng lớp ở đầu trang lớp (#154):** header trang lớp admin, staff và học sinh hiện dòng **Gia sư đứng lớp** (`ClassStandingTeachers`) — chỉ họ tên gia sư đang hoạt động trên lớp, không email; ẩn khi lớp chưa có. Quy tắc «đang hoạt động» dùng chung `ACTIVE_STANDING_TEACHER` (`apps/api/src/class/standing-teacher-filter.ts`: phân công active hoặc null + nhân sự active) cho trang lớp và thẻ lớp trang chủ học sinh.
 - **Nhóm chuyên đề trên trang lớp admin/staff (#153):** `GET /class/:id/content/groups` trả nội dung lớp gom theo chuyên đề (tiết lý thuyết theo thứ tự + tiết thực hành đã giao, nhóm **Ngoài chuyên đề** cuối). Trang lớp có section **Chuyên đề** (`ClassModuleGroups`, collapsible) với Tiến độ / Thống kê / Chấm bài; timeline chỉ còn buổi học + khảo sát, sắp xếp lại vẫn gửi đủ id. Bỏ switch **Hiện tiết học** (`lessonVisibility`) của admin.

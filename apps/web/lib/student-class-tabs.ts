@@ -15,7 +15,7 @@ export const STUDENT_CLASS_TAB_LABELS: Record<StudentClassTab, string> = {
 
 export const STUDENT_CLASS_TAB_EMPTY_MESSAGES: Record<StudentClassTab, string> =
   {
-    "chuyen-de": "Lớp chưa có tiết học nào.",
+    "chuyen-de": "Lớp chưa có chuyên đề nào.",
     "buoi-hoc": "Chưa có buổi học hay khảo sát.",
   };
 

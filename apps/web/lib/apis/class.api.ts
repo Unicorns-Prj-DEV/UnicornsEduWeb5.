@@ -486,6 +486,16 @@ export async function restoreClassContentItem(
   return response.data;
 }
 
+export async function getStudentClassContentGroups(
+  classId: string,
+): Promise<ClassContentModuleGroupDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassContentModuleGroupDto[]>(
+    `/class/${safeId}/content/student/groups`,
+  );
+  return response.data;
+}
+
 export async function getStudentClassContent(classId: string): Promise<ClassContentItemDto[]> {
   const safeId = encodeURIComponent(classId);
   const response = await api.get<ClassContentItemDto[]>(`/class/${safeId}/content/student`);

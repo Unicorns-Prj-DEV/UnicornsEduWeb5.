@@ -9,12 +9,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import Link from "next/link";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { usePathname, useSearchParams } from "next/navigation";
-import { List, Lock, X } from "lucide-react";
-import { getStudentClassTimeline } from "@/lib/apis/class.api";
-import { classTimelineKeys } from "@/lib/query-keys";
+import { List, X } from "lucide-react";
+import {
+  getStudentClassContentGroups,
+  getStudentClassTimeline,
+} from "@/lib/apis/class.api";
+import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
@@ -30,10 +32,13 @@ import {
   StudentSurveyTimelineCard,
 } from "./StudentTimelineCards";
 import type { StudentSessionItem, StudentSurveyItem } from "@/dtos/student-class.dto";
+import { replaceCourseWorkspaceUrl } from "@/lib/course-content-routes";
 import {
-  replaceCourseWorkspaceUrl,
-  studentLessonHref,
-} from "@/lib/course-content-routes";
+  isLockedModuleItem,
+  moduleCardItems,
+  moduleCardKey,
+} from "@/lib/student-module-cards";
+import { useOpenModuleCards } from "@/hooks/use-open-module-cards";
 import {
   parseStudentClassTab,
   STUDENT_CLASS_TAB_EMPTY_MESSAGES,
@@ -41,6 +46,7 @@ import {
   type StudentClassTab,
 } from "@/lib/student-class-tabs";
 import StudentClassTabs from "./StudentClassTabs";
+import StudentModuleCards from "./StudentModuleCards";
 
 function mapSession(item: ClassTimelineItemDto): StudentSessionItem | null {
   if (item.kind !== "session" || !item.session) return null;
@@ -181,53 +187,64 @@ function StudentClassTimelineListInner({
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const rows = useMemo(
+  const groupsQuery = useQuery({
+    queryKey: classKeys.studentContentGroups(classId),
+    queryFn: () => getStudentClassContentGroups(classId),
+  });
+  const { openKeys, toggle: toggleModule, open: openModule } =
+    useOpenModuleCards(classId);
+
+  // Tab Chuyên đề lấy từ nhóm chuyên đề; timeline chỉ còn phục vụ tab Buổi học.
+  const moduleEntries = useMemo(
     () =>
-      items.map((item, index) => {
-        const locked =
-          item.kind === "content_item" &&
-          item.lessonKind === "practice" &&
-          item.isOpen === false;
-        const href =
-          item.kind === "content_item" && item.classContentItemId && item.lessonId
-            ? item.lessonKind === "practice"
-              ? `/student/classes/${classId}/assignments/${item.classContentItemId}`
-              : studentLessonHref(classId, item.lessonId)
-            : null;
-        return { item, index, locked, href };
-      }),
-    [items, classId],
+      (groupsQuery.data ?? []).flatMap((group) =>
+        moduleCardItems(group).map((item) => ({
+          item,
+          moduleKey: moduleCardKey(group),
+        })),
+      ),
+    [groupsQuery.data],
   );
 
-  const tabCounts = useMemo(() => {
-    const counts: Record<StudentClassTab, number> = {
-      "chuyen-de": 0,
-      "buoi-hoc": 0,
-    };
-    for (const { item } of rows) counts[studentClassTabOfKind(item.kind)] += 1;
-    return counts;
-  }, [rows]);
-
-  // Mỗi tab đánh số lại từ 1, giữ thứ tự timeline.
-  const tabRows = useMemo(
+  const sessionRows = useMemo(
     () =>
-      rows
-        .filter(({ item }) => studentClassTabOfKind(item.kind) === activeTab)
-        .map((row, index) => ({ ...row, index })),
-    [rows, activeTab],
+      items
+        .filter((item) => studentClassTabOfKind(item.kind) === "buoi-hoc")
+        .map((item, index) => ({ item, index })),
+    [items],
   );
 
+  const tabCounts: Record<StudentClassTab, number> = {
+    "chuyen-de": moduleEntries.length,
+    "buoi-hoc": sessionRows.length,
+  };
+
+  // Mục lục chỉ liệt kê mục của tab đang mở, đánh số từ 1.
   const tocEntries = useMemo<TimelineTocEntry[]>(
     () =>
-      tabRows.map(({ item, index, locked }) => ({
-        id: item.id,
-        index: index + 1,
-        title: item.title,
-        kind: item.kind,
-        lessonKind: item.lessonKind,
-        locked,
-      })),
-    [tabRows],
+      activeTab === "chuyen-de"
+        ? moduleEntries.map(({ item }, index) => ({
+            id: item.id,
+            index: index + 1,
+            title: item.title,
+            kind: "content_item",
+            lessonKind: item.lessonKind,
+            locked: isLockedModuleItem(item),
+          }))
+        : sessionRows.map(({ item, index }) => ({
+            id: item.id,
+            index: index + 1,
+            title: item.title,
+            kind: item.kind,
+            lessonKind: item.lessonKind,
+            locked: false,
+          })),
+    [activeTab, moduleEntries, sessionRows],
+  );
+
+  const moduleKeyByItemId = useMemo(
+    () => new Map(moduleEntries.map(({ item, moduleKey }) => [item.id, moduleKey])),
+    [moduleEntries],
   );
 
   const selectTab = useCallback(
@@ -242,14 +259,24 @@ function StudentClassTimelineListInner({
     [activeTab, pathname, searchParams],
   );
 
-  const scrollToRow = useCallback((id: string) => {
-    setTocOpen(false);
-    // Đợi ResponsiveDialog nhả body scroll lock trước khi cuộn.
-    requestAnimationFrame(() => {
-      rowRefs.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      setSelectedTocId(id);
-    });
-  }, []);
+  const scrollToRow = useCallback(
+    (id: string) => {
+      setTocOpen(false);
+      // Tiết nằm trong thẻ đang thu gọn thì mở thẻ trước khi cuộn.
+      const moduleKey = moduleKeyByItemId.get(id);
+      if (moduleKey) openModule(moduleKey);
+      // 2 frame: đợi ResponsiveDialog nhả body scroll lock và thẻ render nội dung.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          rowRefs.current
+            .get(id)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          setSelectedTocId(id);
+        }),
+      );
+    },
+    [moduleKeyByItemId, openModule],
+  );
 
   if (query.isLoading) {
     return <TimelineSkeleton header={header} />;
@@ -265,7 +292,7 @@ function StudentClassTimelineListInner({
           entries={tocEntries}
           activeId={selectedTocId}
           onSelect={scrollToRow}
-          loadingMore={query.isFetchingNextPage}
+          loadingMore={activeTab === "buoi-hoc" && query.isFetchingNextPage}
         />
 
         <div className="min-w-0 flex-1 space-y-6 px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8">
@@ -281,53 +308,45 @@ function StudentClassTimelineListInner({
             aria-labelledby={`student-class-tab-${activeTab}`}
             className="space-y-3"
           >
-        {tabRows.length === 0 && !query.hasNextPage ? (
+        {activeTab === "chuyen-de" ? (
+          groupsQuery.isLoading ? (
+            [1, 2].map((i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-xl" />
+            ))
+          ) : groupsQuery.isError ? (
+            <p className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+              Không tải được nội dung chuyên đề.
+            </p>
+          ) : (groupsQuery.data ?? []).length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
+              {STUDENT_CLASS_TAB_EMPTY_MESSAGES["chuyen-de"]}
+            </div>
+          ) : (
+            <StudentModuleCards
+              classId={classId}
+              groups={groupsQuery.data ?? []}
+              openKeys={openKeys}
+              onToggle={toggleModule}
+              registerRow={registerRow}
+              selectedId={selectedTocId}
+            />
+          )
+        ) : null}
+        {activeTab === "buoi-hoc" &&
+        sessionRows.length === 0 &&
+        !query.hasNextPage ? (
           <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-            {STUDENT_CLASS_TAB_EMPTY_MESSAGES[activeTab]}
+            {STUDENT_CLASS_TAB_EMPTY_MESSAGES["buoi-hoc"]}
           </div>
         ) : null}
-        {tabRows.map(({ item, index, locked, href }) => {
+        {activeTab === "buoi-hoc" && sessionRows.map(({ item, index }) => {
           const orderBadge = (
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
               {index + 1}
             </div>
           );
 
-          if (href && !locked) {
-            return (
-              <Link
-                key={item.id}
-                href={href}
-                ref={(el) => registerRow(item.id, el)}
-                data-timeline-id={item.id}
-                className={`flex scroll-mt-24 items-center gap-3 rounded-xl border bg-bg-surface p-4 shadow-sm transition-shadow hover:border-primary/40 ${
-                  selectedTocId === item.id
-                    ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-bg-primary"
-                    : "border-border-default"
-                }`}
-              >
-                {orderBadge}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate font-semibold text-text-primary">
-                      {item.title}
-                    </h3>
-                    <TimelineKindBadge
-                      kind={item.kind}
-                      lessonKind={item.lessonKind}
-                      label={item.kindLabel}
-                    />
-                  </div>
-                </div>
-              </Link>
-            );
-          }
-
-          const openDetail = () => {
-            if (item.kind === "session" || item.kind === "class_survey") {
-              setSelected(item);
-            }
-          };
+          const openDetail = () => setSelected(item);
 
           // Row buổi học/khảo sát có MathContent (có thể chứa link) nên không
           // dùng <button> bọc ngoài; dùng div có role="button". Bấm thumbnail
@@ -355,17 +374,11 @@ function StudentClassTimelineListInner({
               {orderBadge}
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  {item.kind === "session" || item.kind === "class_survey" ? null : (
-                    <h3 className="truncate font-semibold text-text-primary">
-                      {item.title}
-                    </h3>
-                  )}
                   <TimelineKindBadge
                     kind={item.kind}
                     lessonKind={item.lessonKind}
                     label={item.kindLabel}
                   />
-                  {locked ? <Lock className="size-3.5 text-text-muted" /> : null}
                 </div>
                 {item.kind === "session" && item.session ? (
                   <StudentSessionTimelineCard session={item.session} />
@@ -376,7 +389,7 @@ function StudentClassTimelineListInner({
             </div>
           );
         })}
-        {query.isFetchingNextPage ? (
+        {activeTab === "buoi-hoc" && query.isFetchingNextPage ? (
           <p className="text-center text-xs text-text-muted">Đang tải thêm…</p>
         ) : null}
           </div>

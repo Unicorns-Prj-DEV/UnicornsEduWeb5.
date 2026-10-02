@@ -71,3 +71,10 @@ export function studentClassLessonsHref(classId: string): string {
 export function studentLessonHref(classId: string, lessonId: string): string {
   return `/student/classes/${classId}/lessons/${lessonId}`;
 }
+
+export function studentAssignmentHref(
+  classId: string,
+  classContentItemId: string,
+): string {
+  return `/student/classes/${classId}/assignments/${classContentItemId}`;
+}

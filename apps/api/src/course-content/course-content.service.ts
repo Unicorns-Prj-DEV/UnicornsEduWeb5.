@@ -258,6 +258,12 @@ export class CourseContentService extends CourseContentSupportService {
     return this.content.listClassContentGroups(...args);
   }
 
+  listClassContentGroupsForStudent(
+    ...args: Parameters<ClassContentService['listClassContentGroupsForStudent']>
+  ) {
+    return this.content.listClassContentGroupsForStudent(...args);
+  }
+
   getClassTheoryProgress(
     ...args: Parameters<ClassContentService['getClassTheoryProgress']>
   ) {

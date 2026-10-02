@@ -1007,6 +1007,68 @@ describe('CourseContentService — ClassContent methods', () => {
 
   // ─── listClassContentForStudent ───
 
+  describe('listClassContentGroupsForStudent', () => {
+    it('groups only student-visible items, keeping empty added modules', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'cls-1',
+        contentAccessExpiresAt: null,
+      });
+      mockPrisma.studentClass.findFirst.mockResolvedValue({ id: 'sc-1' });
+      mockPrisma.classContentItem.findMany.mockResolvedValue([
+        {
+          id: 'cci-t',
+          lessonId: 't1',
+          kind: 'lesson',
+          sortOrder: 0,
+          classId: 'cls-1',
+          lesson: {
+            title: 'Lý thuyết',
+            kind: 'theory',
+            order: 0,
+            classId: null,
+            module: { id: 'm-1', title: 'Một', sortOrder: 0 },
+          },
+        },
+      ]);
+      mockPrisma.module.findMany.mockResolvedValue([
+        { id: 'm-1', title: 'Một', sortOrder: 0, classModules: [{ id: 'a' }] },
+        { id: 'm-2', title: 'Hai', sortOrder: 1, classModules: [{ id: 'b' }] },
+      ]);
+
+      const groups = await service.listClassContentGroupsForStudent(
+        'cls-1',
+        'stu-1',
+      );
+
+      expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            classId: 'cls-1',
+            hiddenAt: null,
+            ...NOT_ARCHIVED_CONTENT_ITEM,
+          },
+        }),
+      );
+      expect(groups.map((g) => [g.moduleId, g.theoryItems.length])).toEqual([
+        ['m-1', 1],
+        ['m-2', 0],
+      ]);
+    });
+
+    it('rejects a student outside the class', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'cls-1',
+        contentAccessExpiresAt: null,
+      });
+      mockPrisma.studentClass.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.listClassContentGroupsForStudent('cls-1', 'stu-x'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.module.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('listClassContentForStudent', () => {
     it('should return content for enrolled student', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({
