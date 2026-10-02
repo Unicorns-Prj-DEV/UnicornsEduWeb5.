@@ -53,6 +53,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Navbar học sinh dạng nổi:** `StudentHeader` bo góc, cách mép, dính khi cuộn; thêm nút **Hồ sơ & Lịch thi** và **Nạp ví** (sang `/student/tuition`), màn hẹp chỉ icon. Trang chủ `/student` bỏ card thông tin đầu trang (email, nhãn «Đang học», hai nút cũ).
 - **Hồ sơ nhân sự và QR thanh toán:**
   - `/user-profile` khi sửa dùng cùng khung hàng nhãn căn phải / ô nhập cột giá trị với chế độ xem.
   - Card **Hồ sơ nhân sự** (`/staff/profile`, `/admin/staffs/[id]`, mirror `/staff/staffs/[id]`) hiện đủ email, SĐT, handle, CCCD, học vấn, địa chỉ và số tài khoản. `GET /staff/:id` trả thêm `user.phone`.
