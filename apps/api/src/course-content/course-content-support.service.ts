@@ -15,6 +15,9 @@ import { LessonKind, StaffRole, UserRole } from 'generated/enums';
 export const CLASS_OWNED_LESSON_DISABLED_MESSAGE =
   'Lớp không tạo tiết riêng nữa. Hãy thêm chuyên đề của khoá hoặc giao tiết thực hành có sẵn.';
 
+export const ARCHIVED_LESSON_READ_ONLY_MESSAGE =
+  'Tiết học đã lưu trữ, không sửa hay xoá được.';
+
 export interface ActionHistoryActor {
   userId: string;
   userEmail: string;
@@ -194,10 +197,6 @@ export class CourseContentSupportService {
     }
   }
 
-  /**
-   * Block course-level Module/Lesson deletes while any class still
-   * references the lesson via ClassContentItem (including hidden items).
-   */
   /** StaffInfo.id của người thao tác (ghi `hidden_by_staff_id`); admin không có hồ sơ staff → null. */
   protected async resolveHiddenByStaffId(
     actor: ActionHistoryActor,
@@ -209,6 +208,11 @@ export class CourseContentSupportService {
     return staff?.id ?? null;
   }
 
+  /**
+   * Block course-level Module/Lesson deletes while any class still
+   * references the lesson via ClassContentItem (including hidden items).
+   * Callers pass practice lesson ids only: theory items follow the lesson.
+   */
   protected async assertLessonsNotUsedByClasses(
     lessonIds: string[],
     entityLabel: 'Chuyên đề' | 'Tiết học',

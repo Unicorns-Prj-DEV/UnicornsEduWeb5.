@@ -63,13 +63,14 @@ function createMockPrisma() {
       findUnique: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
+      update: jest.fn(),
       delete: jest.fn(),
     },
     classModule: {
       findUnique: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
-      delete: jest.fn(),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     classContentItem: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -341,8 +342,8 @@ describe('ClassCourseModuleService', () => {
     );
   });
 
-  it('remove: 404 khi lớp chưa thêm chuyên đề', async () => {
-    prisma.classModule.findUnique.mockResolvedValue(null);
+  it('remove: 404 khi lớp chưa thêm chuyên đề (kể cả bị gỡ đồng thời)', async () => {
+    prisma.classModule.deleteMany.mockResolvedValue({ count: 0 });
 
     await expect(
       service.removeClassModule('cls-1', 'm-1', adminActor),
@@ -350,13 +351,12 @@ describe('ClassCourseModuleService', () => {
   });
 
   it('remove: xoá liên kết, ẩn mềm chỉ tiết lý thuyết của chuyên đề (item + timeline)', async () => {
-    prisma.classModule.findUnique.mockResolvedValue({ id: 'cm-1' });
     prisma.classContentItem.findMany.mockResolvedValue([{ id: 'i1' }]);
 
     await service.removeClassModule('cls-1', 'm-1', adminActor);
 
-    expect(prisma.classModule.delete).toHaveBeenCalledWith({
-      where: { id: 'cm-1' },
+    expect(prisma.classModule.deleteMany).toHaveBeenCalledWith({
+      where: { classId: 'cls-1', moduleId: 'm-1' },
     });
     expect(prisma.classContentItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -462,6 +462,26 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
       ),
     ).rejects.toThrow('Lớp không tạo tiết riêng nữa');
     expect(prisma.lesson.create).not.toHaveBeenCalled();
+  });
+
+  it('tiết riêng lớp đã lưu trữ: không sửa, không xoá', async () => {
+    prisma.lesson.findUnique.mockResolvedValue({
+      id: 'own-1',
+      kind: 'theory',
+      classId: 'cls-1',
+      courseId: null,
+      archivedAt: new Date('2026-10-02T00:00:00Z'),
+    });
+
+    await expect(
+      service.updateLesson('own-1', { title: 'Mới' }, adminActor),
+    ).rejects.toThrow('Tiết học đã lưu trữ');
+    await expect(service.deleteLesson('own-1', adminActor)).rejects.toThrow(
+      'Tiết học đã lưu trữ',
+    );
+    expect(prisma.lesson.update).not.toHaveBeenCalled();
+    expect(prisma.lesson.delete).not.toHaveBeenCalled();
+    expect(prisma.classContentItem.deleteMany).not.toHaveBeenCalled();
   });
 
   it('xoá tiết lý thuyết đang trên lớp → gỡ khỏi mọi lớp, không 409', async () => {

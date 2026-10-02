@@ -68,7 +68,7 @@ Loại tiết: `LessonKind` = `theory` (video/nội dung) hoặc `practice` (ch�
 
 Xoá chuyên đề hoặc tiết học khi còn lần giao **tiết thực hành** (`class_content_items`, **kể cả item đang ẩn**) → `409` *«Không thể xoá chuyên đề/tiết học: còn N lớp đang tham chiếu — {tên lớp} (X lần giao đang hiện, Y lần giao đang ẩn).»* Item tiết lý thuyết không chặn: xoá tiết lý thuyết / chuyên đề xoá luôn item lý thuyết ở mọi lớp (cùng transaction).
 
-Tạo tiết lý thuyết trong chuyên đề → tự thêm vào mọi lớp đã thêm chuyên đề đó (item + dòng timeline). Tạo tiết với `classId` (tiết riêng lớp) → `400` *«Lớp không tạo tiết riêng nữa. Hãy thêm chuyên đề của khoá hoặc giao tiết thực hành có sẵn.»* ADR `docs/adr/2026-10-02-class-content-by-module.md`.
+Tạo tiết lý thuyết trong chuyên đề → tự thêm vào mọi lớp đã thêm chuyên đề đó (item + dòng timeline). Tạo tiết với `classId` (tiết riêng lớp) → `400` *«Lớp không tạo tiết riêng nữa. Hãy thêm chuyên đề của khoá hoặc giao tiết thực hành có sẵn.»* Sửa/xoá tiết đã lưu trữ (`archivedAt`, tiết riêng lớp cũ) → `400` *«Tiết học đã lưu trữ, không sửa hay xoá được.»* ADR `docs/adr/2026-10-02-class-content-by-module.md`.
 
 ## Chuyên đề của lớp (`/class/:classId/modules`)
 

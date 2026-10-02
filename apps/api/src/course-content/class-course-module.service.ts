@@ -119,18 +119,17 @@ export class ClassCourseModuleService extends CourseContentSupportService {
     actor: ActionHistoryActor,
   ): Promise<ClassModuleResponseDto[]> {
     await this.validateStaffClassAccess(classId, actor);
-    const existing = await this.prisma.classModule.findUnique({
-      where: { classId_moduleId: { classId, moduleId } },
-      select: { id: true },
-    });
-    if (!existing) {
-      throw new NotFoundException('Lớp chưa thêm chuyên đề này.');
-    }
     const hiddenByStaffId = await this.resolveHiddenByStaffId(actor);
     const hiddenAt = new Date();
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.classModule.delete({ where: { id: existing.id } });
+      // deleteMany + count trong transaction: hai lần gỡ đồng thời → lần sau 404, không P2025.
+      const { count } = await tx.classModule.deleteMany({
+        where: { classId, moduleId },
+      });
+      if (count === 0) {
+        throw new NotFoundException('Lớp chưa thêm chuyên đề này.');
+      }
       const theoryItems = await tx.classContentItem.findMany({
         where: {
           classId,

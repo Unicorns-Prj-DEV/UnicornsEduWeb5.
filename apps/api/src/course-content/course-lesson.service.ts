@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { LessonKind } from 'generated/enums';
 import {
   LessonCreateDto,
@@ -8,6 +13,7 @@ import {
 import { syncNewTheoryLessonToClasses } from './class-course-module-sync';
 import {
   ActionHistoryActor,
+  ARCHIVED_LESSON_READ_ONLY_MESSAGE,
   CourseContentSupportService,
 } from './course-content-support.service';
 
@@ -73,6 +79,9 @@ export class CourseLessonService extends CourseContentSupportService {
     if (!existing) {
       throw new NotFoundException(`Lesson ${lessonId} not found`);
     }
+    if (existing.archivedAt) {
+      throw new BadRequestException(ARCHIVED_LESSON_READ_ONLY_MESSAGE);
+    }
 
     if (existing.classId) {
       await this.validateStaffClassAccess(existing.classId, actor);
@@ -109,6 +118,9 @@ export class CourseLessonService extends CourseContentSupportService {
     });
     if (!existing) {
       throw new NotFoundException(`Lesson ${lessonId} not found`);
+    }
+    if (existing.archivedAt) {
+      throw new BadRequestException(ARCHIVED_LESSON_READ_ONLY_MESSAGE);
     }
 
     if (existing.classId) {

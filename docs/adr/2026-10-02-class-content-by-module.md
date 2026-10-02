@@ -21,7 +21,7 @@ Mô hình cũ không có chỗ để ghi "lớp đã thêm chuyên đề X", nê
 
 3. **Không thêm lẻ tiết lý thuyết.** `POST /class/:id/content` chỉ nhận tiết thực hành có sẵn của khoá. Khôi phục item lý thuyết cũng bị chặn khi lớp chưa thêm chuyên đề chứa nó.
 
-4. **Bỏ tiết riêng lớp.** API không tạo tiết có `class_id` nữa. Tiết riêng cũ được ẩn mềm, không xoá và không đổi thành tiết của khoá. Cột mới `lessons.archived_at` ghi trạng thái này, và item cùng dòng timeline của các tiết đó cũng ẩn. CHECK `lessons_owner_check` giữ nguyên, để dữ liệu cũ vẫn hợp lệ.
+4. **Bỏ tiết riêng lớp.** API không tạo tiết có `class_id` nữa. Tiết riêng cũ được ẩn mềm, không xoá và không đổi thành tiết của khoá; API từ chối sửa hoặc xoá tiết đã lưu trữ (400). Cột mới `lessons.archived_at` ghi trạng thái này, và item cùng dòng timeline của các tiết đó cũng ẩn. CHECK `lessons_owner_check` giữ nguyên, để dữ liệu cũ vẫn hợp lệ.
 
 5. **Sửa guard xoá (ADR 2026-09-07, quyết định 3).** Restrict 409 khi xoá Chuyên đề hoặc Tiết học chỉ còn tính item của **tiết thực hành**, tức lần giao có Attempt. Item lý thuyết là bản chiếu của chuyên đề, nên đi theo tiết khi tiết bị xoá. FK Restrict ở DB vẫn giữ nguyên, nên ứng dụng xoá item lý thuyết trước rồi mới xoá tiết hoặc chuyên đề, trong cùng một transaction.
 
@@ -39,6 +39,7 @@ Mô hình cũ không có chỗ để ghi "lớp đã thêm chuyên đề X", nê
 ## Consequences
 
 - Câu "ba cấp Khoá → Chuyên đề → Tiết" giờ đúng với mọi nội dung đang hoạt động. Tiết riêng lớp chỉ còn là dữ liệu lưu trữ.
-- Đội giáo án xoá được tiết lý thuyết đang hiện trên lớp; lớp mất tiết đó ngay. Tiết thực hành đã giao vẫn bị chặn 409.
+- Đội giáo án xoá được tiết lý thuyết đang hiện trên lớp; lớp mất tiết đó ngay, kèm lượt xem và dòng timeline của item (cascade). Đây là xoá cứng có chủ đích: tiết không còn thì lượt xem không còn gì để tra. Muốn giữ lượt xem thì gỡ chuyên đề khỏi lớp (ẩn mềm) thay vì xoá tiết. Tiết thực hành đã giao vẫn bị chặn 409.
+- Thêm lại chuyên đề khôi phục mọi item lý thuyết đang ẩn của chuyên đề đó, kể cả item gia sư ẩn lẻ trước #150.
 - Thêm một chuyên đề có thể tạo nhiều item và dòng timeline trong một transaction. Timeout được đặt 30s.
 - Rollback: drop `class_modules` và `lessons.archived_at`. Item lý thuyết do migration thêm vẫn còn, dưới dạng item lẻ hợp lệ của mô hình cũ. Muốn hiện lại tiết riêng lớp đã archive thì phải bỏ cờ ẩn trên item của chúng bằng tay.
