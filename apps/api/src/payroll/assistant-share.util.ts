@@ -22,25 +22,19 @@ export function isSelfManagedAssistantShareAttendance(params: {
 }
 
 /**
- * Tuition that assistant 3% should read. Frozen paid/pending rows keep
- * `payrollBasisTuitionFee` after a one-time class moves revenue onto the
- * first session. Rows without a basis fall back to `tuitionFee`.
+ * Tuition that commissions (assistant 3%, CSKH) read. Historical rows of a
+ * one-time class keep their pre-backfill tuition in `payrollBasisTuitionFee`
+ * so already-accrued commission does not move onto the first session. Rows
+ * without a basis read `tuitionFee`.
  */
-export function assistantShareTuitionVnd(row: {
+export function commissionTuitionBasisVnd(row: {
   tuitionFee?: number | null;
   payrollBasisTuitionFee?: number | null;
-  assistantPaymentStatus?: string | null;
 }): number {
-  const frozen =
-    row.assistantPaymentStatus === 'paid' ||
-    row.assistantPaymentStatus === 'pending';
-  if (frozen && row.payrollBasisTuitionFee != null) {
-    return row.payrollBasisTuitionFee;
-  }
-  return row.tuitionFee ?? 0;
+  return row.payrollBasisTuitionFee ?? row.tuitionFee ?? 0;
 }
 
-export const ATTENDANCE_ASSISTANT_TUITION_BASIS_SQL = Prisma.sql`COALESCE(CASE WHEN attendance.assistant_payment_status IN ('paid', 'pending') THEN attendance.payroll_basis_tuition_fee ELSE NULL END, attendance.tuition_fee, 0)`;
+export const ATTENDANCE_COMMISSION_TUITION_BASIS_SQL = Prisma.sql`COALESCE(attendance.payroll_basis_tuition_fee, attendance.tuition_fee, 0)`;
 
 export function resolveAssistantManagerStaffIdForAttendance(params: {
   customerCareStaffId: string | null | undefined;

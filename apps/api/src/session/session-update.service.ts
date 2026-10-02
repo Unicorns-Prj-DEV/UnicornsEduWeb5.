@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
-  AttendanceStatus,
   PaymentStatus,
   SessionPaymentStatus,
   StaffRole,
@@ -48,6 +47,10 @@ import {
   resolveAllowanceReconstructionBlockCount,
   resolveSnapshotBlockCountForPricingMode,
 } from '../common/class-pricing-mode.util';
+import {
+  findOneTimeChargedStudentIds,
+  lockOneTimeClassCharges,
+} from '../common/one-time-charge.util';
 import {
   presentCustomAllowanceAsPerSession,
   standardBlockCountFromSlots,
@@ -912,22 +915,14 @@ export class SessionUpdateService {
           nextAttendanceStudentIds.length > 0 &&
           isOneTimePricingMode(existingSession.class.pricingMode)
         ) {
-          const priorChargeable = await tx.attendance.findMany({
-            where: {
-              studentId: { in: nextAttendanceStudentIds },
-              status: {
-                in: [AttendanceStatus.present, AttendanceStatus.excused],
-              },
-              session: {
-                classId: nextClassId,
-                id: { not: existingSession.id },
-              },
-            },
-            select: { studentId: true },
-            distinct: ['studentId'],
+          await lockOneTimeClassCharges(tx, nextClassId);
+          const charged = await findOneTimeChargedStudentIds(tx, {
+            classId: nextClassId,
+            studentIds: nextAttendanceStudentIds,
+            excludeSessionId: existingSession.id,
           });
-          priorChargeable.forEach((row) =>
-            oneTimeAlreadyChargedStudentIds.add(row.studentId),
+          charged.forEach((studentId) =>
+            oneTimeAlreadyChargedStudentIds.add(studentId),
           );
         }
 
@@ -1063,14 +1058,13 @@ export class SessionUpdateService {
               const defaultTuitionFee =
                 studentTuitionFeeByStudentId.get(attendanceItem.studentId) ??
                 null;
-              const oneTimeAlreadyCharged =
-                oneTimeAlreadyChargedStudentIds.has(attendanceItem.studentId);
+              const oneTimeAlreadyCharged = oneTimeAlreadyChargedStudentIds.has(
+                attendanceItem.studentId,
+              );
               const resolvedTuitionFee = oneTimeAlreadyCharged
-                ? this.sessionValidationService.isTuitionChargeableStatus(
+                ? this.sessionValidationService.resolveOneTimeAlreadyChargedTuitionFee(
                     attendanceItem.status,
                   )
-                  ? 0
-                  : null
                 : data.attendance !== undefined
                   ? this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
                       attendanceItem.status,
@@ -1543,10 +1537,7 @@ export class SessionUpdateService {
           );
         }
 
-        if (
-          sessionDate !== undefined ||
-          sessionStartTime !== undefined
-        ) {
+        if (sessionDate !== undefined || sessionStartTime !== undefined) {
           await syncClassTimelineSortByTime(tx, nextClassId);
         }
 

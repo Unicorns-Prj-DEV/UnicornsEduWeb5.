@@ -85,8 +85,8 @@ import {
 } from './staff-fixed-salary-payable.util';
 import {
   ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL,
-  ATTENDANCE_ASSISTANT_TUITION_BASIS_SQL,
-  assistantShareTuitionVnd,
+  ATTENDANCE_COMMISSION_TUITION_BASIS_SQL,
+  commissionTuitionBasisVnd,
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
 
@@ -1768,7 +1768,7 @@ export class StaffService {
         COALESCE(
           SUM(
             ROUND(
-              (COALESCE(attendance.tuition_fee, 0) * COALESCE(attendance.customer_care_coef, 0))::numeric,
+              (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * COALESCE(attendance.customer_care_coef, 0))::numeric,
               0
             )
           ),
@@ -1798,7 +1798,7 @@ export class StaffService {
         COALESCE(
           SUM(
             ROUND(
-              (${ATTENDANCE_ASSISTANT_TUITION_BASIS_SQL} * 0.03)::numeric,
+              (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric,
               0
             )
           ),
@@ -2179,6 +2179,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         student: {
@@ -2206,7 +2207,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) *
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) *
           normalizePercent(row.customerCareCoef),
       );
 
@@ -2269,7 +2270,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(assistantShareTuitionVnd(row)) * 0.03,
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) * 0.03,
       );
 
       return {
@@ -2581,6 +2582,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         student: {
@@ -2608,7 +2610,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) *
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) *
           normalizePercent(row.customerCareCoef),
       );
 
@@ -2681,7 +2683,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(assistantShareTuitionVnd(row)) * 0.03,
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) * 0.03,
       );
 
       return {
@@ -3549,6 +3551,7 @@ export class StaffService {
         id: true,
         status: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         customerCareTaxDeductionRatePercent: true,
@@ -4534,7 +4537,7 @@ export class StaffService {
         SELECT
           attendance.customer_care_staff_id AS staff_id,
           ROUND(
-            (COALESCE(attendance.tuition_fee, 0) * COALESCE(attendance.customer_care_coef, 0))::numeric,
+            (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * COALESCE(attendance.customer_care_coef, 0))::numeric,
             0
           ) AS gross_amount
         FROM attendance
@@ -4566,7 +4569,7 @@ export class StaffService {
       assistant_unpaid_rows AS (
         SELECT
           attendance.assistant_manager_staff_id AS staff_id,
-          ROUND((${ATTENDANCE_ASSISTANT_TUITION_BASIS_SQL} * 0.03)::numeric, 0) AS gross_amount
+          ROUND((${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric, 0) AS gross_amount
         FROM attendance
         INNER JOIN target_staff ON target_staff.id = attendance.assistant_manager_staff_id
         WHERE attendance.status IN ('present', 'excused')
@@ -5265,8 +5268,10 @@ export class StaffService {
     ).sort((left, right) => {
       const leftIndex = roleOrder.findIndex((role) => role === left.role);
       const rightIndex = roleOrder.findIndex((role) => role === right.role);
-      return (leftIndex === -1 ? 999 : leftIndex) -
-        (rightIndex === -1 ? 999 : rightIndex);
+      return (
+        (leftIndex === -1 ? 999 : leftIndex) -
+        (rightIndex === -1 ? 999 : rightIndex)
+      );
     });
 
     const visibleFixedSalaryPayables = fixedSalaryPayableRows.filter(

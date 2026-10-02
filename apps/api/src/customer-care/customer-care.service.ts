@@ -26,6 +26,10 @@ import type {
   CustomerCareStudentSummaryDto,
   CustomerCareTopUpHistoryListDto,
 } from 'src/dtos/customer-care.dto';
+import {
+  ATTENDANCE_COMMISSION_TUITION_BASIS_SQL,
+  commissionTuitionBasisVnd,
+} from 'src/payroll/assistant-share.util';
 import { resolveTaxDeductionRate } from 'src/payroll/deduction-rates';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -568,7 +572,7 @@ export class CustomerCareService {
             COALESCE(
               SUM(
                 ROUND(
-                  COALESCE(attendance.tuition_fee, 0)::numeric
+                  ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                   * COALESCE(attendance.customer_care_coef, 0)
                 )
               ),
@@ -579,7 +583,7 @@ export class CustomerCareService {
                 CASE
                   WHEN COALESCE(attendance.customer_care_payment_status::text, ${PaymentStatus.pending}) = ${PaymentStatus.pending}
                   THEN ROUND(
-                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                     * COALESCE(attendance.customer_care_coef, 0)
                   )
                   ELSE 0
@@ -592,7 +596,7 @@ export class CustomerCareService {
                 CASE
                   WHEN attendance.customer_care_payment_status::text = ${PaymentStatus.paid}
                   THEN ROUND(
-                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                     * COALESCE(attendance.customer_care_coef, 0)
                   )
                   ELSE 0
@@ -650,7 +654,7 @@ export class CustomerCareService {
                   WHEN sessions.date >= ${start}
                     AND sessions.date < ${endExclusive}
                   THEN ROUND(
-                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                     * COALESCE(attendance.customer_care_coef, 0)
                   )
                   ELSE 0
@@ -663,7 +667,7 @@ export class CustomerCareService {
                 CASE
                   WHEN COALESCE(attendance.customer_care_payment_status::text, ${PaymentStatus.pending}) = ${PaymentStatus.pending}
                   THEN ROUND(
-                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                     * COALESCE(attendance.customer_care_coef, 0)
                   )
                   ELSE 0
@@ -678,7 +682,7 @@ export class CustomerCareService {
                     AND sessions.date >= ${start}
                     AND sessions.date < ${endExclusive}
                   THEN ROUND(
-                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                     * COALESCE(attendance.customer_care_coef, 0)
                   )
                   ELSE 0
@@ -701,7 +705,7 @@ export class CustomerCareService {
                   WHEN sessions.date >= ${start}
                     AND sessions.date < ${endExclusive}
                   THEN ROUND(
-                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                     * COALESCE(attendance.customer_care_coef, 0)
                   )
                   ELSE 0
@@ -714,7 +718,7 @@ export class CustomerCareService {
                 CASE
                   WHEN COALESCE(attendance.customer_care_payment_status::text, ${PaymentStatus.pending}) = ${PaymentStatus.pending}
                   THEN ROUND(
-                    COALESCE(attendance.tuition_fee, 0)::numeric
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL}::numeric
                     * COALESCE(attendance.customer_care_coef, 0)
                   )
                   ELSE 0
@@ -794,6 +798,7 @@ export class CustomerCareService {
         select: {
           id: true,
           tuitionFee: true,
+          payrollBasisTuitionFee: true,
           customerCareCoef: true,
           customerCarePaymentStatus: true,
           session: {
@@ -807,7 +812,7 @@ export class CustomerCareService {
       });
 
       return attendances.map((attendance) => {
-        const tuition = attendance.tuitionFee ?? 0;
+        const tuition = commissionTuitionBasisVnd(attendance);
         const coef = toNumber(attendance.customerCareCoef);
         const commission = Math.round(tuition * coef);
 
@@ -871,6 +876,7 @@ export class CustomerCareService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         session: {
@@ -885,7 +891,7 @@ export class CustomerCareService {
     });
 
     return attendances.map((attendance) => {
-      const tuition = toNumber(attendance.tuitionFee);
+      const tuition = toNumber(commissionTuitionBasisVnd(attendance));
       const coef = toNumber(attendance.customerCareCoef);
       const commission = Math.round(tuition * coef);
       return {

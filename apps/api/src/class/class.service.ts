@@ -64,6 +64,7 @@ import {
   resolveAllowanceReconstructionBlockCount,
   resolveSnapshotBlockCountForPricingMode,
 } from 'src/common/class-pricing-mode.util';
+import { findOneTimeChargedStudentIds } from 'src/common/one-time-charge.util';
 import {
   dualWritePerBlockClassFields,
   perSessionToPerBlock,
@@ -644,20 +645,7 @@ export class ClassService {
     });
 
     const oneTimeChargedStudentIds = isOneTimePricingMode(classInfo.pricingMode)
-      ? new Set(
-          (
-            await db.attendance.findMany({
-              where: {
-                status: {
-                  in: [AttendanceStatus.present, AttendanceStatus.excused],
-                },
-                session: { classId: id },
-              },
-              select: { studentId: true },
-              distinct: ['studentId'],
-            })
-          ).map((row) => row.studentId),
-        )
+      ? await findOneTimeChargedStudentIds(db, { classId: id })
       : new Set<string>();
 
     const students = classStudents.map((student) => {

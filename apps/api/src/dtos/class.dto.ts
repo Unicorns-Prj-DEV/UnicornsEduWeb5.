@@ -275,7 +275,7 @@ export class UpdateClassPricingModeDto {
   @ApiProperty({
     enum: ClassPricingMode,
     description:
-      'Đổi chế độ tính tiền. Buổi unpaid được tính lại; buổi paid/deposit/cọc giữ nguyên.',
+      'Đổi chế độ tính tiền. Giữa per_session và per_block: buổi unpaid được tính lại, buổi paid/deposit/cọc giữ nguyên. Đổi có dính one_time không tính lại buổi nào.',
     example: ClassPricingMode.per_session,
   })
   @IsEnum(ClassPricingMode)

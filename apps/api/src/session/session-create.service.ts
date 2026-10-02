@@ -46,6 +46,10 @@ import {
   resolveAllowanceReconstructionBlockCount,
   resolveSnapshotBlockCountForPricingMode,
 } from '../common/class-pricing-mode.util';
+import {
+  findOneTimeChargedStudentIds,
+  lockOneTimeClassCharges,
+} from '../common/one-time-charge.util';
 
 /** Interactive tx: create runs many reads, balance/wallet writes, nested attendance create, optional audit snapshot. */
 const SESSION_CREATE_TRANSACTION_MAX_WAIT_MS = 10_000;
@@ -380,27 +384,17 @@ export class SessionCreateService {
             StaffRole.teacher,
           );
 
-          const oneTimeAlreadyChargedStudentIds = isOneTimePricingMode(
+          const isOneTimeClass = isOneTimePricingMode(
             classTeacher.class.pricingMode,
-          )
-            ? new Set(
-                (
-                  await tx.attendance.findMany({
-                    where: {
-                      studentId: { in: [...uniqueAttendanceStudentIds] },
-                      status: {
-                        in: [
-                          AttendanceStatus.present,
-                          AttendanceStatus.excused,
-                        ],
-                      },
-                      session: { classId: data.classId },
-                    },
-                    select: { studentId: true },
-                    distinct: ['studentId'],
-                  })
-                ).map((row) => row.studentId),
-              )
+          );
+          if (isOneTimeClass) {
+            await lockOneTimeClassCharges(tx, data.classId);
+          }
+          const oneTimeAlreadyChargedStudentIds = isOneTimeClass
+            ? await findOneTimeChargedStudentIds(tx, {
+                classId: data.classId,
+                studentIds: [...uniqueAttendanceStudentIds],
+              })
             : new Set<string>();
 
           const resolvedAttendance = resolvedAttendanceInput.map(
@@ -408,8 +402,9 @@ export class SessionCreateService {
               const customerCare = customerCareByStudentId.get(
                 attendanceItem.studentId,
               );
-              const oneTimeAlreadyCharged =
-                oneTimeAlreadyChargedStudentIds.has(attendanceItem.studentId);
+              const oneTimeAlreadyCharged = oneTimeAlreadyChargedStudentIds.has(
+                attendanceItem.studentId,
+              );
 
               return {
                 studentId: attendanceItem.studentId,
@@ -418,11 +413,9 @@ export class SessionCreateService {
                 customerCareCoef: customerCare?.profitPercent,
                 customerCareStaffId: customerCare?.staffId,
                 tuitionFee: oneTimeAlreadyCharged
-                  ? this.sessionValidationService.isTuitionChargeableStatus(
+                  ? this.sessionValidationService.resolveOneTimeAlreadyChargedTuitionFee(
                       attendanceItem.status,
                     )
-                    ? 0
-                    : null
                   : this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
                       attendanceItem.status,
                       attendanceItem.tuitionFee,
@@ -435,12 +428,14 @@ export class SessionCreateService {
                           customTuitionPerBlock: studentClassByStudentId.get(
                             attendanceItem.studentId,
                           )?.customTuitionPerBlock,
-                          customTuitionPackageTotal: studentClassByStudentId.get(
-                            attendanceItem.studentId,
-                          )?.customTuitionPackageTotal,
+                          customTuitionPackageTotal:
+                            studentClassByStudentId.get(
+                              attendanceItem.studentId,
+                            )?.customTuitionPackageTotal,
                           customTuitionPackageSession:
-                            studentClassByStudentId.get(attendanceItem.studentId)
-                              ?.customTuitionPackageSession,
+                            studentClassByStudentId.get(
+                              attendanceItem.studentId,
+                            )?.customTuitionPackageSession,
                           classTuitionPerSession: studentClassByStudentId.get(
                             attendanceItem.studentId,
                           )?.class?.studentTuitionPerSession,
@@ -451,8 +446,9 @@ export class SessionCreateService {
                             attendanceItem.studentId,
                           )?.class?.tuitionPackageTotal,
                           classTuitionPackageSession:
-                            studentClassByStudentId.get(attendanceItem.studentId)
-                              ?.class?.tuitionPackageSession,
+                            studentClassByStudentId.get(
+                              attendanceItem.studentId,
+                            )?.class?.tuitionPackageSession,
                           blockCount: snapshotBlockCount,
                           oneTimeAlreadyCharged,
                         },
