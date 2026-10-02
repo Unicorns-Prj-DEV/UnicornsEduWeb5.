@@ -65,7 +65,14 @@ describe('ClassTimelineService — soft hide', () => {
     expect(rows[0].hiddenAt).toBe('2026-09-07T00:00:00.000Z');
     expect(mockPrisma.classTimelineItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { classId: 'cls-1' },
+        where: {
+          classId: 'cls-1',
+          NOT: {
+            classContentItem: {
+              is: { lesson: { is: { archivedAt: { not: null } } } },
+            },
+          },
+        },
       }),
     );
   });
@@ -163,6 +170,32 @@ describe('ClassTimelineService — reorder', () => {
       service.reorder('cls-1', ['A', 'B', 'D'], adminActor),
     ).rejects.toThrow('Some IDs do not belong to this class timeline');
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('ignores archived-lesson rows: owned query excludes them', async () => {
+    mockPrisma.classTimelineItem.findMany
+      .mockResolvedValueOnce([{ id: 'A' }, { id: 'B' }])
+      .mockResolvedValueOnce([
+        contentRow('B', 0, 'B'),
+        contentRow('A', 1, 'A'),
+      ]);
+
+    await service.reorder('cls-1', ['B', 'A'], adminActor);
+
+    expect(mockPrisma.classTimelineItem.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          classId: 'cls-1',
+          NOT: {
+            classContentItem: {
+              is: { lesson: { is: { archivedAt: { not: null } } } },
+            },
+          },
+        }),
+      }),
+    );
+    expect(mockPrisma.classTimelineItem.update).toHaveBeenCalledTimes(2);
   });
 
   it('rejects payload that omits an owned item', async () => {

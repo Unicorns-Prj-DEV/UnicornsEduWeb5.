@@ -9,6 +9,7 @@ import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import type { ActionHistoryActor } from 'src/course-content/course-content.service';
+import { NOT_ARCHIVED_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';
 import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
@@ -81,7 +82,7 @@ export class ClassTimelineService {
     const rows = await findTimelineItems(
       this.prisma,
       {
-        where: { classId },
+        where: { classId, ...NOT_ARCHIVED_TIMELINE_ITEM },
         orderBy: { sortOrder: 'asc' },
       },
       null,
@@ -114,6 +115,7 @@ export class ClassTimelineService {
         where: {
           classId,
           hiddenAt: null,
+          ...NOT_ARCHIVED_TIMELINE_ITEM,
           OR: [
             { classContentItemId: null },
             { classContentItem: { hiddenAt: null } },
@@ -146,8 +148,9 @@ export class ClassTimelineService {
       throw new BadRequestException('orderedIds is required');
     }
 
+    // Dòng của tiết đã lưu trữ không hiện nên không nằm trong payload; giữ sortOrder cũ.
     const owned = await this.prisma.classTimelineItem.findMany({
-      where: { classId },
+      where: { classId, ...NOT_ARCHIVED_TIMELINE_ITEM },
       select: { id: true },
     });
     const uniqueOrdered = new Set(orderedIds);

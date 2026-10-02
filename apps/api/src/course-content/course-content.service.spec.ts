@@ -456,6 +456,22 @@ describe('CourseContentService — ClassContent methods', () => {
       expect(result[1].source).toBe('class');
       expect(result[1].kindLabel).toBe('Tiết lý thuyết');
     });
+
+    it('omits items of archived lessons (data stays in DB)', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
+      mockPrisma.classContentItem.findMany.mockResolvedValue([]);
+
+      await service.listClassContentItems('cls-1', adminActor);
+
+      expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            classId: 'cls-1',
+            NOT: { lesson: { is: { archivedAt: { not: null } } } },
+          },
+        }),
+      );
+    });
   });
 
   // ─── reorderClassContentItems ───
@@ -826,6 +842,27 @@ describe('CourseContentService — ClassContent methods', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('returns 404 when the lesson is archived', async () => {
+      mockPrisma.studentClass.findFirst.mockResolvedValue({
+        id: 'sc-1',
+        class: { contentAccessExpiresAt: null },
+      });
+      mockPrisma.classContentItem.findUnique.mockResolvedValue({
+        lesson: {
+          id: 't-old',
+          kind: 'theory',
+          title: 'Cũ',
+          archivedAt: new Date(),
+        },
+        openAt: null,
+        hiddenAt: new Date(),
+      });
+
+      await expect(
+        service.getAssignedLessonForStudent('cls-1', 't-old', 'stu-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('allows practice after openAt', async () => {
       const lesson = { id: 't-practice', kind: 'practice', title: 'Đề' };
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
@@ -919,7 +956,11 @@ describe('CourseContentService — ClassContent methods', () => {
       expect(result[0].isOpen).toBe(true);
       expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { classId: 'cls-1', hiddenAt: null },
+          where: {
+            classId: 'cls-1',
+            hiddenAt: null,
+            NOT: { lesson: { is: { archivedAt: { not: null } } } },
+          },
         }),
       );
     });
