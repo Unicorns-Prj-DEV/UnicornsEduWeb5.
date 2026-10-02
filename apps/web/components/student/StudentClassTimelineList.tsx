@@ -17,15 +17,12 @@ import {
   getStudentClassTimeline,
 } from "@/lib/apis/class.api";
 import { classKeys, classTimelineKeys } from "@/lib/query-keys";
-import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
-import StudentSessionDetailDialog from "./StudentSessionDetailDialog";
-import StudentSurveyDetailDialog from "./StudentSurveyDetailDialog";
 import StudentClassTimelineToc, {
   type TimelineTocEntry,
 } from "./StudentClassTimelineToc";
@@ -34,10 +31,6 @@ import {
   StudentSessionTimelineCard,
   StudentSurveyTimelineCard,
 } from "./StudentTimelineCards";
-import type {
-  StudentSessionItem,
-  StudentSurveyItem,
-} from "@/dtos/student-class.dto";
 import { replaceCourseWorkspaceUrl } from "@/lib/course-content-routes";
 import {
   isLockedModuleItem,
@@ -53,68 +46,6 @@ import {
 } from "@/lib/student-class-tabs";
 import StudentClassTabs from "./StudentClassTabs";
 import StudentModuleCards from "./StudentModuleCards";
-
-function mapSession(item: ClassTimelineItemDto): StudentSessionItem | null {
-  if (item.kind !== "session" || !item.session) return null;
-  return {
-    id: item.session.id,
-    teacherId: "",
-    classId: "",
-    date: new Date(item.session.date),
-    startTime: item.session.startTime,
-    endTime: item.session.endTime,
-    lessonContent: item.session.lessonContent,
-    homework: item.session.homework,
-    tutorial: item.session.tutorial,
-    recordingUrl: item.session.recordingUrl,
-    coefficient: 1,
-    attendance: item.session.myAttendanceStatus
-      ? [
-          {
-            id: "me",
-            studentId: "me",
-            status: item.session.myAttendanceStatus,
-            notes: item.session.myAttendanceNotes,
-          },
-        ]
-      : [],
-    teacher: {
-      id: "",
-      user: {
-        first_name: item.session.teacherName,
-        last_name: null,
-      },
-    },
-  };
-}
-
-function mapSurvey(item: ClassTimelineItemDto): StudentSurveyItem | null {
-  if (item.kind !== "class_survey" || !item.survey) return null;
-  return {
-    id: item.survey.id,
-    classId: null,
-    surveyId: null,
-    teacherId: null,
-    reportDate: new Date(item.survey.reportDate),
-    knowledgeAssessment: null,
-    survey: {
-      id: item.survey.id,
-      name: item.survey.surveyName,
-      startDate: item.survey.startDate ? new Date(item.survey.startDate) : null,
-      endDate: item.survey.endDate ? new Date(item.survey.endDate) : null,
-    },
-    studentAssessments: item.survey.myAssessment
-      ? [
-          {
-            id: "me",
-            studentId: "me",
-            knowledgeAssessment: null,
-            comment: item.survey.myAssessment,
-          },
-        ]
-      : [],
-  };
-}
 
 type StudentClassTimelineListProps = {
   classId: string;
@@ -159,7 +90,6 @@ function StudentClassTimelineListInner({
   }
   const activeTab = pendingTab ?? urlTab;
 
-  const [selected, setSelected] = useState<ClassTimelineItemDto | null>(null);
   // Mục lục chỉ highlight item được bấm gần nhất (không scroll-spy theo khung nhìn).
   const [selectedTocId, setSelectedTocId] = useState<string | null>(null);
   const [tocOpen, setTocOpen] = useState(false);
@@ -294,9 +224,6 @@ function StudentClassTimelineListInner({
     return <TimelineSkeleton header={header} />;
   }
 
-  const session = selected ? mapSession(selected) : null;
-  const survey = selected ? mapSurvey(selected) : null;
-
   return (
     <>
       <div className="relative left-1/2 -mt-6 w-screen max-w-[100vw] -translate-x-1/2 sm:-mt-8 lg:flex lg:items-start">
@@ -353,52 +280,49 @@ function StudentClassTimelineListInner({
             ) : null}
             {activeTab === "buoi-hoc" &&
               sessionRows.map(({ item, index }) => {
-                const orderBadge = (
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                    {index + 1}
-                  </div>
+                // Số thứ tự + badge loại đứng đầu thẻ, cùng hàng với ngày giờ buổi
+                // học, để khung video chiếm trọn bề ngang thẻ.
+                const leading = (
+                  <>
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                      {index + 1}
+                    </span>
+                    <TimelineKindBadge
+                      kind={item.kind}
+                      lessonKind={item.lessonKind}
+                      label={item.kindLabel}
+                    />
+                  </>
                 );
 
-                const openDetail = () => setSelected(item);
-
-                // Row buổi học/khảo sát có MathContent (có thể chứa link) nên không
-                // dùng <button> bọc ngoài; dùng div có role="button". Bấm thumbnail
-                // tĩnh (ảnh, không nhúng trình phát) cũng nổi sự kiện lên đây.
+                // Thẻ không mở dialog: nội dung buổi học/khảo sát hiện đủ ngay trên
+                // thẻ, video phát tại chỗ. Mục lục scroll tới thẻ qua `registerRow`.
                 return (
                   <div
                     key={item.id}
                     ref={(el) => registerRow(item.id, el)}
                     data-timeline-id={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={openDetail}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openDetail();
-                      }
-                    }}
-                    className={`flex w-full scroll-mt-24 items-start gap-3 rounded-xl border bg-bg-surface p-4 text-left shadow-sm transition-shadow hover:border-primary/40 ${
+                    className={`w-full scroll-mt-24 rounded-xl border bg-bg-surface p-4 shadow-sm ${
                       selectedTocId === item.id
                         ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-bg-primary"
                         : "border-border-default"
                     }`}
                   >
-                    {orderBadge}
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <TimelineKindBadge
-                          kind={item.kind}
-                          lessonKind={item.lessonKind}
-                          label={item.kindLabel}
-                        />
+                    {item.kind === "session" && item.session ? (
+                      <StudentSessionTimelineCard
+                        session={item.session}
+                        leading={leading}
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {leading}
+                        </div>
+                        {item.kind === "class_survey" && item.survey ? (
+                          <StudentSurveyTimelineCard survey={item.survey} />
+                        ) : null}
                       </div>
-                      {item.kind === "session" && item.session ? (
-                        <StudentSessionTimelineCard session={item.session} />
-                      ) : item.kind === "class_survey" && item.survey ? (
-                        <StudentSurveyTimelineCard survey={item.survey} />
-                      ) : null}
-                    </div>
+                    )}
                   </div>
                 );
               })}
@@ -450,19 +374,6 @@ function StudentClassTimelineListInner({
             />
           </ResponsiveDialogBody>
         </ResponsiveDialog>
-      ) : null}
-
-      {session ? (
-        <StudentSessionDetailDialog
-          session={session}
-          onClose={() => setSelected(null)}
-        />
-      ) : null}
-      {survey ? (
-        <StudentSurveyDetailDialog
-          survey={survey}
-          onClose={() => setSelected(null)}
-        />
       ) : null}
     </>
   );
