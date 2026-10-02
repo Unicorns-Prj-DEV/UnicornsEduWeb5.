@@ -958,6 +958,9 @@ export default function AdminDashboardTabPage() {
                       className="rounded-md border border-border-default bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                     />
                   </div>
+                  <p className="basis-full text-xs text-text-muted">
+                    Bonus tính trọn tháng thưởng: mọi tháng giao với khoảng ngày đã chọn đều được lấy đủ.
+                  </p>
                 </div>
               )}
             </div>

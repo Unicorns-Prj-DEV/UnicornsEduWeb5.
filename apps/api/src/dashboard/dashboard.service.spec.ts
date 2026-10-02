@@ -3,7 +3,10 @@ jest.mock('../prisma/prisma.service', () => ({
 }));
 
 import { AttendanceStatus, StaffRole } from '../../generated/enums';
-import { DashboardService } from './dashboard.service';
+import {
+  DashboardService,
+  monthKeysIntersectingDateRange,
+} from './dashboard.service';
 
 describe('DashboardService staff training dashboard', () => {
   const prisma = {
@@ -813,5 +816,28 @@ describe('DashboardService financial export', () => {
     expect(result.revenueItems).toHaveLength(1);
     expect(result.meta.revenueItemCount).toBe(1);
     expect(result.meta.revenueTruncated).toBe(true);
+  });
+});
+
+describe('monthKeysIntersectingDateRange', () => {
+  it('takes whole bonus months touched by a partial date range', () => {
+    expect(monthKeysIntersectingDateRange('2026-09-15', '2026-10-03')).toEqual({
+      fromMonthKey: '2026-09',
+      toMonthKeyExclusive: '2026-11',
+    });
+  });
+
+  it('keeps a range inside one month to that month', () => {
+    expect(monthKeysIntersectingDateRange('2026-10-01', '2026-10-31')).toEqual({
+      fromMonthKey: '2026-10',
+      toMonthKeyExclusive: '2026-11',
+    });
+  });
+
+  it('rolls the exclusive bound over a year end', () => {
+    expect(monthKeysIntersectingDateRange('2026-12-20', '2026-12-20')).toEqual({
+      fromMonthKey: '2026-12',
+      toMonthKeyExclusive: '2027-01',
+    });
   });
 });
