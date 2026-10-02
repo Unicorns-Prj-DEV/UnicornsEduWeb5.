@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Trang chủ học sinh — lưới thẻ lớp đang học:** danh sách lớp đổi thành lưới thẻ (1 cột mobile → 3 cột desktop), chỉ lớp đang học. Thẻ có ảnh bìa mascot kỳ lân (cố định theo ID lớp, 21 ảnh pastel đã cắt sát trên nền nhạt), tên khoá, tên lớp, Gia sư đứng lớp; cả thẻ là link vào lớp. Bỏ học phí, gói, số buổi, nhãn trạng thái khỏi thẻ.
 - **Dashboard — tách dòng phạt trong chi tiết bonus:** popup Chi tiết Chi phí nhân sự thay thẻ Bonus bằng hai thẻ Thưởng và Phạt, mỗi thẻ một tổng; mỗi dòng nhân sự có `sourceAmounts` (số tiền theo từng thẻ nguồn, phạt âm) để FE lọc mà không parse ghi chú. Ghi chú và file export ghi `Thưởng …` / `Phạt -…` thay `Bonus …`. Nhân sự chỉ có phạt vẫn hiện trong bảng, export và danh sách lợi nhuận / tổng chi; danh sách sắp theo độ lớn tổng chi phí. Tổng bonus vẫn là số ròng.
 - **Lớp bán một lần (`one_time`) cho khoá THPTQG và PREVOI:**
   - Học phí cả khoá trừ ở buổi present/excused đầu tiên của từng học sinh; các buổi sau 0đ. Advisory lock theo lớp chống thu trùng; dòng đã thu bị xoá/chuyển vắng thì buổi sau thu lại.
@@ -53,6 +54,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **`GET /users/me/student-classes`:** trả DTO gọn `StudentClassCardDto` (`classId`, `className`, `courseName`, `teacherNames`) sắp theo tên lớp, thay bản ghi enrollment đầy đủ. Trước đây endpoint `include` cả bản ghi user của Gia sư (gồm `passwordHash`); giờ chỉ select họ tên.
 - **Navbar học sinh dạng nổi:** `StudentHeader` bo góc, cách mép, dính khi cuộn; thêm nút **Hồ sơ & Lịch thi** và **Nạp ví** (sang `/student/tuition`), màn hẹp chỉ icon. Trang chủ `/student` bỏ card thông tin đầu trang (email, nhãn «Đang học», hai nút cũ).
 - **Hồ sơ nhân sự và QR thanh toán:**
   - `/user-profile` khi sửa dùng cùng khung hàng nhãn căn phải / ô nhập cột giá trị với chế độ xem.

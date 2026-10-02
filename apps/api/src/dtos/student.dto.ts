@@ -712,3 +712,25 @@ export class UpdateStudentExamSchedulesDto {
   @Type(() => StudentExamScheduleUpsertItemDto)
   items: StudentExamScheduleUpsertItemDto[];
 }
+
+/** Thẻ lớp đang học trên trang chủ học sinh — chỉ dữ liệu hiển thị, không học phí/gói. */
+export class StudentClassCardDto {
+  @ApiProperty({ description: 'Class id', example: 'cls_01' })
+  classId: string;
+
+  @ApiProperty({ description: 'Tên lớp', example: 'Lớp Thuật toán 1' })
+  className: string;
+
+  @ApiProperty({
+    description: 'Tên khoá học của lớp',
+    example: 'Thuật toán cơ bản',
+  })
+  courseName: string;
+
+  @ApiProperty({
+    description: 'Họ tên các Gia sư đứng lớp đang hoạt động, sắp theo tên',
+    type: [String],
+    example: ['Nguyễn Văn A'],
+  })
+  teacherNames: string[];
+}
