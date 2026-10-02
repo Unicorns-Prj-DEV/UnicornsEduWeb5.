@@ -175,7 +175,7 @@ type StudentChangeSqlRow = {
 type StaffUnpaidAlertSqlRow = {
   staffId: string;
   staffName: string;
-  staffStatus: string;
+  staffStatus: StaffStatus;
   sessionAmount: number | string | null;
   bonusAmount: number | string | null;
   customerCareAmount: number | string | null;
@@ -200,7 +200,7 @@ type StaffUnpaidAlertSqlRow = {
 type PersonnelStaffCostSqlRow = {
   staffId: string;
   staffName: string;
-  staffStatus: string;
+  staffStatus: StaffStatus;
   sessionAmount: number | string | null;
   bonusAmount: number | string | null;
   bonusRewardAmount: number | string | null;
@@ -814,7 +814,7 @@ function mapDebtStudentToActionAlert(
  */
 export function formatCostStaffName(row: {
   staffName: string;
-  staffStatus: string;
+  staffStatus: StaffStatus;
 }): string {
   return row.staffStatus === StaffStatus.inactive
     ? `${row.staffName} (Đã nghỉ)`

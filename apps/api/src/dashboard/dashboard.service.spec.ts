@@ -2,10 +2,15 @@ jest.mock('../prisma/prisma.service', () => ({
   PrismaService: class PrismaServiceMock {},
 }));
 
-import { AttendanceStatus, StaffRole } from '../../generated/enums';
+import {
+  AttendanceStatus,
+  StaffRole,
+  StaffStatus,
+} from '../../generated/enums';
 import {
   DashboardService,
   buildPersonnelCostBreakdown,
+  formatCostStaffName,
   monthKeysIntersectingDateRange,
 } from './dashboard.service';
 
@@ -740,6 +745,7 @@ describe('DashboardService financial export', () => {
             {
               staffId: 'staff-1',
               staffName: 'Gia su B',
+              staffStatus: 'inactive',
               sessionAmount: 400_000,
               bonusAmount: 0,
               customerCareAmount: 0,
@@ -781,6 +787,8 @@ describe('DashboardService financial export', () => {
     expect(result.summary.personnelCost).toBe(550_000);
     expect(result.summary.profit).toBe(550_000);
     expect(result.personnelItems[0]?.note).toContain('Lương cứng');
+    // Nhân sự đã nghỉ vẫn tính chi phí, tên gắn nhãn.
+    expect(result.personnelItems[0]?.staffName).toBe('Gia su B (Đã nghỉ)');
   });
 
   it('returns per-student revenue items for date-range mode', async () => {
@@ -930,5 +938,19 @@ describe('buildPersonnelCostBreakdown', () => {
       note: 'Không có chi phí chi tiết.',
       sourceAmounts: {},
     });
+  });
+});
+
+describe('formatCostStaffName', () => {
+  it('labels only inactive staff', () => {
+    expect(
+      formatCostStaffName({ staffName: 'An', staffStatus: StaffStatus.active }),
+    ).toBe('An');
+    expect(
+      formatCostStaffName({
+        staffName: 'An',
+        staffStatus: StaffStatus.inactive,
+      }),
+    ).toBe('An (Đã nghỉ)');
   });
 });
