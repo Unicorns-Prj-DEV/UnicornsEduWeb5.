@@ -9,6 +9,7 @@ import {
   SessionCreatePayload,
   SessionItem,
 } from "@/dtos/session.dto";
+import type { ClassPricingMode } from "@/dtos/class.dto";
 import {
   CONTENT_LIMITS,
   firstOverLimit,
@@ -107,7 +108,7 @@ export type SessionClassPricingContext = {
   maxAllowancePerBlock?: number | null;
   scaleAmount?: number | null;
   teacherCustomAllowanceByTeacherId?: Record<string, number | null | undefined>;
-  pricingMode?: "per_session" | "per_block";
+  pricingMode?: ClassPricingMode;
   /** Đơn giá học phí / 30 phút của lớp (`student_tuition_per_block`). */
   studentTuitionPerBlock?: number | null;
   /** Số block của buổi chuẩn theo lịch cố định — fallback khi giờ nhập không chia hết 30 phút. */
