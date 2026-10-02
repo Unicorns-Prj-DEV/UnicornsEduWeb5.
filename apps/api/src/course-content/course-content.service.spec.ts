@@ -69,10 +69,16 @@ describe('CourseContentService — ClassContent methods', () => {
         delete: jest.fn(),
         groupBy: jest.fn().mockResolvedValue([]),
         updateMany: jest.fn(),
+        deleteMany: jest.fn(),
+      },
+      classModule: {
+        findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       classTimelineItem: {
         aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
         create: jest.fn(),
+        createMany: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -95,53 +101,21 @@ describe('CourseContentService — ClassContent methods', () => {
   // ─── createClassContentItem ───
 
   describe('createClassContentItem', () => {
-    it('should create a new topic for class when no topicId provided', async () => {
+    it('rejects creating a class-owned lesson when no lessonId is given', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
       mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
-      mockPrisma.classContentItem.aggregate.mockResolvedValue({
-        _max: { sortOrder: 1 },
-      });
-      mockPrisma.lesson.create.mockResolvedValue({
-        id: 'topic-new',
-        kind: 'theory',
-        classId: 'cls-1',
-        title: 'New topic',
-      });
-      mockPrisma.classContentItem.create.mockResolvedValue({
-        id: 'cci-1',
-        lessonId: 'topic-new',
-        kind: 'lesson',
-        sortOrder: 2,
-        classId: 'cls-1',
-        lesson: {
-          title: 'New topic',
-          kind: 'theory',
-          classId: 'cls-1',
-          module: null,
-          quizzes: [],
-        },
-      });
 
-      const result = await service.createClassContentItem(
-        'cls-1',
-        { title: 'New topic', kind: 'theory' as any },
-        adminActor,
-      );
-
-      expect(result.title).toBe('New topic');
-      expect(result.source).toBe('class');
-      expect(mockPrisma.lesson.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            classId: 'cls-1',
-            title: 'New topic',
-          }),
-        }),
-      );
-      expect(mockPrisma.classContentItem.create).toHaveBeenCalled();
+      await expect(
+        service.createClassContentItem(
+          'cls-1',
+          { title: 'New topic', kind: 'theory' } as never,
+          adminActor,
+        ),
+      ).rejects.toThrow('Lớp không tạo tiết riêng nữa');
+      expect(mockPrisma.lesson.create).not.toHaveBeenCalled();
+      expect(mockPrisma.classContentItem.create).not.toHaveBeenCalled();
     });
-
     it('should add an existing topic to class content', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
@@ -211,16 +185,6 @@ describe('CourseContentService — ClassContent methods', () => {
           { lessonId: 'topic-1' },
           adminActor,
         ),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw if title missing when creating new topic', async () => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
-      mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
-      mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
-
-      await expect(
-        service.createClassContentItem('cls-1', { title: '  ' }, adminActor),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -308,86 +272,28 @@ describe('CourseContentService — ClassContent methods', () => {
       expect(mockPrisma.classContentItem.create).not.toHaveBeenCalled();
     });
 
-    it('should not write schedule onto a theory topic row', async () => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
-      mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
-      mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
-      mockPrisma.classContentItem.aggregate.mockResolvedValue({
-        _max: { sortOrder: 0 },
-      });
-      mockPrisma.lesson.create.mockResolvedValue({
-        id: 'topic-theory',
-        kind: 'theory',
-        classId: 'cls-1',
-        title: 'Theory',
-      });
-      mockPrisma.classContentItem.create.mockResolvedValue({
-        id: 'cci-t',
-        lessonId: 'topic-theory',
-        kind: 'lesson',
-        sortOrder: 1,
-        classId: 'cls-1',
-        openAt: null,
-        durationMinutes: null,
-        lesson: {
-          title: 'Theory',
-          kind: 'theory',
-          classId: 'cls-1',
-          module: null,
-          quizzes: [],
-        },
-      });
-
-      await service.createClassContentItem(
-        'cls-1',
-        {
-          title: 'Theory',
-          kind: 'theory' as any,
-          openAt: '2026-09-07T13:00:00.000Z',
-          durationMinutes: 60,
-        },
-        adminActor,
-      );
-
-      expect(mockPrisma.lesson.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.not.objectContaining({
-            openAt: expect.anything(),
-            durationMinutes: expect.anything(),
-          }),
-        }),
-      );
-      expect(mockPrisma.classContentItem.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            openAt: null,
-            durationMinutes: null,
-          }),
-        }),
-      );
-    });
-
     it('runs create + timeline append inside one $transaction', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
-      mockPrisma.lesson.create.mockResolvedValue({
-        id: 'topic-new',
-        kind: 'theory',
-        classId: 'cls-1',
-        title: 'New topic',
+      mockPrisma.lesson.findUnique.mockResolvedValue({
+        id: 'topic-practice',
+        kind: 'practice',
+        classId: null,
+        archivedAt: null,
       });
+      mockPrisma.classContentItem.findUnique.mockResolvedValue(null);
       mockPrisma.classContentItem.aggregate.mockResolvedValue({
         _max: { sortOrder: -1 },
       });
       mockPrisma.classContentItem.create.mockResolvedValue({
         id: 'cci-1',
-        lessonId: 'topic-new',
+        lessonId: 'topic-practice',
         kind: 'lesson',
         sortOrder: 0,
         classId: 'cls-1',
         lesson: {
-          title: 'New topic',
-          kind: 'theory',
-          classId: 'cls-1',
+          title: 'Practice',
+          kind: 'practice',
+          classId: null,
           module: null,
           quizzes: [],
         },
@@ -395,7 +301,7 @@ describe('CourseContentService — ClassContent methods', () => {
 
       await service.createClassContentItem(
         'cls-1',
-        { title: 'New topic', kind: 'theory' as any },
+        { lessonId: 'topic-practice', durationMinutes: 60 },
         adminActor,
       );
 
@@ -404,15 +310,19 @@ describe('CourseContentService — ClassContent methods', () => {
         expect.objectContaining({ timeout: expect.any(Number) }),
       );
     });
-
-    it('rolls back when timeline append fails mid-create — no leftover topic or content item', async () => {
+    it('rolls back when timeline append fails mid-create — no leftover content item', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({
         id: 'cls-1',
         timelineCustomOrder: false,
       });
+      mockPrisma.lesson.findUnique.mockResolvedValue({
+        id: 'topic-practice',
+        kind: 'practice',
+        classId: null,
+        archivedAt: null,
+      });
 
       const committed = {
-        topics: [] as unknown[],
         items: [] as unknown[],
         timeline: [] as unknown[],
       };
@@ -420,42 +330,31 @@ describe('CourseContentService — ClassContent methods', () => {
       mockPrisma.$transaction.mockImplementation(
         async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
           const staging = {
-            topics: [] as unknown[],
             items: [] as unknown[],
             timeline: [] as unknown[],
           };
           const tx = {
-            lesson: {
-              create: jest.fn(async (args: { data: { title: string } }) => {
-                const row = {
-                  id: 'topic-new',
-                  kind: 'theory',
-                  classId: 'cls-1',
-                  title: args.data.title,
-                };
-                staging.topics.push(row);
-                return row;
-              }),
-            },
             classContentItem: {
               aggregate: jest.fn().mockResolvedValue({
                 _max: { sortOrder: -1 },
               }),
-              create: jest.fn(async (args: { data: Record<string, unknown> }) => {
-                const row = {
-                  id: 'cci-orphan',
-                  ...args.data,
-                  lesson: {
-                    title: 'New topic',
-                    kind: 'theory',
-                    classId: 'cls-1',
-                    module: null,
-                    quizzes: [],
-                  },
-                };
-                staging.items.push(row);
-                return row;
-              }),
+              create: jest.fn(
+                async (args: { data: Record<string, unknown> }) => {
+                  const row = {
+                    id: 'cci-orphan',
+                    ...args.data,
+                    lesson: {
+                      title: 'Practice',
+                      kind: 'practice',
+                      classId: null,
+                      module: null,
+                      quizzes: [],
+                    },
+                  };
+                  staging.items.push(row);
+                  return row;
+                },
+              ),
               findUnique: jest.fn().mockResolvedValue(null),
             },
             class: {
@@ -477,7 +376,6 @@ describe('CourseContentService — ClassContent methods', () => {
           };
           try {
             const result = await fn(tx);
-            committed.topics = staging.topics;
             committed.items = staging.items;
             committed.timeline = staging.timeline;
             return result;
@@ -490,12 +388,11 @@ describe('CourseContentService — ClassContent methods', () => {
       await expect(
         service.createClassContentItem(
           'cls-1',
-          { title: 'New topic', kind: 'theory' as any },
+          { lessonId: 'topic-practice', durationMinutes: 60 },
           adminActor,
         ),
       ).rejects.toThrow('timeline write failed');
 
-      expect(committed.topics).toHaveLength(0);
       expect(committed.items).toHaveLength(0);
       expect(committed.timeline).toHaveLength(0);
     });
@@ -532,8 +429,9 @@ describe('CourseContentService — ClassContent methods', () => {
           lesson: {
             title: 'Topic B',
             kind: 'practice',
+            order: 0,
             classId: 'course-1',
-            module: { title: 'Ch 2' },
+            module: { id: 'm2', title: 'Ch 2', sortOrder: 1 },
             quizzes: [{}],
           },
         },
@@ -541,12 +439,13 @@ describe('CourseContentService — ClassContent methods', () => {
 
       const result = await service.listClassContentItems('cls-1', adminActor);
 
+      // Item thuộc chuyên đề lên trước; tiết riêng lớp (không chuyên đề) xếp cuối.
       expect(result).toHaveLength(2);
-      expect(result[0].source).toBe('class');
-      expect(result[0].kindLabel).toBe('Tiết lý thuyết');
-      expect(result[1].source).toBe('course');
-      expect(result[1].kindLabel).toBe('Tiết thực hành');
-      expect(result[1].moduleTitle).toBe('Ch 2');
+      expect(result[0].source).toBe('course');
+      expect(result[0].kindLabel).toBe('Tiết thực hành');
+      expect(result[0].moduleTitle).toBe('Ch 2');
+      expect(result[1].source).toBe('class');
+      expect(result[1].kindLabel).toBe('Tiết lý thuyết');
     });
   });
 
@@ -1505,7 +1404,8 @@ describe('CourseContentService — ClassContent methods', () => {
       it('should return true when topic is in class content', async () => {
         mockPrisma.classContentItem.count.mockResolvedValue(2);
 
-        const result = await service.isLessonAssignedToClass('topic-practice-1');
+        const result =
+          await service.isLessonAssignedToClass('topic-practice-1');
 
         expect(result).toBe(true);
       });
@@ -1513,7 +1413,8 @@ describe('CourseContentService — ClassContent methods', () => {
       it('should return false when topic is not in any class', async () => {
         mockPrisma.classContentItem.count.mockResolvedValue(0);
 
-        const result = await service.isLessonAssignedToClass('topic-practice-1');
+        const result =
+          await service.isLessonAssignedToClass('topic-practice-1');
 
         expect(result).toBe(false);
       });
@@ -1968,9 +1869,10 @@ describe('CourseContentService — ClassContent methods', () => {
   });
 
   describe('knowledge-tree delete guards', () => {
-    it('blocks deleting a lesson still referenced by ClassContentItem (including hidden)', async () => {
+    it('blocks deleting a practice lesson still referenced by ClassContentItem (including hidden)', async () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-1',
+        kind: 'practice',
         classId: null,
         courseId: 'course-1',
       });
@@ -1982,9 +1884,7 @@ describe('CourseContentService — ClassContent methods', () => {
         },
       ]);
 
-      await expect(
-        service.deleteLesson('topic-1', adminActor),
-      ).rejects.toThrow(
+      await expect(service.deleteLesson('topic-1', adminActor)).rejects.toThrow(
         /Không thể xoá tiết học: còn 1 lớp đang tham chiếu — Lớp A \(1 lần giao đang ẩn\)/,
       );
       expect(mockPrisma.lesson.delete).not.toHaveBeenCalled();
@@ -1993,6 +1893,7 @@ describe('CourseContentService — ClassContent methods', () => {
     it('deletes a lesson when no class content item references it', async () => {
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-free',
+        kind: 'practice',
         classId: null,
         courseId: 'course-1',
       });
@@ -2006,13 +1907,15 @@ describe('CourseContentService — ClassContent methods', () => {
       });
     });
 
-    it('blocks deleting a module whose lessons are used by N classes', async () => {
+    it('blocks deleting a module whose practice lessons are assigned to N classes', async () => {
       mockPrisma.module.findUnique.mockResolvedValue({
         id: 'ch-1',
         courseId: 'course-1',
       });
       mockPrisma.module.delete = jest.fn();
-      mockPrisma.lesson.findMany.mockResolvedValue([{ id: 'topic-1' }]);
+      mockPrisma.lesson.findMany.mockResolvedValue([
+        { id: 'topic-1', kind: 'practice' },
+      ]);
       mockPrisma.classContentItem.findMany.mockResolvedValue([
         {
           classId: 'cls-1',
@@ -2127,9 +2030,9 @@ describe('CourseContentService — ClassContent methods', () => {
       await expect(
         service.updateModule('ch-1', { title: 'N' }, teacherActor),
       ).rejects.toThrow(ForbiddenException);
-      await expect(
-        service.deleteModule('ch-1', teacherActor),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.deleteModule('ch-1', teacherActor)).rejects.toThrow(
+        ForbiddenException,
+      );
       await expect(
         service.reorderModules('course-x', ['ch-1'], teacherActor),
       ).rejects.toThrow(ForbiddenException);
@@ -2151,11 +2054,7 @@ describe('CourseContentService — ClassContent methods', () => {
         service.deleteLesson('topic-1', teacherActor),
       ).rejects.toThrow(ForbiddenException);
       await expect(
-        service.reorderLessons(
-          ['topic-1'],
-          { moduleId: 'ch-1' },
-          teacherActor,
-        ),
+        service.reorderLessons(['topic-1'], { moduleId: 'ch-1' }, teacherActor),
       ).rejects.toThrow(ForbiddenException);
       await expect(
         service.createExamLesson(

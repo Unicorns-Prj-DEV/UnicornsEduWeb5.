@@ -1,9 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { LessonKind } from 'generated/enums';
 import {
   LessonCreateDto,
   LessonUpdateDto,
   LessonResponseDto,
 } from 'src/dtos/course-content.dto';
+import { syncNewTheoryLessonToClasses } from './class-course-module-sync';
 import {
   ActionHistoryActor,
   CourseContentSupportService,
@@ -32,18 +34,25 @@ export class CourseLessonService extends CourseContentSupportService {
       await this.validateStaffClassAccess(dto.classId, actor);
     }
 
-    const lesson = await this.prisma.lesson.create({
-      data: {
-        kind: dto.kind,
-        courseId: dto.courseId ?? null,
-        moduleId: dto.moduleId ?? null,
-        classId: dto.classId ?? null,
-        title: dto.title,
-        videoUrl: dto.videoUrl ?? null,
-        content: dto.content ?? null,
-        createdBy: actor.userId,
-        updatedBy: actor.userId,
-      },
+    const lesson = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.lesson.create({
+        data: {
+          kind: dto.kind,
+          courseId: dto.courseId ?? null,
+          moduleId: dto.moduleId ?? null,
+          classId: dto.classId ?? null,
+          title: dto.title,
+          videoUrl: dto.videoUrl ?? null,
+          content: dto.content ?? null,
+          createdBy: actor.userId,
+          updatedBy: actor.userId,
+        },
+      });
+      // Tiết lý thuyết mới của chuyên đề → hiện trên mọi lớp đã thêm chuyên đề.
+      if (created.kind === LessonKind.theory && created.moduleId) {
+        await syncNewTheoryLessonToClasses(tx, created.moduleId);
+      }
+      return created;
     });
 
     this.logger.log(
@@ -108,9 +117,16 @@ export class CourseLessonService extends CourseContentSupportService {
       await this.assertCanManageCourseContent(actor, existing.courseId);
     }
 
-    await this.assertLessonsNotUsedByClasses([lessonId], 'Tiết học');
+    // Tiết thực hành còn lần giao (kể cả đang ẩn) → 409 để không mất bài làm.
+    // Tiết lý thuyết gỡ khỏi chuyên đề thì mất khỏi mọi lớp: xoá item lớp (lượt xem + timeline cascade).
+    if (existing.kind === LessonKind.practice) {
+      await this.assertLessonsNotUsedByClasses([lessonId], 'Tiết học');
+    }
 
-    await this.prisma.lesson.delete({ where: { id: lessonId } });
+    await this.prisma.$transaction([
+      this.prisma.classContentItem.deleteMany({ where: { lessonId } }),
+      this.prisma.lesson.delete({ where: { id: lessonId } }),
+    ]);
     this.logger.log(`Lesson deleted: ${lessonId} by ${actor.userEmail}`);
   }
 

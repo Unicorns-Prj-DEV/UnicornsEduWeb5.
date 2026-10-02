@@ -80,6 +80,7 @@ export const classKeys = {
     [...classKeys.lists(), createStableFilterKey(filters)] as const,
   detail: (id: string) => [...classKeys.all, "detail", id] as const,
   coverImage: (id: string) => [...classKeys.all, "cover-image", id] as const,
+  modules: (id: string) => [...classKeys.all, "modules", id] as const,
 };
 
 export const courseKeys = {

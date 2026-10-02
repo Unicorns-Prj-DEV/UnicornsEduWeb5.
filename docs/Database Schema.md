@@ -44,7 +44,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `attendance`
 - `cf_problem_tutorials` (tutorial theo bài Codeforces)
 - `modules` (chuyên đề — nhóm tiết học bên trong khoá học)
-- `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề XOR lớp)
+- `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề của khoá — tiết riêng lớp cũ đã lưu trữ)
+- `class_modules` (chuyên đề lớp đã thêm — nguồn đồng bộ tiết lý thuyết vào lớp)
 - `lesson_quizzes` (liên kết câu hỏi từ ngân hàng vào bài tập ôn nhẹ của tiết lý thuyết)
 - `lesson_quiz_answers` (trả lời bài tập ôn nhẹ — không sinh Attempt, không tính điểm)
 - `class_theory_lesson_views` (lượt mở trang tiết lý thuyết của học sinh trong phạm vi lớp)
@@ -120,7 +121,8 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **LessonOutput → StaffInfo**: optional FK, `onDelete: SetNull`; staff này là nhân sự nhận thanh toán / đứng tên output, không phải nhóm điều phối task.
 - **Module → Course**: N-1 (`modules.course_id` FK, `onDelete: Cascade`).
 - **Lesson → Course/Module**: optional FK, `onDelete: Cascade` — tiết cấp khoá khi có `course_id` + `module_id`.
-- **Lesson → Class**: optional FK, `onDelete: Cascade` — tiết tạo riêng trong lớp.
+- **ClassModule → Class/Module**: N-1 mỗi phía (`class_modules`, `onDelete: Cascade`); unique `(class_id, module_id)`. Tiết lý thuyết của chuyên đề được materialize thành `class_content_items` của lớp.
+- **Lesson → Class**: optional FK, `onDelete: Cascade` — tiết riêng lớp legacy (không tạo mới; đã lưu trữ `archived_at`).
 - **Lesson CHECK constraint**: `lessons_owner_check` — tiết thuộc `(course_id+module_id)` OR `class_id`, never both. `lessons_practice_no_media_check` — tiết `practice` không có `video_url`/`content`.
 - **Question → Course**: N-1 (`questions.course_id` FK, `onDelete: Cascade`).
 - **Question → Module**: N-1 (`questions.module_id` FK, `onDelete: Cascade`).
@@ -406,10 +408,10 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 ### 4.4.0b `class_content_items` (Nội dung lớp học)
 
-- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `lesson`) được thêm vào danh sách nội dung của lớp. Với tiết luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): tiết (`lessons`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp.
+- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `lesson`) trong danh sách nội dung của lớp. Với tiết luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): tiết (`lessons`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp. Với tiết lý thuyết, hàng được **materialize** từ `class_modules` (không thêm lẻ): thêm chuyên đề tạo/khôi phục item, gỡ chuyên đề ẩn mềm, tạo tiết lý thuyết trong chuyên đề đồng bộ sang mọi lớp đã thêm, xoá tiết lý thuyết xoá item của nó. ADR `docs/adr/2026-10-02-class-content-by-module.md`.
 - `class_id` (FK → `classes.id`, `onDelete: Cascade`)
 - `kind` (`ClassContentItemKind`, default `lesson`) — phân loại nội dung. Hiện tại chỉ có `lesson`.
-- `lesson_id` (nullable FK → `lessons.id`, `onDelete: Restrict`) — FK đến tiết học. Nullable để hỗ trợ future kinds không cần lesson. Không Cascade/SetNull: xóa Chuyên đề / Tiết học cấp khoá khi còn lần giao (kể cả đã ẩn) bị chặn. ADR `docs/adr/2026-09-07-class-content-soft-hide-restrict-knowledge-tree.md`.
+- `lesson_id` (nullable FK → `lessons.id`, `onDelete: Restrict`) — FK đến tiết học. Nullable để hỗ trợ future kinds không cần lesson. Không Cascade/SetNull: xóa Chuyên đề / Tiết học cấp khoá khi còn lần giao **tiết thực hành** (kể cả đã ẩn) bị chặn 409; item tiết lý thuyết được ứng dụng xoá trước trong cùng transaction. ADR `docs/adr/2026-09-07-class-content-soft-hide-restrict-knowledge-tree.md` (sửa bởi ADR 2026-10-02).
 - `sort_order` (`INT`, default 0) — thứ tự hiển thị trong danh sách nội dung lớp.
 - `open_at` (`TIMESTAMPTZ`, nullable) — thời điểm mở bài của **lần giao**. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`. Khi `POST /class/:id/content` luyện tập **không** gửi `openAt`, backend ghi thời điểm tạo lần giao (đồng hồ server), không lấy giờ máy client.
 - `duration_minutes` (`INT`, nullable) — thời lượng làm bài (phút) của lần giao. 1–720. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`.
@@ -420,6 +422,15 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Migration: `20260912000000_add_class_content_assignment_schedule` — thêm `open_at` + `duration_minutes`.
 - Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
 - Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
+- Migration: `20261002120000_add_class_modules` — lớp có tiết lý thuyết thêm lẻ (đang hiện) được thêm nguyên chuyên đề + tiết lý thuyết còn thiếu (item + dòng timeline); lớp không bật thứ tự timeline tuỳ chỉnh được sắp lại theo thời gian; item + dòng timeline của tiết riêng lớp bị ẩn.
+
+### 4.4.0b-mod `class_modules` (Chuyên đề của lớp)
+
+- Một hàng = lớp đã thêm một Chuyên đề của khoá. Nguồn sự thật để đồng bộ tiết lý thuyết của chuyên đề vào `class_content_items`. Tiết thực hành không tự kéo theo.
+- `id` (UUID, PK), `class_id` (FK → `classes.id`, `onDelete: Cascade`), `module_id` (FK → `modules.id`, `onDelete: Cascade`), `created_at` (`TIMESTAMPTZ`).
+- Unique `(class_id, module_id)`; index `(module_id)` (tra lớp khi tạo tiết lý thuyết mới).
+- Chuyên đề phải thuộc khoá của lớp (guard ứng dụng, 400).
+- Migration: `20261002120000_add_class_modules` (test SQL: `apps/api/prisma/tests/20261002120000_add_class_modules.test.sql`).
 
 ### 4.4.0ba `class_theory_lesson_views` (Lượt xem tiết lý thuyết)
 
@@ -592,9 +603,9 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.6c `lessons` (Tiết học — đơn vị nội dung học sinh nhìn thấy)
 
 - Ba cấp: **Khoá học → Chuyên đề → Tiết học**. Khái niệm Bài học (`lectures`) biến mất: mỗi lecture cũ là **một** tiết lý thuyết riêng, không gộp.
-- Thuộc một trong hai chế độ (CHECK `lessons_owner_check`):
-  - **Khoá học — trong Chuyên đề** (`course_id` + `module_id` không null, `class_id` null): nội dung chung cho mọi lớp dùng khoá đó.
-  - **Lớp** (`class_id` không null, `course_id` + `module_id` null): tiết tạo riêng trong lớp, không thuộc chuyên đề nào. Ngoại lệ có chủ ý của phát biểu "ba cấp".
+- Thuộc một trong hai chế độ (CHECK `lessons_owner_check`, giữ để dữ liệu cũ hợp lệ):
+  - **Khoá học — trong Chuyên đề** (`course_id` + `module_id` không null, `class_id` null): nội dung chung cho mọi lớp dùng khoá đó. Mọi tiết mới đều thuộc chế độ này.
+  - **Lớp — legacy** (`class_id` không null, `course_id` + `module_id` null): tiết riêng lớp cũ. API không tạo mới nữa (400); migration `20261002120000_add_class_modules` set `archived_at` cho tất cả. ADR `docs/adr/2026-10-02-class-content-by-module.md`.
 - `kind` (`LessonKind`): `theory` (lý thuyết — video + nội dung + bài tập ôn nhẹ tuỳ chọn) hoặc `practice` (thực hành — thuần tập câu hỏi). CHECK `lessons_practice_no_media_check`: `practice` thì `video_url` và `content` phải NULL.
 - Cột chính:
   - `id` (UUID, PK) — practice / theory-không-lecture giữ id topic cũ; theory có lecture giữ id lecture cũ
@@ -606,6 +617,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `video_url` (`TEXT`, nullable) — chỉ tiết lý thuyết
   - `content` (`TEXT`, nullable) — chỉ tiết lý thuyết
   - `order` (`INTEGER`, default 0) — thứ tự trong chuyên đề (hoặc trong lớp, với tiết riêng lớp)
+  - `archived_at` (`TIMESTAMPTZ`, nullable) — tiết đã lưu trữ (hiện chỉ tiết riêng lớp cũ). Tiết lưu trữ không đồng bộ theo chuyên đề, không giao/khôi phục vào lớp được.
   - `created_by`, `updated_by` (nullable FK → `users.id`)
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
 - Indexes: `(course_id)`, `(module_id)`, `(class_id)`

@@ -12,6 +12,9 @@ import { CourseAccessService } from 'src/class/course-access.service';
 import { LessonCreateDto } from 'src/dtos/course-content.dto';
 import { LessonKind, StaffRole, UserRole } from 'generated/enums';
 
+export const CLASS_OWNED_LESSON_DISABLED_MESSAGE =
+  'Lớp không tạo tiết riêng nữa. Hãy thêm chuyên đề của khoá hoặc giao tiết thực hành có sẵn.';
+
 export interface ActionHistoryActor {
   userId: string;
   userEmail: string;
@@ -54,36 +57,30 @@ export class CourseContentSupportService {
   }
 
   protected async validateLessonOwnership(dto: LessonCreateDto): Promise<void> {
-    const hasCourse = Boolean(dto.courseId);
-    const hasClass = Boolean(dto.classId);
+    // Tiết riêng của lớp đã bỏ (ADR 2026-10-02); tiết cũ chỉ còn ở trạng thái lưu trữ.
+    if (dto.classId) {
+      throw new BadRequestException(CLASS_OWNED_LESSON_DISABLED_MESSAGE);
+    }
 
-    if (hasCourse && hasClass) {
+    if (!dto.courseId) {
       throw new BadRequestException(
-        'Tiết học chỉ thuộc chuyên đề cấp khoá HOẶC lớp học, không được cả hai',
+        'Tiết học phải thuộc một chuyên đề cấp khoá',
       );
     }
 
-    if (!hasCourse && !hasClass) {
-      throw new BadRequestException(
-        'Tiết học phải thuộc một chuyên đề cấp khoá hoặc một lớp học',
-      );
-    }
-
-    if (hasCourse && !dto.moduleId) {
+    if (!dto.moduleId) {
       throw new BadRequestException(
         'Tiết học thuộc khoá phải nằm trong một chuyên đề',
       );
     }
 
-    if (hasCourse && dto.moduleId) {
-      const courseModule = await this.prisma.module.findUnique({
-        where: { id: dto.moduleId },
-      });
-      if (!courseModule || courseModule.courseId !== dto.courseId) {
-        throw new BadRequestException(
-          `Chuyên đề ${dto.moduleId} không thuộc khoá ${dto.courseId}`,
-        );
-      }
+    const courseModule = await this.prisma.module.findUnique({
+      where: { id: dto.moduleId },
+    });
+    if (!courseModule || courseModule.courseId !== dto.courseId) {
+      throw new BadRequestException(
+        `Chuyên đề ${dto.moduleId} không thuộc khoá ${dto.courseId}`,
+      );
     }
 
     this.assertPracticeHasNoMedia(dto.kind, dto.videoUrl, dto.content);
@@ -201,6 +198,17 @@ export class CourseContentSupportService {
    * Block course-level Module/Lesson deletes while any class still
    * references the lesson via ClassContentItem (including hidden items).
    */
+  /** StaffInfo.id của người thao tác (ghi `hidden_by_staff_id`); admin không có hồ sơ staff → null. */
+  protected async resolveHiddenByStaffId(
+    actor: ActionHistoryActor,
+  ): Promise<string | null> {
+    const staff = await this.prisma.staffInfo.findFirst({
+      where: { userId: actor.userId },
+      select: { id: true },
+    });
+    return staff?.id ?? null;
+  }
+
   protected async assertLessonsNotUsedByClasses(
     lessonIds: string[],
     entityLabel: 'Chuyên đề' | 'Tiết học',

@@ -72,9 +72,7 @@ export class CourseContentService extends CourseContentSupportService {
     return this.modules.getModuleById(...args);
   }
 
-  reorderModules(
-    ...args: Parameters<CourseModuleService['reorderModules']>
-  ) {
+  reorderModules(...args: Parameters<CourseModuleService['reorderModules']>) {
     return this.modules.reorderModules(...args);
   }
 
@@ -120,15 +118,21 @@ export class CourseContentService extends CourseContentSupportService {
     return this.exams.getExamLibrary(...args);
   }
 
-  createExamLesson(...args: Parameters<ExamLibraryService['createExamLesson']>) {
+  createExamLesson(
+    ...args: Parameters<ExamLibraryService['createExamLesson']>
+  ) {
     return this.exams.createExamLesson(...args);
   }
 
-  updateExamLesson(...args: Parameters<ExamLibraryService['updateExamLesson']>) {
+  updateExamLesson(
+    ...args: Parameters<ExamLibraryService['updateExamLesson']>
+  ) {
     return this.exams.updateExamLesson(...args);
   }
 
-  deleteExamLesson(...args: Parameters<ExamLibraryService['deleteExamLesson']>) {
+  deleteExamLesson(
+    ...args: Parameters<ExamLibraryService['deleteExamLesson']>
+  ) {
     return this.exams.deleteExamLesson(...args);
   }
 
@@ -138,7 +142,9 @@ export class CourseContentService extends CourseContentSupportService {
     return this.exams.reorderExamLessons(...args);
   }
 
-  linkQuizQuestions(...args: Parameters<LessonQuizService['linkQuizQuestions']>) {
+  linkQuizQuestions(
+    ...args: Parameters<LessonQuizService['linkQuizQuestions']>
+  ) {
     return this.quizzes.linkQuizQuestions(...args);
   }
 
@@ -158,7 +164,9 @@ export class CourseContentService extends CourseContentSupportService {
     return this.quizzes.getLessonQuizzesForStudent(...args);
   }
 
-  submitQuizAnswers(...args: Parameters<LessonQuizService['submitQuizAnswers']>) {
+  submitQuizAnswers(
+    ...args: Parameters<LessonQuizService['submitQuizAnswers']>
+  ) {
     return this.quizzes.submitQuizAnswers(...args);
   }
 

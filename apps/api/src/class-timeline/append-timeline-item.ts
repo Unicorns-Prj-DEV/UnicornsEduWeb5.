@@ -29,7 +29,9 @@ function timelineOccurredMs(row: {
     return row.classSurvey.reportDate.getTime();
   }
   if (row.classContentItem) {
-    return (row.classContentItem.openAt ?? row.classContentItem.createdAt).getTime();
+    return (
+      row.classContentItem.openAt ?? row.classContentItem.createdAt
+    ).getTime();
   }
   return row.createdAt.getTime();
 }
@@ -119,4 +121,39 @@ export async function appendClassTimelineItem(
     },
   });
   await syncClassTimelineSortByTime(db, input.classId);
+}
+
+/** Thêm nhiều dòng timeline `content_item` một lượt; chỉ sắp lại theo thời gian một lần. */
+export async function appendClassTimelineContentItems(
+  db: Db,
+  classId: string,
+  classContentItemIds: string[],
+): Promise<void> {
+  if (classContentItemIds.length === 0) return;
+
+  const cls = await db.class.findUnique({
+    where: { id: classId },
+    select: { timelineCustomOrder: true },
+  });
+  const custom = Boolean(cls?.timelineCustomOrder);
+  const baseSort = custom
+    ? ((
+        await db.classTimelineItem.aggregate({
+          where: { classId },
+          _max: { sortOrder: true },
+        })
+      )._max.sortOrder ?? -1) + 1
+    : 0;
+
+  await db.classTimelineItem.createMany({
+    data: classContentItemIds.map((classContentItemId, idx) => ({
+      classId,
+      kind: ClassTimelineItemKind.content_item,
+      sortOrder: custom ? baseSort + idx : 0,
+      classContentItemId,
+    })),
+  });
+  if (!custom) {
+    await syncClassTimelineSortByTime(db, classId);
+  }
 }

@@ -81,6 +81,23 @@ model ClassTheoryLessonView {
   @@map("class_theory_lesson_views")
 }
 
+/// Chuyên đề mà lớp đã thêm. Thêm chuyên đề đưa mọi tiết lý thuyết của chuyên đề vào nội dung
+/// lớp (một `ClassContentItem` mỗi tiết); tiết lý thuyết thêm/gỡ khỏi chuyên đề về sau tự đồng bộ
+/// sang mọi lớp có dòng ở đây. Tiết thực hành không đi theo (giao từng tiết).
+model ClassModule {
+  id        String   @id @default(uuid())
+  classId   String   @map("class_id")
+  moduleId  String   @map("module_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  class  Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, moduleId])
+  @@index([moduleId])
+  @@map("class_modules")
+}
+
 model Class {
   id                            String                      @id
   name                          String
@@ -126,6 +143,7 @@ model Class {
   sessions                      Session[]
   students                      StudentClass[]
   contentItems ClassContentItem[]
+  modules                       ClassModule[]
   lessons                       Lesson[]
   timelineItems                 ClassTimelineItem[]
   trainingManager               StaffInfo?                  @relation("ClassTrainingManager", fields: [trainingManagerStaffId], references: [id])
@@ -202,6 +220,7 @@ model Module {
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons   Lesson[]
   questions Question[] // back‑relation for question bank
+  classModules ClassModule[]
 
   @@index([courseId])
   @@map("modules")
@@ -455,6 +474,7 @@ model CfProblemTutorial {
 /// Tiết học — đơn vị học sinh nhìn thấy. Lý thuyết mang video + nội dung + bài tập ôn nhẹ;
 /// thực hành chỉ là tập câu hỏi (CHECK SQL cấm video/content). XOR: thuộc chuyên đề cấp khoá
 /// (`course_id` + `module_id`) hoặc thuộc riêng một lớp (`class_id`) — không bao giờ cả hai.
+/// Tiết riêng của lớp đã ngừng tạo mới qua chuyên đề lớp; dữ liệu cũ được lưu trữ (`archived_at`).
 model Lesson {
   id        String     @id @default(uuid())
   kind      LessonKind
@@ -465,6 +485,8 @@ model Lesson {
   videoUrl  String?    @map("video_url")
   content   String?
   order     Int        @default(0)
+  /// Lưu trữ mềm (không xoá). Tiết riêng của lớp cũ bị lưu trữ khi chuyển sang nội dung theo chuyên đề.
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
   createdBy String?    @map("created_by")
   updatedBy String?    @map("updated_by")
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
