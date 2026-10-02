@@ -5,6 +5,7 @@ export type StudentClassCardSource = {
   class: {
     id: string;
     name: string;
+    coverImagePath: string | null;
     course: { name: string };
     teachers: Array<{
       teacher: {
@@ -16,6 +17,7 @@ export type StudentClassCardSource = {
 
 export function mapStudentClassCard(
   row: StudentClassCardSource,
+  coverImageUrl: string | null,
 ): StudentClassCardDto {
   const teacherNames = Array.from(
     new Set(
@@ -30,5 +32,6 @@ export function mapStudentClassCard(
     className: row.class.name,
     courseName: row.class.course.name,
     teacherNames,
+    coverImageUrl,
   };
 }

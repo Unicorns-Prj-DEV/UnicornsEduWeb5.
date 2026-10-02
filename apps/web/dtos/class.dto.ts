@@ -323,3 +323,9 @@ export interface ClassListItemDto {
     updatedAt: Date;
     teachers: StaffInfoDto[];
 }
+
+/** Ảnh bìa lớp (`GET/POST/DELETE /class/:id/cover-image`). `canManage` do backend quyết định. */
+export interface ClassCoverImage {
+  coverImageUrl: string | null;
+  canManage: boolean;
+}

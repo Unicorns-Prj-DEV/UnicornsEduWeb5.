@@ -17,6 +17,7 @@ import {
   UpdateCoursePayload,
 } from '@/dtos/class.dto';
 import {
+  ClassCoverImage,
   ClassDetail,
   CreateClassPayload,
   UpdateClassBasicInfoPayload,
@@ -1056,4 +1057,28 @@ export async function reorderExamLessons(
 ): Promise<void> {
   const safeId = encodeURIComponent(courseId);
   await api.post(`/course/${safeId}/exam-library/reorder`, { lessonIds });
+}
+
+function classCoverImagePath(classId: string): string {
+  return `/class/${encodeURIComponent(classId)}/cover-image`;
+}
+
+export async function getClassCoverImage(classId: string): Promise<ClassCoverImage> {
+  const response = await api.get<ClassCoverImage>(classCoverImagePath(classId));
+  return response.data;
+}
+
+export async function uploadClassCoverImage(
+  classId: string,
+  file: File,
+): Promise<ClassCoverImage> {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await api.post<ClassCoverImage>(classCoverImagePath(classId), formData);
+  return response.data;
+}
+
+export async function removeClassCoverImage(classId: string): Promise<ClassCoverImage> {
+  const response = await api.delete<ClassCoverImage>(classCoverImagePath(classId));
+  return response.data;
 }

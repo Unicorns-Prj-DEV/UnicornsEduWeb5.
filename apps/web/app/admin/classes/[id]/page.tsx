@@ -42,6 +42,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import StudentClassTuitionPopup from "@/components/admin/student/StudentClassTuitionPopup";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
+import { ClassCoverImageCard } from "@/components/shared/class/ClassCoverImageCard";
 import {
   ClassStatus,
   ClassDetail,
@@ -726,6 +727,8 @@ export default function AdminClassDetailPage() {
           </div>
         </div>
       </header>
+
+      <ClassCoverImageCard classId={id} />
 
       {canEditClassBasicInfo ? (
         <EditClassBasicInfoPopup

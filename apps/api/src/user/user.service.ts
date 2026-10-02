@@ -32,6 +32,7 @@ import {
 } from 'src/dtos/user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { StudentClassCardDto } from 'src/dtos/student.dto';
+import { createClassCoverSignedUrl } from 'src/class/class-cover.storage';
 import { mapStudentClassCard } from './student-class-card.util';
 import {
   createSignedStorageUrl,
@@ -1016,6 +1017,7 @@ export class UserService {
           select: {
             id: true,
             name: true,
+            coverImagePath: true,
             course: { select: { name: true } },
             teachers: {
               where: { status: 'active' },
@@ -1032,9 +1034,15 @@ export class UserService {
       },
     });
 
-    return rows
-      .map(mapStudentClassCard)
-      .sort((a, b) => a.className.localeCompare(b.className, 'vi'));
+    const cards = await Promise.all(
+      rows.map(async (row) =>
+        mapStudentClassCard(
+          row,
+          await createClassCoverSignedUrl(row.class.coverImagePath),
+        ),
+      ),
+    );
+    return cards.sort((a, b) => a.className.localeCompare(b.className, 'vi'));
   }
 
   /** Update current user's basic info (self). */

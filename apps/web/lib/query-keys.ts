@@ -67,12 +67,19 @@ export const actionHistoryKeys = {
     [...actionHistoryKeys.all, "list", createStableFilterKey(filters)] as const,
 };
 
+/** Dữ liệu học sinh đang đăng nhập (`/users/me/...`). */
+export const studentSelfKeys = {
+  all: ["student", "self"] as const,
+  classes: () => [...studentSelfKeys.all, "classes"] as const,
+};
+
 export const classKeys = {
   all: ["class"] as const,
   lists: () => [...classKeys.all, "list"] as const,
   list: (filters?: Record<string, unknown>) =>
     [...classKeys.lists(), createStableFilterKey(filters)] as const,
   detail: (id: string) => [...classKeys.all, "detail", id] as const,
+  coverImage: (id: string) => [...classKeys.all, "cover-image", id] as const,
 };
 
 export const courseKeys = {

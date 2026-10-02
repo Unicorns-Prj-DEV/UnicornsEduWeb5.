@@ -733,4 +733,11 @@ export class StudentClassCardDto {
     example: ['Nguyễn Văn A'],
   })
   teacherNames: string[];
+
+  @ApiPropertyOptional({
+    description: 'Signed URL ảnh bìa lớp (1 giờ). Null = FE hiện mascot theo ID lớp.',
+    type: String,
+    nullable: true,
+  })
+  coverImageUrl: string | null;
 }

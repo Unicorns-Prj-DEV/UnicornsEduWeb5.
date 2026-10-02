@@ -13,6 +13,7 @@ import type { StudentClassCardItem } from "@/dtos/student-class.dto";
 import type { StudentSelfDetail } from "@/dtos/student.dto";
 import { getMyStudentDetail } from "@/lib/apis/auth.api";
 import { getMyClasses } from "@/lib/apis/student-class.api";
+import { studentSelfKeys } from "@/lib/query-keys";
 
 export default function StudentSelfPage() {
   const {
@@ -34,7 +35,7 @@ export default function StudentSelfPage() {
     isFetching: isClassesFetching,
     isError: isClassesError,
   } = useQuery<StudentClassCardItem[]>({
-    queryKey: ["student", "self", "classes"],
+    queryKey: studentSelfKeys.classes(),
     queryFn: getMyClasses,
     retry: false,
     staleTime: 60_000,

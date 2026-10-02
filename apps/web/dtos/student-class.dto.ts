@@ -4,6 +4,8 @@ export interface StudentClassCardItem {
   className: string;
   courseName: string;
   teacherNames: string[];
+  /** Signed URL ảnh bìa lớp; null = hiện mascot theo ID lớp. */
+  coverImageUrl: string | null;
 }
 
 export interface StudentClassItem {

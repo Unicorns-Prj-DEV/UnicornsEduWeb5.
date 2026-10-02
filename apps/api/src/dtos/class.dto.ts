@@ -611,3 +611,19 @@ export class UpdateClassDto extends PartialType(CreateClassDto) {
   @IsStudentId({ each: true })
   student_ids?: string[];
 }
+
+export class ClassCoverImageDto {
+  @ApiPropertyOptional({
+    description:
+      'Signed URL ảnh bìa (hết hạn sau 1 giờ). Null = chưa có ảnh bìa, FE hiện mascot.',
+    type: String,
+    nullable: true,
+  })
+  coverImageUrl: string | null;
+
+  @ApiProperty({
+    description:
+      'Người gọi có được upload/thay/gỡ ảnh bìa lớp này không (admin, trợ lí, Gia sư đứng lớp, Quản lý lớp).',
+  })
+  canManage: boolean;
+}
