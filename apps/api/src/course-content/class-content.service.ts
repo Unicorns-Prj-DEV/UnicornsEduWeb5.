@@ -462,6 +462,25 @@ export class ClassContentService extends CourseContentSupportService {
     actor: ActionHistoryActor,
   ): Promise<ClassContentModuleGroupDto[]> {
     const items = await this.listClassContentItems(classId, actor);
+    return this.groupByClassModules(classId, items);
+  }
+
+  /**
+   * Trang lớp học sinh, tab Chuyên đề: cùng cách gom như staff nhưng chỉ item học
+   * sinh thấy (bỏ item ẩn, tiết lưu trữ). Chuyên đề đã gỡ chỉ còn nếu còn lần giao.
+   */
+  async listClassContentGroupsForStudent(
+    classId: string,
+    studentId: string,
+  ): Promise<ClassContentModuleGroupDto[]> {
+    const items = await this.listClassContentForStudent(classId, studentId);
+    return this.groupByClassModules(classId, items);
+  }
+
+  private async groupByClassModules(
+    classId: string,
+    items: ClassContentItemResponseDto[],
+  ): Promise<ClassContentModuleGroupDto[]> {
     const itemModuleIds = [
       ...new Set(items.flatMap((item) => item.moduleId ?? [])),
     ];

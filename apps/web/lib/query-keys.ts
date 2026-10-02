@@ -85,6 +85,9 @@ export const classKeys = {
   courseLessons: (id: string) => ["course-lessons-for-class", id] as const,
   /** Nằm dưới prefix `["class-content", id]` nên invalidate nội dung lớp kéo theo. */
   contentGroups: (id: string) => ["class-content", id, "groups"] as const,
+  /** Tab Chuyên đề trang lớp học sinh (`GET /class/:id/content/student/groups`). */
+  studentContentGroups: (id: string) =>
+    ["class-content", id, "student-groups"] as const,
 };
 
 export const courseKeys = {
