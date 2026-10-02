@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Nhóm chuyên đề trên trang lớp admin/staff (#153):** `GET /class/:id/content/groups` trả nội dung lớp gom theo chuyên đề (tiết lý thuyết theo thứ tự + tiết thực hành đã giao, nhóm **Ngoài chuyên đề** cuối). Trang lớp có section **Chuyên đề** (`ClassModuleGroups`, collapsible) với Tiến độ / Thống kê / Chấm bài; timeline chỉ còn buổi học + khảo sát, sắp xếp lại vẫn gửi đủ id. Bỏ switch **Hiện tiết học** (`lessonVisibility`) của admin.
 - **Ẩn tiết riêng lớp đã lưu trữ khỏi mọi màn (#152):** item và dòng timeline của tiết có `archivedAt` không còn trong danh sách nội dung lớp và timeline của staff (kể cả khi đang ẩn) lẫn học sinh. Mở trực tiếp tiết đó (xem tiết, ghi lượt xem, bắt đầu lần giao, tiến độ lý thuyết, chấm tự luận, thống kê) → `404`. Sắp xếp timeline/nội dung không nhận id đã lưu trữ; dòng đó giữ `sortOrder` cũ. Dữ liệu vẫn trong DB. Filter dùng chung: `apps/api/src/course-content/archived-lesson-filter.ts`.
 - **Giao tiết thực hành từ chuyên đề đã thêm (#151):** dialog **Giao tiết thực hành** chọn chuyên đề lớp đã thêm rồi mới chọn tiết thực hành của chuyên đề đó. `GET /class/:id/content/course-lessons` chỉ trả tiết của chuyên đề lớp đã thêm; `POST /class/:id/content` từ chối (400) tiết thuộc chuyên đề lớp chưa thêm. Lần giao đã có giữ nguyên.
 - **Lớp thêm nội dung theo Chuyên đề (#150):**

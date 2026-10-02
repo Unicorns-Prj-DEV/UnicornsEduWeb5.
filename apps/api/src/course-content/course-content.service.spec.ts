@@ -831,6 +831,65 @@ describe('CourseContentService — ClassContent methods', () => {
     });
   });
 
+  describe('listClassContentGroups', () => {
+    it('groups class content by module with removed-module flag', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
+      mockPrisma.classContentItem.findMany.mockResolvedValue([
+        {
+          id: 'cci-p',
+          lessonId: 'p1',
+          kind: 'lesson',
+          sortOrder: 0,
+          classId: 'cls-1',
+          lesson: {
+            title: 'Đề',
+            kind: 'practice',
+            order: 0,
+            classId: null,
+            module: { id: 'm-old', title: 'Cũ', sortOrder: 0 },
+          },
+        },
+        {
+          id: 'cci-t',
+          lessonId: 't1',
+          kind: 'lesson',
+          sortOrder: 1,
+          classId: 'cls-1',
+          lesson: {
+            title: 'Lý thuyết',
+            kind: 'theory',
+            order: 0,
+            classId: null,
+            module: { id: 'm-1', title: 'Một', sortOrder: 1 },
+          },
+        },
+      ]);
+      mockPrisma.module.findMany.mockResolvedValue([
+        { id: 'm-1', title: 'Một', sortOrder: 1, classModules: [{ id: 'cm' }] },
+        { id: 'm-old', title: 'Cũ', sortOrder: 0, classModules: [] },
+      ]);
+
+      const groups = await service.listClassContentGroups('cls-1', adminActor);
+
+      expect(mockPrisma.module.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { classModules: { some: { classId: 'cls-1' } } },
+              { id: { in: ['m-old', 'm-1'] } },
+            ],
+          },
+        }),
+      );
+      expect(groups.map((g) => [g.moduleId, g.added])).toEqual([
+        ['m-old', false],
+        ['m-1', true],
+      ]);
+      expect(groups[0].practiceItems[0].id).toBe('cci-p');
+      expect(groups[1].theoryItems[0].moduleId).toBe('m-1');
+    });
+  });
+
   describe('getAssignedLessonForStudent', () => {
     it('blocks practice before openAt', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });

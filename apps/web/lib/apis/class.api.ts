@@ -46,7 +46,7 @@ import type {
 import { normalizeMakeupScheduleEvent, normalizeMakeupScheduleFeedResponse } from "./class-schedule.api";
 import { api } from "../client";
 import { contentApiPaths } from "@/lib/content-api-paths";
-import type { ClassContentItemDto, ClassContentCreatePayload, ClassContentScheduleUpdatePayload } from "@/dtos/class-content.dto";
+import type { ClassContentItemDto, ClassContentCreatePayload, ClassContentModuleGroupDto, ClassContentScheduleUpdatePayload } from "@/dtos/class-content.dto";
 import type { ClassTheoryProgressDto } from "@/dtos/class-theory-progress.dto";
 import type {
   ClassTimelineItemDto,
@@ -402,6 +402,17 @@ export async function assignCourseLessonPlanMembers(
 export async function getClassContent(classId: string): Promise<ClassContentItemDto[]> {
   const safeId = encodeURIComponent(classId);
   const response = await api.get<ClassContentItemDto[]>(`/class/${safeId}/content`);
+  return response.data;
+}
+
+/** Nội dung lớp gom theo chuyên đề (admin/staff). */
+export async function getClassContentGroups(
+  classId: string,
+): Promise<ClassContentModuleGroupDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassContentModuleGroupDto[]>(
+    `/class/${safeId}/content/groups`,
+  );
   return response.data;
 }
 

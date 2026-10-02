@@ -252,6 +252,12 @@ export class CourseContentService extends CourseContentSupportService {
     return this.content.listClassContentItems(...args);
   }
 
+  listClassContentGroups(
+    ...args: Parameters<ClassContentService['listClassContentGroups']>
+  ) {
+    return this.content.listClassContentGroups(...args);
+  }
+
   getClassTheoryProgress(
     ...args: Parameters<ClassContentService['getClassTheoryProgress']>
   ) {

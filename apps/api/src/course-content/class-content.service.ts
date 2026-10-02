@@ -10,6 +10,7 @@ import {
   ClassContentCreateDto,
   ClassContentScheduleUpdateDto,
   ClassContentItemResponseDto,
+  ClassContentModuleGroupDto,
   ClassTheoryProgressDto,
   PRACTICE_DURATION_MIN_MINUTES,
   PRACTICE_DURATION_MAX_MINUTES,
@@ -32,6 +33,7 @@ import {
   CourseContentSupportService,
 } from './course-content-support.service';
 import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
+import { groupClassContentByModule } from './class-content-groups';
 
 const CLASS_CONTENT_CREATE_TRANSACTION_TIMEOUT_MS = 15_000;
 
@@ -243,7 +245,7 @@ export class ClassContentService extends CourseContentSupportService {
       title: string;
       kind: string;
       classId: string | null;
-      module?: { title: string } | null;
+      module?: { id: string; title: string } | null;
     } | null;
   }): ClassContentItemResponseDto {
     const lesson = item.lesson;
@@ -266,6 +268,7 @@ export class ClassContentService extends CourseContentSupportService {
       title: lesson?.title ?? '(Tiết học đã xoá)',
       kindLabel,
       source,
+      moduleId: lesson?.module?.id,
       moduleTitle: lesson?.module?.title,
       openAt,
       durationMinutes,
@@ -452,6 +455,39 @@ export class ClassContentService extends CourseContentSupportService {
     return items
       .toSorted(compareClassContentItems)
       .map((item) => this.mapClassContentItem(item));
+  }
+
+  async listClassContentGroups(
+    classId: string,
+    actor: ActionHistoryActor,
+  ): Promise<ClassContentModuleGroupDto[]> {
+    const items = await this.listClassContentItems(classId, actor);
+    const itemModuleIds = [
+      ...new Set(items.flatMap((item) => item.moduleId ?? [])),
+    ];
+    const modules = await this.prisma.module.findMany({
+      where: {
+        OR: [
+          { classModules: { some: { classId } } },
+          { id: { in: itemModuleIds } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        sortOrder: true,
+        classModules: { where: { classId }, select: { id: true } },
+      },
+    });
+    return groupClassContentByModule(
+      items,
+      modules.map((courseModule) => ({
+        id: courseModule.id,
+        title: courseModule.title,
+        sortOrder: courseModule.sortOrder,
+        added: courseModule.classModules.length > 0,
+      })),
+    );
   }
 
   async getClassTheoryProgress(

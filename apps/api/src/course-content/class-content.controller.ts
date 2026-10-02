@@ -78,6 +78,30 @@ export class ClassContentController {
     });
   }
 
+  @Get('groups')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @ApiOperation({
+    summary:
+      'Nội dung lớp gom theo chuyên đề: mỗi nhóm có tiết lý thuyết (theo thứ tự trong chuyên đề) và tiết thực hành đã giao',
+  })
+  @ApiParam({ name: 'classId', description: 'ID lớp học' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Danh sách nhóm theo sortOrder chuyên đề; nhóm moduleId=null (ngoài chuyên đề) ở cuối.',
+  })
+  async listGroups(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+  ) {
+    return this.topicService.listClassContentGroups(classId, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
   @Get('course-lessons')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)

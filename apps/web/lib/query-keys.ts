@@ -83,6 +83,8 @@ export const classKeys = {
   modules: (id: string) => [...classKeys.all, "modules", id] as const,
   /** Tiết thực hành giao được cho lớp (`GET /class/:id/content/course-lessons`). */
   courseLessons: (id: string) => ["course-lessons-for-class", id] as const,
+  /** Nằm dưới prefix `["class-content", id]` nên invalidate nội dung lớp kéo theo. */
+  contentGroups: (id: string) => ["class-content", id, "groups"] as const,
 };
 
 export const courseKeys = {
