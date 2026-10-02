@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { StudentDashboardSkeleton } from "@/components/student/StudentDashboardSkeleton";
 import OjProgressSection from "@/components/student/OjProgressSection";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
-import type { StudentSelfDetail, StudentStatus } from "@/dtos/student.dto";
+import type { StudentSelfDetail } from "@/dtos/student.dto";
 import { getMyStudentDetail } from "@/lib/apis/auth.api";
 import {
   formatTuitionPackage,
@@ -16,15 +16,6 @@ import {
   getTuitionSourceLabel,
 } from "@/lib/student-tuition.helpers";
 import { cn } from "@/lib/utils";
-
-const STATUS_LABELS: Record<StudentStatus, string> = {
-  active: "Đang học",
-  inactive: "Ngừng theo dõi",
-};
-
-function normalizeStatus(status?: StudentStatus): StudentStatus {
-  return status === "inactive" ? "inactive" : "active";
-}
 
 export default function StudentSelfPage() {
   const {
@@ -78,9 +69,6 @@ export default function StudentSelfPage() {
     );
   }
 
-  const normalizedStatus = normalizeStatus(student.status);
-  const initials = (student.fullName?.trim() || student.email || "?").charAt(0).toUpperCase();
-
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
       <QueryRefreshStrip
@@ -89,59 +77,11 @@ export default function StudentSelfPage() {
         className="mb-1"
       />
 
-      {/* Main Student Header banner */}
-      <header className="rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div
-              className="flex size-14 sm:size-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-xl sm:text-2xl font-bold text-primary ring-2 ring-primary/20"
-              aria-hidden
-            >
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold text-text-primary truncate">
-                  {student.fullName || "Học sinh"}
-                </h1>
-                <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success ring-1 ring-success/20">
-                  {STATUS_LABELS[normalizedStatus]}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-text-muted truncate">
-                {student.email || "Chưa có email tài khoản"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/user-profile"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none"
-            >
-              <svg className="size-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Hồ sơ & Lịch thi
-            </Link>
-            <Link
-              href="/student/tuition"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:flex-none"
-            >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h4m-7 4h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Học phí
-            </Link>
-          </div>
-        </div>
-      </header>
-
       {/* Enrolled Classes List */}
       <section className="rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6 shadow-sm space-y-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-text-primary">Danh sách lớp học</h2>
+            <h1 className="text-lg font-bold text-text-primary">Danh sách lớp học</h1>
             <p className="text-sm text-text-muted">
               Chọn lớp học để xem lịch sử buổi học, video recording và tiết học.
             </p>
