@@ -35,7 +35,7 @@ export default function CourseLessonPicker({
     queryFn: () => getClassModules(classId),
   });
   const lessonsQuery = useQuery<CourseLessonForClassDto[]>({
-    queryKey: ["course-lessons-for-class", classId],
+    queryKey: classKeys.courseLessons(classId),
     queryFn: () => getCourseLessonsForClass(classId),
   });
 
@@ -53,7 +53,15 @@ export default function CourseLessonPicker({
     return map;
   }, [lessonsQuery.data]);
 
-  const selectedModule = addedModules.find((module) => module.moduleId === moduleId);
+  // Quay lại từ bước "Đặt lần giao" (picker mount lại): suy chuyên đề từ tiết đang chọn.
+  const activeModuleId =
+    moduleId ??
+    lessonsQuery.data?.find((lesson) => lesson.id === selectedLessonId)
+      ?.moduleId ??
+    null;
+  const selectedModule = addedModules.find(
+    (module) => module.moduleId === activeModuleId,
+  );
 
   if (modulesQuery.isLoading || lessonsQuery.isLoading) {
     return (

@@ -81,6 +81,8 @@ export const classKeys = {
   detail: (id: string) => [...classKeys.all, "detail", id] as const,
   coverImage: (id: string) => [...classKeys.all, "cover-image", id] as const,
   modules: (id: string) => [...classKeys.all, "modules", id] as const,
+  /** Tiết thực hành giao được cho lớp (`GET /class/:id/content/course-lessons`). */
+  courseLessons: (id: string) => ["course-lessons-for-class", id] as const,
 };
 
 export const courseKeys = {

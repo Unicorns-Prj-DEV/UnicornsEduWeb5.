@@ -37,7 +37,7 @@ import {
   BarChart3,
   RotateCcw,
 } from "lucide-react";
-import { classTimelineKeys } from "@/lib/query-keys";
+import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import Link from "next/link";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -539,7 +539,7 @@ function AddContentDialog({
     onSuccess: () => {
       toast.success("Đã giao tiết thực hành");
       queryClient.invalidateQueries({
-        queryKey: ["course-lessons-for-class", classId],
+        queryKey: classKeys.courseLessons(classId),
       });
       onSuccess();
     },
