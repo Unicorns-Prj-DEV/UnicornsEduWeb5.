@@ -22,7 +22,6 @@ import * as surveysApi from "@/lib/apis/surveys.api";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
   ClassCard,
-  ClassRosterCard,
   ClassStudentCaretakerCell,
   ClassStudentWalletBalance,
   ClassSurveyPanel,
@@ -66,6 +65,7 @@ import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
+import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {

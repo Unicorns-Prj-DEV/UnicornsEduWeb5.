@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import ClassCard from "./ClassCard";
+import ClassCard from "@/components/admin/class/ClassCard";
 import {
   Collapsible,
   CollapsibleContent,

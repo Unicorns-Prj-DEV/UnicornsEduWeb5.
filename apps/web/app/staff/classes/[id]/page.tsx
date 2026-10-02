@@ -12,7 +12,6 @@ import {
 import { toast } from "sonner";
 import {
   ClassCard,
-  ClassRosterCard,
   ClassStudentCaretakerCell,
   ClassStudentWalletBalance,
   ClassSurveyPanel,
@@ -60,6 +59,7 @@ import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classTimelineKeys } from "@/lib/query-keys";
 import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
+import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
   running: "Đang chạy",
@@ -929,18 +929,16 @@ export default function StaffClassDetailPage() {
           activeCount={activeClassStudents.length}
           inactiveCount={inactiveClassStudents.length}
           inactiveContent={
-            <>
-              <div className="flex flex-wrap gap-2">
-                {inactiveClassStudents.map((student) => (
-                  <span
-                    key={`inactive-${student.id}`}
-                    className="inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary"
-                  >
-                    {student.fullName}
-                  </span>
-                ))}
-              </div>
-            </>
+            <div className="flex flex-wrap gap-2">
+              {inactiveClassStudents.map((student) => (
+                <span
+                  key={`inactive-${student.id}`}
+                  className="inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary"
+                >
+                  {student.fullName}
+                </span>
+              ))}
+            </div>
           }
         >
           <div className="overflow-x-auto">
