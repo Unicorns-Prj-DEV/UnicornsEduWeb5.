@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Dashboard — tách dòng phạt trong chi tiết bonus:** popup Chi tiết Chi phí nhân sự thay thẻ Bonus bằng hai thẻ Thưởng và Phạt, mỗi thẻ một tổng; mỗi dòng nhân sự có `sourceAmounts` (số tiền theo từng thẻ nguồn, phạt âm) để FE lọc mà không parse ghi chú. Ghi chú và file export ghi `Thưởng …` / `Phạt -…` thay `Bonus …`. Nhân sự chỉ có phạt vẫn hiện trong bảng, export và danh sách lợi nhuận / tổng chi; danh sách sắp theo độ lớn tổng chi phí. Tổng bonus vẫn là số ròng.
 - **Lớp bán một lần (`one_time`) cho khoá THPTQG và PREVOI:**
   - Học phí cả khoá trừ ở buổi present/excused đầu tiên của từng học sinh; các buổi sau 0đ. Advisory lock theo lớp chống thu trùng; dòng đã thu bị xoá/chuyển vắng thì buổi sau thu lại.
   - Hoa hồng trợ lí 3% và CSKH đọc `attendance.payroll_basis_tuition_fee` khi có, nên không đổi khi doanh thu dồn về buổi đầu.
@@ -76,7 +77,6 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
-- **Dashboard — tách dòng phạt trong chi tiết bonus:** popup Chi tiết Chi phí nhân sự có hai thẻ Thưởng và Phạt, mỗi thẻ một tổng; ghi chú từng nhân sự tách `Thưởng` / `Phạt`, nhân sự chỉ có phạt vẫn hiện. Tổng bonus vẫn là số ròng.
 - **Dashboard — bonus theo tháng thưởng:** xu hướng tháng, chi tiết chi phí, bảng chi phí theo nhân sự và thống kê tháng gom bonus theo `bonuses.month` thay cho `bonuses.date`, khớp payroll. Khoảng ngày lấy trọn tháng thưởng giao với khoảng chọn, có ghi chú trên UI.
 - **Email học sinh trên production trỏ localhost:** Magic link đăng nhập, email xác thực và đặt lại mật khẩu không còn fallback `http://localhost:3000` khi `NODE_ENV=production`. Origin lấy từ `FRONTEND_URL` HTTPS public, rồi `VPS_PUBLIC_HOST`, rồi `BACKEND_URL` (bỏ `/api`), rồi host `*.uniedu.vn` hoặc `*.unicornsedu.com` của request qua Nginx. Host lạ bị từ chối.
 

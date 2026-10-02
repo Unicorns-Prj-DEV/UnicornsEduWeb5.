@@ -5,7 +5,7 @@ jest.mock('../prisma/prisma.service', () => ({
 import { AttendanceStatus, StaffRole } from '../../generated/enums';
 import {
   DashboardService,
-  buildPersonnelCostSegments,
+  buildPersonnelCostBreakdown,
   monthKeysIntersectingDateRange,
 } from './dashboard.service';
 
@@ -843,10 +843,9 @@ describe('monthKeysIntersectingDateRange', () => {
   });
 });
 
-describe('buildPersonnelCostSegments', () => {
+describe('buildPersonnelCostBreakdown', () => {
   const emptyRow = {
     sessionAmount: 0,
-    bonusAmount: 0,
     bonusRewardAmount: 0,
     bonusPenaltyAmount: 0,
     customerCareAmount: 0,
@@ -857,29 +856,41 @@ describe('buildPersonnelCostSegments', () => {
     trainingManagerAmount: 0,
   };
 
-  it('lists reward and penalty of the same month as separate segments', () => {
-    const segments = buildPersonnelCostSegments({
+  it('splits reward and penalty of the same month into separate sources', () => {
+    const breakdown = buildPersonnelCostBreakdown({
       ...emptyRow,
       sessionAmount: 1_000_000,
-      bonusAmount: 300_000,
       bonusRewardAmount: '500000',
       bonusPenaltyAmount: '-200000',
     });
 
-    expect(segments).toEqual([
-      `Dạy ${(1_000_000).toLocaleString('vi-VN')}đ`,
-      `Thưởng ${(500_000).toLocaleString('vi-VN')}đ`,
-      `Phạt ${(-200_000).toLocaleString('vi-VN')}đ`,
-    ]);
+    expect(breakdown.sourceAmounts).toEqual({
+      'teacher-cost': 1_000_000,
+      'bonus-reward-cost': 500_000,
+      'bonus-penalty-cost': -200_000,
+    });
+    expect(breakdown.note).toBe(
+      [
+        `Dạy ${(1_000_000).toLocaleString('vi-VN')}đ`,
+        `Thưởng ${(500_000).toLocaleString('vi-VN')}đ`,
+        `Phạt ${(-200_000).toLocaleString('vi-VN')}đ`,
+      ].join(' • '),
+    );
   });
 
-  it('shows a penalty-only staff with no reward segment', () => {
+  it('keeps the penalty negative for a penalty-only staff', () => {
     expect(
-      buildPersonnelCostSegments({
-        ...emptyRow,
-        bonusAmount: -50_000,
-        bonusPenaltyAmount: -50_000,
-      }),
-    ).toEqual([`Phạt ${(-50_000).toLocaleString('vi-VN')}đ`]);
+      buildPersonnelCostBreakdown({ ...emptyRow, bonusPenaltyAmount: -50_000 }),
+    ).toEqual({
+      note: `Phạt ${(-50_000).toLocaleString('vi-VN')}đ`,
+      sourceAmounts: { 'bonus-penalty-cost': -50_000 },
+    });
+  });
+
+  it('falls back to a placeholder note when nothing is recorded', () => {
+    expect(buildPersonnelCostBreakdown(emptyRow)).toEqual({
+      note: 'Không có chi phí chi tiết.',
+      sourceAmounts: {},
+    });
   });
 });

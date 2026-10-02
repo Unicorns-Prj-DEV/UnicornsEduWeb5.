@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminDashboardFinancialDetail } from "@/lib/apis/dashboard.api";
 import type {
   AdminDashboardFinancialDetail,
+  AdminDashboardFinancialDetailItem,
   AdminDashboardFinancialDetailRowKey,
   AdminDashboardFinancialDetailSource,
 } from "@/dtos/dashboard.dto";
@@ -67,12 +68,17 @@ function getFinancialSourceAccentClasses(tone: AdminDashboardFinancialDetailSour
 }
 
 function getAmountForSource(
-  item: { amount: number; note: string | null; secondaryLabel?: string | null },
+  item: Pick<AdminDashboardFinancialDetailItem, "amount" | "note" | "secondaryLabel" | "sourceAmounts">,
   sourceKey: string,
   rowKey: string
 ): { amount: number; note: string | null } {
-  // If rowKey is pending-payroll or personnel-cost, they use the note-prefix-split mapping:
-  if (rowKey === "pending-payroll" || rowKey === "personnel-cost") {
+  // Chi phí nhân sự: BE trả sẵn số tiền từng nguồn.
+  if (rowKey === "personnel-cost") {
+    return { amount: item.sourceAmounts?.[sourceKey] ?? 0, note: item.note };
+  }
+
+  // pending-payroll vẫn lọc theo tiền tố của từng đoạn ghi chú.
+  if (rowKey === "pending-payroll") {
     if (!item.note) return { amount: 0, note: null };
     const prefixMap: Record<string, string> = {
       "pending-session": "Buổi dạy",
@@ -82,14 +88,6 @@ function getAmountForSource(
       "pending-extra": "Trợ cấp",
       "pending-assistant": "Trợ lí",
       "pending-training-manager": "QL lớp",
-      "teacher-cost": "Dạy",
-      "customer-care-cost": "CSKH",
-      "lesson-cost": "Giáo án",
-      "bonus-reward-cost": "Thưởng",
-      "bonus-penalty-cost": "Phạt",
-      "extra-allowance-cost": "Trợ cấp khác",
-      "assistant-cost": "Trợ lí",
-      "training-manager-cost": "QL lớp",
     };
     const prefix = prefixMap[sourceKey];
     if (!prefix) return { amount: item.amount, note: item.note };
@@ -100,9 +98,8 @@ function getAmountForSource(
 
     const digitStr = matchingPart.replace(/[^\d]/g, "");
     const amount = parseInt(digitStr, 10) || 0;
-    // Đoạn mang dấu trừ (vd «Phạt -200.000đ») là khoản âm; còn lại theo dấu tổng.
-    const isNegative = /-\s*\d/.test(matchingPart) || item.amount < 0;
-    const signedAmount = isNegative ? -amount : amount;
+    // Keep sign of original item amount
+    const signedAmount = item.amount < 0 ? -amount : amount;
     return { amount: signedAmount, note: matchingPart };
   }
 
