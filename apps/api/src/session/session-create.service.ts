@@ -42,9 +42,14 @@ import {
 } from '../common/block-pricing.util';
 import {
   isBlockPricingMode,
+  isOneTimePricingMode,
   resolveAllowanceReconstructionBlockCount,
   resolveSnapshotBlockCountForPricingMode,
 } from '../common/class-pricing-mode.util';
+import {
+  findOneTimeChargedStudentIds,
+  lockOneTimeClassCharges,
+} from '../common/one-time-charge.util';
 
 /** Interactive tx: create runs many reads, balance/wallet writes, nested attendance create, optional audit snapshot. */
 const SESSION_CREATE_TRANSACTION_MAX_WAIT_MS = 10_000;
@@ -379,9 +384,25 @@ export class SessionCreateService {
             StaffRole.teacher,
           );
 
+          const isOneTimeClass = isOneTimePricingMode(
+            classTeacher.class.pricingMode,
+          );
+          if (isOneTimeClass) {
+            await lockOneTimeClassCharges(tx, data.classId);
+          }
+          const oneTimeAlreadyChargedStudentIds = isOneTimeClass
+            ? await findOneTimeChargedStudentIds(tx, {
+                classId: data.classId,
+                studentIds: [...uniqueAttendanceStudentIds],
+              })
+            : new Set<string>();
+
           const resolvedAttendance = resolvedAttendanceInput.map(
             (attendanceItem) => {
               const customerCare = customerCareByStudentId.get(
+                attendanceItem.studentId,
+              );
+              const oneTimeAlreadyCharged = oneTimeAlreadyChargedStudentIds.has(
                 attendanceItem.studentId,
               );
 
@@ -391,41 +412,48 @@ export class SessionCreateService {
                 notes: attendanceItem.notes ?? null,
                 customerCareCoef: customerCare?.profitPercent,
                 customerCareStaffId: customerCare?.staffId,
-                tuitionFee:
-                  this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
-                    attendanceItem.status,
-                    attendanceItem.tuitionFee,
-                    this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
-                      {
-                        pricingMode: classTeacher.class.pricingMode,
-                        customTuitionPerSession: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.customStudentTuitionPerSession,
-                        customTuitionPerBlock: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.customTuitionPerBlock,
-                        customTuitionPackageTotal: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.customTuitionPackageTotal,
-                        customTuitionPackageSession: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.customTuitionPackageSession,
-                        classTuitionPerSession: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.class?.studentTuitionPerSession,
-                        classTuitionPerBlock: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.class?.studentTuitionPerBlock,
-                        classTuitionPackageTotal: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.class?.tuitionPackageTotal,
-                        classTuitionPackageSession: studentClassByStudentId.get(
-                          attendanceItem.studentId,
-                        )?.class?.tuitionPackageSession,
-                        blockCount: snapshotBlockCount,
-                      },
+                tuitionFee: oneTimeAlreadyCharged
+                  ? this.sessionValidationService.resolveOneTimeAlreadyChargedTuitionFee(
+                      attendanceItem.status,
+                    )
+                  : this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
+                      attendanceItem.status,
+                      attendanceItem.tuitionFee,
+                      this.sessionValidationService.resolveDefaultStudentTuitionPerSession(
+                        {
+                          pricingMode: classTeacher.class.pricingMode,
+                          customTuitionPerSession: studentClassByStudentId.get(
+                            attendanceItem.studentId,
+                          )?.customStudentTuitionPerSession,
+                          customTuitionPerBlock: studentClassByStudentId.get(
+                            attendanceItem.studentId,
+                          )?.customTuitionPerBlock,
+                          customTuitionPackageTotal:
+                            studentClassByStudentId.get(
+                              attendanceItem.studentId,
+                            )?.customTuitionPackageTotal,
+                          customTuitionPackageSession:
+                            studentClassByStudentId.get(
+                              attendanceItem.studentId,
+                            )?.customTuitionPackageSession,
+                          classTuitionPerSession: studentClassByStudentId.get(
+                            attendanceItem.studentId,
+                          )?.class?.studentTuitionPerSession,
+                          classTuitionPerBlock: studentClassByStudentId.get(
+                            attendanceItem.studentId,
+                          )?.class?.studentTuitionPerBlock,
+                          classTuitionPackageTotal: studentClassByStudentId.get(
+                            attendanceItem.studentId,
+                          )?.class?.tuitionPackageTotal,
+                          classTuitionPackageSession:
+                            studentClassByStudentId.get(
+                              attendanceItem.studentId,
+                            )?.class?.tuitionPackageSession,
+                          blockCount: snapshotBlockCount,
+                          oneTimeAlreadyCharged,
+                        },
+                      ),
                     ),
-                  ),
                 accountBalance: studentAccountBalanceByStudentId.get(
                   attendanceItem.studentId,
                 ),

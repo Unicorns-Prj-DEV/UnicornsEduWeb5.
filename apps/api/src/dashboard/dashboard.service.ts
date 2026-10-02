@@ -6,7 +6,10 @@ import {
   UNASSIGNED_CUSTOMER_SOURCE_KEY,
   UNASSIGNED_CUSTOMER_SOURCE_LABEL,
 } from '../dtos/student.dto';
-import { ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL } from 'src/payroll/assistant-share.util';
+import {
+  ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL,
+  ATTENDANCE_COMMISSION_TUITION_BASIS_SQL,
+} from 'src/payroll/assistant-share.util';
 import {
   AttendanceStatus,
   ClassStatus,
@@ -1086,7 +1089,7 @@ export class DashboardService {
             SUM(
               ROUND(
                 (
-                  COALESCE(attendance.tuition_fee, 0) *
+                  ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} *
                   COALESCE(attendance.customer_care_coef, 0)
                 )::numeric,
                 0
@@ -1142,7 +1145,7 @@ export class DashboardService {
           COALESCE(
             SUM(
               ROUND(
-                (COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric,
+                (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric,
                 0
               )
             ),
@@ -1322,7 +1325,7 @@ export class DashboardService {
               SUM(
                 ROUND(
                   (
-                    COALESCE(attendance.tuition_fee, 0) *
+                    ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} *
                     COALESCE(attendance.customer_care_coef, 0)
                   )::numeric,
                   0
@@ -1368,7 +1371,7 @@ export class DashboardService {
             COALESCE(
               SUM(
                 ROUND(
-                  (COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric,
+                  (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric,
                   0
                 )
               ),
@@ -1661,7 +1664,7 @@ export class DashboardService {
             SUM(
               ROUND(
                 (
-                  COALESCE(attendance.tuition_fee, 0) *
+                  ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} *
                   COALESCE(attendance.customer_care_coef, 0)
                 )::numeric,
                 0
@@ -1732,7 +1735,7 @@ export class DashboardService {
           COALESCE(
             SUM(
               ROUND(
-                (COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric,
+                (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric,
                 0
               )
             ),
@@ -1943,7 +1946,7 @@ export class DashboardService {
             SUM(
               ROUND(
                 (
-                  COALESCE(attendance.tuition_fee, 0) *
+                  ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} *
                   COALESCE(attendance.customer_care_coef, 0)
                 )::numeric,
                 0
@@ -2014,7 +2017,7 @@ export class DashboardService {
           COALESCE(
             SUM(
               ROUND(
-                (COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric,
+                (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric,
                 0
               )
             ),
@@ -3750,7 +3753,7 @@ export class DashboardService {
           'customerCareCost' AS key,
           ROUND(
             (
-              COALESCE(attendance.tuition_fee, 0) *
+              ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} *
               COALESCE(attendance.customer_care_coef, 0)
             )::numeric,
             0
@@ -3772,7 +3775,7 @@ export class DashboardService {
 
         SELECT
           'assistantCost' AS key,
-          ROUND((COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric, 0) AS amount,
+          ROUND((${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric, 0) AS amount,
           CASE
             WHEN COALESCE(attendance.assistant_payment_status::text, 'pending') = 'paid'
               THEN 'paid'
@@ -6112,7 +6115,7 @@ export class DashboardService {
                   SUM(
                     ROUND(
                       (
-                        COALESCE(attendance.tuition_fee, 0) *
+                        ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} *
                         COALESCE(attendance.customer_care_coef, 0)
                       )::numeric,
                       0
@@ -6168,7 +6171,7 @@ export class DashboardService {
                 COALESCE(
                   SUM(
                     ROUND(
-                      (COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric,
+                      (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric,
                       0
                     )
                   ),

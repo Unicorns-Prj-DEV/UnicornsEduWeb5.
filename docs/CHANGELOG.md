@@ -23,6 +23,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Lớp bán một lần (`one_time`) cho khoá THPTQG và PREVOI:**
+  - Học phí cả khoá trừ ở buổi present/excused đầu tiên của từng học sinh; các buổi sau 0đ. Advisory lock theo lớp chống thu trùng; dòng đã thu bị xoá/chuyển vắng thì buổi sau thu lại.
+  - Hoa hồng trợ lí 3% và CSKH đọc `attendance.payroll_basis_tuition_fee` khi có, nên không đổi khi doanh thu dồn về buổi đầu.
+  - **Migration:** `20261002090000_add_one_time_pricing_mode`, `20261002100000_backfill_one_time_course_tuition` (gắn `one_time`, đóng băng cơ sở hoa hồng, dồn học phí về buổi sớm nhất, không sửa ví). ADR `docs/adr/2026-10-02-one-time-class-tuition.md`.
 - **Dashboard — bấm KPI Lớp học xem phân loại:** `GET /dashboard/active-class-breakdown` nhóm lớp `running` theo khoá học, mỗi dòng có số lớp và số học sinh active của khoá đó. Popup trên `/admin/dashboard` hiện số loại lớp, tổng lớp (khớp card) và tổng học sinh không trùng. Snapshot, không theo tháng đang chọn.
 - **Nguồn khách trên hồ sơ học sinh:**
   - Trường `customer_source` (Tiktok, Fanpage Học Tin Cùng Chuyên Tin, Fanpage Luyện Tin THPT, Giới thiệu từ người quen của khách, Nguồn riêng của bản thân, Khác) và `customer_source_note` khi chọn Khác. Tạo mới bắt buộc chọn nguồn.

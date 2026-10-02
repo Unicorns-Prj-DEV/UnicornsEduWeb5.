@@ -73,10 +73,10 @@ import {
 } from 'src/common/entity-id';
 import {
   hasCustomTuitionOverride,
-  hasCustomPackageOverride,
   normalizeNullableMoney,
   normalizeStudentClassCustomTuitionMoney,
-  resolveEffectiveTuitionPerSession,
+  resolveEffectivePackageFields,
+  resolveSessionChargeTuitionFee,
 } from 'src/common/student-class-tuition.util';
 import { GoogleCalendarService } from 'src/google-calendar/google-calendar.service';
 import {
@@ -118,6 +118,7 @@ const studentClassDetailInclude = {
         tuitionPackageTotal: true,
         tuitionPackageSession: true,
         studentTuitionPerSession: true,
+        pricingMode: true,
       },
     },
   },
@@ -413,21 +414,21 @@ export class StudentService {
     const customTuitionPackageSession = normalizeStudentClassCustomTuitionMoney(
       studentClass.customTuitionPackageSession,
     );
-    const effectiveTuitionPackageTotal =
-      customTuitionPackageTotal ??
-      normalizeNullableMoney(studentClass.class.tuitionPackageTotal);
-    const effectiveTuitionPackageSession =
-      customTuitionPackageSession ??
-      normalizeNullableMoney(studentClass.class.tuitionPackageSession);
-    const effectiveTuitionPerSession = resolveEffectiveTuitionPerSession({
+    const packageFields = resolveEffectivePackageFields({
+      customTuitionPackageTotal,
+      customTuitionPackageSession,
+      classTuitionPackageTotal: studentClass.class.tuitionPackageTotal,
+      classTuitionPackageSession: studentClass.class.tuitionPackageSession,
+    });
+    const effectiveTuitionPackageTotal = packageFields.effectivePackageTotal;
+    const effectiveTuitionPackageSession = packageFields.effectivePackageSession;
+    const effectiveTuitionPerSession = resolveSessionChargeTuitionFee({
+      pricingMode: studentClass.class.pricingMode,
       customTuitionPerSession,
       classTuitionPerSession: studentClass.class.studentTuitionPerSession,
       effectivePackageTotal: effectiveTuitionPackageTotal,
       effectivePackageSession: effectiveTuitionPackageSession,
-      hasCustomPackageOverride: hasCustomPackageOverride({
-        customTuitionPackageTotal,
-        customTuitionPackageSession,
-      }),
+      hasCustomPackageOverride: packageFields.hasCustomPackageOverride,
     });
 
     return {
