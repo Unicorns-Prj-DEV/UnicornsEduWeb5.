@@ -224,6 +224,8 @@ export interface AdminDashboardFinancialDetailItem {
   amount: number;
   note: string | null;
   sourceNote?: string | null;
+  /** Số tiền theo `sources[].key` (có dấu, phạt âm). Chỉ có trên Chi phí nhân sự. */
+  sourceAmounts?: Record<string, number>;
 }
 
 export interface AdminDashboardFinancialDetail {

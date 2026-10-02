@@ -201,6 +201,8 @@ type PersonnelStaffCostSqlRow = {
   staffName: string;
   sessionAmount: number | string | null;
   bonusAmount: number | string | null;
+  bonusRewardAmount: number | string | null;
+  bonusPenaltyAmount: number | string | null;
   customerCareAmount: number | string | null;
   lessonAmount: number | string | null;
   extraAllowanceAmount: number | string | null;
@@ -611,8 +613,96 @@ function formatMonthLabel(month: string, year: string) {
   return `Tháng ${month} / ${year}`;
 }
 
+/** Tách bonus thành thưởng (dương) và phạt (âm); ròng = reward + penalty. */
+const BONUS_REWARD_PENALTY_SUMS_SQL = Prisma.sql`
+  COALESCE(SUM(GREATEST(COALESCE(bonuses.amount, 0), 0)), 0) AS reward,
+  COALESCE(SUM(LEAST(COALESCE(bonuses.amount, 0), 0)), 0) AS penalty
+`;
+
+type BonusMonthRange = { fromMonthKey: string; toMonthKeyExclusive: string };
+
 function formatCurrencyLabel(value: number) {
   return `${value.toLocaleString('vi-VN')}đ`;
+}
+
+/**
+ * Bóc tách chi phí của một nhân sự theo từng nguồn (khoá trùng `sources[].key`
+ * của chi tiết Chi phí nhân sự). Bonus tách «Thưởng» (dương) và «Phạt» (âm,
+ * giữ dấu trừ). `note` nối các đoạn bằng ` • ` để đọc; FE lọc theo
+ * `sourceAmounts`, không parse ghi chú.
+ */
+export function buildPersonnelCostBreakdown(
+  row: Omit<
+    PersonnelStaffCostSqlRow,
+    'staffId' | 'staffName' | 'totalCost' | 'bonusAmount'
+  >,
+): { note: string; sourceAmounts: Record<string, number> } {
+  const sources: Array<{
+    key: string;
+    label: string;
+    value: number | string | null;
+    sign: 1 | -1;
+  }> = [
+    { key: 'teacher-cost', label: 'Dạy', value: row.sessionAmount, sign: 1 },
+    {
+      key: 'customer-care-cost',
+      label: 'CSKH',
+      value: row.customerCareAmount,
+      sign: 1,
+    },
+    { key: 'lesson-cost', label: 'Giáo án', value: row.lessonAmount, sign: 1 },
+    {
+      key: 'bonus-reward-cost',
+      label: 'Thưởng',
+      value: row.bonusRewardAmount,
+      sign: 1,
+    },
+    {
+      key: 'bonus-penalty-cost',
+      label: 'Phạt',
+      value: row.bonusPenaltyAmount,
+      sign: -1,
+    },
+    {
+      key: 'extra-allowance-cost',
+      label: 'Trợ cấp khác',
+      value: row.extraAllowanceAmount,
+      sign: 1,
+    },
+    {
+      key: 'fixed-salary-cost',
+      label: 'Lương cứng',
+      value: row.fixedSalaryAmount,
+      sign: 1,
+    },
+    {
+      key: 'assistant-cost',
+      label: 'Trợ lí',
+      value: row.assistantAmount,
+      sign: 1,
+    },
+    {
+      key: 'training-manager-cost',
+      label: 'QL lớp',
+      value: row.trainingManagerAmount,
+      sign: 1,
+    },
+  ];
+
+  const segments: string[] = [];
+  const sourceAmounts: Record<string, number> = {};
+  for (const source of sources) {
+    const amount = normalizeMoneyAmount(source.value);
+    if (amount * source.sign <= 0) continue;
+    sourceAmounts[source.key] = amount;
+    segments.push(`${source.label} ${formatCurrencyLabel(amount)}`);
+  }
+
+  return {
+    note:
+      segments.length > 0 ? segments.join(' • ') : 'Không có chi phí chi tiết.',
+    sourceAmounts,
+  };
 }
 
 function formatDateTimeLabel(value: Date | string) {
@@ -1878,6 +1968,25 @@ export class DashboardService {
     `);
   }
 
+  /** Tổng thưởng (dương) và phạt (âm) theo tháng thưởng trong kỳ; ròng = cộng hai số. */
+  private async getBonusRewardPenaltyTotals(
+    period: BonusMonthRange,
+  ): Promise<{ reward: number; penalty: number }> {
+    const [row] = await this.prisma.$queryRaw<
+      Array<{ reward: number | string | null; penalty: number | string | null }>
+    >(Prisma.sql`
+      SELECT
+        ${BONUS_REWARD_PENALTY_SUMS_SQL}
+      FROM bonuses
+      WHERE bonuses.month >= ${period.fromMonthKey}
+        AND bonuses.month < ${period.toMonthKeyExclusive}
+    `);
+    return {
+      reward: normalizeMoneyAmount(row?.reward),
+      penalty: normalizeMoneyAmount(row?.penalty),
+    };
+  }
+
   private async getPersonnelStaffCosts(
     limit: number,
     period?: {
@@ -1938,7 +2047,8 @@ export class DashboardService {
       bonus_total AS (
         SELECT
           bonuses.staff_id AS staff_id,
-          COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount
+          COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount,
+          ${BONUS_REWARD_PENALTY_SUMS_SQL}
         FROM bonuses
         INNER JOIN active_staff ON active_staff.id = bonuses.staff_id
         WHERE 1=1
@@ -2072,6 +2182,8 @@ export class DashboardService {
           active_staff.full_name AS "staffName",
           COALESCE(session_total.amount, 0) AS "sessionAmount",
           COALESCE(bonus_total.amount, 0) AS "bonusAmount",
+          COALESCE(bonus_total.reward, 0) AS "bonusRewardAmount",
+          COALESCE(bonus_total.penalty, 0) AS "bonusPenaltyAmount",
           COALESCE(customer_care_total.amount, 0) AS "customerCareAmount",
           COALESCE(lesson_output_total.amount, 0) AS "lessonAmount",
           COALESCE(extra_allowance_total.amount, 0) AS "extraAllowanceAmount",
@@ -2101,13 +2213,15 @@ export class DashboardService {
       filtered AS (
         SELECT *
         FROM combined
-        WHERE "totalCost" > 0
+        WHERE "totalCost" > 0 OR "bonusPenaltyAmount" < 0
       )
       SELECT
         "staffId",
         "staffName",
         "sessionAmount",
         "bonusAmount",
+        "bonusRewardAmount",
+        "bonusPenaltyAmount",
         "customerCareAmount",
         "lessonAmount",
         "extraAllowanceAmount",
@@ -2116,7 +2230,7 @@ export class DashboardService {
         "trainingManagerAmount",
         "totalCost"
       FROM filtered
-      ORDER BY "totalCost" DESC
+      ORDER BY ABS("totalCost") DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
   }
@@ -4861,41 +4975,11 @@ export class DashboardService {
 
         const personnelItems: AdminDashboardFinancialExportPersonnelItemDto[] =
           staffCostsRaw.slice(0, limit).map((row) => {
-            const segments = [
-              normalizeMoneyAmount(row.sessionAmount) > 0
-                ? `Dạy ${formatCurrencyLabel(normalizeMoneyAmount(row.sessionAmount))}`
-                : null,
-              normalizeMoneyAmount(row.customerCareAmount) > 0
-                ? `CSKH ${formatCurrencyLabel(normalizeMoneyAmount(row.customerCareAmount))}`
-                : null,
-              normalizeMoneyAmount(row.lessonAmount) > 0
-                ? `Giáo án ${formatCurrencyLabel(normalizeMoneyAmount(row.lessonAmount))}`
-                : null,
-              normalizeMoneyAmount(row.bonusAmount) > 0
-                ? `Bonus ${formatCurrencyLabel(normalizeMoneyAmount(row.bonusAmount))}`
-                : null,
-              normalizeMoneyAmount(row.extraAllowanceAmount) > 0
-                ? `Trợ cấp khác ${formatCurrencyLabel(normalizeMoneyAmount(row.extraAllowanceAmount))}`
-                : null,
-              normalizeMoneyAmount(row.fixedSalaryAmount) > 0
-                ? `Lương cứng ${formatCurrencyLabel(normalizeMoneyAmount(row.fixedSalaryAmount))}`
-                : null,
-              normalizeMoneyAmount(row.assistantAmount) > 0
-                ? `Trợ lí ${formatCurrencyLabel(normalizeMoneyAmount(row.assistantAmount))}`
-                : null,
-              normalizeMoneyAmount(row.trainingManagerAmount) > 0
-                ? `QL lớp ${formatCurrencyLabel(normalizeMoneyAmount(row.trainingManagerAmount))}`
-                : null,
-            ].filter((value): value is string => value != null);
-
             return {
               staffId: row.staffId,
               staffName: row.staffName,
               amount: normalizeMoneyAmount(row.totalCost),
-              note:
-                segments.length > 0
-                  ? segments.join(' • ')
-                  : 'Không có chi phí chi tiết.',
+              note: buildPersonnelCostBreakdown(row).note,
             };
           });
 
@@ -5356,48 +5440,22 @@ export class DashboardService {
             const otherCost = selectedMonthTrend.otherCost;
 
             if (query.rowKey === 'personnel-cost') {
-              const staffCosts = await this.getPersonnelStaffCosts(
-                limit,
-                dashboardPeriod,
-              );
+              const [staffCosts, bonusSplit] = await Promise.all([
+                this.getPersonnelStaffCosts(limit, dashboardPeriod),
+                this.getBonusRewardPenaltyTotals(dashboardPeriod),
+              ]);
               const items =
                 staffCosts.map<AdminDashboardFinancialDetailItemDto>((row) => {
-                  const segments = [
-                    normalizeMoneyAmount(row.sessionAmount) > 0
-                      ? `Dạy ${formatCurrencyLabel(normalizeMoneyAmount(row.sessionAmount))}`
-                      : null,
-                    normalizeMoneyAmount(row.customerCareAmount) > 0
-                      ? `CSKH ${formatCurrencyLabel(normalizeMoneyAmount(row.customerCareAmount))}`
-                      : null,
-                    normalizeMoneyAmount(row.lessonAmount) > 0
-                      ? `Giáo án ${formatCurrencyLabel(normalizeMoneyAmount(row.lessonAmount))}`
-                      : null,
-                    normalizeMoneyAmount(row.bonusAmount) > 0
-                      ? `Bonus ${formatCurrencyLabel(normalizeMoneyAmount(row.bonusAmount))}`
-                      : null,
-                    normalizeMoneyAmount(row.extraAllowanceAmount) > 0
-                      ? `Trợ cấp khác ${formatCurrencyLabel(normalizeMoneyAmount(row.extraAllowanceAmount))}`
-                      : null,
-                    normalizeMoneyAmount(row.fixedSalaryAmount) > 0
-                      ? `Lương cứng ${formatCurrencyLabel(normalizeMoneyAmount(row.fixedSalaryAmount))}`
-                      : null,
-                    normalizeMoneyAmount(row.assistantAmount) > 0
-                      ? `Trợ lí ${formatCurrencyLabel(normalizeMoneyAmount(row.assistantAmount))}`
-                      : null,
-                    normalizeMoneyAmount(row.trainingManagerAmount) > 0
-                      ? `QL lớp ${formatCurrencyLabel(normalizeMoneyAmount(row.trainingManagerAmount))}`
-                      : null,
-                  ].filter((value): value is string => value != null);
+                  const { note, sourceAmounts } =
+                    buildPersonnelCostBreakdown(row);
 
                   return {
                     id: row.staffId,
                     label: row.staffName,
                     secondaryLabel: 'Chi phí nhân sự',
                     amount: normalizeMoneyAmount(row.totalCost),
-                    note:
-                      segments.length > 0
-                        ? segments.join(' • ')
-                        : 'Không có chi phí chi tiết.',
+                    note,
+                    sourceAmounts,
                   };
                 });
 
@@ -5429,11 +5487,18 @@ export class DashboardService {
                     tone: 'negative',
                   },
                   {
-                    key: 'bonus-cost',
-                    label: 'Bonus',
-                    amount: selectedMonthTrend.bonusCost,
-                    note: 'Tổng các khoản thưởng nhân viên phát sinh trong kỳ.',
+                    key: 'bonus-reward-cost',
+                    label: 'Thưởng',
+                    amount: bonusSplit.reward,
+                    note: 'Các khoản bonus dương theo tháng thưởng trong kỳ.',
                     tone: 'negative',
+                  },
+                  {
+                    key: 'bonus-penalty-cost',
+                    label: 'Phạt',
+                    amount: Math.abs(bonusSplit.penalty),
+                    note: `Các khoản bonus âm, trừ vào chi phí (bảng chi tiết hiện số âm). Bonus ròng: ${formatCurrencyLabel(selectedMonthTrend.bonusCost)}.`,
+                    tone: 'positive',
                   },
                   {
                     key: 'extra-allowance-cost',
