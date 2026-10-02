@@ -3,7 +3,7 @@ import { StaffInfoDto, StaffStatus } from "./staff.dto";
 
 export type ClassStatus = "running" | "ended";
 
-export type ClassPricingMode = "per_session" | "per_block";
+export type ClassPricingMode = "per_session" | "per_block" | "one_time";
 
 /** Khoá học — chương trình học độc lập có nội dung học thuật riêng. */
 export interface Course {

@@ -59,6 +59,8 @@ import {
   clockHmsFromUnknown,
   isBlockPricingMode,
   isFrozenSessionPaymentStatus,
+  isOneTimeCourseName,
+  isOneTimePricingMode,
   resolveAllowanceReconstructionBlockCount,
   resolveSnapshotBlockCountForPricingMode,
 } from 'src/common/class-pricing-mode.util';
@@ -560,6 +562,7 @@ export class ClassService {
       | 'classTeacher'
       | 'studentClass'
       | 'classScheduleEntry'
+      | 'attendance'
       | '$queryRaw'
     >,
     id: string,
@@ -640,6 +643,23 @@ export class ClassService {
       orderBy: [{ createdAt: 'asc' }, { studentId: 'asc' }],
     });
 
+    const oneTimeChargedStudentIds = isOneTimePricingMode(classInfo.pricingMode)
+      ? new Set(
+          (
+            await db.attendance.findMany({
+              where: {
+                status: {
+                  in: [AttendanceStatus.present, AttendanceStatus.excused],
+                },
+                session: { classId: id },
+              },
+              select: { studentId: true },
+              distinct: ['studentId'],
+            })
+          ).map((row) => row.studentId),
+        )
+      : new Set<string>();
+
     const students = classStudents.map((student) => {
       const customTuitionPerSession = normalizeStudentClassCustomTuitionMoney(
         student.customStudentTuitionPerSession,
@@ -657,16 +677,31 @@ export class ClassService {
       const effectiveTuitionPackageSession =
         customTuitionPackageSession ??
         normalizeNullableMoney(classInfo.tuitionPackageSession);
-      const effectiveTuitionPerSession = resolveEffectiveTuitionPerSession({
-        customTuitionPerSession,
-        classTuitionPerSession: classInfo.studentTuitionPerSession,
-        effectivePackageTotal: effectiveTuitionPackageTotal,
-        effectivePackageSession: effectiveTuitionPackageSession,
-        hasCustomPackageOverride: hasCustomPackageOverride({
-          customTuitionPackageTotal,
-          customTuitionPackageSession,
-        }),
+      const packageOverride = hasCustomPackageOverride({
+        customTuitionPackageTotal,
+        customTuitionPackageSession,
       });
+      const effectiveTuitionPerSession = isOneTimePricingMode(
+        classInfo.pricingMode,
+      )
+        ? resolveSessionChargeTuitionFee({
+            pricingMode: classInfo.pricingMode,
+            customTuitionPerSession,
+            classTuitionPerSession: classInfo.studentTuitionPerSession,
+            effectivePackageTotal: effectiveTuitionPackageTotal,
+            effectivePackageSession: effectiveTuitionPackageSession,
+            hasCustomPackageOverride: packageOverride,
+            oneTimeAlreadyCharged: oneTimeChargedStudentIds.has(
+              student.studentId,
+            ),
+          })
+        : resolveEffectiveTuitionPerSession({
+            customTuitionPerSession,
+            classTuitionPerSession: classInfo.studentTuitionPerSession,
+            effectivePackageTotal: effectiveTuitionPackageTotal,
+            effectivePackageSession: effectiveTuitionPackageSession,
+            hasCustomPackageOverride: packageOverride,
+          });
       const { customerCareServices, ...studentInfo } = student.student;
       const customerCareStaff = customerCareServices?.staff
         ? {
@@ -767,6 +802,7 @@ export class ClassService {
       | 'classTeacher'
       | 'studentClass'
       | 'classScheduleEntry'
+      | 'attendance'
       | '$queryRaw'
     >,
     id: string,
@@ -1299,24 +1335,29 @@ export class ClassService {
   private async resolveCourseWithDuration(
     db: Prisma.TransactionClient | PrismaService,
     courseId?: string,
-  ): Promise<{ courseId: string; defaultDurationDays: number | null }> {
+  ): Promise<{
+    courseId: string;
+    courseName: string;
+    defaultDurationDays: number | null;
+  }> {
     if (courseId) {
       const course = await db.course.findUnique({
         where: { id: courseId },
-        select: { id: true, defaultDurationDays: true },
+        select: { id: true, name: true, defaultDurationDays: true },
       });
       if (!course) {
         throw new NotFoundException('Khoá học không tồn tại.');
       }
       return {
         courseId: course.id,
+        courseName: course.name,
         defaultDurationDays: course.defaultDurationDays,
       };
     }
     const defaultCourse = await db.course.findFirst({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      select: { id: true, defaultDurationDays: true },
+      select: { id: true, name: true, defaultDurationDays: true },
     });
     if (!defaultCourse) {
       throw new NotFoundException(
@@ -1325,6 +1366,7 @@ export class ClassService {
     }
     return {
       courseId: defaultCourse.id,
+      courseName: defaultCourse.name,
       defaultDurationDays: defaultCourse.defaultDurationDays,
     };
   }
@@ -1364,13 +1406,19 @@ export class ClassService {
       studentTuitionPerBlock: data.student_tuition_per_block,
       standardBlockCount,
     });
-    const pricingMode = data.pricing_mode ?? ClassPricingMode.per_session;
+    let pricingMode = data.pricing_mode ?? ClassPricingMode.per_session;
     if (isBlockPricingMode(pricingMode)) {
       assertCanEnableBlockPricing(standardBlockCount);
     }
 
     const classDetail = await this.prisma.$transaction(async (tx) => {
       const resolved = await this.resolveCourseWithDuration(tx, data.course_id);
+      if (
+        isOneTimeCourseName(resolved.courseName) &&
+        !isBlockPricingMode(pricingMode)
+      ) {
+        pricingMode = ClassPricingMode.one_time;
+      }
 
       const createdClass = await tx.class.create({
         data: {
@@ -1892,7 +1940,14 @@ export class ClassService {
           where: { id },
           data: { pricingMode: nextMode },
         });
-        await this.recalculateUnpaidSessionsForPricingMode(tx, id, nextMode);
+        // Lớp bán một lần không được tính lại học phí hàng loạt: data cũ đã
+        // dồn về buổi đầu, và tính lại sẽ đụng ví.
+        if (
+          !isOneTimePricingMode(nextMode) &&
+          !isOneTimePricingMode(existing.pricingMode)
+        ) {
+          await this.recalculateUnpaidSessionsForPricingMode(tx, id, nextMode);
+        }
       }
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);

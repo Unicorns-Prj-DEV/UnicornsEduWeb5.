@@ -394,6 +394,8 @@ model Attendance {
   customerCarePaymentStatus           PaymentStatus?             @map("customer_care_payment_status")
   customerCareTaxDeductionRatePercent Decimal                    @default(0) @map("customer_care_tax_deduction_rate_percent") @db.Decimal(5, 2)
   tuitionFee                          Int?                       @map("tuition_fee")
+  /// Học phí dùng để tính hoa hồng đã chốt (paid/pending) khi `tuition_fee` bị dồn sang buổi khác.
+  payrollBasisTuitionFee              Int?                       @map("payroll_basis_tuition_fee")
   transactionId                       String?                    @unique @map("transaction_id")
   assistantManagerStaffId             String?                    @map("assistant_manager_staff_id")
   assistantPaymentStatus              PaymentStatus?             @map("assistant_payment_status")

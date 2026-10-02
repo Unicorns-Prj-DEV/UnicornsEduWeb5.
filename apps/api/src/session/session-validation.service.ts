@@ -239,6 +239,7 @@ export class SessionValidationService {
     classTuitionPackageTotal?: number | null;
     classTuitionPackageSession?: number | null;
     blockCount?: number | null;
+    oneTimeAlreadyCharged?: boolean;
   }): number | null {
     const {
       effectivePackageTotal,
@@ -261,6 +262,7 @@ export class SessionValidationService {
       effectivePackageSession,
       hasCustomPackageOverride,
       blockCount: options.blockCount,
+      oneTimeAlreadyCharged: options.oneTimeAlreadyCharged,
     });
   }
 

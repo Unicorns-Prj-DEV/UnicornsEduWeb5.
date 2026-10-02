@@ -85,6 +85,8 @@ import {
 } from './staff-fixed-salary-payable.util';
 import {
   ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL,
+  ATTENDANCE_ASSISTANT_TUITION_BASIS_SQL,
+  assistantShareTuitionVnd,
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
 
@@ -1796,7 +1798,7 @@ export class StaffService {
         COALESCE(
           SUM(
             ROUND(
-              (COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric,
+              (${ATTENDANCE_ASSISTANT_TUITION_BASIS_SQL} * 0.03)::numeric,
               0
             )
           ),
@@ -2240,6 +2242,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         assistantPaymentStatus: true,
         student: {
           select: {
@@ -2266,7 +2269,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) * 0.03,
+        normalizeMoneyAmount(assistantShareTuitionVnd(row)) * 0.03,
       );
 
       return {
@@ -2651,6 +2654,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         assistantPaymentStatus: true,
         student: {
           select: {
@@ -2677,7 +2681,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) * 0.03,
+        normalizeMoneyAmount(assistantShareTuitionVnd(row)) * 0.03,
       );
 
       return {
@@ -4562,7 +4566,7 @@ export class StaffService {
       assistant_unpaid_rows AS (
         SELECT
           attendance.assistant_manager_staff_id AS staff_id,
-          ROUND((COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric, 0) AS gross_amount
+          ROUND((${ATTENDANCE_ASSISTANT_TUITION_BASIS_SQL} * 0.03)::numeric, 0) AS gross_amount
         FROM attendance
         INNER JOIN target_staff ON target_staff.id = attendance.assistant_manager_staff_id
         WHERE attendance.status IN ('present', 'excused')

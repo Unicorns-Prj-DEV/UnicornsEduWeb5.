@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
+  AttendanceStatus,
   PaymentStatus,
   SessionPaymentStatus,
   StaffRole,
@@ -43,6 +44,7 @@ import {
 } from './session-allowance.util';
 import {
   isBlockPricingMode,
+  isOneTimePricingMode,
   resolveAllowanceReconstructionBlockCount,
   resolveSnapshotBlockCountForPricingMode,
 } from '../common/class-pricing-mode.util';
@@ -904,6 +906,31 @@ export class SessionUpdateService {
           }
         }
 
+        const oneTimeAlreadyChargedStudentIds = new Set<string>();
+        if (
+          shouldRebuildAttendanceState &&
+          nextAttendanceStudentIds.length > 0 &&
+          isOneTimePricingMode(existingSession.class.pricingMode)
+        ) {
+          const priorChargeable = await tx.attendance.findMany({
+            where: {
+              studentId: { in: nextAttendanceStudentIds },
+              status: {
+                in: [AttendanceStatus.present, AttendanceStatus.excused],
+              },
+              session: {
+                classId: nextClassId,
+                id: { not: existingSession.id },
+              },
+            },
+            select: { studentId: true },
+            distinct: ['studentId'],
+          });
+          priorChargeable.forEach((row) =>
+            oneTimeAlreadyChargedStudentIds.add(row.studentId),
+          );
+        }
+
         const studentTuitionFeeByStudentId = new Map<string, number | null>();
         if (
           shouldRebuildAttendanceState &&
@@ -957,6 +984,9 @@ export class SessionUpdateService {
                   classTuitionPackageSession:
                     studentClass.class?.tuitionPackageSession,
                   blockCount: existingSession.snapshotBlockCount,
+                  oneTimeAlreadyCharged: oneTimeAlreadyChargedStudentIds.has(
+                    studentClass.studentId,
+                  ),
                 },
               ),
             );
@@ -1033,8 +1063,15 @@ export class SessionUpdateService {
               const defaultTuitionFee =
                 studentTuitionFeeByStudentId.get(attendanceItem.studentId) ??
                 null;
-              const resolvedTuitionFee =
-                data.attendance !== undefined
+              const oneTimeAlreadyCharged =
+                oneTimeAlreadyChargedStudentIds.has(attendanceItem.studentId);
+              const resolvedTuitionFee = oneTimeAlreadyCharged
+                ? this.sessionValidationService.isTuitionChargeableStatus(
+                    attendanceItem.status,
+                  )
+                  ? 0
+                  : null
+                : data.attendance !== undefined
                   ? this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
                       attendanceItem.status,
                       attendanceItem.tuitionFee,
