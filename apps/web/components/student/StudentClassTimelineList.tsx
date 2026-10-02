@@ -36,15 +36,11 @@ import {
 } from "@/lib/course-content-routes";
 import {
   parseStudentClassTab,
+  STUDENT_CLASS_TAB_EMPTY_MESSAGES,
   studentClassTabOfKind,
   type StudentClassTab,
 } from "@/lib/student-class-tabs";
 import StudentClassTabs from "./StudentClassTabs";
-
-const EMPTY_TAB_MESSAGE: Record<StudentClassTab, string> = {
-  "chuyen-de": "Lớp chưa có tiết học nào.",
-  "buoi-hoc": "Chưa có buổi học hay khảo sát.",
-};
 
 function mapSession(item: ClassTimelineItemDto): StudentSessionItem | null {
   if (item.kind !== "session" || !item.session) return null;
@@ -259,17 +255,6 @@ function StudentClassTimelineListInner({
     return <TimelineSkeleton header={header} />;
   }
 
-  if (!items.length) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-          Chưa có nội dung trên timeline lớp.
-        </div>
-      </div>
-    );
-  }
-
   const session = selected ? mapSession(selected) : null;
   const survey = selected ? mapSurvey(selected) : null;
 
@@ -296,9 +281,9 @@ function StudentClassTimelineListInner({
             aria-labelledby={`student-class-tab-${activeTab}`}
             className="space-y-3"
           >
-        {tabRows.length === 0 && !query.isFetchingNextPage ? (
+        {tabRows.length === 0 && !query.hasNextPage ? (
           <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-            {EMPTY_TAB_MESSAGE[activeTab]}
+            {STUDENT_CLASS_TAB_EMPTY_MESSAGES[activeTab]}
           </div>
         ) : null}
         {tabRows.map(({ item, index, locked, href }) => {

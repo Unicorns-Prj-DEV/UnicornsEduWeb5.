@@ -13,6 +13,12 @@ export const STUDENT_CLASS_TAB_LABELS: Record<StudentClassTab, string> = {
   "buoi-hoc": "Buổi học",
 };
 
+export const STUDENT_CLASS_TAB_EMPTY_MESSAGES: Record<StudentClassTab, string> =
+  {
+    "chuyen-de": "Lớp chưa có tiết học nào.",
+    "buoi-hoc": "Chưa có buổi học hay khảo sát.",
+  };
+
 /** Giá trị lạ, thiếu hoặc legacy (`lessons`) → tab mặc định Chuyên đề. */
 export function parseStudentClassTab(
   value: string | null | undefined,
