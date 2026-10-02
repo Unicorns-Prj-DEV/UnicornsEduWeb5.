@@ -1,8 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { List, Lock, X } from "lucide-react";
 import { getStudentClassTimeline } from "@/lib/apis/class.api";
 import { classTimelineKeys } from "@/lib/query-keys";
@@ -21,7 +30,21 @@ import {
   StudentSurveyTimelineCard,
 } from "./StudentTimelineCards";
 import type { StudentSessionItem, StudentSurveyItem } from "@/dtos/student-class.dto";
-import { studentLessonHref } from "@/lib/course-content-routes";
+import {
+  replaceCourseWorkspaceUrl,
+  studentLessonHref,
+} from "@/lib/course-content-routes";
+import {
+  parseStudentClassTab,
+  studentClassTabOfKind,
+  type StudentClassTab,
+} from "@/lib/student-class-tabs";
+import StudentClassTabs from "./StudentClassTabs";
+
+const EMPTY_TAB_MESSAGE: Record<StudentClassTab, string> = {
+  "chuyen-de": "Lớp chưa có tiết học nào.",
+  "buoi-hoc": "Chưa có buổi học hay khảo sát.",
+};
 
 function mapSession(item: ClassTimelineItemDto): StudentSessionItem | null {
   if (item.kind !== "session" || !item.session) return null;
@@ -85,13 +108,49 @@ function mapSurvey(item: ClassTimelineItemDto): StudentSurveyItem | null {
   };
 }
 
-export default function StudentClassTimelineList({
-  classId,
-  header,
-}: {
+type StudentClassTimelineListProps = {
   classId: string;
   header?: ReactNode;
-}) {
+};
+
+function TimelineSkeleton({ header }: { header?: ReactNode }) {
+  return (
+    <div className="space-y-6">
+      {header}
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-20 w-full rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** `useSearchParams` cần Suspense boundary. */
+export default function StudentClassTimelineList(
+  props: StudentClassTimelineListProps,
+) {
+  return (
+    <Suspense fallback={<TimelineSkeleton header={props.header} />}>
+      <StudentClassTimelineListInner {...props} />
+    </Suspense>
+  );
+}
+
+function StudentClassTimelineListInner({
+  classId,
+  header,
+}: StudentClassTimelineListProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlTab = parseStudentClassTab(searchParams.get("tab"));
+  // Đổi tab ngay khi bấm, không chờ Next.js commit URL.
+  const [pendingTab, setPendingTab] = useState<StudentClassTab | null>(null);
+  if (pendingTab !== null && pendingTab === urlTab) {
+    setPendingTab(null);
+  }
+  const activeTab = pendingTab ?? urlTab;
+
   const [selected, setSelected] = useState<ClassTimelineItemDto | null>(null);
   // Mục lục chỉ highlight item được bấm gần nhất (không scroll-spy theo khung nhìn).
   const [selectedTocId, setSelectedTocId] = useState<string | null>(null);
@@ -144,9 +203,27 @@ export default function StudentClassTimelineList({
     [items, classId],
   );
 
+  const tabCounts = useMemo(() => {
+    const counts: Record<StudentClassTab, number> = {
+      "chuyen-de": 0,
+      "buoi-hoc": 0,
+    };
+    for (const { item } of rows) counts[studentClassTabOfKind(item.kind)] += 1;
+    return counts;
+  }, [rows]);
+
+  // Mỗi tab đánh số lại từ 1, giữ thứ tự timeline.
+  const tabRows = useMemo(
+    () =>
+      rows
+        .filter(({ item }) => studentClassTabOfKind(item.kind) === activeTab)
+        .map((row, index) => ({ ...row, index })),
+    [rows, activeTab],
+  );
+
   const tocEntries = useMemo<TimelineTocEntry[]>(
     () =>
-      rows.map(({ item, index, locked }) => ({
+      tabRows.map(({ item, index, locked }) => ({
         id: item.id,
         index: index + 1,
         title: item.title,
@@ -154,7 +231,19 @@ export default function StudentClassTimelineList({
         lessonKind: item.lessonKind,
         locked,
       })),
-    [rows],
+    [tabRows],
+  );
+
+  const selectTab = useCallback(
+    (tab: StudentClassTab) => {
+      if (tab === activeTab) return;
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("tab", tab);
+      setPendingTab(tab);
+      setSelectedTocId(null);
+      replaceCourseWorkspaceUrl(`${pathname}?${next.toString()}`);
+    },
+    [activeTab, pathname, searchParams],
   );
 
   const scrollToRow = useCallback((id: string) => {
@@ -167,16 +256,7 @@ export default function StudentClassTimelineList({
   }, []);
 
   if (query.isLoading) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
+    return <TimelineSkeleton header={header} />;
   }
 
   if (!items.length) {
@@ -205,8 +285,23 @@ export default function StudentClassTimelineList({
 
         <div className="min-w-0 flex-1 space-y-6 px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8">
           {header}
-          <div className="space-y-3">
-        {rows.map(({ item, index, locked, href }) => {
+          <StudentClassTabs
+            activeTab={activeTab}
+            counts={tabCounts}
+            onSelect={selectTab}
+          />
+          <div
+            id="student-class-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`student-class-tab-${activeTab}`}
+            className="space-y-3"
+          >
+        {tabRows.length === 0 && !query.isFetchingNextPage ? (
+          <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
+            {EMPTY_TAB_MESSAGE[activeTab]}
+          </div>
+        ) : null}
+        {tabRows.map(({ item, index, locked, href }) => {
           const orderBadge = (
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
               {index + 1}
