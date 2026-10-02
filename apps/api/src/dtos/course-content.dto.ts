@@ -233,12 +233,26 @@ export interface ClassContentItemResponseDto {
   title: string;
   kindLabel: string;
   source: 'course' | 'class';
+  moduleId?: string;
   moduleTitle?: string;
   openAt: Date | string | null;
   durationMinutes: number | null;
   isOpen: boolean;
   hiddenAt: Date | string | null;
   hiddenByStaffId: string | null;
+}
+
+/** Nội dung lớp gom theo chuyên đề (trang lớp admin/staff). */
+export interface ClassContentModuleGroupDto {
+  /** `null` = nhóm item không thuộc chuyên đề nào (xếp cuối). */
+  moduleId: string | null;
+  title: string;
+  /** `false` = lớp đã gỡ chuyên đề (còn lần giao thực hành / item ẩn) hoặc nhóm `null`. */
+  added: boolean;
+  /** Theo `order` tiết trong chuyên đề. */
+  theoryItems: ClassContentItemResponseDto[];
+  /** Theo `sortOrder` item. */
+  practiceItems: ClassContentItemResponseDto[];
 }
 
 export interface TheoryLessonViewResponseDto {
