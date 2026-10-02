@@ -41,6 +41,7 @@ import {
 } from 'src/dtos/dashboard.dto';
 import {
   CreateStudentSePayTopUpOrderDto,
+  StudentClassCardDto,
   StudentExamScheduleItemDto,
   StudentSePayStaticQrResponseDto,
   StudentSePayTopUpOrderResponseDto,
@@ -960,39 +961,21 @@ export class UserProfileController {
 
   @Get('student-classes')
   @ApiOperation({
-    summary: 'Get my enrolled classes',
-    description: 'Returns list of classes the current student is enrolled in.',
+    summary: 'Get my enrolled class cards',
+    description:
+      'Lớp học sinh đang học (enrollment active, chưa hết hạn xem nội dung), sắp theo tên lớp. Mỗi thẻ gồm tên lớp, tên khoá và họ tên các Gia sư đứng lớp đang hoạt động — không có học phí, gói, số buổi.',
   })
-  @ApiResponse({ status: 200, description: 'List of enrolled classes.' })
-  async getMyClasses(@CurrentUser() user: JwtPayload) {
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách thẻ lớp đang học.',
+    type: StudentClassCardDto,
+    isArray: true,
+  })
+  async getMyClasses(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<StudentClassCardDto[]> {
     const studentId = await this.userService.getLinkedStudentId(user.id);
-    const today = new Date();
-    return this.prisma.studentClass.findMany({
-      where: {
-        studentId,
-        status: 'active',
-        class: {
-          OR: [
-            { contentAccessExpiresAt: null },
-            { contentAccessExpiresAt: { gt: today } },
-          ],
-        },
-      },
-      include: {
-        class: {
-          include: {
-            course: true,
-            teachers: {
-              include: { teacher: { include: { user: true } } },
-              where: { status: 'active' },
-            },
-            sessions: { orderBy: { date: 'desc' }, take: 1 },
-            _count: { select: { sessions: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.userService.getMyStudentClassCards(studentId);
   }
 
   @Get('student-classes/:classId/detail')

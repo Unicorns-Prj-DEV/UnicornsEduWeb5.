@@ -25,6 +25,9 @@ describe('UserService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    studentClass: {
+      findMany: jest.fn(),
+    },
     studentInfo: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -867,5 +870,73 @@ describe('UserService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(mockPrisma.user.delete).not.toHaveBeenCalled();
+  });
+
+  describe('getMyStudentClassCards', () => {
+    it('queries active, non-expired enrollments with names only and sorts by class name', async () => {
+      const now = new Date('2026-10-02T00:00:00.000Z');
+      mockPrisma.studentClass.findMany.mockResolvedValue([
+        {
+          class: {
+            id: 'c2',
+            name: 'Lớp B',
+            course: { name: 'Khoá Y' },
+            teachers: [],
+          },
+        },
+        {
+          class: {
+            id: 'c1',
+            name: 'Lớp A',
+            course: { name: 'Khoá X' },
+            teachers: [
+              { teacher: { user: { first_name: 'An', last_name: 'Lê' } } },
+            ],
+          },
+        },
+      ]);
+
+      const cards = await service.getMyStudentClassCards('s1', now);
+
+      expect(cards).toEqual([
+        {
+          classId: 'c1',
+          className: 'Lớp A',
+          courseName: 'Khoá X',
+          teacherNames: ['Lê An'],
+        },
+        {
+          classId: 'c2',
+          className: 'Lớp B',
+          courseName: 'Khoá Y',
+          teacherNames: [],
+        },
+      ]);
+
+      const [args] = mockPrisma.studentClass.findMany.mock.calls[0] as [
+        {
+          where: unknown;
+          select: { class: { select: { teachers: unknown } } };
+        },
+      ];
+      expect(args.where).toEqual({
+        studentId: 's1',
+        status: 'active',
+        class: {
+          OR: [
+            { contentAccessExpiresAt: null },
+            { contentAccessExpiresAt: { gt: now } },
+          ],
+        },
+      });
+      expect(args.select.class.select.teachers).toEqual({
+        where: { status: 'active' },
+        select: {
+          teacher: {
+            select: { user: { select: { first_name: true, last_name: true } } },
+          },
+        },
+      });
+    });
   });
 });

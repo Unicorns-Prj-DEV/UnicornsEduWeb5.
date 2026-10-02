@@ -1,3 +1,11 @@
+/** Thẻ lớp đang học trên trang chủ học sinh (`GET /users/me/student-classes`). */
+export interface StudentClassCardItem {
+  classId: string;
+  className: string;
+  courseName: string;
+  teacherNames: string[];
+}
+
 export interface StudentClassItem {
   id: string;
   studentId: string;

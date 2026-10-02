@@ -1,21 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { StudentDashboardSkeleton } from "@/components/student/StudentDashboardSkeleton";
+import {
+  StudentClassCardGridSkeleton,
+  StudentDashboardSkeleton,
+} from "@/components/student/StudentDashboardSkeleton";
+import { StudentClassCard, StudentClassCardGrid } from "@/components/student/StudentClassCard";
 import OjProgressSection from "@/components/student/OjProgressSection";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
+import type { StudentClassCardItem } from "@/dtos/student-class.dto";
 import type { StudentSelfDetail } from "@/dtos/student.dto";
 import { getMyStudentDetail } from "@/lib/apis/auth.api";
-import {
-  formatTuitionPackage,
-  formatTuitionPerSession,
-  getClassStatusLabel,
-  getTuitionSourceClass,
-  getTuitionSourceLabel,
-} from "@/lib/student-tuition.helpers";
-import { cn } from "@/lib/utils";
+import { getMyClasses } from "@/lib/apis/student-class.api";
 
 export default function StudentSelfPage() {
   const {
@@ -31,13 +28,17 @@ export default function StudentSelfPage() {
     staleTime: 60_000,
   });
 
-  const classItems = useMemo(
-    () =>
-      (student?.studentClasses ?? []).toSorted((a, b) =>
-        (a.class?.name ?? "").localeCompare(b.class?.name ?? "", "vi"),
-      ),
-    [student],
-  );
+  const {
+    data: classCards,
+    isLoading: isClassesLoading,
+    isFetching: isClassesFetching,
+    isError: isClassesError,
+  } = useQuery<StudentClassCardItem[]>({
+    queryKey: ["student", "self", "classes"],
+    queryFn: getMyClasses,
+    retry: false,
+    staleTime: 60_000,
+  });
 
   if (isLoading) {
     return <StudentDashboardSkeleton />;
@@ -72,92 +73,31 @@ export default function StudentSelfPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
       <QueryRefreshStrip
-        active={isStudentFetching && !isLoading}
+        active={(isStudentFetching || isClassesFetching) && !isClassesLoading}
         label="Đang đồng bộ dữ liệu học sinh mới nhất…"
         className="mb-1"
       />
 
-      {/* Enrolled Classes List */}
-      <section className="rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-text-primary">Danh sách lớp học</h1>
-            <p className="text-sm text-text-muted">
-              Chọn lớp học để xem lịch sử buổi học, video recording và tiết học.
-            </p>
-          </div>
+      <section className="space-y-4">
+        <div>
+          <h1 className="text-lg font-bold text-text-primary">Lớp đang học</h1>
+          <p className="text-sm text-text-muted">
+            Chọn lớp học để xem lịch sử buổi học, video recording và tiết học.
+          </p>
         </div>
 
-        {classItems.length > 0 ? (
-          <div className="grid gap-3 sm:gap-4">
-            {classItems.map((item) => (
-              <Link
-                key={item.class.id}
-                href={`/student/classes/${item.class.id}`}
-                className="group relative flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary/40 p-4 transition-[color,background-color,border-color,box-shadow] duration-200 hover:border-primary/50 hover:bg-bg-secondary hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <span
-                    className={cn(
-                      "mt-1.5 size-2.5 shrink-0 rounded-full",
-                      item.class.status === "running" ? "bg-success" : "bg-text-muted",
-                    )}
-                    aria-hidden
-                  />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold text-text-primary group-hover:text-primary transition-colors truncate">
-                        {item.class.name}
-                      </h3>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1",
-                          getTuitionSourceClass(item.tuitionPackageSource),
-                        )}
-                      >
-                        {getTuitionSourceLabel(item.tuitionPackageSource)}
-                      </span>
-                      <span className="inline-flex rounded-full bg-bg-tertiary px-2 py-0.5 text-[11px] text-text-muted">
-                        {getClassStatusLabel(item.class.status)}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary">
-                      <div>
-                        <span className="text-text-muted">Học phí: </span>
-                        <span className="font-semibold text-text-primary">
-                          {formatTuitionPerSession(item.effectiveTuitionPerSession)}/buổi
-                        </span>
-                      </div>
-                      <span className="text-border-default" aria-hidden>•</span>
-                      <div>
-                        <span className="text-text-muted">Gói học phí: </span>
-                        <span className="font-medium text-text-primary">
-                          {formatTuitionPackage(item)}
-                        </span>
-                      </div>
-                      <span className="text-border-default" aria-hidden>•</span>
-                      <div>
-                        <span className="text-text-muted">Đã vào học: </span>
-                        <span className="font-semibold text-text-primary">
-                          {item.totalAttendedSession ?? 0} buổi
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t border-border-subtle sm:border-t-0">
-                  <span className="text-xs font-semibold text-primary group-hover:underline inline-flex items-center gap-1">
-                    Vào lớp học
-                    <svg className="size-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                </div>
-              </Link>
-            ))}
+        {isClassesLoading ? (
+          <StudentClassCardGridSkeleton />
+        ) : isClassesError ? (
+          <div className="rounded-2xl border border-error/30 bg-error/10 px-5 py-4 text-sm font-medium text-error">
+            Không tải được danh sách lớp đang học.
           </div>
+        ) : classCards && classCards.length > 0 ? (
+          <StudentClassCardGrid>
+            {classCards.map((card) => (
+              <StudentClassCard key={card.classId} card={card} />
+            ))}
+          </StudentClassCardGrid>
         ) : (
           <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/30 p-8 text-center">
             <div className="size-12 rounded-full bg-bg-tertiary text-text-muted mx-auto flex items-center justify-center mb-3">
