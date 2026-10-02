@@ -1,5 +1,6 @@
 export { default as ClassListTableSkeleton } from "./ClassListTableSkeleton";
 export { default as ClassCard } from "./ClassCard";
+export { default as ClassRosterCard } from "./ClassRosterCard";
 export { default as ClassDetailRow } from "./ClassDetailRow";
 export { default as ClassStudentWalletBalance } from "./ClassStudentWalletBalance";
 export { default as ClassStudentCaretakerCell } from "./ClassStudentCaretakerCell";

@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- Trang chi tiết lớp admin + staff (#158): card Danh sách học sinh (`ClassRosterCard`) mặc định thu gọn khi lớp có hơn 7 học sinh đang học; đầu card luôn có tiêu đề, số học sinh đang học, nút Xem danh sách / Thu gọn và Chỉnh sửa. Khối Học sinh đã nghỉ luôn mặc định thu gọn, chỉ hiện số lượng.
 - Trang lớp học sinh, tab Buổi học (#157): thẻ buổi học có ngày giờ ở đầu, khung video 16:9 lớn phát tại chỗ (`YouTubeEmbed`, không tự phát, chỉ mount khi gần viewport qua `useNearViewport`), buổi chưa có video giữ khung rỗng cùng tỉ lệ; cột chữ (điểm danh + nhận xét riêng → Nội dung bài học → BTVN → Tutorial) nằm dưới video ở mobile, bên phải từ `md`. Bỏ dialog chi tiết buổi học / khảo sát khi bấm thẻ; mục lục vẫn cuộn tới thẻ.
 - **Trang lớp học sinh: thẻ chuyên đề (#156):** tab Chuyên đề hiện mỗi chuyên đề một thẻ thu gọn (tên, số tiết lý thuyết / thực hành đã giao), mở nhiều thẻ cùng lúc, trình duyệt nhớ thẻ đang mở theo lớp. API mới `GET /class/:classId/content/student/groups` (chỉ item học sinh thấy).
 - **Trang lớp học sinh: 2 tab Chuyên đề / Buổi học (#155):** `/student/classes/[id]` tách timeline thành tab **Chuyên đề** (mặc định, chỉ tiết học) và **Buổi học** (buổi học + khảo sát); tab giữ trên `?tab=chuyen-de|buoi-hoc` nên quay lại từ trang tiết học về đúng tab (`?tab=lessons` cũ → Chuyên đề); mục lục chỉ liệt kê mục của tab đang mở.
