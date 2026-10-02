@@ -1,3 +1,5 @@
+import type { ClassStatus } from "@/dtos/class.dto";
+
 /** Thẻ lớp đang học trên trang chủ học sinh (`GET /users/me/student-classes`). */
 export interface StudentClassCardItem {
   classId: string;
@@ -12,7 +14,7 @@ export interface StudentClassCardItem {
 export interface StudentClassDetail {
   classId: string;
   className: string;
-  classStatus: string;
+  classStatus: ClassStatus;
   courseName: string;
   /** Họ tên Gia sư đứng lớp đang hoạt động; rỗng = ẩn khối. */
   teacherNames: string[];

@@ -713,7 +713,7 @@ export class UpdateStudentExamSchedulesDto {
   items: StudentExamScheduleUpsertItemDto[];
 }
 
-/** Thẻ lớp đang học trên trang chủ học sinh — chỉ dữ liệu hiển thị, không học phí/gói. */
+/** Đầu trang lớp học sinh — chỉ field hiển thị, không row user/staff. */
 export class StudentClassDetailDto {
   @ApiProperty({ description: 'Class id', example: 'cls_01' })
   classId: string;
@@ -739,6 +739,7 @@ export class StudentClassDetailDto {
   teacherNames: string[];
 }
 
+/** Thẻ lớp đang học trên trang chủ học sinh — chỉ dữ liệu hiển thị, không học phí/gói. */
 export class StudentClassCardDto {
   @ApiProperty({ description: 'Class id', example: 'cls_01' })
   classId: string;

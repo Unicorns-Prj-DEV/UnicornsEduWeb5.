@@ -7,12 +7,18 @@ interface ClassStandingTeachersProps {
   className?: string;
 }
 
-/** Dòng "Gia sư đứng lớp" ở đầu trang lớp. Lớp chưa có gia sư thì không hiện. */
+/**
+ * Dòng "Gia sư đứng lớp" ở đầu trang lớp (bỏ trùng, sắp theo tên — cùng thứ tự
+ * cho admin/staff/học sinh). Lớp chưa có gia sư thì không hiện.
+ */
 export default function ClassStandingTeachers({
   names,
   className,
 }: ClassStandingTeachersProps) {
-  if (names.length === 0) return null;
+  const sortedNames = Array.from(new Set(names.filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, "vi"),
+  );
+  if (sortedNames.length === 0) return null;
   return (
     <p
       className={cn(
@@ -27,7 +33,7 @@ export default function ClassStandingTeachers({
       <span className="min-w-0">
         <span className="text-text-muted">Gia sư đứng lớp: </span>
         <span className="font-medium text-text-primary">
-          {names.join(", ")}
+          {sortedNames.join(", ")}
         </span>
       </span>
     </p>

@@ -783,9 +783,7 @@ export default function StaffClassDetailPage() {
               </div>
             ) : null}
             <ClassStandingTeachers
-              names={(classDetail.teachers ?? [])
-                .map((teacher) => teacher.fullName)
-                .filter(Boolean)}
+              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
               className="mt-1.5"
             />
           </div>
