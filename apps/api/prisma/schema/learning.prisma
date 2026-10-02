@@ -110,6 +110,9 @@ model Class {
   contentAccessExpiresAt        DateTime?                   @map("content_access_expires_at") @db.Date
   /// false = timeline theo thời gian (tự sắp khi tạo/sửa ngày). true = đã DnD, giữ sort_order.
   timelineCustomOrder           Boolean                     @default(false) @map("timeline_custom_order")
+  /// Path ảnh bìa (tuỳ chọn) trong bucket private `class-covers`, dạng `{classId}/cover.{ext}`.
+  /// Null = thẻ lớp hiện mascot theo ID lớp.
+  coverImagePath                String?                     @map("cover_image_path")
   trainingManagerStaffId        String?                     @map("training_manager_staff_id")
   trainingManagerRatePercent    Decimal?                    @map("training_manager_rate_percent") @db.Decimal(5, 2)
   createdAt                     DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)

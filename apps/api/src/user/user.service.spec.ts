@@ -904,12 +904,14 @@ describe('UserService', () => {
           className: 'Lớp A',
           courseName: 'Khoá X',
           teacherNames: ['Lê An'],
+          coverImageUrl: null,
         },
         {
           classId: 'c2',
           className: 'Lớp B',
           courseName: 'Khoá Y',
           teacherNames: [],
+          coverImageUrl: null,
         },
       ]);
 

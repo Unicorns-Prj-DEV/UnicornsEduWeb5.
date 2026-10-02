@@ -29,6 +29,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
+import { ClassCoverImageCard } from "@/components/shared/class/ClassCoverImageCard";
 import type {
   ClassDetail,
   ClassScheduleItem,
@@ -783,6 +784,8 @@ export default function StaffClassDetailPage() {
           </div>
         </div>
       </header>
+
+      <ClassCoverImageCard classId={id} />
 
       <EditClassSchedulePopup
         open={schedulePopupOpen}

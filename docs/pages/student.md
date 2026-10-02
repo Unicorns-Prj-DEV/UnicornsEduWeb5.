@@ -17,6 +17,7 @@
 - **Trang chủ học sinh (`/student`):** Tinh gọn và tập trung vào trải nghiệm học tập:
   - **Tài khoản & Số dư:** Đã tách sang trang học phí riêng `/student/tuition` (component `StudentWalletSection`). Dashboard `/student` không còn thẻ ví, thẻ tóm tắt **Lớp đang tham gia**, và **không còn card thông tin đầu trang** (tên, email, nhãn «Đang học», hai nút): hai nút điều hướng đã chuyển lên navbar.
   - **Lớp đang học (lưới thẻ):** Chỉ hiện lớp học sinh đang học (enrollment `active`, lớp chưa hết hạn xem nội dung); lớp đã nghỉ hoặc chưa từng vào không hiện, không còn tách «Lớp học của bạn» / «Tất cả lớp học». Lưới 1 cột trên mobile, 2 cột từ `sm`, 3 cột từ `lg`. Mỗi thẻ (`StudentClassCard`, bọc trong `StudentClassCardGrid` dùng chung với skeleton) là một link vào `/student/classes/[id]`, gồm vùng ảnh bìa, tên khoá, tên lớp và họ tên các Gia sư đứng lớp đang hoạt động; không hiện học phí, gói, số buổi, nhãn trạng thái. Dữ liệu lấy từ `GET /users/me/student-classes` (query riêng `["student","self","classes"]`), không còn từ `studentClasses` của student-detail.
+  - **Ảnh bìa:** Lớp có ảnh bìa (`coverImageUrl`) thì thẻ hiện ảnh đó phủ kín khung 16:9 (`object-cover`); không có thì hiện mascot như dưới. Khung dùng chung `ClassCoverArt` (`components/shared/class/ClassCoverArt.tsx`).
   - **Mascot ảnh bìa:** Vùng ảnh bìa hiện mascot kỳ lân tách nền (bộ pastel `2795`–`2871`, 21 ảnh đã cắt sát, `public/mascots/unicorn-<id>.webp`) trên nền tint nhạt theo token theme (`bg-primary/10`, `bg-info/10`…). `getClassMascot(classId)` (`lib/class-mascot.ts`) chọn mascot + tint bằng hash FNV-1a của ID lớp, nên cùng lớp luôn cùng mascot.
   - **UNIOJ:** Khối tiến độ giải bài trực tuyến UNIOJ.
   - **Thông tin cá nhân & Lịch thi:** Quản lý tập trung tại trang Hồ sơ `/user-profile` (`StudentExamCard`, switch gửi biên lai nạp ví qua email). Trang hồ sơ **không còn** thẻ ví; thay vào đó là CTA nền `primary` dẫn sang `/student/tuition`.
@@ -51,7 +52,7 @@
 - **API (real):**
   - `GET /users/me/student-detail`
   - `PATCH /users/me/student`
-  - `GET /users/me/student-classes` — thẻ lớp đang học `{ classId, className, courseName, teacherNames[] }`, sắp theo tên lớp. Chỉ enrollment `active` và lớp chưa hết hạn `contentAccessExpiresAt`; `teacherNames` lấy Gia sư `class_teachers.status = 'active'`, chỉ select họ tên (không trả bản ghi user).
+  - `GET /users/me/student-classes` — thẻ lớp đang học `{ classId, className, courseName, teacherNames[], coverImageUrl }` (`coverImageUrl` = signed URL 1 giờ từ bucket `class-covers`, null khi lớp chưa có ảnh bìa), sắp theo tên lớp. Chỉ enrollment `active` và lớp chưa hết hạn `contentAccessExpiresAt`; `teacherNames` lấy Gia sư `class_teachers.status = 'active'`, chỉ select họ tên (không trả bản ghi user).
   - `GET /users/me/student-classes/:classId/sessions`
   - `GET /users/me/student-classes/:classId/surveys`
   - `GET /users/me/student-classes/:classId/lessons`
