@@ -6,10 +6,10 @@ import {
   StudentClassCardGridSkeleton,
   StudentDashboardSkeleton,
 } from "@/components/student/StudentDashboardSkeleton";
-import { StudentClassCard } from "@/components/student/StudentClassCard";
+import { StudentClassCard, StudentClassCardGrid } from "@/components/student/StudentClassCard";
 import OjProgressSection from "@/components/student/OjProgressSection";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
-import type { StudentClassCard as StudentClassCardData } from "@/dtos/student-class.dto";
+import type { StudentClassCardItem } from "@/dtos/student-class.dto";
 import type { StudentSelfDetail } from "@/dtos/student.dto";
 import { getMyStudentDetail } from "@/lib/apis/auth.api";
 import { getMyClasses } from "@/lib/apis/student-class.api";
@@ -33,7 +33,7 @@ export default function StudentSelfPage() {
     isLoading: isClassesLoading,
     isFetching: isClassesFetching,
     isError: isClassesError,
-  } = useQuery<StudentClassCardData[]>({
+  } = useQuery<StudentClassCardItem[]>({
     queryKey: ["student", "self", "classes"],
     queryFn: getMyClasses,
     retry: false,
@@ -93,11 +93,11 @@ export default function StudentSelfPage() {
             Không tải được danh sách lớp đang học.
           </div>
         ) : classCards && classCards.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StudentClassCardGrid>
             {classCards.map((card) => (
               <StudentClassCard key={card.classId} card={card} />
             ))}
-          </div>
+          </StudentClassCardGrid>
         ) : (
           <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/30 p-8 text-center">
             <div className="size-12 rounded-full bg-bg-tertiary text-text-muted mx-auto flex items-center justify-center mb-3">

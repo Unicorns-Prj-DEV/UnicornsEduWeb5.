@@ -871,6 +871,7 @@ describe('UserService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(mockPrisma.user.delete).not.toHaveBeenCalled();
   });
+
   describe('getMyStudentClassCards', () => {
     it('queries active, non-expired enrollments with names only and sorts by class name', async () => {
       const now = new Date('2026-10-02T00:00:00.000Z');

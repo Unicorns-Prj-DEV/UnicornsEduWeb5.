@@ -1,5 +1,5 @@
 /** Thẻ lớp đang học trên trang chủ học sinh (`GET /users/me/student-classes`). */
-export interface StudentClassCard {
+export interface StudentClassCardItem {
   classId: string;
   className: string;
   courseName: string;

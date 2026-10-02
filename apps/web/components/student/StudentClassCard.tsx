@@ -1,10 +1,16 @@
+import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import type { StudentClassCard as StudentClassCardData } from "@/dtos/student-class.dto";
+import type { StudentClassCardItem } from "@/dtos/student-class.dto";
 import { getClassMascot } from "@/lib/class-mascot";
 import { cn } from "@/lib/utils";
 
-export function StudentClassCard({ card }: { card: StudentClassCardData }) {
+/** Lưới thẻ lớp mobile-first: 1 cột → 2 cột (sm) → 3 cột (lg). Dùng chung cho trang và skeleton. */
+export function StudentClassCardGrid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
+}
+
+export function StudentClassCard({ card }: { card: StudentClassCardItem }) {
   const mascot = getClassMascot(card.classId);
   const teacherLabel =
     card.teacherNames.length > 0 ? card.teacherNames.join(", ") : "Chưa phân công";

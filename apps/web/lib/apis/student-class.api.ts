@@ -1,7 +1,7 @@
 import { api } from "@/lib/client";
 import { contentApiPaths } from "@/lib/content-api-paths";
 import type {
-  StudentClassCard,
+  StudentClassCardItem,
   StudentClassItem,
   StudentSessionItem,
   StudentSurveyItem,
@@ -14,7 +14,7 @@ import type {
 } from "@/dtos/course-content.dto";
 import type { TheoryLessonViewDto } from "@/dtos/class-theory-progress.dto";
 
-export async function getMyClasses(): Promise<StudentClassCard[]> {
+export async function getMyClasses(): Promise<StudentClassCardItem[]> {
   const { data } = await api.get("/users/me/student-classes");
   return data;
 }

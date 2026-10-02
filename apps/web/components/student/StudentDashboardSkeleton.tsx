@@ -1,10 +1,11 @@
+import { StudentClassCardGrid } from "@/components/student/StudentClassCard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const classCards = Array.from({ length: 3 });
 
 export function StudentClassCardGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+    <StudentClassCardGrid>
       {classCards.map((_, index) => (
         <div
           key={index}
@@ -18,7 +19,7 @@ export function StudentClassCardGridSkeleton() {
           </div>
         </div>
       ))}
-    </div>
+    </StudentClassCardGrid>
   );
 }
 
