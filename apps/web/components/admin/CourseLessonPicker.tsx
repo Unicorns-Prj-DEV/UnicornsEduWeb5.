@@ -74,8 +74,8 @@ export default function CourseLessonPicker({
   if (!lessons || lessons.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/20 p-6 text-center text-sm text-text-muted">
-        Khoá học này chưa có tiết học nào. Hãy tạo tiết học trong quản trị
-        khoá học trước.
+        Khoá học này chưa có tiết thực hành nào. Hãy tạo tiết thực hành trong
+        quản trị khoá học trước.
       </div>
     );
   }
@@ -88,8 +88,8 @@ export default function CourseLessonPicker({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Tìm tiết học"
-          placeholder="Tìm tiết học..."
+          aria-label="Tìm tiết thực hành"
+          placeholder="Tìm tiết thực hành..."
           className="w-full rounded-xl border border-border-default bg-bg-surface pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         />
       </div>
@@ -97,7 +97,7 @@ export default function CourseLessonPicker({
       <div className="max-h-[50vh] overflow-y-auto overscroll-contain space-y-3 [scrollbar-width:thin]">
         {filtered.length === 0 && (
           <div className="py-6 text-center text-sm text-text-muted">
-            Không tìm thấy tiết học phù hợp.
+            Không tìm thấy tiết thực hành phù hợp.
           </div>
         )}
 

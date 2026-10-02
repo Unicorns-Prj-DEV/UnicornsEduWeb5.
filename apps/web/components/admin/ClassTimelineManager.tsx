@@ -26,7 +26,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, Eye, GripVertical, PenLine, Plus, X } from "lucide-react";
+import { BarChart3, Eye, GripVertical, Layers, PenLine, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import SessionTimelineCard from "@/components/admin/session/SessionTimelineCard";
@@ -38,6 +38,7 @@ import type { ClassTheoryProgressStudentDto } from "@/dtos/class-theory-progress
 import type { SessionItem } from "@/dtos/session.dto";
 import type { ClassSurveyRecord } from "@/dtos/class-survey.dto";
 import ClassContentManager from "@/components/admin/ClassContentManager";
+import ClassModulesDialog from "@/components/admin/ClassModulesDialog";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -516,6 +517,7 @@ export default function ClassTimelineManager({
   );
   const [orderDirty, setOrderDirty] = useState(false);
   const [topicAddOpen, setTopicAddOpen] = useState(false);
+  const [modulesOpen, setModulesOpen] = useState(false);
   const [surveyCreateOpen, setSurveyCreateOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{
     id: string;
@@ -691,14 +693,24 @@ export default function ClassTimelineManager({
           </button>
         ) : null}
         {canManageContent ? (
-          <button
-            type="button"
-            onClick={() => setTopicAddOpen(true)}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
-          >
-            <Plus className="size-3.5" />
-            Tiết học
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setModulesOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+            >
+              <Layers className="size-3.5" />
+              Chuyên đề
+            </button>
+            <button
+              type="button"
+              onClick={() => setTopicAddOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+            >
+              <Plus className="size-3.5" />
+              Tiết thực hành
+            </button>
+          </>
         ) : null}
         {canManageSurveys ? (
           <button
@@ -793,6 +805,13 @@ export default function ClassTimelineManager({
           void invalidate();
         }}
       />
+
+      {modulesOpen ? (
+        <ClassModulesDialog
+          classId={classId}
+          onClose={() => setModulesOpen(false)}
+        />
+      ) : null}
 
       {openSession
         ? sessionTable({

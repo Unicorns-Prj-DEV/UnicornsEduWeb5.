@@ -23,6 +23,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Lớp thêm nội dung theo Chuyên đề (#150):**
+  - Bảng `class_modules`; `GET/POST /class/:classId/modules`, `DELETE /class/:classId/modules/:moduleId`. Thêm chuyên đề kéo mọi tiết lý thuyết (item + dòng timeline), gỡ thì ẩn mềm. Tiết lý thuyết mới tạo trong chuyên đề tự hiện trên mọi lớp đã thêm; xoá tiết lý thuyết gỡ khỏi mọi lớp. Tiết thực hành không tự kéo theo.
+  - UI: nút **Chuyên đề** trên toolbar timeline lớp mở `ClassModulesDialog` (Thêm/Gỡ, ConfirmDialog khi gỡ). Nút **Tiết học** đổi thành **Tiết thực hành**; dialog chỉ còn giao tiết thực hành có sẵn của khoá.
+  - Bỏ tiết riêng lớp: API không tạo tiết có `classId` (400), không thêm lẻ tiết lý thuyết (400); tiết riêng cũ lưu trữ (`lessons.archived_at`).
+  - Guard xoá Chuyên đề / Tiết học: 409 chỉ còn tính lần giao tiết thực hành.
+  - **Migration:** `20261002120000_add_class_modules` (thêm nguyên chuyên đề cho lớp có tiết lý thuyết thêm lẻ, sắp lại timeline lớp không tuỳ chỉnh thứ tự, archive + ẩn tiết riêng lớp). Test SQL `apps/api/prisma/tests/20261002120000_add_class_modules.test.sql`.
+  - ADR `docs/adr/2026-10-02-class-content-by-module.md` thay `2026-09-16-class-owned-lesson-xor.md`.
 - **Ảnh bìa lớp (tuỳ chọn):** mỗi lớp có thể có một ảnh bìa (cột `classes.cover_image_path`, bucket private `class-covers`, migration `20261002110000_add_class_cover_image`). API `GET/POST/DELETE /class/:id/cover-image`; admin và trợ lí đổi được ảnh mọi lớp, Gia sư đứng lớp và Quản lý lớp chỉ lớp của mình. Trang chi tiết lớp admin + staff có khối ảnh bìa (đổi / gỡ cho người có quyền). Thẻ lớp trên trang chủ học sinh hiện ảnh bìa, chưa có thì hiện mascot. Ops cần tạo bucket `class-covers` trên Supabase.
 - **Trang chủ học sinh — lưới thẻ lớp đang học:** danh sách lớp đổi thành lưới thẻ (1 cột mobile → 3 cột desktop), chỉ lớp đang học. Thẻ có ảnh bìa mascot kỳ lân (cố định theo ID lớp, 21 ảnh pastel đã cắt sát trên nền nhạt), tên khoá, tên lớp, Gia sư đứng lớp; cả thẻ là link vào lớp. Bỏ học phí, gói, số buổi, nhãn trạng thái khỏi thẻ.
 - **Dashboard — tách dòng phạt trong chi tiết bonus:** popup Chi tiết Chi phí nhân sự thay thẻ Bonus bằng hai thẻ Thưởng và Phạt, mỗi thẻ một tổng; mỗi dòng nhân sự có `sourceAmounts` (số tiền theo từng thẻ nguồn, phạt âm) để FE lọc mà không parse ghi chú. Ghi chú và file export ghi `Thưởng …` / `Phạt -…` thay `Bonus …`. Nhân sự chỉ có phạt vẫn hiện trong bảng, export và danh sách lợi nhuận / tổng chi; danh sách sắp theo độ lớn tổng chi phí. Tổng bonus vẫn là số ròng.

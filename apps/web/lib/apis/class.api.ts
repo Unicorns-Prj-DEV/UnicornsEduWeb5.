@@ -52,7 +52,7 @@ import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
 } from "@/dtos/class-timeline.dto";
-import type { CourseLessonForClassDto } from "@/dtos/course-content.dto";
+import type { ClassModuleDto, CourseLessonForClassDto } from "@/dtos/course-content.dto";
 
 function normalizeOperatingDeductionRatePercent(
   teacher: Record<string, unknown>,
@@ -512,6 +512,37 @@ export async function getStudentClassTimeline(
     items: Array.isArray(response.data?.items) ? response.data.items : [],
     nextCursor: response.data?.nextCursor ?? null,
   };
+}
+
+export async function getClassModules(classId: string): Promise<ClassModuleDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassModuleDto[]>(`/class/${safeId}/modules`);
+  return response.data;
+}
+
+/** Thêm chuyên đề: mọi tiết lý thuyết của chuyên đề vào lớp. Trả danh sách chuyên đề mới. */
+export async function addClassModule(
+  classId: string,
+  moduleId: string,
+): Promise<ClassModuleDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post<ClassModuleDto[]>(`/class/${safeId}/modules`, {
+    moduleId,
+  });
+  return response.data;
+}
+
+/** Gỡ chuyên đề: ẩn mềm các tiết lý thuyết của chuyên đề trong lớp. */
+export async function removeClassModule(
+  classId: string,
+  moduleId: string,
+): Promise<ClassModuleDto[]> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeModuleId = encodeURIComponent(moduleId);
+  const response = await api.delete<ClassModuleDto[]>(
+    `/class/${safeClassId}/modules/${safeModuleId}`,
+  );
+  return response.data;
 }
 
 export async function getCourseLessonsForClass(classId: string): Promise<CourseLessonForClassDto[]> {

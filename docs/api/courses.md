@@ -66,7 +66,26 @@ Tạo chuyên đề: body `POST /course/:courseId/modules` là `{ "title": "..."
 
 Loại tiết: `LessonKind` = `theory` (video/nội dung) hoặc `practice` (chỉ tập câu hỏi). Tạo/sửa tiết thực hành kèm `videoUrl` hoặc `content` → `400` *«Tiết thực hành không được kèm video hoặc nội dung — chỉ gồm tập câu hỏi.»*
 
-Xoá chuyên đề hoặc tiết học khi còn `class_content_items` tham chiếu **kể cả item đang ẩn** → `409` *«Không thể xoá chuyên đề/tiết học: còn N lớp đang tham chiếu — {tên lớp} (X lần giao đang hiện, Y lần giao đang ẩn).»*
+Xoá chuyên đề hoặc tiết học khi còn lần giao **tiết thực hành** (`class_content_items`, **kể cả item đang ẩn**) → `409` *«Không thể xoá chuyên đề/tiết học: còn N lớp đang tham chiếu — {tên lớp} (X lần giao đang hiện, Y lần giao đang ẩn).»* Item tiết lý thuyết không chặn: xoá tiết lý thuyết / chuyên đề xoá luôn item lý thuyết ở mọi lớp (cùng transaction).
+
+Tạo tiết lý thuyết trong chuyên đề → tự thêm vào mọi lớp đã thêm chuyên đề đó (item + dòng timeline). Tạo tiết với `classId` (tiết riêng lớp) → `400` *«Lớp không tạo tiết riêng nữa. Hãy thêm chuyên đề của khoá hoặc giao tiết thực hành có sẵn.»* Sửa/xoá tiết đã lưu trữ (`archivedAt`, tiết riêng lớp cũ) → `400` *«Tiết học đã lưu trữ, không sửa hay xoá được.»* ADR `docs/adr/2026-10-02-class-content-by-module.md`.
+
+## Chuyên đề của lớp (`/class/:classId/modules`)
+
+Controller: `class-course-module.controller.ts` (`ClassCourseModuleService`). Quyền: admin + staff `assistant`/`teacher` (cùng `validateStaffClassAccess` với nội dung lớp).
+
+| Method | Path | Body | Kết quả |
+| --- | --- | --- | --- |
+| `GET` | `/class/:classId/modules` | — | `ClassModuleResponseDto[]`: mọi chuyên đề của khoá của lớp, theo `sortOrder` — `{ moduleId, title, sortOrder, theoryLessonCount, practiceLessonCount, added, addedAt }` (đếm tiết chưa lưu trữ) |
+| `POST` | `/class/:classId/modules` | `{ "moduleId": "..." }` | Thêm chuyên đề: tạo item + dòng timeline cho tiết lý thuyết còn thiếu (thứ tự theo `order` tiết), khôi phục item lý thuyết đang ẩn. Trả danh sách mới. `400` chuyên đề khác khoá; `409` *«Lớp đã có chuyên đề này.»* |
+| `DELETE` | `/class/:classId/modules/:moduleId` | — | Gỡ chuyên đề: ẩn mềm item lý thuyết + dòng timeline (lượt xem giữ). Lần giao thực hành không đổi. Trả danh sách mới. `404` *«Lớp chưa thêm chuyên đề này.»* |
+
+Liên quan nội dung lớp (`/class/:classId/content`):
+
+- `POST` chỉ nhận `{ lessonId, openAt?, durationMinutes }` của **tiết thực hành** có sẵn trong khoá. Thiếu `lessonId` → `400` (không tạo tiết riêng). Tiết lý thuyết → `400` *«Tiết lý thuyết vào lớp theo chuyên đề…»*. Tiết đã lưu trữ → `404`.
+- `POST .../:itemId/restore` item lý thuyết khi lớp chưa thêm chuyên đề → `400`; tiết đã lưu trữ → `400`.
+- `GET /class/:classId/course-lessons` chỉ trả tiết thực hành chưa lưu trữ.
+- `GET` danh sách nội dung (staff + học sinh) sắp theo `sortOrder` chuyên đề → trong chuyên đề: lý thuyết theo `order`, rồi thực hành theo `sortOrder` item; item không có chuyên đề ở cuối.
 
 `lesson_plan` thuần soạn cây nội dung trên khoá được gán. GET list chuyên đề kèm `lessonCount`; GET list tiết kèm `quizCount` / `questionCount`.
 

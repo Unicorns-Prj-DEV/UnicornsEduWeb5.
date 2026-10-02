@@ -15,10 +15,9 @@ export interface ClassContentItemDto {
   hiddenByStaffId: string | null;
 }
 
+/** Giao một tiết thực hành có sẵn của khoá; tiết lý thuyết vào lớp theo chuyên đề. */
 export interface ClassContentCreatePayload {
-  lessonId?: string;
-  title?: string;
-  kind?: "theory" | "practice";
+  lessonId: string;
   /** ISO 8601. Omit for practice to default openAt to server time when the item is added. */
   openAt?: string;
   /** Required for practice. Integer 1–720. */
