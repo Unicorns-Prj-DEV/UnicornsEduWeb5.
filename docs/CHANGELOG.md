@@ -76,6 +76,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Dashboard — bonus theo tháng thưởng:** xu hướng tháng, chi tiết chi phí, bảng chi phí theo nhân sự và thống kê tháng gom bonus theo `bonuses.month` thay cho `bonuses.date`, khớp payroll. Khoảng ngày lấy trọn tháng thưởng giao với khoảng chọn, có ghi chú trên UI.
 - **Email học sinh trên production trỏ localhost:** Magic link đăng nhập, email xác thực và đặt lại mật khẩu không còn fallback `http://localhost:3000` khi `NODE_ENV=production`. Origin lấy từ `FRONTEND_URL` HTTPS public, rồi `VPS_PUBLIC_HOST`, rồi `BACKEND_URL` (bỏ `/api`), rồi host `*.uniedu.vn` hoặc `*.unicornsedu.com` của request qua Nginx. Host lạ bị từ chối.
 
 - **Tạo chuyên đề 400 `courseId must be a string`:** `POST /course/:courseId/modules` nhận body `{ title }` — `courseId` lấy từ path. `ModuleCreateDto.courseId` thành optional để ValidationPipe không từ chối trước khi controller gán param.

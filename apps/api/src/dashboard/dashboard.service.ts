@@ -458,9 +458,7 @@ function buildDashboardRange(month?: string, year?: string) {
 
   // For month-key-based fields (bonuses, extra_allowances): single-month range
   const fromMonthKey = `${parsedYear}-${normalizedMonth}`;
-  const nextParsedMonth = parsedMonth === 12 ? 1 : parsedMonth + 1;
-  const nextParsedYear = parsedMonth === 12 ? parsedYear + 1 : parsedYear;
-  const toMonthKeyExclusive = `${nextParsedYear}-${String(nextParsedMonth).padStart(2, '0')}`;
+  const toMonthKeyExclusive = nextMonthKey(fromMonthKey);
 
   return {
     isDateRange: false as const,
@@ -477,6 +475,29 @@ function buildDashboardRange(month?: string, year?: string) {
 }
 
 /**
+ * Khoản theo tháng (`bonuses.month`, `extra_allowances.month`) không có ngày,
+ * nên khoảng ngày lấy trọn mọi tháng giao với khoảng: tháng của `dateFrom`
+ * tới hết tháng của `dateTo` (inclusive), trả về cận trên exclusive.
+ */
+export function monthKeysIntersectingDateRange(
+  dateFrom: string,
+  dateTo: string,
+): { fromMonthKey: string; toMonthKeyExclusive: string } {
+  return {
+    fromMonthKey: dateFrom.slice(0, 7),
+    toMonthKeyExclusive: nextMonthKey(dateTo.slice(0, 7)),
+  };
+}
+
+/** `YYYY-MM` của tháng liền sau, qua năm khi là tháng 12. */
+function nextMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  return month === 12
+    ? `${year + 1}-01`
+    : `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+/**
  * Build an arbitrary date-range period for financial calculations.
  * dateFrom and dateTo are YYYY-MM-DD strings (dateTo is inclusive).
  */
@@ -486,14 +507,10 @@ function buildDateRangePeriod(dateFrom: string, dateTo: string) {
   // exclusive end = dateTo + 1 day
   periodEnd.setUTCDate(periodEnd.getUTCDate() + 1);
 
-  // For YYYY-MM key based fields (bonuses, extra_allowances)
-  const fromMonthKey = dateFrom.slice(0, 7); // 'YYYY-MM'
-  const [toYStr, toMStr] = dateTo.slice(0, 7).split('-');
-  const toY = Number(toYStr);
-  const toM = Number(toMStr);
-  const nextM = toM === 12 ? 1 : toM + 1;
-  const nextY = toM === 12 ? toY + 1 : toY;
-  const toMonthKeyExclusive = `${nextY}-${String(nextM).padStart(2, '0')}`;
+  const { fromMonthKey, toMonthKeyExclusive } = monthKeysIntersectingDateRange(
+    dateFrom,
+    dateTo,
+  );
 
   return {
     isDateRange: true as const,
@@ -560,15 +577,9 @@ function buildCalendarPeriodStrings(anchorMonthKey: string) {
 
 /** Inclusive calendar start and exclusive end as YYYY-MM-DD for an arbitrary multi-month span. */
 function buildMonthRangeStrings(fromMonthKey: string, toMonthKey: string) {
-  const [fromYearStr, fromMonthStr] = fromMonthKey.split('-');
-  const [toYearStr, toMonthStr] = toMonthKey.split('-');
-  const periodStartStr = `${fromYearStr}-${fromMonthStr}-01`;
-  const toYear = Number(toYearStr);
-  const toMonth = Number(toMonthStr);
-  const nextYear = toMonth === 12 ? toYear + 1 : toYear;
-  const nextMonth = toMonth === 12 ? 1 : toMonth + 1;
-  const periodEndExclusiveStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
-  const toMonthKeyExclusive = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  const periodStartStr = `${fromMonthKey}-01`;
+  const toMonthKeyExclusive = nextMonthKey(toMonthKey);
+  const periodEndExclusiveStr = `${toMonthKeyExclusive}-01`;
   return {
     periodStartStr,
     periodEndExclusiveStr,
@@ -1114,11 +1125,11 @@ export class DashboardService {
       ),
       monthly_bonus_cost AS (
         SELECT
-          date_trunc('month', bonuses.date)::date AS month_start,
+          TO_DATE(CONCAT(bonuses.month, '-01'), 'YYYY-MM-DD') AS month_start,
           COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount
         FROM bonuses
-        WHERE bonuses.date >= ${periodStartDate}
-          AND bonuses.date < ${periodEndExclusiveDate}
+        WHERE bonuses.month::text >= ${yearStartKey}
+          AND bonuses.month::text < ${yearEndKeyExclusive}
         GROUP BY 1
       ),
       monthly_extra_allowance_cost AS (
@@ -1933,8 +1944,8 @@ export class DashboardService {
         WHERE 1=1
           ${
             period
-              ? Prisma.sql`AND bonuses.date >= ${period.monthStart}
-          AND bonuses.date < ${period.monthEnd}`
+              ? Prisma.sql`AND bonuses.month >= ${period.fromMonthKey}
+          AND bonuses.month < ${period.toMonthKeyExclusive}`
               : Prisma.empty
           }
         GROUP BY bonuses.staff_id
@@ -3818,8 +3829,8 @@ export class DashboardService {
             ELSE 'other'
           END AS status
         FROM bonuses
-        WHERE bonuses.date >= ${period.monthStart}
-          AND bonuses.date < ${period.monthEnd}
+        WHERE bonuses.month >= ${period.fromMonthKey}
+          AND bonuses.month < ${period.toMonthKeyExclusive}
 
         UNION ALL
 
@@ -6140,11 +6151,11 @@ export class DashboardService {
             ),
             monthly_bonus_cost AS (
               SELECT
-                date_trunc('month', bonuses.date)::date AS month_start,
+                TO_DATE(CONCAT(bonuses.month, '-01'), 'YYYY-MM-DD') AS month_start,
                 COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount
               FROM bonuses
-              WHERE bonuses.date >= ${periodStartDate}
-                AND bonuses.date < ${periodEndExclusiveDate}
+              WHERE bonuses.month::text >= ${fromKeyLiteral}
+                AND bonuses.month::text < ${toKeyExclusiveLiteral}
               GROUP BY 1
             ),
             monthly_extra_allowance_cost AS (
