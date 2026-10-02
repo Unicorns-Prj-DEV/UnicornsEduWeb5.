@@ -87,7 +87,7 @@ export default function StudentClassTocSidebar({
         width: collapsed ? TOC_WIDTH_COLLAPSED : TOC_WIDTH_EXPANDED,
         transition: prefersReducedMotion ? "none" : `width 0.3s ${TOC_EASE}`,
       }}
-      className="sticky -top-6 hidden h-[calc(100dvh-4rem)] shrink-0 flex-col self-start overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary sm:-top-8 lg:flex"
+      className="sticky -top-6 hidden h-[calc(100dvh-5rem)] shrink-0 flex-col self-start overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary sm:-top-8 lg:flex"
       aria-label="Mục lục lớp học"
     >
       <div

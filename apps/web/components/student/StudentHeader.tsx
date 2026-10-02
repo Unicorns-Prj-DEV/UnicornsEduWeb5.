@@ -11,6 +11,7 @@ import { SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { cn } from "@/lib/utils";
+import { UserRound, WalletCards, type LucideIcon } from "lucide-react";
 
 export default function StudentHeader() {
   const { push } = useRouter();
@@ -54,8 +55,10 @@ export default function StudentHeader() {
         </Link>
 
         <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-          <StudentNavAction href="/user-profile" label="Hồ sơ & Lịch thi" iconPath={PROFILE_ICON_PATH} />
-          <StudentNavAction href="/student/tuition" label="Nạp ví" iconPath={WALLET_ICON_PATH} primary />
+          <nav aria-label="Điều hướng học sinh" className="flex items-center gap-1 sm:gap-2">
+            <StudentNavAction href="/user-profile" label="Hồ sơ & Lịch thi" icon={UserRound} />
+            <StudentNavAction href="/student/tuition" label="Nạp ví" icon={WalletCards} primary />
+          </nav>
 
           <div className="mx-1 hidden h-6 w-px bg-border-default sm:block" aria-hidden="true" />
 
@@ -73,7 +76,7 @@ export default function StudentHeader() {
               className="size-8 ring-1 ring-border-default sm:size-9"
               fallbackClassName="text-xs font-semibold"
             />
-            <span className="hidden max-w-[120px] truncate text-xs font-semibold text-text-primary lg:inline">
+            <span className="hidden max-w-[120px] truncate text-xs font-semibold text-text-primary sm:inline">
               {displayName}
             </span>
           </Link>
@@ -101,21 +104,16 @@ export default function StudentHeader() {
   );
 }
 
-const PROFILE_ICON_PATH =
-  "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z";
-const WALLET_ICON_PATH =
-  "M3 10h18M7 15h4m-7 4h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z";
-
-/** Nút điều hướng trên navbar: màn hẹp chỉ icon, từ `sm` hiện chữ. */
+/** Nút điều hướng trên navbar: dưới `lg` chỉ icon (kèm aria-label), từ `lg` hiện chữ. */
 function StudentNavAction({
   href,
   label,
-  iconPath,
+  icon: Icon,
   primary = false,
 }: {
   href: string;
   label: string;
-  iconPath: string;
+  icon: LucideIcon;
   primary?: boolean;
 }) {
   return (
@@ -124,16 +122,14 @@ function StudentNavAction({
       aria-label={label}
       title={label}
       className={cn(
-        "inline-flex size-9 shrink-0 items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:size-auto sm:px-3 sm:py-2",
+        "inline-flex size-9 shrink-0 items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus lg:size-auto lg:px-3 lg:py-2",
         primary
           ? "bg-primary text-text-inverse hover:bg-primary-hover"
           : "border border-border-default bg-bg-secondary/60 text-text-primary hover:bg-bg-secondary",
       )}
     >
-      <svg className="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
-      </svg>
-      <span className="hidden whitespace-nowrap sm:inline">{label}</span>
+      <Icon className="size-4 shrink-0" aria-hidden />
+      <span className="hidden whitespace-nowrap lg:inline">{label}</span>
     </Link>
   );
 }
