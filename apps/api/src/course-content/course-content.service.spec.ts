@@ -20,6 +20,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from 'generated/enums';
+import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
 
 describe('CourseContentService — ClassContent methods', () => {
   let service: CourseContentService;
@@ -467,7 +468,7 @@ describe('CourseContentService — ClassContent methods', () => {
         expect.objectContaining({
           where: {
             classId: 'cls-1',
-            NOT: { lesson: { is: { archivedAt: { not: null } } } },
+            ...NOT_ARCHIVED_CONTENT_ITEM,
           },
         }),
       );
@@ -477,6 +478,28 @@ describe('CourseContentService — ClassContent methods', () => {
   // ─── reorderClassContentItems ───
 
   describe('reorderClassContentItems', () => {
+    it('treats archived-lesson items as not owned', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
+      mockPrisma.classContentItem.findMany.mockResolvedValue([{ id: 'cci-1' }]);
+
+      await expect(
+        service.reorderClassContentItems(
+          'cls-1',
+          ['cci-1', 'cci-archived'],
+          adminActor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: { in: ['cci-1', 'cci-archived'] },
+            classId: 'cls-1',
+            ...NOT_ARCHIVED_CONTENT_ITEM,
+          },
+        }),
+      );
+    });
+
     it('should reject if any ID does not belong to class', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
@@ -855,7 +878,7 @@ describe('CourseContentService — ClassContent methods', () => {
           archivedAt: new Date(),
         },
         openAt: null,
-        hiddenAt: new Date(),
+        hiddenAt: null,
       });
 
       await expect(
@@ -959,7 +982,7 @@ describe('CourseContentService — ClassContent methods', () => {
           where: {
             classId: 'cls-1',
             hiddenAt: null,
-            NOT: { lesson: { is: { archivedAt: { not: null } } } },
+            ...NOT_ARCHIVED_CONTENT_ITEM,
           },
         }),
       );

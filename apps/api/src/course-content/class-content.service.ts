@@ -591,7 +591,7 @@ export class ClassContentService extends CourseContentSupportService {
 
     // Finding #4: verify ALL IDs belong to this class before updating
     const owned = await this.prisma.classContentItem.findMany({
-      where: { id: { in: orderedIds }, classId },
+      where: { id: { in: orderedIds }, classId, ...NOT_ARCHIVED_CONTENT_ITEM },
       select: { id: true },
     });
     if (owned.length !== orderedIds.length) {
