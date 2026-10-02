@@ -193,6 +193,44 @@ describe('DashboardService staff training dashboard', () => {
     ]);
   });
 
+  it('keeps an inactive staff with unpaid amounts in payroll alerts', async () => {
+    prisma.$queryRaw.mockResolvedValueOnce([
+      {
+        staffId: 'staff-left',
+        staffName: 'Bình',
+        staffStatus: 'inactive',
+        sessionAmount: 400000,
+        bonusAmount: 0,
+        customerCareAmount: 0,
+        lessonAmount: 0,
+        extraAllowanceAmount: 0,
+        fixedSalaryAmount: 0,
+        assistantAmount: 0,
+        trainingManagerAmount: 0,
+        totalUnpaid: 400000,
+        totalCount: 1,
+        totalAmount: 400000,
+      },
+    ]);
+
+    const result = await service.getAdminActionAlerts({
+      group: 'payroll',
+      month: '05',
+      year: '2026',
+      page: 1,
+      limit: 20,
+    });
+
+    const [query] = prisma.$queryRaw.mock.calls[0] as [{ strings: string[] }];
+    expect(query.strings.join('')).not.toContain(
+      "staff_info.status = 'active'",
+    );
+    expect(result.data).toEqual([
+      expect.objectContaining({ targetId: 'staff-left', amount: 400000 }),
+    ]);
+    expect(result.data[0]?.subject).toMatch(/^Bình \(Đã nghỉ\) · /);
+  });
+
   it('returns paginated missing-survey class action alerts with meta total', async () => {
     prisma.$queryRaw.mockResolvedValueOnce([
       {
@@ -570,7 +608,7 @@ describe('DashboardService financial export', () => {
           return revenueRows;
         }
 
-        if (sql.includes('active_staff AS')) {
+        if (sql.includes('staff_base AS')) {
           return staffRows;
         }
 
@@ -697,7 +735,7 @@ describe('DashboardService financial export', () => {
             },
           ];
         }
-        if (sql.includes('active_staff AS')) {
+        if (sql.includes('staff_base AS')) {
           return [
             {
               staffId: 'staff-1',
