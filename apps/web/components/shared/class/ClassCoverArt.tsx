@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import { getClassMascot } from "@/lib/class-mascot";
 import { cn } from "@/lib/utils";
@@ -22,7 +25,10 @@ export function ClassCoverArt({
     ? "transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none"
     : undefined;
 
-  if (coverImageUrl) {
+  // Signed URL hết hạn/lỗi tải → quay về mascot; đổi URL thì thử lại.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  if (coverImageUrl && coverImageUrl !== failedUrl) {
     return (
       <div className={cn("relative aspect-[16/9] overflow-hidden bg-bg-tertiary", className)}>
         {/* Signed URL Supabase đổi mỗi lần tải; dùng <img> để không phụ thuộc remotePatterns của next/image. */}
@@ -30,6 +36,7 @@ export function ClassCoverArt({
         <img
           src={coverImageUrl}
           alt=""
+          onError={() => setFailedUrl(coverImageUrl)}
           className={cn("absolute inset-0 size-full object-cover", zoomClassName)}
         />
       </div>

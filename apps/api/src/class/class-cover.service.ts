@@ -88,8 +88,9 @@ export class ClassCoverService {
     classId: string,
     file: UploadableFile | undefined,
   ): Promise<ClassCoverImageDto> {
-    const cls = await this.findClassOrThrow(classId);
+    // Kiểm quyền trước khi tra lớp để staff không có quyền không dò được lớp nào tồn tại.
     await this.assertCanManage(userId, roleType, classId);
+    const cls = await this.findClassOrThrow(classId);
     if (!file) {
       throw new BadRequestException('Vui lòng chọn ảnh bìa để tải lên.');
     }
@@ -125,17 +126,18 @@ export class ClassCoverService {
     roleType: UserRole,
     classId: string,
   ): Promise<ClassCoverImageDto> {
-    const cls = await this.findClassOrThrow(classId);
     await this.assertCanManage(userId, roleType, classId);
+    const cls = await this.findClassOrThrow(classId);
     if (cls.coverImagePath) {
-      await removeStorageObjects({
-        bucket: CLASS_COVER_STORAGE_BUCKET,
-        paths: [cls.coverImagePath],
-      });
+      // Gỡ path trong DB trước; file storage xoá best-effort để DB không trỏ tới object đã mất.
       await this.prisma.class.update({
         where: { id: classId },
         data: { coverImagePath: null },
       });
+      await removeStorageObjects({
+        bucket: CLASS_COVER_STORAGE_BUCKET,
+        paths: [cls.coverImagePath],
+      }).catch(() => undefined);
     }
     return { coverImageUrl: null, canManage: true };
   }

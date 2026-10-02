@@ -10,10 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ClassCoverImage } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
-import { classKeys } from "@/lib/query-keys";
+import { classKeys, studentSelfKeys } from "@/lib/query-keys";
 
 const ACCEPTED_COVER_TYPES = "image/jpeg,image/png,image/webp";
-const STUDENT_CLASS_CARDS_QUERY_KEY = ["student", "self", "classes"] as const;
 
 const actionButtonClass =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-9";
@@ -40,7 +39,7 @@ export function ClassCoverImageCard({ classId }: ClassCoverImageCardProps) {
 
   const applyCoverResult = (result: ClassCoverImage) => {
     queryClient.setQueryData(classKeys.coverImage(classId), result);
-    void queryClient.invalidateQueries({ queryKey: STUDENT_CLASS_CARDS_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: studentSelfKeys.classes() });
   };
 
   const uploadMutation = useMutation({

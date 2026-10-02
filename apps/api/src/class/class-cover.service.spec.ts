@@ -154,6 +154,14 @@ describe('ClassCoverService', () => {
       expect(mockPrisma.class.update).not.toHaveBeenCalled();
     });
 
+    it('answers 403 without looking up the class when staff cannot manage it', async () => {
+      asStaff([StaffRole.teacher], false);
+      await expect(
+        service.upload('u1', UserRole.staff, 'missing', file),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.class.findUnique).not.toHaveBeenCalled();
+    });
+
     it('returns 404 for an unknown class', async () => {
       mockPrisma.class.findUnique.mockResolvedValue(null);
       await expect(
@@ -175,6 +183,23 @@ describe('ClassCoverService', () => {
         bucket: 'class-covers',
         paths: ['class-1/cover.jpg'],
       });
+      expect(mockPrisma.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: { coverImagePath: null },
+      });
+    });
+
+    it('keeps the cleared path when the storage delete fails', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        coverImagePath: 'class-1/cover.jpg',
+      });
+      (removeStorageObjects as jest.Mock).mockRejectedValueOnce(
+        new Error('storage down'),
+      );
+      await expect(
+        service.remove('u1', UserRole.admin, 'class-1'),
+      ).resolves.toEqual({ coverImageUrl: null, canManage: true });
       expect(mockPrisma.class.update).toHaveBeenCalledWith({
         where: { id: 'class-1' },
         data: { coverImagePath: null },
