@@ -85,7 +85,8 @@ function getAmountForSource(
       "teacher-cost": "Dạy",
       "customer-care-cost": "CSKH",
       "lesson-cost": "Giáo án",
-      "bonus-cost": "Bonus",
+      "bonus-reward-cost": "Thưởng",
+      "bonus-penalty-cost": "Phạt",
       "extra-allowance-cost": "Trợ cấp khác",
       "assistant-cost": "Trợ lí",
       "training-manager-cost": "QL lớp",
@@ -99,8 +100,9 @@ function getAmountForSource(
 
     const digitStr = matchingPart.replace(/[^\d]/g, "");
     const amount = parseInt(digitStr, 10) || 0;
-    // Keep sign of original item amount
-    const signedAmount = item.amount < 0 ? -amount : amount;
+    // Đoạn mang dấu trừ (vd «Phạt -200.000đ») là khoản âm; còn lại theo dấu tổng.
+    const isNegative = /-\s*\d/.test(matchingPart) || item.amount < 0;
+    const signedAmount = isNegative ? -amount : amount;
     return { amount: signedAmount, note: matchingPart };
   }
 

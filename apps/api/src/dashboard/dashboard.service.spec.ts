@@ -5,6 +5,7 @@ jest.mock('../prisma/prisma.service', () => ({
 import { AttendanceStatus, StaffRole } from '../../generated/enums';
 import {
   DashboardService,
+  buildPersonnelCostSegments,
   monthKeysIntersectingDateRange,
 } from './dashboard.service';
 
@@ -839,5 +840,46 @@ describe('monthKeysIntersectingDateRange', () => {
       fromMonthKey: '2026-12',
       toMonthKeyExclusive: '2027-01',
     });
+  });
+});
+
+describe('buildPersonnelCostSegments', () => {
+  const emptyRow = {
+    sessionAmount: 0,
+    bonusAmount: 0,
+    bonusRewardAmount: 0,
+    bonusPenaltyAmount: 0,
+    customerCareAmount: 0,
+    lessonAmount: 0,
+    extraAllowanceAmount: 0,
+    fixedSalaryAmount: 0,
+    assistantAmount: 0,
+    trainingManagerAmount: 0,
+  };
+
+  it('lists reward and penalty of the same month as separate segments', () => {
+    const segments = buildPersonnelCostSegments({
+      ...emptyRow,
+      sessionAmount: 1_000_000,
+      bonusAmount: 300_000,
+      bonusRewardAmount: '500000',
+      bonusPenaltyAmount: '-200000',
+    });
+
+    expect(segments).toEqual([
+      `Dạy ${(1_000_000).toLocaleString('vi-VN')}đ`,
+      `Thưởng ${(500_000).toLocaleString('vi-VN')}đ`,
+      `Phạt ${(-200_000).toLocaleString('vi-VN')}đ`,
+    ]);
+  });
+
+  it('shows a penalty-only staff with no reward segment', () => {
+    expect(
+      buildPersonnelCostSegments({
+        ...emptyRow,
+        bonusAmount: -50_000,
+        bonusPenaltyAmount: -50_000,
+      }),
+    ).toEqual([`Phạt ${(-50_000).toLocaleString('vi-VN')}đ`]);
   });
 });
