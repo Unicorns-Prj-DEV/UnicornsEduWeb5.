@@ -20,6 +20,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from 'generated/enums';
+import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
 
 describe('CourseContentService — ClassContent methods', () => {
   let service: CourseContentService;
@@ -456,11 +457,49 @@ describe('CourseContentService — ClassContent methods', () => {
       expect(result[1].source).toBe('class');
       expect(result[1].kindLabel).toBe('Tiết lý thuyết');
     });
+
+    it('omits items of archived lessons (data stays in DB)', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
+      mockPrisma.classContentItem.findMany.mockResolvedValue([]);
+
+      await service.listClassContentItems('cls-1', adminActor);
+
+      expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            classId: 'cls-1',
+            ...NOT_ARCHIVED_CONTENT_ITEM,
+          },
+        }),
+      );
+    });
   });
 
   // ─── reorderClassContentItems ───
 
   describe('reorderClassContentItems', () => {
+    it('treats archived-lesson items as not owned', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
+      mockPrisma.classContentItem.findMany.mockResolvedValue([{ id: 'cci-1' }]);
+
+      await expect(
+        service.reorderClassContentItems(
+          'cls-1',
+          ['cci-1', 'cci-archived'],
+          adminActor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: { in: ['cci-1', 'cci-archived'] },
+            classId: 'cls-1',
+            ...NOT_ARCHIVED_CONTENT_ITEM,
+          },
+        }),
+      );
+    });
+
     it('should reject if any ID does not belong to class', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
@@ -826,6 +865,27 @@ describe('CourseContentService — ClassContent methods', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('returns 404 when the lesson is archived', async () => {
+      mockPrisma.studentClass.findFirst.mockResolvedValue({
+        id: 'sc-1',
+        class: { contentAccessExpiresAt: null },
+      });
+      mockPrisma.classContentItem.findUnique.mockResolvedValue({
+        lesson: {
+          id: 't-old',
+          kind: 'theory',
+          title: 'Cũ',
+          archivedAt: new Date(),
+        },
+        openAt: null,
+        hiddenAt: null,
+      });
+
+      await expect(
+        service.getAssignedLessonForStudent('cls-1', 't-old', 'stu-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('allows practice after openAt', async () => {
       const lesson = { id: 't-practice', kind: 'practice', title: 'Đề' };
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
@@ -919,7 +979,11 @@ describe('CourseContentService — ClassContent methods', () => {
       expect(result[0].isOpen).toBe(true);
       expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { classId: 'cls-1', hiddenAt: null },
+          where: {
+            classId: 'cls-1',
+            hiddenAt: null,
+            ...NOT_ARCHIVED_CONTENT_ITEM,
+          },
         }),
       );
     });

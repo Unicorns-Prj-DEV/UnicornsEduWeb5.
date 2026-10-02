@@ -31,6 +31,7 @@ import {
   PRACTICE_MODULE_NOT_ADDED_MESSAGE,
   CourseContentSupportService,
 } from './course-content-support.service';
+import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
 
 const CLASS_CONTENT_CREATE_TRANSACTION_TIMEOUT_MS = 15_000;
 
@@ -113,7 +114,7 @@ export class ClassContentService extends CourseContentSupportService {
       where: { classId_lessonId: { classId, lessonId } },
       include: { lesson: true },
     });
-    if (!item?.lesson) {
+    if (!item?.lesson || item.lesson.archivedAt) {
       throw new NotFoundException('Tiết học không tồn tại');
     }
     this.assertClassContentVisibleToStudent(item.hiddenAt);
@@ -133,7 +134,7 @@ export class ClassContentService extends CourseContentSupportService {
       where: { classId_lessonId: { classId, lessonId } },
       include: { lesson: true },
     });
-    if (!item?.lesson) {
+    if (!item?.lesson || item.lesson.archivedAt) {
       throw new NotFoundException('Tiết học không tồn tại');
     }
     this.assertClassContentVisibleToStudent(item.hiddenAt);
@@ -187,7 +188,7 @@ export class ClassContentService extends CourseContentSupportService {
       where: { id: assignmentId, classId },
       include: { lesson: true },
     });
-    if (!item?.lesson) {
+    if (!item?.lesson || item.lesson.archivedAt) {
       throw new NotFoundException('Assignment not found');
     }
     this.assertClassContentVisibleToStudent(item.hiddenAt);
@@ -442,7 +443,7 @@ export class ClassContentService extends CourseContentSupportService {
   ): Promise<ClassContentItemResponseDto[]> {
     await this.validateStaffClassAccess(classId, actor);
     const items = await this.prisma.classContentItem.findMany({
-      where: { classId },
+      where: { classId, ...NOT_ARCHIVED_CONTENT_ITEM },
       orderBy: { sortOrder: 'asc' },
       include: {
         lesson: { include: { module: true } },
@@ -463,10 +464,12 @@ export class ClassContentService extends CourseContentSupportService {
     const item = await this.prisma.classContentItem.findFirst({
       where: { id: itemId, classId },
       include: {
-        lesson: { select: { id: true, title: true, kind: true } },
+        lesson: {
+          select: { id: true, title: true, kind: true, archivedAt: true },
+        },
       },
     });
-    if (!item?.lesson || !item.lessonId) {
+    if (!item?.lesson || !item.lessonId || item.lesson.archivedAt) {
       throw new NotFoundException('Class content item not found');
     }
     if (item.lesson.kind !== LessonKind.theory) {
@@ -588,7 +591,7 @@ export class ClassContentService extends CourseContentSupportService {
 
     // Finding #4: verify ALL IDs belong to this class before updating
     const owned = await this.prisma.classContentItem.findMany({
-      where: { id: { in: orderedIds }, classId },
+      where: { id: { in: orderedIds }, classId, ...NOT_ARCHIVED_CONTENT_ITEM },
       select: { id: true },
     });
     if (owned.length !== orderedIds.length) {
@@ -765,7 +768,7 @@ export class ClassContentService extends CourseContentSupportService {
       throw new ForbiddenException('Content access period has expired');
     }
     const items = await this.prisma.classContentItem.findMany({
-      where: { classId, hiddenAt: null },
+      where: { classId, hiddenAt: null, ...NOT_ARCHIVED_CONTENT_ITEM },
       orderBy: { sortOrder: 'asc' },
       include: {
         lesson: { include: { module: true } },

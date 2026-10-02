@@ -21,7 +21,7 @@ Mô hình cũ không có chỗ để ghi "lớp đã thêm chuyên đề X", nê
 
 3. **Không thêm lẻ tiết lý thuyết.** `POST /class/:id/content` chỉ nhận tiết thực hành có sẵn của khoá. Khôi phục item lý thuyết cũng bị chặn khi lớp chưa thêm chuyên đề chứa nó.
 
-4. **Bỏ tiết riêng lớp.** API không tạo tiết có `class_id` nữa. Tiết riêng cũ được ẩn mềm, không xoá và không đổi thành tiết của khoá; API từ chối sửa hoặc xoá tiết đã lưu trữ (400). Cột mới `lessons.archived_at` ghi trạng thái này, và item cùng dòng timeline của các tiết đó cũng ẩn. CHECK `lessons_owner_check` giữ nguyên, để dữ liệu cũ vẫn hợp lệ.
+4. **Bỏ tiết riêng lớp.** API không tạo tiết có `class_id` nữa. Tiết riêng cũ được ẩn mềm, không xoá và không đổi thành tiết của khoá; API từ chối sửa hoặc xoá tiết đã lưu trữ (400). Cột mới `lessons.archived_at` ghi trạng thái này, và item cùng dòng timeline của các tiết đó cũng ẩn. Màn staff (vốn hiện cả item đã ẩn) cũng bỏ hẳn chúng; học sinh mở trực tiếp nhận 404. CHECK `lessons_owner_check` giữ nguyên, để dữ liệu cũ vẫn hợp lệ.
 
 5. **Sửa guard xoá (ADR 2026-09-07, quyết định 3).** Restrict 409 khi xoá Chuyên đề hoặc Tiết học chỉ còn tính item của **tiết thực hành**, tức lần giao có Attempt. Item lý thuyết là bản chiếu của chuyên đề, nên đi theo tiết khi tiết bị xoá. FK Restrict ở DB vẫn giữ nguyên, nên ứng dụng xoá item lý thuyết trước rồi mới xoá tiết hoặc chuyên đề, trong cùng một transaction.
 
