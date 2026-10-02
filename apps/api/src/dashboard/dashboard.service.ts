@@ -175,6 +175,7 @@ type StudentChangeSqlRow = {
 type StaffUnpaidAlertSqlRow = {
   staffId: string;
   staffName: string;
+  staffStatus: StaffStatus;
   sessionAmount: number | string | null;
   bonusAmount: number | string | null;
   customerCareAmount: number | string | null;
@@ -199,6 +200,7 @@ type StaffUnpaidAlertSqlRow = {
 type PersonnelStaffCostSqlRow = {
   staffId: string;
   staffName: string;
+  staffStatus: StaffStatus;
   sessionAmount: number | string | null;
   bonusAmount: number | string | null;
   bonusRewardAmount: number | string | null;
@@ -634,7 +636,7 @@ function formatCurrencyLabel(value: number) {
 export function buildPersonnelCostBreakdown(
   row: Omit<
     PersonnelStaffCostSqlRow,
-    'staffId' | 'staffName' | 'totalCost' | 'bonusAmount'
+    'staffId' | 'staffName' | 'staffStatus' | 'totalCost' | 'bonusAmount'
   >,
 ): { note: string; sourceAmounts: Record<string, number> } {
   const sources: Array<{
@@ -806,12 +808,25 @@ function mapDebtStudentToActionAlert(
   };
 }
 
+/**
+ * Tên nhân sự hiển thị trên các bảng chi phí: chi phí tính cả người đã nghỉ,
+ * nên gắn nhãn để kế toán phân biệt.
+ */
+export function formatCostStaffName(row: {
+  staffName: string;
+  staffStatus: StaffStatus;
+}): string {
+  return row.staffStatus === StaffStatus.inactive
+    ? `${row.staffName} (Đã nghỉ)`
+    : row.staffName;
+}
+
 function mapUnpaidStaffToActionAlert(
   row: StaffUnpaidAlertSqlRow,
 ): AdminDashboardActionAlertDto {
   return {
     type: 'Nhân sự chưa thanh toán',
-    subject: `${row.staffName} · ${buildStaffUnpaidSourceLabel(row)}`,
+    subject: `${formatCostStaffName(row)} · ${buildStaffUnpaidSourceLabel(row)}`,
     owner: 'Kế toán',
     due: formatStaffUnpaidAlertDue(row),
     amount: normalizeMoneyAmount(row.totalUnpaid),
@@ -1696,7 +1711,7 @@ export class DashboardService {
     offset = 0,
   ) {
     return this.prisma.$queryRaw<StaffUnpaidAlertSqlRow[]>(Prisma.sql`
-      WITH active_staff AS (
+      WITH staff_base AS (
         SELECT
           staff_info.id,
           NULLIF(
@@ -1708,10 +1723,10 @@ export class DashboardService {
               )
             ),
             ''
-          ) AS full_name
+          ) AS full_name,
+          staff_info.status::text AS status
         FROM staff_info
         INNER JOIN users staff_user ON staff_user.id = staff_info.user_id
-        WHERE staff_info.status = 'active'
       ),
       session_allowances AS (
         SELECT
@@ -1721,7 +1736,7 @@ export class DashboardService {
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
         INNER JOIN classes ON classes.id = sessions.class_id
-        INNER JOIN active_staff ON active_staff.id = sessions.teacher_id
+        INNER JOIN staff_base ON staff_base.id = sessions.teacher_id
         WHERE LOWER(COALESCE(sessions.teacher_payment_status, '')) = 'unpaid'
           ${
             period
@@ -1748,7 +1763,7 @@ export class DashboardService {
           bonuses.staff_id AS staff_id,
           COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount
         FROM bonuses
-        INNER JOIN active_staff ON active_staff.id = bonuses.staff_id
+        INNER JOIN staff_base ON staff_base.id = bonuses.staff_id
         WHERE bonuses.status::text = 'pending'
           ${
             period
@@ -1775,7 +1790,7 @@ export class DashboardService {
           ) AS amount
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        INNER JOIN active_staff ON active_staff.id = attendance.customer_care_staff_id
+        INNER JOIN staff_base ON staff_base.id = attendance.customer_care_staff_id
         WHERE COALESCE(attendance.customer_care_payment_status::text, 'pending') = 'pending'
           ${
             period
@@ -1790,7 +1805,7 @@ export class DashboardService {
           lesson_outputs.staff_id AS staff_id,
           COALESCE(SUM(COALESCE(lesson_outputs.cost, 0)), 0) AS amount
         FROM lesson_outputs
-        INNER JOIN active_staff ON active_staff.id = lesson_outputs.staff_id
+        INNER JOIN staff_base ON staff_base.id = lesson_outputs.staff_id
         WHERE lesson_outputs.payment_status::text = 'pending'
           ${
             period
@@ -1805,7 +1820,7 @@ export class DashboardService {
           extra_allowances.staff_id AS staff_id,
           COALESCE(SUM(COALESCE(extra_allowances.amount, 0)), 0) AS amount
         FROM extra_allowances
-        INNER JOIN active_staff ON active_staff.id = extra_allowances.staff_id
+        INNER JOIN staff_base ON staff_base.id = extra_allowances.staff_id
         WHERE extra_allowances.status::text = 'pending'
           ${
             period
@@ -1820,7 +1835,7 @@ export class DashboardService {
           staff_fixed_salary_payables.staff_id AS staff_id,
           COALESCE(SUM(COALESCE(staff_fixed_salary_payables.gross_amount, 0)), 0) AS amount
         FROM staff_fixed_salary_payables
-        INNER JOIN active_staff ON active_staff.id = staff_fixed_salary_payables.staff_id
+        INNER JOIN staff_base ON staff_base.id = staff_fixed_salary_payables.staff_id
         WHERE staff_fixed_salary_payables.status::text = 'pending'
           ${
             period
@@ -1844,7 +1859,7 @@ export class DashboardService {
           ) AS amount
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        INNER JOIN active_staff ON active_staff.id = attendance.assistant_manager_staff_id
+        INNER JOIN staff_base ON staff_base.id = attendance.assistant_manager_staff_id
         WHERE attendance.status IN ('present', 'excused')
           AND COALESCE(attendance.assistant_payment_status::text, 'pending') = 'pending'
           ${ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL}
@@ -1864,7 +1879,7 @@ export class DashboardService {
             0
           ) AS amount
         FROM sessions
-        INNER JOIN active_staff ON active_staff.id = sessions.training_manager_staff_id
+        INNER JOIN staff_base ON staff_base.id = sessions.training_manager_staff_id
         WHERE COALESCE(sessions.training_manager_payment_status::text, 'pending') = 'pending'
           AND COALESCE(sessions.training_manager_allowance_amount, 0) > 0
           ${
@@ -1877,8 +1892,9 @@ export class DashboardService {
       ),
       combined AS (
         SELECT
-          active_staff.id AS "staffId",
-          active_staff.full_name AS "staffName",
+          staff_base.id AS "staffId",
+          staff_base.full_name AS "staffName",
+          staff_base.status AS "staffStatus",
           COALESCE(session_unpaid.amount, 0) AS "sessionAmount",
           COALESCE(bonus_unpaid.amount, 0) AS "bonusAmount",
           COALESCE(customer_care_unpaid.amount, 0) AS "customerCareAmount",
@@ -1897,15 +1913,15 @@ export class DashboardService {
             COALESCE(assistant_unpaid.amount, 0) +
             COALESCE(training_manager_unpaid.amount, 0)
           ) AS "totalUnpaid"
-        FROM active_staff
-        LEFT JOIN session_unpaid ON session_unpaid.staff_id = active_staff.id
-        LEFT JOIN bonus_unpaid ON bonus_unpaid.staff_id = active_staff.id
-        LEFT JOIN customer_care_unpaid ON customer_care_unpaid.staff_id = active_staff.id
-        LEFT JOIN lesson_output_unpaid ON lesson_output_unpaid.staff_id = active_staff.id
-        LEFT JOIN extra_allowance_unpaid ON extra_allowance_unpaid.staff_id = active_staff.id
-        LEFT JOIN fixed_salary_unpaid ON fixed_salary_unpaid.staff_id = active_staff.id
-        LEFT JOIN assistant_unpaid ON assistant_unpaid.staff_id = active_staff.id
-        LEFT JOIN training_manager_unpaid ON training_manager_unpaid.staff_id = active_staff.id
+        FROM staff_base
+        LEFT JOIN session_unpaid ON session_unpaid.staff_id = staff_base.id
+        LEFT JOIN bonus_unpaid ON bonus_unpaid.staff_id = staff_base.id
+        LEFT JOIN customer_care_unpaid ON customer_care_unpaid.staff_id = staff_base.id
+        LEFT JOIN lesson_output_unpaid ON lesson_output_unpaid.staff_id = staff_base.id
+        LEFT JOIN extra_allowance_unpaid ON extra_allowance_unpaid.staff_id = staff_base.id
+        LEFT JOIN fixed_salary_unpaid ON fixed_salary_unpaid.staff_id = staff_base.id
+        LEFT JOIN assistant_unpaid ON assistant_unpaid.staff_id = staff_base.id
+        LEFT JOIN training_manager_unpaid ON training_manager_unpaid.staff_id = staff_base.id
       ),
       filtered AS (
         SELECT *
@@ -1942,6 +1958,7 @@ export class DashboardService {
       SELECT
         "staffId",
         "staffName",
+        "staffStatus",
         "sessionAmount",
         "bonusAmount",
         "customerCareAmount",
@@ -1998,7 +2015,7 @@ export class DashboardService {
     offset = 0,
   ) {
     return this.prisma.$queryRaw<PersonnelStaffCostSqlRow[]>(Prisma.sql`
-      WITH active_staff AS (
+      WITH staff_base AS (
         SELECT
           staff_info.id,
           NULLIF(
@@ -2010,7 +2027,8 @@ export class DashboardService {
               )
             ),
             ''
-          ) AS full_name
+          ) AS full_name,
+          staff_info.status::text AS status
         FROM staff_info
         INNER JOIN users staff_user ON staff_user.id = staff_info.user_id
       ),
@@ -2022,7 +2040,7 @@ export class DashboardService {
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
         INNER JOIN classes ON classes.id = sessions.class_id
-        INNER JOIN active_staff ON active_staff.id = sessions.teacher_id
+        INNER JOIN staff_base ON staff_base.id = sessions.teacher_id
         WHERE 1=1
           ${
             period
@@ -2050,7 +2068,7 @@ export class DashboardService {
           COALESCE(SUM(COALESCE(bonuses.amount, 0)), 0) AS amount,
           ${BONUS_REWARD_PENALTY_SUMS_SQL}
         FROM bonuses
-        INNER JOIN active_staff ON active_staff.id = bonuses.staff_id
+        INNER JOIN staff_base ON staff_base.id = bonuses.staff_id
         WHERE 1=1
           ${
             period
@@ -2077,7 +2095,7 @@ export class DashboardService {
           ) AS amount
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        INNER JOIN active_staff ON active_staff.id = attendance.customer_care_staff_id
+        INNER JOIN staff_base ON staff_base.id = attendance.customer_care_staff_id
         WHERE 1=1
           ${
             period
@@ -2092,7 +2110,7 @@ export class DashboardService {
           lesson_outputs.staff_id AS staff_id,
           COALESCE(SUM(COALESCE(lesson_outputs.cost, 0)), 0) AS amount
         FROM lesson_outputs
-        INNER JOIN active_staff ON active_staff.id = lesson_outputs.staff_id
+        INNER JOIN staff_base ON staff_base.id = lesson_outputs.staff_id
         WHERE 1=1
           ${
             period
@@ -2107,7 +2125,7 @@ export class DashboardService {
           extra_allowances.staff_id AS staff_id,
           COALESCE(SUM(COALESCE(extra_allowances.amount, 0)), 0) AS amount
         FROM extra_allowances
-        INNER JOIN active_staff ON active_staff.id = extra_allowances.staff_id
+        INNER JOIN staff_base ON staff_base.id = extra_allowances.staff_id
         WHERE 1=1
           ${
             period
@@ -2122,7 +2140,7 @@ export class DashboardService {
           staff_fixed_salary_payables.staff_id AS staff_id,
           COALESCE(SUM(COALESCE(staff_fixed_salary_payables.gross_amount, 0)), 0) AS amount
         FROM staff_fixed_salary_payables
-        INNER JOIN active_staff ON active_staff.id = staff_fixed_salary_payables.staff_id
+        INNER JOIN staff_base ON staff_base.id = staff_fixed_salary_payables.staff_id
         WHERE 1=1
           ${
             period
@@ -2146,7 +2164,7 @@ export class DashboardService {
           ) AS amount
         FROM attendance
         INNER JOIN sessions ON sessions.id = attendance.session_id
-        INNER JOIN active_staff ON active_staff.id = attendance.assistant_manager_staff_id
+        INNER JOIN staff_base ON staff_base.id = attendance.assistant_manager_staff_id
         WHERE attendance.status IN ('present', 'excused')
           AND attendance.assistant_manager_staff_id IS NOT NULL
           ${ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL}
@@ -2166,7 +2184,7 @@ export class DashboardService {
             0
           ) AS amount
         FROM sessions
-        INNER JOIN active_staff ON active_staff.id = sessions.training_manager_staff_id
+        INNER JOIN staff_base ON staff_base.id = sessions.training_manager_staff_id
         WHERE sessions.training_manager_staff_id IS NOT NULL
           ${
             period
@@ -2178,8 +2196,9 @@ export class DashboardService {
       ),
       combined AS (
         SELECT
-          active_staff.id AS "staffId",
-          active_staff.full_name AS "staffName",
+          staff_base.id AS "staffId",
+          staff_base.full_name AS "staffName",
+          staff_base.status AS "staffStatus",
           COALESCE(session_total.amount, 0) AS "sessionAmount",
           COALESCE(bonus_total.amount, 0) AS "bonusAmount",
           COALESCE(bonus_total.reward, 0) AS "bonusRewardAmount",
@@ -2200,15 +2219,15 @@ export class DashboardService {
             COALESCE(assistant_total.amount, 0) +
             COALESCE(training_manager_total.amount, 0)
           ) AS "totalCost"
-        FROM active_staff
-        LEFT JOIN session_total ON session_total.staff_id = active_staff.id
-        LEFT JOIN bonus_total ON bonus_total.staff_id = active_staff.id
-        LEFT JOIN customer_care_total ON customer_care_total.staff_id = active_staff.id
-        LEFT JOIN lesson_output_total ON lesson_output_total.staff_id = active_staff.id
-        LEFT JOIN extra_allowance_total ON extra_allowance_total.staff_id = active_staff.id
-        LEFT JOIN fixed_salary_total ON fixed_salary_total.staff_id = active_staff.id
-        LEFT JOIN assistant_total ON assistant_total.staff_id = active_staff.id
-        LEFT JOIN training_manager_total ON training_manager_total.staff_id = active_staff.id
+        FROM staff_base
+        LEFT JOIN session_total ON session_total.staff_id = staff_base.id
+        LEFT JOIN bonus_total ON bonus_total.staff_id = staff_base.id
+        LEFT JOIN customer_care_total ON customer_care_total.staff_id = staff_base.id
+        LEFT JOIN lesson_output_total ON lesson_output_total.staff_id = staff_base.id
+        LEFT JOIN extra_allowance_total ON extra_allowance_total.staff_id = staff_base.id
+        LEFT JOIN fixed_salary_total ON fixed_salary_total.staff_id = staff_base.id
+        LEFT JOIN assistant_total ON assistant_total.staff_id = staff_base.id
+        LEFT JOIN training_manager_total ON training_manager_total.staff_id = staff_base.id
       ),
       filtered AS (
         SELECT *
@@ -2218,6 +2237,7 @@ export class DashboardService {
       SELECT
         "staffId",
         "staffName",
+        "staffStatus",
         "sessionAmount",
         "bonusAmount",
         "bonusRewardAmount",
@@ -3825,7 +3845,7 @@ export class DashboardService {
     const unpaidStaff: StaffDashboardUnpaidStaffItemDto[] = unpaidRows.map(
       (row) => ({
         staffId: row.staffId,
-        staffName: row.staffName,
+        staffName: formatCostStaffName(row),
         sessionAmount: normalizeMoneyAmount(row.sessionAmount),
         bonusAmount: normalizeMoneyAmount(row.bonusAmount),
         customerCareAmount: normalizeMoneyAmount(row.customerCareAmount),
@@ -4067,7 +4087,7 @@ export class DashboardService {
 
     const pendingStaff = pendingStaffRows.map((row) => ({
       staffId: row.staffId,
-      staffName: row.staffName,
+      staffName: formatCostStaffName(row),
       sessionAmount: normalizeMoneyAmount(row.sessionAmount),
       bonusAmount: normalizeMoneyAmount(row.bonusAmount),
       customerCareAmount: normalizeMoneyAmount(row.customerCareAmount),
@@ -4977,7 +4997,7 @@ export class DashboardService {
           staffCostsRaw.slice(0, limit).map((row) => {
             return {
               staffId: row.staffId,
-              staffName: row.staffName,
+              staffName: formatCostStaffName(row),
               amount: normalizeMoneyAmount(row.totalCost),
               note: buildPersonnelCostBreakdown(row).note,
             };
@@ -5406,7 +5426,7 @@ export class DashboardService {
 
                 return {
                   id: row.staffId,
-                  label: row.staffName,
+                  label: formatCostStaffName(row),
                   secondaryLabel: buildStaffUnpaidSourceLabel(row),
                   amount: normalizeMoneyAmount(row.totalUnpaid),
                   note:
@@ -5451,7 +5471,7 @@ export class DashboardService {
 
                   return {
                     id: row.staffId,
-                    label: row.staffName,
+                    label: formatCostStaffName(row),
                     secondaryLabel: 'Chi phí nhân sự',
                     amount: normalizeMoneyAmount(row.totalCost),
                     note,
@@ -5630,7 +5650,7 @@ export class DashboardService {
                 })),
                 ...staffRows.map((row) => ({
                   id: `staff-${row.staffId}`,
-                  label: `Chi phí - Nhân sự ${row.staffName}`,
+                  label: `Chi phí - Nhân sự ${formatCostStaffName(row)}`,
                   secondaryLabel: 'Chi phí nhân sự',
                   amount: -normalizeMoneyAmount(row.totalCost),
                   note: `Tổng trợ cấp nhân sự (Chi phí -)`,
@@ -5725,7 +5745,7 @@ export class DashboardService {
               })),
               ...staffRows.map((row) => ({
                 id: `staff-${row.staffId}`,
-                label: `Chi phí - Nhân sự ${row.staffName}`,
+                label: `Chi phí - Nhân sự ${formatCostStaffName(row)}`,
                 secondaryLabel: 'Chi phí nhân sự',
                 amount: -normalizeMoneyAmount(row.totalCost),
                 note: `Tổng trợ cấp nhân sự trong kỳ (Chi -)`,

@@ -2,10 +2,15 @@ jest.mock('../prisma/prisma.service', () => ({
   PrismaService: class PrismaServiceMock {},
 }));
 
-import { AttendanceStatus, StaffRole } from '../../generated/enums';
+import {
+  AttendanceStatus,
+  StaffRole,
+  StaffStatus,
+} from '../../generated/enums';
 import {
   DashboardService,
   buildPersonnelCostBreakdown,
+  formatCostStaffName,
   monthKeysIntersectingDateRange,
 } from './dashboard.service';
 
@@ -191,6 +196,44 @@ describe('DashboardService staff training dashboard', () => {
         subject: 'An · Lớp A',
       }),
     ]);
+  });
+
+  it('keeps an inactive staff with unpaid amounts in payroll alerts', async () => {
+    prisma.$queryRaw.mockResolvedValueOnce([
+      {
+        staffId: 'staff-left',
+        staffName: 'Bình',
+        staffStatus: 'inactive',
+        sessionAmount: 400000,
+        bonusAmount: 0,
+        customerCareAmount: 0,
+        lessonAmount: 0,
+        extraAllowanceAmount: 0,
+        fixedSalaryAmount: 0,
+        assistantAmount: 0,
+        trainingManagerAmount: 0,
+        totalUnpaid: 400000,
+        totalCount: 1,
+        totalAmount: 400000,
+      },
+    ]);
+
+    const result = await service.getAdminActionAlerts({
+      group: 'payroll',
+      month: '05',
+      year: '2026',
+      page: 1,
+      limit: 20,
+    });
+
+    const [query] = prisma.$queryRaw.mock.calls[0] as [{ strings: string[] }];
+    expect(query.strings.join('')).not.toContain(
+      "staff_info.status = 'active'",
+    );
+    expect(result.data).toEqual([
+      expect.objectContaining({ targetId: 'staff-left', amount: 400000 }),
+    ]);
+    expect(result.data[0]?.subject).toMatch(/^Bình \(Đã nghỉ\) · /);
   });
 
   it('returns paginated missing-survey class action alerts with meta total', async () => {
@@ -570,7 +613,7 @@ describe('DashboardService financial export', () => {
           return revenueRows;
         }
 
-        if (sql.includes('active_staff AS')) {
+        if (sql.includes('staff_base AS')) {
           return staffRows;
         }
 
@@ -697,11 +740,12 @@ describe('DashboardService financial export', () => {
             },
           ];
         }
-        if (sql.includes('active_staff AS')) {
+        if (sql.includes('staff_base AS')) {
           return [
             {
               staffId: 'staff-1',
               staffName: 'Gia su B',
+              staffStatus: 'inactive',
               sessionAmount: 400_000,
               bonusAmount: 0,
               customerCareAmount: 0,
@@ -743,6 +787,8 @@ describe('DashboardService financial export', () => {
     expect(result.summary.personnelCost).toBe(550_000);
     expect(result.summary.profit).toBe(550_000);
     expect(result.personnelItems[0]?.note).toContain('Lương cứng');
+    // Nhân sự đã nghỉ vẫn tính chi phí, tên gắn nhãn.
+    expect(result.personnelItems[0]?.staffName).toBe('Gia su B (Đã nghỉ)');
   });
 
   it('returns per-student revenue items for date-range mode', async () => {
@@ -892,5 +938,19 @@ describe('buildPersonnelCostBreakdown', () => {
       note: 'Không có chi phí chi tiết.',
       sourceAmounts: {},
     });
+  });
+});
+
+describe('formatCostStaffName', () => {
+  it('labels only inactive staff', () => {
+    expect(
+      formatCostStaffName({ staffName: 'An', staffStatus: StaffStatus.active }),
+    ).toBe('An');
+    expect(
+      formatCostStaffName({
+        staffName: 'An',
+        staffStatus: StaffStatus.inactive,
+      }),
+    ).toBe('An (Đã nghỉ)');
   });
 });
