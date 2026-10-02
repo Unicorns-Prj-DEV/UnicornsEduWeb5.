@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Gia sư đứng lớp ở đầu trang lớp (#154):** header trang lớp admin, staff và học sinh hiện dòng **Gia sư đứng lớp** (`ClassStandingTeachers`) — chỉ họ tên gia sư đang hoạt động trên lớp, không email; ẩn khi lớp chưa có. Quy tắc «đang hoạt động» dùng chung `ACTIVE_STANDING_TEACHER` (`apps/api/src/class/standing-teacher-filter.ts`: phân công active hoặc null + nhân sự active) cho trang lớp và thẻ lớp trang chủ học sinh.
 - **Nhóm chuyên đề trên trang lớp admin/staff (#153):** `GET /class/:id/content/groups` trả nội dung lớp gom theo chuyên đề (tiết lý thuyết theo thứ tự + tiết thực hành đã giao, nhóm **Ngoài chuyên đề** cuối). Trang lớp có section **Chuyên đề** (`ClassModuleGroups`, collapsible) với Tiến độ / Thống kê / Chấm bài; timeline chỉ còn buổi học + khảo sát, sắp xếp lại vẫn gửi đủ id. Bỏ switch **Hiện tiết học** (`lessonVisibility`) của admin.
 - **Ẩn tiết riêng lớp đã lưu trữ khỏi mọi màn (#152):** item và dòng timeline của tiết có `archivedAt` không còn trong danh sách nội dung lớp và timeline của staff (kể cả khi đang ẩn) lẫn học sinh. Mở trực tiếp tiết đó (xem tiết, ghi lượt xem, bắt đầu lần giao, tiến độ lý thuyết, chấm tự luận, thống kê) → `404`. Sắp xếp timeline/nội dung không nhận id đã lưu trữ; dòng đó giữ `sortOrder` cũ. Dữ liệu vẫn trong DB. Filter dùng chung: `apps/api/src/course-content/archived-lesson-filter.ts`.
 - **Giao tiết thực hành từ chuyên đề đã thêm (#151):** dialog **Giao tiết thực hành** chọn chuyên đề lớp đã thêm rồi mới chọn tiết thực hành của chuyên đề đó. `GET /class/:id/content/course-lessons` chỉ trả tiết của chuyên đề lớp đã thêm; `POST /class/:id/content` từ chối (400) tiết thuộc chuyên đề lớp chưa thêm. Lần giao đã có giữ nguyên.
@@ -141,6 +142,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Security
 
+- **Thu hẹp `GET /users/me/student-classes/:classId/detail` (#154):** endpoint trước đây trả nguyên enrollment + row lớp + `teacher.user` đầy đủ (gồm email và các cột nhạy cảm của user gia sư) cho học sinh. Nay chỉ trả `StudentClassDetailDto { classId, className, classStatus, courseName, teacherNames }`; logic chuyển sang `UserService.getMyStudentClassDetail` (giữ `403` khi không học lớp hoặc lớp hết hạn).
 - **`next` 16.1.6 → 16.2.6** — vá CVE-2026-23870 (RSC DoS, high).
 - **`axios` `^1.13.6` → `^1.20.0`** ở cả `apps/web` và `apps/api` — bản cũ bị Socket chấm 25/100 trục vulnerability (có advisory). axios 1.20 siết kiểu header value thành `string | number | boolean | string[] | AxiosHeaders`, nên `apps/api/src/unioj/unioj.service.ts` phải bọc `String(headers['content-type'] ?? '')`.
 - Hai bump trên cần dựng lại `node_modules` root (`ERR_PNPM_UNEXPECTED_VIRTUAL_STORE`). Sau khi `pnpm install` lại, pnpm 10 bỏ qua toàn bộ postinstall → thêm `pnpm.onlyBuiltDependencies` vào root `package.json` (`bcrypt`, `sharp`, `prisma`, `@prisma/engines`, `esbuild`, `@nestjs/core`, `unrs-resolver`); thiếu khai báo này thì native binding của bcrypt/sharp không build và API chạy sẽ lỗi.

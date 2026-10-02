@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -31,9 +32,16 @@ import {
   UpdateUserDto,
 } from 'src/dtos/user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import type { StudentClassCardDto } from 'src/dtos/student.dto';
+import type {
+  StudentClassCardDto,
+  StudentClassDetailDto,
+} from 'src/dtos/student.dto';
+import { ACTIVE_STANDING_TEACHER } from 'src/class/standing-teacher-filter';
 import { createClassCoverSignedUrl } from 'src/class/class-cover.storage';
-import { mapStudentClassCard } from './student-class-card.util';
+import {
+  mapStudentClassCard,
+  standingTeacherNames,
+} from './student-class-card.util';
 import {
   createSignedStorageUrl,
   normalizeHttpHttpsUrl,
@@ -67,6 +75,15 @@ function normalizeOptionalText(value: string | null | undefined) {
 
 // Hoist ở module scope: tránh dựng lại Object.values(StaffRole) mỗi phần tử filter.
 const STAFF_ROLE_VALUES = new Set<StaffRole>(Object.values(StaffRole));
+
+const STANDING_TEACHER_NAME_SELECT = {
+  where: ACTIVE_STANDING_TEACHER,
+  select: {
+    teacher: {
+      select: { user: { select: { first_name: true, last_name: true } } },
+    },
+  },
+} satisfies Prisma.Class$teachersArgs;
 
 @Injectable()
 export class UserService {
@@ -1019,16 +1036,7 @@ export class UserService {
             name: true,
             coverImagePath: true,
             course: { select: { name: true } },
-            teachers: {
-              where: { status: 'active' },
-              select: {
-                teacher: {
-                  select: {
-                    user: { select: { first_name: true, last_name: true } },
-                  },
-                },
-              },
-            },
+            teachers: STANDING_TEACHER_NAME_SELECT,
           },
         },
       },
@@ -1043,6 +1051,46 @@ export class UserService {
       ),
     );
     return cards.sort((a, b) => a.className.localeCompare(b.className, 'vi'));
+  }
+
+  /**
+   * Đầu trang lớp học sinh: tên lớp, khoá, trạng thái, họ tên Gia sư đứng lớp.
+   * Chỉ field hiển thị — không trả row user/staff (email, hash...).
+   */
+  async getMyStudentClassDetail(
+    studentId: string,
+    classId: string,
+    now: Date = new Date(),
+  ): Promise<StudentClassDetailDto> {
+    const enrollment = await this.prisma.studentClass.findFirst({
+      where: { classId, studentId, status: StudentClassStatus.active },
+      select: {
+        class: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            contentAccessExpiresAt: true,
+            course: { select: { name: true } },
+            teachers: STANDING_TEACHER_NAME_SELECT,
+          },
+        },
+      },
+    });
+    if (!enrollment) {
+      throw new ForbiddenException('You are not enrolled in this class');
+    }
+    const cls = enrollment.class;
+    if (cls.contentAccessExpiresAt && cls.contentAccessExpiresAt < now) {
+      throw new ForbiddenException('This class has expired');
+    }
+    return {
+      classId: cls.id,
+      className: cls.name,
+      classStatus: cls.status,
+      courseName: cls.course.name,
+      teacherNames: standingTeacherNames(cls.teachers),
+    };
   }
 
   /** Update current user's basic info (self). */

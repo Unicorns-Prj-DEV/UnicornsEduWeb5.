@@ -5,9 +5,10 @@ jest.mock('src/staff/staff.service', () => ({
   StaffService: class StaffServiceMock {},
 }));
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UserRole } from '../../generated/enums';
 import { UserService } from './user.service';
+import { ACTIVE_STANDING_TEACHER } from 'src/class/standing-teacher-filter';
 
 describe('UserService', () => {
   const mockPrisma = {
@@ -27,6 +28,7 @@ describe('UserService', () => {
     },
     studentClass: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
     },
     studentInfo: {
       create: jest.fn(),
@@ -932,13 +934,94 @@ describe('UserService', () => {
         },
       });
       expect(args.select.class.select.teachers).toEqual({
-        where: { status: 'active' },
+        where: ACTIVE_STANDING_TEACHER,
         select: {
           teacher: {
             select: { user: { select: { first_name: true, last_name: true } } },
           },
         },
       });
+    });
+  });
+
+  describe('getMyStudentClassDetail', () => {
+    const now = new Date('2026-10-02T00:00:00.000Z');
+    const enrollment = (overrides: Record<string, unknown> = {}) => ({
+      class: {
+        id: 'c1',
+        name: 'Lớp A',
+        status: 'running',
+        contentAccessExpiresAt: null,
+        course: { name: 'Khoá X' },
+        teachers: [
+          { teacher: { user: { first_name: 'Bình', last_name: 'Trần' } } },
+          { teacher: { user: { first_name: 'An', last_name: 'Lê' } } },
+        ],
+        ...overrides,
+      },
+    });
+
+    it('returns header fields with active standing teacher names only', async () => {
+      mockPrisma.studentClass.findFirst.mockResolvedValue(enrollment());
+
+      const detail = await service.getMyStudentClassDetail('s1', 'c1', now);
+
+      expect(detail).toEqual({
+        classId: 'c1',
+        className: 'Lớp A',
+        classStatus: 'running',
+        courseName: 'Khoá X',
+        teacherNames: ['Lê An', 'Trần Bình'],
+      });
+      const [args] = mockPrisma.studentClass.findFirst.mock.calls[0] as [
+        {
+          where: unknown;
+          select: { class: { select: Record<string, unknown> } };
+        },
+      ];
+      expect(args.where).toEqual({
+        classId: 'c1',
+        studentId: 's1',
+        status: 'active',
+      });
+      expect(args.select.class.select.teachers).toEqual({
+        where: ACTIVE_STANDING_TEACHER,
+        select: {
+          teacher: {
+            select: { user: { select: { first_name: true, last_name: true } } },
+          },
+        },
+      });
+    });
+
+    it('returns empty teacherNames when class has no active standing teacher', async () => {
+      mockPrisma.studentClass.findFirst.mockResolvedValue(
+        enrollment({ teachers: [] }),
+      );
+
+      const detail = await service.getMyStudentClassDetail('s1', 'c1', now);
+
+      expect(detail.teacherNames).toEqual([]);
+    });
+
+    it('rejects students not enrolled in the class', async () => {
+      mockPrisma.studentClass.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getMyStudentClassDetail('s1', 'c1', now),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects expired class content access', async () => {
+      mockPrisma.studentClass.findFirst.mockResolvedValue(
+        enrollment({
+          contentAccessExpiresAt: new Date('2026-10-01T00:00:00.000Z'),
+        }),
+      );
+
+      await expect(
+        service.getMyStudentClassDetail('s1', 'c1', now),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

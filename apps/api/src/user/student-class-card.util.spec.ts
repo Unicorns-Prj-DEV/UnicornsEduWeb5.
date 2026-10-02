@@ -1,4 +1,7 @@
-import { mapStudentClassCard } from './student-class-card.util';
+import {
+  mapStudentClassCard,
+  standingTeacherNames,
+} from './student-class-card.util';
 
 const teacher = (first_name: string | null, last_name: string | null) => ({
   teacher: { user: { first_name, last_name } },
@@ -48,5 +51,22 @@ describe('mapStudentClassCard', () => {
       null,
     );
     expect(card.teacherNames).toEqual(['Lê An', 'Trần Bình']);
+  });
+});
+
+describe('standingTeacherNames', () => {
+  it('dedupes, drops empty names and sorts by Vietnamese collation', () => {
+    expect(
+      standingTeacherNames([
+        teacher('Bình', 'Trần'),
+        teacher(null, null),
+        teacher('An', 'Lê'),
+        teacher('Bình', 'Trần'),
+      ]),
+    ).toEqual(['Lê An', 'Trần Bình']);
+  });
+
+  it('returns empty list when class has no standing teacher', () => {
+    expect(standingTeacherNames([])).toEqual([]);
   });
 });
