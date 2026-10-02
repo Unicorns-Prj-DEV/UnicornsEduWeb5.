@@ -64,6 +64,7 @@ import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
+import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
 import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
@@ -724,6 +725,10 @@ export default function AdminClassDetailPage() {
                 ))}
               </div>
             ) : null}
+            <ClassStandingTeachers
+              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
+              className="mt-1.5"
+            />
           </div>
         </div>
       </header>

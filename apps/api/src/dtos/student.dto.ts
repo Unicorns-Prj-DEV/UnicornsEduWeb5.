@@ -713,6 +713,32 @@ export class UpdateStudentExamSchedulesDto {
   items: StudentExamScheduleUpsertItemDto[];
 }
 
+/** Đầu trang lớp học sinh — chỉ field hiển thị, không row user/staff. */
+export class StudentClassDetailDto {
+  @ApiProperty({ description: 'Class id', example: 'cls_01' })
+  classId: string;
+
+  @ApiProperty({ description: 'Tên lớp', example: 'Lớp Thuật toán 1' })
+  className: string;
+
+  @ApiProperty({ description: 'Trạng thái lớp', example: 'running' })
+  classStatus: string;
+
+  @ApiProperty({
+    description: 'Tên khoá học của lớp',
+    example: 'Thuật toán cơ bản',
+  })
+  courseName: string;
+
+  @ApiProperty({
+    description:
+      'Họ tên các Gia sư đứng lớp đang hoạt động, sắp theo tên. Rỗng = FE ẩn khối.',
+    type: [String],
+    example: ['Nguyễn Văn A'],
+  })
+  teacherNames: string[];
+}
+
 /** Thẻ lớp đang học trên trang chủ học sinh — chỉ dữ liệu hiển thị, không học phí/gói. */
 export class StudentClassCardDto {
   @ApiProperty({ description: 'Class id', example: 'cls_01' })

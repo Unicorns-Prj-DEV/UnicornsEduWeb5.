@@ -1,3 +1,5 @@
+import type { ClassStatus } from "@/dtos/class.dto";
+
 /** Thẻ lớp đang học trên trang chủ học sinh (`GET /users/me/student-classes`). */
 export interface StudentClassCardItem {
   classId: string;
@@ -8,42 +10,14 @@ export interface StudentClassCardItem {
   coverImageUrl: string | null;
 }
 
-export interface StudentClassItem {
-  id: string;
-  studentId: string;
+/** Đầu trang lớp học sinh (`GET /users/me/student-classes/:classId/detail`). */
+export interface StudentClassDetail {
   classId: string;
-  status: string | null;
-  customStudentTuitionPerSession: number | null;
-  customTuitionPackageTotal: number | null;
-  customTuitionPackageSession: number | null;
-  totalAttendedSession: number | null;
-  createdAt: Date;
-  class: {
-    id: string;
-    name: string;
-    status: string;
-    course: {
-      id: string;
-      name: string;
-    };
-    teachers: Array<{
-      teacher: {
-        id: string;
-        user: {
-          first_name: string | null;
-          last_name: string | null;
-          email: string;
-        };
-      };
-    }>;
-    sessions: Array<{
-      id: string;
-      date: Date;
-    }>;
-    _count: {
-      sessions: number;
-    };
-  };
+  className: string;
+  classStatus: ClassStatus;
+  courseName: string;
+  /** Họ tên Gia sư đứng lớp đang hoạt động; rỗng = ẩn khối. */
+  teacherNames: string[];
 }
 
 export interface StudentSessionItem {

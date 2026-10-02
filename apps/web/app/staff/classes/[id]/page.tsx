@@ -58,6 +58,7 @@ import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker"
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classTimelineKeys } from "@/lib/query-keys";
+import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
   running: "Đang chạy",
@@ -781,6 +782,10 @@ export default function StaffClassDetailPage() {
                 </span>
               </div>
             ) : null}
+            <ClassStandingTeachers
+              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
+              className="mt-1.5"
+            />
           </div>
         </div>
       </header>

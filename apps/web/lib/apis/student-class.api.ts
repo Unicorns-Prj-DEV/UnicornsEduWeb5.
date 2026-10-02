@@ -2,7 +2,7 @@ import { api } from "@/lib/client";
 import { contentApiPaths } from "@/lib/content-api-paths";
 import type {
   StudentClassCardItem,
-  StudentClassItem,
+  StudentClassDetail,
   StudentSessionItem,
   StudentSurveyItem,
 } from "@/dtos/student-class.dto";
@@ -21,7 +21,7 @@ export async function getMyClasses(): Promise<StudentClassCardItem[]> {
 
 export async function getMyClassDetail(
   classId: string,
-): Promise<StudentClassItem> {
+): Promise<StudentClassDetail> {
   const { data } = await api.get(`/users/me/student-classes/${classId}/detail`);
   return data;
 }
