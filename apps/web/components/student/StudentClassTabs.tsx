@@ -15,7 +15,8 @@ export default function StudentClassTabs({
   onSelect,
 }: {
   activeTab: StudentClassTab;
-  counts: Record<StudentClassTab, number>;
+  /** Thiếu số của tab (đang tải) thì ẩn badge. */
+  counts: Partial<Record<StudentClassTab, number>>;
   onSelect: (tab: StudentClassTab) => void;
 }) {
   const tabRefs = useRef(new Map<StudentClassTab, HTMLButtonElement>());
@@ -82,15 +83,17 @@ export default function StudentClassTabs({
             >
               {STUDENT_CLASS_TAB_LABELS[tab]}
             </span>
-            <span
-              className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
-                selected
-                  ? "bg-text-inverse/20 text-text-inverse"
-                  : "bg-bg-surface text-text-muted"
-              }`}
-            >
-              {counts[tab]}
-            </span>
+            {counts[tab] === undefined ? null : (
+              <span
+                className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
+                  selected
+                    ? "bg-text-inverse/20 text-text-inverse"
+                    : "bg-bg-surface text-text-muted"
+                }`}
+              >
+                {counts[tab]}
+              </span>
+            )}
           </button>
         );
       })}

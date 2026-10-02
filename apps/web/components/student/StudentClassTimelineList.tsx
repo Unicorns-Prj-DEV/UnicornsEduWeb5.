@@ -20,7 +20,10 @@ import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
-import { ResponsiveDialog, ResponsiveDialogBody } from "@/components/ui/ResponsiveDialog";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+} from "@/components/ui/ResponsiveDialog";
 import StudentSessionDetailDialog from "./StudentSessionDetailDialog";
 import StudentSurveyDetailDialog from "./StudentSurveyDetailDialog";
 import StudentClassTimelineToc, {
@@ -31,7 +34,10 @@ import {
   StudentSessionTimelineCard,
   StudentSurveyTimelineCard,
 } from "./StudentTimelineCards";
-import type { StudentSessionItem, StudentSurveyItem } from "@/dtos/student-class.dto";
+import type {
+  StudentSessionItem,
+  StudentSurveyItem,
+} from "@/dtos/student-class.dto";
 import { replaceCourseWorkspaceUrl } from "@/lib/course-content-routes";
 import {
   isLockedModuleItem,
@@ -191,8 +197,11 @@ function StudentClassTimelineListInner({
     queryKey: classKeys.studentContentGroups(classId),
     queryFn: () => getStudentClassContentGroups(classId),
   });
-  const { openKeys, toggle: toggleModule, open: openModule } =
-    useOpenModuleCards(classId);
+  const {
+    openKeys,
+    toggle: toggleModule,
+    open: openModule,
+  } = useOpenModuleCards(classId);
 
   // Tab Chuyên đề lấy từ nhóm chuyên đề; timeline chỉ còn phục vụ tab Buổi học.
   const moduleEntries = useMemo(
@@ -214,9 +223,11 @@ function StudentClassTimelineListInner({
     [items],
   );
 
-  const tabCounts: Record<StudentClassTab, number> = {
-    "chuyen-de": moduleEntries.length,
-    "buoi-hoc": sessionRows.length,
+  const groups = groupsQuery.data;
+  // Badge = số thẻ chuyên đề / số buổi học + khảo sát; ẩn khi chưa tải xong.
+  const tabCounts: Partial<Record<StudentClassTab, number>> = {
+    "chuyen-de": groups?.length,
+    "buoi-hoc": query.hasNextPage ? undefined : sessionRows.length,
   };
 
   // Mục lục chỉ liệt kê mục của tab đang mở, đánh số từ 1.
@@ -243,7 +254,8 @@ function StudentClassTimelineListInner({
   );
 
   const moduleKeyByItemId = useMemo(
-    () => new Map(moduleEntries.map(({ item, moduleKey }) => [item.id, moduleKey])),
+    () =>
+      new Map(moduleEntries.map(({ item, moduleKey }) => [item.id, moduleKey])),
     [moduleEntries],
   );
 
@@ -308,90 +320,93 @@ function StudentClassTimelineListInner({
             aria-labelledby={`student-class-tab-${activeTab}`}
             className="space-y-3"
           >
-        {activeTab === "chuyen-de" ? (
-          groupsQuery.isLoading ? (
-            [1, 2].map((i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-xl" />
-            ))
-          ) : groupsQuery.isError ? (
-            <p className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
-              Không tải được nội dung chuyên đề.
-            </p>
-          ) : (groupsQuery.data ?? []).length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-              {STUDENT_CLASS_TAB_EMPTY_MESSAGES["chuyen-de"]}
-            </div>
-          ) : (
-            <StudentModuleCards
-              classId={classId}
-              groups={groupsQuery.data ?? []}
-              openKeys={openKeys}
-              onToggle={toggleModule}
-              registerRow={registerRow}
-              selectedId={selectedTocId}
-            />
-          )
-        ) : null}
-        {activeTab === "buoi-hoc" &&
-        sessionRows.length === 0 &&
-        !query.hasNextPage ? (
-          <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-            {STUDENT_CLASS_TAB_EMPTY_MESSAGES["buoi-hoc"]}
-          </div>
-        ) : null}
-        {activeTab === "buoi-hoc" && sessionRows.map(({ item, index }) => {
-          const orderBadge = (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-              {index + 1}
-            </div>
-          );
-
-          const openDetail = () => setSelected(item);
-
-          // Row buổi học/khảo sát có MathContent (có thể chứa link) nên không
-          // dùng <button> bọc ngoài; dùng div có role="button". Bấm thumbnail
-          // tĩnh (ảnh, không nhúng trình phát) cũng nổi sự kiện lên đây.
-          return (
-            <div
-              key={item.id}
-              ref={(el) => registerRow(item.id, el)}
-              data-timeline-id={item.id}
-              role="button"
-              tabIndex={0}
-              onClick={openDetail}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openDetail();
-                }
-              }}
-              className={`flex w-full scroll-mt-24 items-start gap-3 rounded-xl border bg-bg-surface p-4 text-left shadow-sm transition-shadow hover:border-primary/40 ${
-                selectedTocId === item.id
-                  ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-bg-primary"
-                  : "border-border-default"
-              }`}
-            >
-              {orderBadge}
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <TimelineKindBadge
-                    kind={item.kind}
-                    lessonKind={item.lessonKind}
-                    label={item.kindLabel}
-                  />
+            {activeTab === "chuyen-de" ? (
+              groupsQuery.isLoading ? (
+                [1, 2].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                ))
+              ) : groupsQuery.isError ? (
+                <p className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+                  Không tải được nội dung chuyên đề.
+                </p>
+              ) : !groups?.length ? (
+                <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
+                  {STUDENT_CLASS_TAB_EMPTY_MESSAGES["chuyen-de"]}
                 </div>
-                {item.kind === "session" && item.session ? (
-                  <StudentSessionTimelineCard session={item.session} />
-                ) : item.kind === "class_survey" && item.survey ? (
-                  <StudentSurveyTimelineCard survey={item.survey} />
-                ) : null}
+              ) : (
+                <StudentModuleCards
+                  classId={classId}
+                  groups={groups}
+                  openKeys={openKeys}
+                  onToggle={toggleModule}
+                  registerRow={registerRow}
+                  selectedId={selectedTocId}
+                />
+              )
+            ) : null}
+            {activeTab === "buoi-hoc" &&
+            sessionRows.length === 0 &&
+            !query.hasNextPage ? (
+              <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
+                {STUDENT_CLASS_TAB_EMPTY_MESSAGES["buoi-hoc"]}
               </div>
-            </div>
-          );
-        })}
-        {activeTab === "buoi-hoc" && query.isFetchingNextPage ? (
-          <p className="text-center text-xs text-text-muted">Đang tải thêm…</p>
-        ) : null}
+            ) : null}
+            {activeTab === "buoi-hoc" &&
+              sessionRows.map(({ item, index }) => {
+                const orderBadge = (
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                    {index + 1}
+                  </div>
+                );
+
+                const openDetail = () => setSelected(item);
+
+                // Row buổi học/khảo sát có MathContent (có thể chứa link) nên không
+                // dùng <button> bọc ngoài; dùng div có role="button". Bấm thumbnail
+                // tĩnh (ảnh, không nhúng trình phát) cũng nổi sự kiện lên đây.
+                return (
+                  <div
+                    key={item.id}
+                    ref={(el) => registerRow(item.id, el)}
+                    data-timeline-id={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={openDetail}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openDetail();
+                      }
+                    }}
+                    className={`flex w-full scroll-mt-24 items-start gap-3 rounded-xl border bg-bg-surface p-4 text-left shadow-sm transition-shadow hover:border-primary/40 ${
+                      selectedTocId === item.id
+                        ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-bg-primary"
+                        : "border-border-default"
+                    }`}
+                  >
+                    {orderBadge}
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <TimelineKindBadge
+                          kind={item.kind}
+                          lessonKind={item.lessonKind}
+                          label={item.kindLabel}
+                        />
+                      </div>
+                      {item.kind === "session" && item.session ? (
+                        <StudentSessionTimelineCard session={item.session} />
+                      ) : item.kind === "class_survey" && item.survey ? (
+                        <StudentSurveyTimelineCard survey={item.survey} />
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            {activeTab === "buoi-hoc" && query.isFetchingNextPage ? (
+              <p className="text-center text-xs text-text-muted">
+                Đang tải thêm…
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -412,7 +427,10 @@ function StudentClassTimelineListInner({
           onBackdropClick={() => setTocOpen(false)}
         >
           <div className="flex shrink-0 items-center justify-between border-b border-border-default px-4 py-3">
-            <h2 id="student-timeline-toc-title" className="text-sm font-semibold text-text-primary">
+            <h2
+              id="student-timeline-toc-title"
+              className="text-sm font-semibold text-text-primary"
+            >
               Mục lục ({tocEntries.length})
             </h2>
             <button

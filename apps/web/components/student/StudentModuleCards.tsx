@@ -13,13 +13,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  studentAssignmentHref,
-  studentLessonHref,
-} from "@/lib/course-content-routes";
-import {
   isLockedModuleItem,
   moduleCardItems,
   moduleCardKey,
+  moduleItemHref,
 } from "@/lib/student-module-cards";
 import { cn } from "@/lib/utils";
 
@@ -150,11 +147,7 @@ function ModuleItemRow({
   return (
     <Link
       ref={(el) => registerRow(item.id, el)}
-      href={
-        item.lessonKind === "practice"
-          ? studentAssignmentHref(classId, item.id)
-          : studentLessonHref(classId, item.lessonId)
-      }
+      href={moduleItemHref(classId, item)}
       className={cn(
         className,
         "transition-colors hover:border-primary/40 hover:bg-bg-secondary/60",

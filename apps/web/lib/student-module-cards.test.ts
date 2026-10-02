@@ -4,6 +4,7 @@ import {
   isLockedModuleItem,
   moduleCardItems,
   moduleCardKey,
+  moduleItemHref,
   openModuleCardsStorageKey,
   parseOpenModuleCards,
   toggleOpenModuleCard,
@@ -63,5 +64,11 @@ describe("student-module-cards", () => {
     expect(moduleCardItems(group).map((i) => i.id)).toEqual(["t1", "p1"]);
     expect(isLockedModuleItem(group.practiceItems[0])).toBe(true);
     expect(isLockedModuleItem(group.theoryItems[0])).toBe(false);
+    expect(moduleItemHref("c1", group.theoryItems[0])).toBe(
+      "/student/classes/c1/lessons/l-t1",
+    );
+    expect(moduleItemHref("c1", group.practiceItems[0])).toBe(
+      "/student/classes/c1/assignments/p1",
+    );
   });
 });

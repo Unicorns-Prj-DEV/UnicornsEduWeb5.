@@ -2,6 +2,10 @@ import type {
   ClassContentItemDto,
   ClassContentModuleGroupDto,
 } from "@/dtos/class-content.dto";
+import {
+  studentAssignmentHref,
+  studentLessonHref,
+} from "@/lib/course-content-routes";
 
 /** Key ổn định của thẻ chuyên đề; nhóm ngoài chuyên đề (`moduleId: null`) dùng chung một key. */
 export function moduleCardKey(
@@ -37,6 +41,13 @@ export function toggleOpenModuleCard(open: string[], key: string): string[] {
 /** Tiết thực hành chưa tới `openAt` thì khoá (vẫn hiện trong thẻ). */
 export function isLockedModuleItem(item: ClassContentItemDto) {
   return item.lessonKind === "practice" && !item.isOpen;
+}
+
+/** Lý thuyết → trang tiết; thực hành → trang bài theo id lần giao. */
+export function moduleItemHref(classId: string, item: ClassContentItemDto) {
+  return item.lessonKind === "practice"
+    ? studentAssignmentHref(classId, item.id)
+    : studentLessonHref(classId, item.lessonId);
 }
 
 /** Thứ tự hiện trong thẻ: tiết lý thuyết rồi tiết thực hành đã giao. */
