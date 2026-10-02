@@ -42,3 +42,9 @@ export interface ClassContentScheduleUpdatePayload {
   /** Integer 1–720. */
   durationMinutes: number;
 }
+
+/** Tiết lý thuyết cần mở dialog Tiến độ (roster đã xem / hoàn thành). */
+export interface TheoryProgressTarget {
+  contentItemId: string;
+  title: string;
+}

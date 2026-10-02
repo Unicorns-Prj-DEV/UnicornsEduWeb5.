@@ -8,7 +8,9 @@ import { classKeys } from "@/lib/query-keys";
 import type {
   ClassContentItemDto,
   ClassContentModuleGroupDto,
+  TheoryProgressTarget,
 } from "@/dtos/class-content.dto";
+import { formatVnDateTime } from "@/lib/formatters";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -17,24 +19,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-const OPEN_AT_FORMATTER = new Intl.DateTimeFormat("vi-VN", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function formatOpenAt(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? null : OPEN_AT_FORMATTER.format(date);
-}
-
-export interface TheoryProgressTarget {
-  contentItemId: string;
-  title: string;
-}
+const ACTION_CLASS =
+  "inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border-default px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary";
 
 interface ClassModuleGroupsProps {
   classId: string;
@@ -171,7 +157,7 @@ function ContentItemRow({
   const isPractice = item.lessonKind === "practice";
   const schedule = isPractice
     ? [
-        formatOpenAt(item.openAt) ? `Mở: ${formatOpenAt(item.openAt)}` : null,
+        item.openAt ? `Mở: ${formatVnDateTime(item.openAt)}` : null,
         item.durationMinutes ? `${item.durationMinutes} phút` : null,
       ]
         .filter(Boolean)
@@ -210,14 +196,14 @@ function ContentItemRow({
             <>
               <Link
                 href={`${practiceActionsBasePath}/practice/${item.id}/stats`}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border-default px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary"
+                className={ACTION_CLASS}
               >
                 <BarChart3 className="size-3.5" />
                 Thống kê
               </Link>
               <Link
                 href={`${practiceActionsBasePath}/grading/${item.id}`}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border-default px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary"
+                className={ACTION_CLASS}
               >
                 <PenLine className="size-3.5" />
                 Chấm bài
@@ -233,7 +219,7 @@ function ContentItemRow({
                   title: item.title,
                 })
               }
-              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border-default px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary"
+              className={`${ACTION_CLASS} cursor-pointer`}
             >
               <Eye className="size-3.5" />
               Tiến độ

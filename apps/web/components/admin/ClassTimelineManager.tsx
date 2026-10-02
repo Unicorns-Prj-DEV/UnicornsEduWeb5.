@@ -38,9 +38,8 @@ import type { SessionItem } from "@/dtos/session.dto";
 import type { ClassSurveyRecord } from "@/dtos/class-survey.dto";
 import ClassContentManager from "@/components/admin/ClassContentManager";
 import ClassModulesDialog from "@/components/admin/ClassModulesDialog";
-import ClassModuleGroups, {
-  type TheoryProgressTarget,
-} from "@/components/admin/class/ClassModuleGroups";
+import ClassModuleGroups from "@/components/admin/class/ClassModuleGroups";
+import type { TheoryProgressTarget } from "@/dtos/class-content.dto";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
