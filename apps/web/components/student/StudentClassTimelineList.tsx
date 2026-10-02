@@ -280,10 +280,19 @@ function StudentClassTimelineListInner({
             ) : null}
             {activeTab === "buoi-hoc" &&
               sessionRows.map(({ item, index }) => {
-                const orderBadge = (
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                    {index + 1}
-                  </div>
+                // Số thứ tự + badge loại đứng đầu thẻ, cùng hàng với ngày giờ buổi
+                // học, để khung video chiếm trọn bề ngang thẻ.
+                const leading = (
+                  <>
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                      {index + 1}
+                    </span>
+                    <TimelineKindBadge
+                      kind={item.kind}
+                      lessonKind={item.lessonKind}
+                      label={item.kindLabel}
+                    />
+                  </>
                 );
 
                 // Thẻ không mở dialog: nội dung buổi học/khảo sát hiện đủ ngay trên
@@ -293,27 +302,27 @@ function StudentClassTimelineListInner({
                     key={item.id}
                     ref={(el) => registerRow(item.id, el)}
                     data-timeline-id={item.id}
-                    className={`flex w-full scroll-mt-24 items-start gap-3 rounded-xl border bg-bg-surface p-4 shadow-sm ${
+                    className={`w-full scroll-mt-24 rounded-xl border bg-bg-surface p-4 shadow-sm ${
                       selectedTocId === item.id
                         ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-bg-primary"
                         : "border-border-default"
                     }`}
                   >
-                    {orderBadge}
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <TimelineKindBadge
-                          kind={item.kind}
-                          lessonKind={item.lessonKind}
-                          label={item.kindLabel}
-                        />
+                    {item.kind === "session" && item.session ? (
+                      <StudentSessionTimelineCard
+                        session={item.session}
+                        leading={leading}
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {leading}
+                        </div>
+                        {item.kind === "class_survey" && item.survey ? (
+                          <StudentSurveyTimelineCard survey={item.survey} />
+                        ) : null}
                       </div>
-                      {item.kind === "session" && item.session ? (
-                        <StudentSessionTimelineCard session={item.session} />
-                      ) : item.kind === "class_survey" && item.survey ? (
-                        <StudentSurveyTimelineCard survey={item.survey} />
-                      ) : null}
-                    </div>
+                    )}
                   </div>
                 );
               })}
@@ -366,7 +375,6 @@ function StudentClassTimelineListInner({
           </ResponsiveDialogBody>
         </ResponsiveDialog>
       ) : null}
-
     </>
   );
 }

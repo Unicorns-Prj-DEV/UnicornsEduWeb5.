@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { VideoOff } from "lucide-react";
 
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
@@ -51,13 +51,7 @@ function formatTimeRange(
   return start || end || "—";
 }
 
-function SessionField({
-  label,
-  content,
-}: {
-  label: string;
-  content: string;
-}) {
+function SessionField({ label, content }: { label: string; content: string }) {
   return (
     <div className="min-w-0">
       <p className="text-[11px] font-medium uppercase text-text-muted">
@@ -119,28 +113,36 @@ function SessionVideoFrame({
  */
 export function StudentSessionTimelineCard({
   session,
+  leading,
 }: {
   session: TimelineSession;
+  /** Hiện trước ngày giờ trên hàng đầu thẻ (số thứ tự, badge loại). */
+  leading?: ReactNode;
 }) {
   const fields = [
     { label: "Nội dung bài học", content: session.lessonContent },
     { label: "BTVN", content: session.homework },
     { label: "Tutorial", content: session.tutorial },
-  ].filter((field) => Boolean(field.content?.trim()));
+  ].filter((field): field is { label: string; content: string } =>
+    Boolean(field.content?.trim()),
+  );
   const statusLabel = attendanceStatusLabel(session.myAttendanceStatus);
   const myNotes = session.myAttendanceNotes?.trim() ?? "";
   const recordingUrl = session.recordingUrl?.trim() ?? "";
 
   return (
     <div className="space-y-3">
-      <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-text-primary">
-        <span>
-          {formatWeekday(session.date)}, {formatDateOnly(session.date)}
-        </span>
-        <span className="font-mono text-xs font-normal text-text-muted">
-          {formatTimeRange(session.startTime, session.endTime)}
-        </span>
-      </p>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {leading}
+        <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-text-primary">
+          <span>
+            {formatWeekday(session.date)}, {formatDateOnly(session.date)}
+          </span>
+          <span className="font-mono text-xs font-normal text-text-muted">
+            {formatTimeRange(session.startTime, session.endTime)}
+          </span>
+        </p>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-4">
         <SessionVideoFrame
@@ -172,7 +174,7 @@ export function StudentSessionTimelineCard({
                 <SessionField
                   key={field.label}
                   label={field.label}
-                  content={field.content as string}
+                  content={field.content}
                 />
               ))}
             </div>
