@@ -50,7 +50,7 @@ export default function ClassModulesDialog({
     });
     void queryClient.invalidateQueries({ queryKey: ["class-content", classId] });
     void queryClient.invalidateQueries({
-      queryKey: ["course-lessons-for-class", classId],
+      queryKey: classKeys.courseLessons(classId),
     });
   };
 

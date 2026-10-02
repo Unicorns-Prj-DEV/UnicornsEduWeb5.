@@ -82,9 +82,9 @@ Controller: `class-course-module.controller.ts` (`ClassCourseModuleService`). Qu
 
 Liên quan nội dung lớp (`/class/:classId/content`):
 
-- `POST` chỉ nhận `{ lessonId, openAt?, durationMinutes }` của **tiết thực hành** có sẵn trong khoá. Thiếu `lessonId` → `400` (không tạo tiết riêng). Tiết lý thuyết → `400` *«Tiết lý thuyết vào lớp theo chuyên đề…»*. Tiết đã lưu trữ → `404`.
+- `POST` chỉ nhận `{ lessonId, openAt?, durationMinutes }` của **tiết thực hành** có sẵn trong khoá. Thiếu `lessonId` → `400` (không tạo tiết riêng). Tiết lý thuyết → `400` *«Tiết lý thuyết vào lớp theo chuyên đề…»*. Tiết đã lưu trữ → `404`. Tiết thuộc chuyên đề lớp **chưa thêm** (hoặc khoá khác) → `400` *«Lớp chưa thêm chuyên đề chứa tiết thực hành này. Hãy thêm chuyên đề trước khi giao.»* Lần giao đã có trước đó giữ nguyên, kể cả khi chuyên đề bị gỡ.
 - `POST .../:itemId/restore` item lý thuyết khi lớp chưa thêm chuyên đề → `400`; tiết đã lưu trữ → `400`.
-- `GET /class/:classId/course-lessons` chỉ trả tiết thực hành chưa lưu trữ.
+- `GET /class/:classId/content/course-lessons` chỉ trả tiết thực hành chưa lưu trữ thuộc chuyên đề lớp đã thêm (`moduleId`, `alreadyAdded`).
 - `GET` danh sách nội dung (staff + học sinh) sắp theo `sortOrder` chuyên đề → trong chuyên đề: lý thuyết theo `order`, rồi thực hành theo `sortOrder` item; item không có chuyên đề ở cuối.
 
 `lesson_plan` thuần soạn cây nội dung trên khoá được gán. GET list chuyên đề kèm `lessonCount`; GET list tiết kèm `quizCount` / `questionCount`.

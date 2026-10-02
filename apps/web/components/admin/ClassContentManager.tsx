@@ -37,7 +37,7 @@ import {
   BarChart3,
   RotateCcw,
 } from "lucide-react";
-import { classTimelineKeys } from "@/lib/query-keys";
+import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import Link from "next/link";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -539,7 +539,7 @@ function AddContentDialog({
     onSuccess: () => {
       toast.success("Đã giao tiết thực hành");
       queryClient.invalidateQueries({
-        queryKey: ["course-lessons-for-class", classId],
+        queryKey: classKeys.courseLessons(classId),
       });
       onSuccess();
     },
@@ -567,7 +567,7 @@ function AddContentDialog({
             <p className="text-xs text-text-muted mt-0.5">
               {step === "schedule"
                 ? "Thời điểm mở bài và thời lượng thuộc lần giao của lớp này, không đụng đề."
-                : "Chọn tiết thực hành từ khoá. Tiết lý thuyết vào lớp theo chuyên đề."}
+                : "Chọn chuyên đề lớp đã thêm, rồi chọn tiết thực hành. Tiết lý thuyết vào lớp theo chuyên đề."}
             </p>
           </div>
           <button

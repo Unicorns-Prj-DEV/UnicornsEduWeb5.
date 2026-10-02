@@ -18,6 +18,9 @@ export const CLASS_OWNED_LESSON_DISABLED_MESSAGE =
 export const ARCHIVED_LESSON_READ_ONLY_MESSAGE =
   'Tiết học đã lưu trữ, không sửa hay xoá được.';
 
+export const PRACTICE_MODULE_NOT_ADDED_MESSAGE =
+  'Lớp chưa thêm chuyên đề chứa tiết thực hành này. Hãy thêm chuyên đề trước khi giao.';
+
 export interface ActionHistoryActor {
   userId: string;
   userEmail: string;
