@@ -47,8 +47,12 @@ export default function StudentHeader() {
   const avatarInitial = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className="relative z-40 w-full shrink-0 px-3 pt-3 sm:px-6 sm:pt-4 lg:px-8">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-2xl border border-border-default bg-bg-surface/85 px-3 shadow-lg backdrop-blur-md transition-colors sm:h-16 sm:px-4">
+    // Fixed, không chiếm chỗ trong layout: <main> cuộn bên dưới và tự chừa `pt` bằng chiều
+    // cao navbar (4.25rem mobile = pt-3 + h-14, 5rem từ sm = pt-4 + h-16). Đổi chiều cao ở đây
+    // thì sửa cùng padding/scroll-padding của <main> trong app/student/layout.tsx.
+    // Lớp ngoài trải full width nên tắt pointer-events, chỉ thanh nổi nhận click.
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4 lg:px-8">
+      <div className="pointer-events-auto mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-2xl border border-border-default bg-bg-surface/85 px-3 shadow-lg backdrop-blur-md transition-colors sm:h-16 sm:px-4">
         <Link
           href="/student"
           className="flex shrink-0 items-center gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"

@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **Navbar học sinh fixed:** `StudentHeader` chuyển sang `fixed`, không chiếm chỗ trong layout; `main` của `/student/**` cuộn full chiều cao dưới navbar, chừa `pt`/`scroll-pt` bằng chiều cao navbar nên vị trí sticky của TOC và timer bài làm giữ nguyên.
+
 ### Added
 
 - **Popup hồ sơ từ khối tên (#174):** gia sư/staff bấm avatar footer `StaffSidebar`, học sinh bấm avatar + tên trên `StudentHeader` → popup `UserProfileDialog` dùng lại `UserProfileEditor` (lưu khi rời ô), không chuyển trang; đóng popup blur ô đang sửa để kịp lưu, link điều hướng cùng tab tự đóng popup. Query hồ sơ đầy đủ gom vào `lib/profile-full-query.ts` (có test); `StudentHeader` đổi query key `["auth","fullProfile"]` → `["auth","full-profile"]` để avatar/tên cập nhật sau khi lưu.
