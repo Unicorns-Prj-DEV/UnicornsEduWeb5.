@@ -79,15 +79,16 @@ export default function StudentClassTocSidebar({
 
   // Sticky trong <main> có padding: constraint rect của sticky là padding box của scroll
   // container, nên `top-0` sẽ pin cách mép trên đúng bằng padding-top → dùng
-  // `-top-6 sm:-top-8` bù `py-6 sm:py-8` của <main>. Vị trí lúc chưa cuộn do wrapper
-  // `-mt-6 sm:-mt-8` ở component cha xử lý.
+  // `-top-4` bù phần 1rem khoảng cách nội dung trong `pt` của <main> (phần còn lại của `pt`
+  // là chiều cao navbar fixed), nên TOC bám sát dưới navbar. Vị trí lúc chưa cuộn do wrapper
+  // `-mt-4` ở component cha xử lý.
   return (
     <aside
       style={{
         width: collapsed ? TOC_WIDTH_COLLAPSED : TOC_WIDTH_EXPANDED,
         transition: prefersReducedMotion ? "none" : `width 0.3s ${TOC_EASE}`,
       }}
-      className="sticky -top-6 hidden h-[calc(100dvh-5rem)] shrink-0 flex-col self-start overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary sm:-top-8 lg:flex"
+      className="sticky -top-4 hidden h-[calc(100dvh-5rem)] shrink-0 flex-col self-start overflow-hidden border-r border-border-default bg-bg-secondary text-text-secondary lg:flex"
       aria-label="Mục lục lớp học"
     >
       <div

@@ -226,7 +226,7 @@ function StudentClassTimelineListInner({
 
   return (
     <>
-      <div className="relative left-1/2 -mt-6 w-screen max-w-[100vw] -translate-x-1/2 sm:-mt-8 lg:flex lg:items-start">
+      <div className="relative left-1/2 -mt-4 w-screen max-w-[100vw] -translate-x-1/2 lg:flex lg:items-start">
         <StudentClassTocSidebar
           entries={tocEntries}
           activeId={selectedTocId}
@@ -234,7 +234,7 @@ function StudentClassTimelineListInner({
           loadingMore={activeTab === "buoi-hoc" && query.isFetchingNextPage}
         />
 
-        <div className="min-w-0 flex-1 space-y-6 px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8">
+        <div className="min-w-0 flex-1 space-y-6 px-4 pt-4 sm:px-6 lg:px-8">
           {header}
           <StudentClassTabs
             activeTab={activeTab}
