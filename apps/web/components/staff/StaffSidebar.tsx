@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
@@ -16,6 +15,7 @@ import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 type MenuVisibility = {
   hasStaffProfile: boolean;

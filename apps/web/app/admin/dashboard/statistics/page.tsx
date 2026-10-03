@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -41,6 +40,7 @@ import {
   formatVnCompactNumber,
   formatVnInteger,
 } from "@/lib/formatters";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 const MAX_MONTH_RANGE = 36;
 

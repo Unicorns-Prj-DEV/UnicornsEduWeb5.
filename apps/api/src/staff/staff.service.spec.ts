@@ -23,7 +23,6 @@ jest.mock('src/storage/supabase-storage', () => ({
   validateImageFile: jest.fn(),
 }));
 
-import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 import { BadRequestException } from '@nestjs/common';
 import {
   PaymentStatus,
@@ -33,6 +32,7 @@ import {
 } from '../../generated/enums';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import { StaffService } from './staff.service';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 const mockCreateSignedStorageUrl =
   createSignedStorageUrl as jest.MockedFunction<typeof createSignedStorageUrl>;

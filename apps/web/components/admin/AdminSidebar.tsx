@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
@@ -18,6 +17,7 @@ import {
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 const MENU_ITEMS: {
   href: string;

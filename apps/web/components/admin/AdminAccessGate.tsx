@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -15,6 +14,7 @@ import {
   isRestrictedByEmailVerification,
   OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
 } from "@/lib/email-verification-access";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 export default function AdminAccessGate({
   children,

@@ -1,4 +1,3 @@
-import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 import {
   BadRequestException,
   ForbiddenException,
@@ -91,6 +90,7 @@ import {
   commissionTuitionBasisVnd,
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
 function toDateOrNull(

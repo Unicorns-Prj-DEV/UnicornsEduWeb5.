@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState, Suspense } from "react";
@@ -34,6 +33,7 @@ import type {
   LessonTaskDetail,
 } from "@/dtos/lesson.dto";
 import * as lessonApi from "@/lib/apis/lesson.api";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 function normalizePositiveInt(value: string | null, fallback = 1) {
   const parsed = Number(value);

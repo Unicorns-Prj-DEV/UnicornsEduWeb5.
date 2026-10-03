@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -46,6 +45,7 @@ import type {
 } from "@/dtos/dashboard.dto";
 import { toast } from "sonner";
 import { formatVnInteger } from "@/lib/formatters";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 function formatCurrency(value: number) {
   return `${formatVnInteger(value)} đ`;

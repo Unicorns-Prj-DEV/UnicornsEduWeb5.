@@ -1,10 +1,10 @@
-import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 import { Injectable } from '@nestjs/common';
 import { ReceiptPdfService } from 'src/mail/receipt-pdf.service';
 import type {
   AdminDashboardMonthlyStatisticDto,
   AdminDashboardMonthlyStatisticsDto,
 } from '../dtos/dashboard.dto';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 const EXPENSE_SERIES: Array<{
   key: keyof AdminDashboardMonthlyStatisticDto;

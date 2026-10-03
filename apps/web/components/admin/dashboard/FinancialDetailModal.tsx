@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import { useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,6 +14,7 @@ import type {
 import { AdminDashboardFinancialDetailSkeleton } from "@/components/admin/dashboard/AdminDashboardSkeleton";
 import { DashboardIcon } from "@/components/admin/dashboard/DashboardIcon";
 import { formatVnInteger } from "@/lib/formatters";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 function formatCurrency(value: number) {
   return `${formatVnInteger(value)} đ`;

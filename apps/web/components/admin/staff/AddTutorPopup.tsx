@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import {
   useMemo,
   useState,
@@ -18,6 +17,7 @@ import type {
 } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 type Props = {
   open: boolean;

@@ -1,4 +1,3 @@
-import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
@@ -81,6 +80,7 @@ import {
   SQL_TEACHER_SESSION_CAP_GROUP_BY,
 } from '../common/teacher-session-allowance-sql.util';
 import { SurveyRoundService } from '../class/survey-round.service';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 type SummaryCountRow = {
   activeClasses: number | string | null;

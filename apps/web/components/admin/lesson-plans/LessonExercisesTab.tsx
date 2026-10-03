@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
@@ -12,6 +11,7 @@ import LessonWorkQuickFilters, {
 } from "./LessonWorkQuickFilters";
 import LessonOutputQuickPopup from "./LessonOutputQuickPopup";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 const EX_PAGE_SIZE = 15;
 

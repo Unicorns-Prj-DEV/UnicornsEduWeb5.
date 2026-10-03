@@ -1,6 +1,5 @@
 "use client";
 
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import {
   AnimatePresence,
   m,
@@ -39,6 +38,7 @@ import {
   lessonTaskPriorityChipClass,
   lessonTaskStatusChipClass,
 } from "./lessonTaskUi";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 const TAB_LABELS: Record<LessonTabId, string> = {
   overview: "Tổng quan",
@@ -277,7 +277,7 @@ const WORKSPACE_POLICY_COPY: Record<
       "Theo dõi tổng quan, xử lý công việc và quản lý kho giáo án trong staff shell.",
   },
   lesson_plan: {
-    badge: "Giáo án cá nhân",
+    badge: LESSON_PLAN_LABEL,
     description:
       "Xem đúng task được giao trong tab Tổng quan và chỉ thao tác lesson output của chính bạn ở tab Công việc.",
   },
