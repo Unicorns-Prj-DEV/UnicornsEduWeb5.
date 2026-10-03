@@ -124,7 +124,7 @@ describe('TrainingTutorService', () => {
     },
   };
   const mockAchievements = { listStaffAchievements: jest.fn() };
-  const trainingViewer = { userId: 'user-1', roleType: UserRole.staff };
+  const trainingViewer = { id: 'user-1', roleType: UserRole.staff };
   let service: TrainingTutorService;
 
   beforeEach(() => {
@@ -145,7 +145,7 @@ describe('TrainingTutorService', () => {
   describe('assertTrainingViewer', () => {
     it('admin passes without staff lookup', async () => {
       await service.assertTrainingViewer({
-        userId: 'admin',
+        id: 'admin',
         roleType: UserRole.admin,
       });
       expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();

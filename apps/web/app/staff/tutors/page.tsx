@@ -13,6 +13,7 @@ import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
 import { Skeleton } from "@/components/ui/skeleton";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { useQueryErrorToast } from "@/hooks/use-query-error-toast";
 import type { StaffStatus } from "@/dtos/staff.dto";
 import type { TrainingTutorSummary } from "@/dtos/training-tutor.dto";
 import {
@@ -42,6 +43,7 @@ export default function StaffTutorsPage() {
     placeholderData: keepPreviousData,
   });
   const tutors = data?.data ?? [];
+  useQueryErrorToast(isError, "Không tải được danh sách gia sư.");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 bg-bg-primary p-4 pb-8 sm:p-6">
@@ -87,13 +89,9 @@ export default function StaffTutorsPage() {
             <Skeleton key={index} className="h-32 w-full rounded-xl" />
           ))}
         </div>
-      ) : isError ? (
-        <p className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
-          Không tải được danh sách gia sư.
-        </p>
       ) : tutors.length === 0 ? (
         <p className="py-10 text-center text-sm text-text-muted">
-          Không có gia sư phù hợp.
+          {isError ? "Chưa có dữ liệu gia sư." : "Không có gia sư phù hợp."}
         </p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

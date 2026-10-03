@@ -6,6 +6,7 @@ import {
 import { Prisma } from '../../generated/client';
 import { ClassStatus, StaffRole, StaffStatus, UserRole } from 'generated/enums';
 import { AchievementService } from 'src/achievements/achievement.service';
+import type { JwtPayload } from 'src/auth/decorators/current-user.decorator';
 import { getPreferredUserFullName } from 'src/common/user-name.util';
 import type { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import type {
@@ -18,9 +19,9 @@ import type {
 } from 'src/dtos/training-tutor.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { buildNameSearchWhere } from 'src/staff/staff-name-search';
+import { AVATAR_STORAGE_BUCKET } from 'src/storage/media-buckets';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 
-const AVATAR_STORAGE_BUCKET = 'avatars';
 const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -56,10 +57,8 @@ const TUTOR_WHERE = {
   roles: { has: StaffRole.teacher },
 } satisfies Prisma.StaffInfoWhereInput;
 
-export interface TrainingTutorViewer {
-  userId: string;
-  roleType: UserRole;
-}
+/** Người xem lấy thẳng từ JWT (`id`, `roleType`). */
+export type TrainingTutorViewer = Pick<JwtPayload, 'id' | 'roleType'>;
 
 function clampPaging(query: PaginationQueryDto) {
   const page = Math.max(1, query.page ?? 1);
@@ -79,7 +78,7 @@ export class TrainingTutorService {
     if (viewer.roleType === UserRole.admin) return;
 
     const staff = await this.prisma.staffInfo.findFirst({
-      where: { userId: viewer.userId },
+      where: { userId: viewer.id },
       select: { roles: true, status: true },
     });
 

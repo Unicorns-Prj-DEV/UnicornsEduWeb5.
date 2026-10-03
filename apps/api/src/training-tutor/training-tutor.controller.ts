@@ -36,10 +36,7 @@ export class TrainingTutorController {
     @CurrentUser() user: JwtPayload,
     @Query() query: TrainingTutorListQueryDto,
   ) {
-    return this.trainingTutorService.listTutors(
-      { userId: user.id, roleType: user.roleType },
-      query,
-    );
+    return this.trainingTutorService.listTutors(user, query);
   }
 
   @Get(':id')
@@ -57,10 +54,7 @@ export class TrainingTutorController {
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStaffIdPipe()) staffId: string,
   ) {
-    return this.trainingTutorService.getTutor(
-      { userId: user.id, roleType: user.roleType },
-      staffId,
-    );
+    return this.trainingTutorService.getTutor(user, staffId);
   }
 
   @Get(':id/sessions')
@@ -79,11 +73,7 @@ export class TrainingTutorController {
     @Param('id', new ParseStaffIdPipe()) staffId: string,
     @Query() query: PaginationQueryDto,
   ) {
-    return this.trainingTutorService.listTutorSessions(
-      { userId: user.id, roleType: user.roleType },
-      staffId,
-      query,
-    );
+    return this.trainingTutorService.listTutorSessions(user, staffId, query);
   }
 
   @Get(':id/achievements')
@@ -96,9 +86,6 @@ export class TrainingTutorController {
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStaffIdPipe()) staffId: string,
   ) {
-    return this.trainingTutorService.listTutorAchievements(
-      { userId: user.id, roleType: user.roleType },
-      staffId,
-    );
+    return this.trainingTutorService.listTutorAchievements(user, staffId);
   }
 }

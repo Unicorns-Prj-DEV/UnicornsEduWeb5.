@@ -12,6 +12,7 @@ import TutorContactLines from "@/components/staff/tutors/TutorContactLines";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQueryErrorToast } from "@/hooks/use-query-error-toast";
 import type { TrainingTutorClass } from "@/dtos/training-tutor.dto";
 import {
   getTrainingTutor,
@@ -30,11 +31,16 @@ export default function StaffTutorDetailPage() {
   const tutorId = decodeURIComponent(params.id ?? "");
   const [showAchievements, setShowAchievements] = useState(false);
 
-  const { data: tutor, isLoading, isError } = useQuery({
+  const {
+    data: tutor,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: trainingTutorKeys.detail(tutorId),
     queryFn: () => getTrainingTutor(tutorId),
     enabled: Boolean(tutorId),
   });
+  useQueryErrorToast(isError, "Không tải được hồ sơ gia sư.");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 bg-bg-primary p-4 pb-8 sm:p-6">
@@ -49,8 +55,8 @@ export default function StaffTutorDetailPage() {
       {isLoading ? (
         <Skeleton className="h-36 w-full rounded-xl" />
       ) : isError || !tutor ? (
-        <p className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
-          Không tải được hồ sơ gia sư.
+        <p className="py-10 text-center text-sm text-text-muted">
+          Chưa có dữ liệu hồ sơ.
         </p>
       ) : (
         <>
@@ -65,7 +71,10 @@ export default function StaffTutorDetailPage() {
           </section>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <TutorClassList title="Lớp đang dạy" classes={tutor.currentClasses} />
+            <TutorClassList
+              title="Lớp đang dạy"
+              classes={tutor.currentClasses}
+            />
             <TutorClassList title="Lớp đã dạy" classes={tutor.pastClasses} />
           </div>
 
@@ -132,6 +141,7 @@ function TutorSessionHistory({
     placeholderData: keepPreviousData,
   });
   const sessions = data?.data ?? [];
+  useQueryErrorToast(isError, "Không tải được buổi dạy.");
 
   return (
     <section className="rounded-xl border border-border-default bg-bg-surface p-4">
@@ -144,8 +154,6 @@ function TutorSessionHistory({
             <Skeleton key={i} className="h-10 w-full rounded-md" />
           ))}
         </div>
-      ) : isError ? (
-        <p className="text-sm text-error">Không tải được buổi dạy.</p>
       ) : sessions.length === 0 ? (
         <p className="text-sm text-text-muted">Chưa có buổi dạy.</p>
       ) : (
