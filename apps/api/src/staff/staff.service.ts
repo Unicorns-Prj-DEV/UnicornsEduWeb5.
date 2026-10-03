@@ -56,6 +56,7 @@ import {
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { buildNameSearchWhere } from './staff-name-search';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
 import {
   generateStaffId,
@@ -127,42 +128,6 @@ function parseCommaSeparatedIds(raw?: string): string[] {
         .filter(Boolean),
     ),
   ];
-}
-
-function buildNameSearchWhere(search?: string): Prisma.StaffInfoWhereInput {
-  const tokens = (search ?? '')
-    .trim()
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .slice(0, 5);
-
-  if (tokens.length === 0) {
-    return {};
-  }
-
-  return {
-    AND: tokens.map((token) => ({
-      OR: [
-        {
-          user: {
-            first_name: {
-              contains: token,
-              mode: 'insensitive',
-            },
-          },
-        },
-        {
-          user: {
-            last_name: {
-              contains: token,
-              mode: 'insensitive',
-            },
-          },
-        },
-      ],
-    })),
-  };
 }
 
 const STAFF_NAME_USER_SELECT = {

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useCallback,
   useId,
   useState,
   type KeyboardEvent,
@@ -59,17 +58,20 @@ export default function StaffAchievementsDialog({
   staffId,
   staffName,
   onClose,
+  mode = "admin",
 }: {
   staffId: string;
   staffName: string;
   onClose: () => void;
+  /** `training`: Ban Đào Tạo đọc qua endpoint đã lọc field. */
+  mode?: "admin" | "training";
 }) {
   const titleId = useId();
-  const owner: AchievementOwnerRef = { kind: "staff", mode: "admin", staffId };
+  const owner: AchievementOwnerRef = { kind: "staff", mode, staffId };
   const [preview, setPreview] = useState<{ src: string; title: string } | null>(
     null,
   );
-  const closePreview = useCallback(() => setPreview(null), []);
+  const closePreview = () => setPreview(null);
   const { data: items = [], isLoading, isError } = useQuery({
     queryKey: achievementApi.achievementQueryKey(owner),
     queryFn: () => achievementApi.listAchievements(owner),

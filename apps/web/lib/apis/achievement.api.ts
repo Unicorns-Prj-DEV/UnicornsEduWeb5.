@@ -13,6 +13,9 @@ function ownerBasePath(owner: AchievementOwnerRef): string {
   if (owner.kind === "staff" && owner.mode === "self") {
     return "/users/me/achievements";
   }
+  if (owner.kind === "staff" && owner.mode === "training") {
+    return `/training/tutors/${encodeURIComponent(owner.staffId)}/achievements`;
+  }
   if (owner.kind === "staff") {
     return `/staff/${encodeURIComponent(owner.staffId)}/achievements`;
   }
