@@ -105,21 +105,30 @@ export class CourseService {
     };
   }
 
-  async create(dto: CreateCourseDto) {
+  async create(actor: CourseActor, dto: CreateCourseDto) {
+    // Trưởng giáo án chỉ thấy khoá được gán: tự gán người tạo để khoá không "biến mất".
+    const creatorStaffId =
+      !this.courseAccess.isManager(actor) && actor.staffId
+        ? actor.staffId
+        : null;
     return this.prisma.course.create({
       data: {
         name: dto.name,
         defaultDurationDays: dto.default_duration_days ?? null,
         sortOrder: dto.sort_order ?? 0,
+        ...(creatorStaffId
+          ? { lessonPlanMembers: { create: { staffId: creatorStaffId } } }
+          : {}),
       },
     });
   }
 
-  async update(id: string, dto: UpdateCourseDto) {
+  async update(actor: CourseActor, id: string, dto: UpdateCourseDto) {
     const existing = await this.prisma.course.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Không tìm thấy khoá học.');
     }
+    await this.courseAccess.assertCanManageCourse(actor, id, existing.name);
 
     return this.prisma.course.update({
       where: { id },
@@ -134,11 +143,12 @@ export class CourseService {
     });
   }
 
-  async remove(id: string) {
+  async remove(actor: CourseActor, id: string) {
     const existing = await this.prisma.course.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Không tìm thấy khoá học.');
     }
+    await this.courseAccess.assertCanManageCourse(actor, id, existing.name);
 
     const classCount = await this.prisma.class.count({
       where: { courseId: id },

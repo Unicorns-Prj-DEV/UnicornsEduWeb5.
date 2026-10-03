@@ -78,12 +78,12 @@ describe("resolveCourseWorkspaceCapabilities", () => {
     expect(caps.canMutateLessonPlanTeam).toBe(false);
   });
 
-  it("lets lesson_plan_head manage every tab on /staff without being assigned", () => {
+  it("scopes lesson_plan_head to assigned courses while keeping head mutations on /staff", () => {
     const caps = resolveCourseWorkspaceCapabilities(
       staffProfile(["lesson_plan_head"]),
       "/staff",
     );
-    expect(caps.canViewAllCourses).toBe(true);
+    expect(caps.canViewAllCourses).toBe(false);
     expect(caps.canMutateCourses).toBe(true);
     expect(caps.canViewContentTab).toBe(true);
     expect(caps.canMutateLessonPlanTeam).toBe(true);
