@@ -17,9 +17,11 @@ import {
   CUSTOMER_CARE_STUDENT_FIELD_ORDER,
   EMPTY_CUSTOMER_CARE_STUDENT_FORM,
   buildCustomerCareStudentPayload,
+  customerCareStudentFieldId,
   validateCustomerCareStudentForm,
   type CustomerCareStudentFormErrors,
   type CustomerCareStudentFormState,
+  type CustomerCareStudentTextField as TextFieldKey,
 } from "@/lib/customer-care-student-form";
 
 const INPUT_CLASS =
@@ -29,8 +31,6 @@ const GENDER_OPTIONS: Array<{ value: StudentGender; label: string }> = [
   { value: "male", label: "Nam" },
   { value: "female", label: "Nữ" },
 ];
-
-type TextFieldKey = Exclude<keyof CustomerCareStudentFormState, "gender" | "emailVerified">;
 
 type FormTextFieldProps = {
   field: TextFieldKey;
@@ -55,7 +55,7 @@ function FormTextField({
   inputMode,
   onChange,
 }: FormTextFieldProps) {
-  const inputId = `cc-student-${field}`;
+  const inputId = customerCareStudentFieldId(field);
   return (
     <label htmlFor={inputId} className="flex flex-col gap-1 text-sm text-text-secondary">
       <span>
@@ -79,8 +79,6 @@ function FormTextField({
 }
 
 type Props = {
-  /** Hồ sơ CSKH đang đăng nhập: học sinh tạo xong vào portfolio của CSKH này. */
-  staffId: string;
   onClose: () => void;
 };
 
@@ -88,7 +86,7 @@ type Props = {
  * CSKH tạo học sinh kèm tài khoản đăng nhập. Backend tự gán CSKH tạo làm Người
  * chăm sóc với % mặc định trên hồ sơ; CSKH không xếp lớp ở đây.
  */
-export default function CreateCustomerCareStudentPopup({ staffId, onClose }: Props) {
+export default function CreateCustomerCareStudentPopup({ onClose }: Props) {
   const queryClient = useQueryClient();
   const { confirm, dialog } = useConfirmDialog();
   const [form, setForm] = useState<CustomerCareStudentFormState>(
@@ -100,7 +98,8 @@ export default function CreateCustomerCareStudentPopup({ staffId, onClose }: Pro
   const createMutation = useMutation({
     mutationFn: () => userApi.createStudentUser(buildCustomerCareStudentPayload(form)),
     onSuccess: async (response) => {
-      await queryClient.invalidateQueries({ queryKey: ["customer-care", "students", staffId] });
+      // Gồm danh sách học sinh và các summary của portfolio CSKH.
+      await queryClient.invalidateQueries({ queryKey: ["customer-care"] });
       toast.success(response.message || "Tạo học sinh thành công.");
       onClose();
     },
@@ -114,7 +113,7 @@ export default function CreateCustomerCareStudentPopup({ staffId, onClose }: Pro
     setErrors((prev) => {
       if (!(field in prev)) return prev;
       const next = { ...prev };
-      delete next[field as keyof CustomerCareStudentFormErrors];
+      delete next[field];
       return next;
     });
   };
@@ -131,7 +130,7 @@ export default function CreateCustomerCareStudentPopup({ staffId, onClose }: Pro
     const firstErrorField = CUSTOMER_CARE_STUDENT_FIELD_ORDER.find((field) => nextErrors[field]);
     if (firstErrorField) {
       toast.error(nextErrors[firstErrorField]);
-      document.getElementById(`cc-student-${firstErrorField}`)?.focus();
+      document.getElementById(customerCareStudentFieldId(firstErrorField))?.focus();
       return;
     }
     createMutation.mutate();
@@ -140,7 +139,7 @@ export default function CreateCustomerCareStudentPopup({ staffId, onClose }: Pro
   const textFieldProps = (field: TextFieldKey) => ({
     field,
     value: form[field],
-    error: errors[field as keyof CustomerCareStudentFormErrors],
+    error: errors[field],
     onChange: setTextField,
   });
 

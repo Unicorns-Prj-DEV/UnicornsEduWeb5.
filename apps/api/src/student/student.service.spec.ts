@@ -1902,6 +1902,21 @@ describe('StudentService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
+    it('lets a customer care staff edit the profile without touching the assignment', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { school: 'THPT A' },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
     it('lets an assistant transfer the student to another customer care staff', async () => {
       mockPrisma.staffInfo.findUnique.mockResolvedValue({
         id: 'staff-assistant-1',

@@ -91,7 +91,6 @@ export default function StaffCustomerCareDetailPage() {
 
       {createStudentOpen ? (
         <CreateCustomerCareStudentPopup
-          staffId={staffInfo.id}
           onClose={() => setCreateStudentOpen(false)}
         />
       ) : null}

@@ -19,6 +19,15 @@ export type CustomerCareStudentFormState = {
   emailVerified: boolean;
 };
 
+export type CustomerCareStudentTextField = Exclude<
+  keyof CustomerCareStudentFormState,
+  "gender" | "emailVerified"
+>;
+
+/** id DOM của ô nhập, dùng chung cho label và focus ô lỗi đầu tiên. */
+export const customerCareStudentFieldId = (field: CustomerCareStudentTextField) =>
+  `cc-student-${field}`;
+
 export const CUSTOMER_CARE_STUDENT_FIELD_ORDER = [
   "lastName",
   "firstName",
@@ -28,11 +37,11 @@ export const CUSTOMER_CARE_STUDENT_FIELD_ORDER = [
   "password",
   "confirmPassword",
   "birthYear",
-] as const;
+] as const satisfies readonly CustomerCareStudentTextField[];
 
-export type CustomerCareStudentField = (typeof CUSTOMER_CARE_STUDENT_FIELD_ORDER)[number];
-
-export type CustomerCareStudentFormErrors = Partial<Record<CustomerCareStudentField, string>>;
+export type CustomerCareStudentFormErrors = Partial<
+  Record<CustomerCareStudentTextField, string>
+>;
 
 export const EMPTY_CUSTOMER_CARE_STUDENT_FORM: CustomerCareStudentFormState = {
   lastName: "",
