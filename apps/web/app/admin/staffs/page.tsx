@@ -10,9 +10,12 @@ import * as staffApi from "@/lib/apis/staff.api";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
 import StaffListAvatar from "@/components/admin/staff/StaffListAvatar";
+import StaffAchievementsDialog, {
+  StaffAchievementsButton,
+} from "@/components/shared/achievement/StaffAchievementsDialog";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
-import { StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
+import { StaffListItem, StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
 import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
@@ -65,6 +68,9 @@ function AdminStaffPageContent() {
   const roleMenuRef = useRef<HTMLDivElement | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [achievementsTarget, setAchievementsTarget] = useState<{ id: string; name: string } | null>(null);
+  const openAchievements = (row: StaffListItem) =>
+    setAchievementsTarget({ id: row.id, name: row.fullName?.trim() || "" });
   const [filterDraft, setFilterDraft] = useState({
     province: "",
     university: "",
@@ -696,6 +702,11 @@ function AdminStaffPageContent() {
 
                       <div className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
                         <span className="truncate">Tỉnh: {province}</span>
+                        <StaffAchievementsButton
+                          count={row.achievementCount}
+                          className="self-start"
+                          onOpen={() => openAchievements(row)}
+                        />
                         {classItems.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             <span className="text-sm text-text-secondary">Lớp:</span>
@@ -780,6 +791,10 @@ function AdminStaffPageContent() {
                           </td>
                           <td className="w-[20%] min-w-0 px-4 py-3 text-text-primary">
                             <span className="block truncate">{row.fullName?.trim() || "—"}</span>
+                            <StaffAchievementsButton
+                              count={row.achievementCount}
+                              onOpen={() => openAchievements(row)}
+                            />
                           </td>
                           <td className="w-[20%] min-w-0 px-4 py-3 align-middle overflow-x-hidden">
                             <div className="flex flex-wrap gap-1">
@@ -888,6 +903,14 @@ function AdminStaffPageContent() {
           )}
         </div>
       </div>
+
+      {achievementsTarget ? (
+        <StaffAchievementsDialog
+          staffId={achievementsTarget.id}
+          staffName={achievementsTarget.name}
+          onClose={() => setAchievementsTarget(null)}
+        />
+      ) : null}
 
       {canDeleteStaff && deleteConfirmOpen && staffToDelete ? (
         <>

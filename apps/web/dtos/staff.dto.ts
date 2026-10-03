@@ -32,6 +32,8 @@ export interface StaffListItem {
         class: { id: string; name: string };
     }>;
     monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
+    /** Số thành tích của nhân sự (`GET /staff`). */
+    achievementCount?: number;
     unpaidAmountTotal?: number | null;
 }
 
