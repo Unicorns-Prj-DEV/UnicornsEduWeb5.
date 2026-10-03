@@ -17,6 +17,7 @@ import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwi
 import { useAuth } from "@/context/AuthContext";
 import { resolveEmailVerified } from "@/mocks/user-profile-verification.mock";
 import * as authApi from "@/lib/apis/auth.api";
+import { PROFILE_FULL_QUERY_KEY } from "@/lib/profile-full-query";
 import type {
   FullProfileDto,
   UpdateMyProfileDto,
@@ -382,7 +383,7 @@ export default function UserProfileEditor({
   };
 
   const syncFullProfile = (data: FullProfileDto) => {
-    queryClient.setQueryData(["profile", "full"], data);
+    queryClient.setQueryData(PROFILE_FULL_QUERY_KEY, data);
     queryClient.setQueryData(["auth", "full-profile"], data);
 
     void queryClient.invalidateQueries({
@@ -472,7 +473,7 @@ export default function UserProfileEditor({
     scope: PROFILE_SAVE_SCOPE,
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["profile", "full"] }),
+        queryClient.invalidateQueries({ queryKey: PROFILE_FULL_QUERY_KEY }),
         queryClient.invalidateQueries({
           queryKey: ["student", "self", "detail"],
         }),

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import UserProfileEditor, {
   getRoleLabel,
 } from "@/components/user-profile/UserProfileEditor";
-import * as authApi from "@/lib/apis/auth.api";
+import { profileFullQueryOptions } from "@/lib/profile-full-query";
 import { OPEN_EMAIL_VERIFICATION_MODAL_EVENT } from "@/lib/email-verification-access";
 import { getUserWorkspaceHref } from "@/lib/auth-redirect";
 import {
@@ -214,16 +214,7 @@ function UserProfilePageContent() {
     isLoading,
     isError,
     error,
-  } = useQuery({
-    queryKey: ["profile", "full"],
-    queryFn: authApi.getFullProfile,
-    retry: (failureCount, err) => {
-      const status = (err as { response?: { status?: number } })?.response
-        ?.status;
-      if (status === 401) return false;
-      return failureCount < 2;
-    },
-  });
+  } = useQuery(profileFullQueryOptions);
 
   if (isLoading) {
     return <LoadingSkeleton />;
