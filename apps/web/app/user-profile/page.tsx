@@ -240,7 +240,6 @@ function UserProfilePageContent() {
     (profile as { avatarPath?: string | null }).avatarPath ??
       profile.avatarUrl,
   );
-  const staffDataConsentComplete = completion.staffDataConsentComplete;
   const sectionItems: SectionItem[] = [
     {
       id: "profile-account",
@@ -328,7 +327,7 @@ function UserProfilePageContent() {
         detail: "Địa chỉ hiện tại là bắt buộc để hoàn tất hồ sơ nhân sự.",
       },
     profile.staffInfo &&
-      !staffDataConsentComplete && {
+      !completion.staffDataConsentComplete && {
         label: "Xác nhận điều khoản dữ liệu cá nhân",
         href: "#profile-data-consent",
         detail: "Đây là trường bắt buộc để hoàn tất hồ sơ nhân sự.",

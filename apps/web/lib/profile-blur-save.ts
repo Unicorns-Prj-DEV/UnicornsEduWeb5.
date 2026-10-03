@@ -39,3 +39,15 @@ export function resolveBlurSave(
   if (emptyPolicy === "keep") return { kind: "revert" };
   return { kind: "save", value: emptyPolicy === "null" ? null : "" };
 }
+
+/** Năm sinh phải là số nguyên trong [1900, `currentYear`]; trả thông báo lỗi hoặc `null`. */
+export function validateBirthYear(
+  raw: string,
+  currentYear: number,
+): string | null {
+  const year = Number(raw);
+  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+    return `Năm sinh phải là số nguyên từ 1900 đến ${currentYear}.`;
+  }
+  return null;
+}

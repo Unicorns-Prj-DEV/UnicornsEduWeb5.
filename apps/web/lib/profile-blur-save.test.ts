@@ -3,6 +3,7 @@ import {
   resolveBlurSave,
   toBlurSaveText,
   toDateInputValue,
+  validateBirthYear,
 } from "./profile-blur-save";
 
 describe("resolveBlurSave", () => {
@@ -59,5 +60,20 @@ describe("toDateInputValue", () => {
   it("returns empty for missing or invalid dates", () => {
     expect(toDateInputValue(null)).toBe("");
     expect(toDateInputValue("not-a-date")).toBe("");
+  });
+});
+
+describe("validateBirthYear", () => {
+  it("accepts integer years in range", () => {
+    expect(validateBirthYear("1900", 2026)).toBeNull();
+    expect(validateBirthYear("2026", 2026)).toBeNull();
+  });
+
+  it("rejects non-integers and out-of-range years", () => {
+    for (const raw of ["1899", "2027", "2008.5", "1e3", "abc"]) {
+      expect(validateBirthYear(raw, 2026)).toBe(
+        "Năm sinh phải là số nguyên từ 1900 đến 2026.",
+      );
+    }
   });
 });

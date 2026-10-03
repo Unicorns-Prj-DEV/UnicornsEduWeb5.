@@ -27,6 +27,7 @@ import {
   resolveBlurSave,
   toBlurSaveText,
   toDateInputValue,
+  validateBirthYear,
   type BlurSaveEmptyPolicy,
 } from "@/lib/profile-blur-save";
 import {
@@ -95,26 +96,45 @@ function getErrorMessage(err: unknown): string | undefined {
 
 type SaveField = (value: string | null) => Promise<unknown>;
 
+/** Cách một ô lưu khi rời ô; `validate` trả thông báo lỗi để chặn gọi API. */
+type BlurSaveConfig = {
+  label: string;
+  savedValue: string | number | null | undefined;
+  onSave: SaveField;
+  emptyPolicy?: BlurSaveEmptyPolicy;
+  validate?: (value: string) => string | null;
+};
+
 /**
- * Lưu một ô khi rời ô: không đổi thì không gọi API; lỗi hoặc xoá trường bắt buộc
- * thì trả ô về giá trị đã lưu. Toast báo kết quả theo nhãn ô.
+ * Lưu một ô khi rời ô: không đổi thì không gọi API; lỗi, giá trị không hợp lệ
+ * hoặc xoá trường bắt buộc thì trả ô về giá trị đã lưu. Toast báo theo nhãn ô.
  */
 async function commitFieldOnBlur(
   input: HTMLInputElement | HTMLTextAreaElement,
-  savedValue: string | number | null | undefined,
-  emptyPolicy: BlurSaveEmptyPolicy,
-  label: string,
-  save: SaveField,
+  {
+    label,
+    savedValue,
+    onSave,
+    emptyPolicy = "empty-string",
+    validate,
+  }: BlurSaveConfig,
 ) {
   const decision = resolveBlurSave(savedValue, input.value, emptyPolicy);
   if (decision.kind === "skip") return;
-  if (decision.kind === "revert") {
+  const invalidMessage =
+    decision.kind === "revert"
+      ? `${label} không được để trống.`
+      : decision.value && validate
+        ? validate(decision.value)
+        : null;
+  if (invalidMessage) {
     input.value = toBlurSaveText(savedValue);
-    toast.error(`${label} không được để trống.`);
+    toast.error(invalidMessage);
     return;
   }
+  if (decision.kind !== "save") return;
   try {
-    await save(decision.value);
+    await onSave(decision.value);
     toast.success(`Đã lưu ${label.toLowerCase()}.`);
   } catch (err) {
     input.value = toBlurSaveText(savedValue);
@@ -179,12 +199,8 @@ function ReadOnlyRow({
   );
 }
 
-type BlurFieldProps = {
+type BlurFieldProps = BlurSaveConfig & {
   id: string;
-  label: string;
-  savedValue: string | number | null | undefined;
-  onSave: SaveField;
-  emptyPolicy?: BlurSaveEmptyPolicy;
   placeholder?: string;
   stacked?: boolean;
   hint?: ReactNode;
@@ -192,10 +208,6 @@ type BlurFieldProps = {
 
 function BlurTextField({
   id,
-  label,
-  savedValue,
-  onSave,
-  emptyPolicy = "empty-string",
   placeholder,
   stacked,
   hint,
@@ -203,13 +215,15 @@ function BlurTextField({
   min,
   max,
   autoComplete,
+  ...saveConfig
 }: BlurFieldProps & {
   type?: string;
   min?: number;
   max?: number;
   autoComplete?: string;
 }) {
-  const savedText = toBlurSaveText(savedValue);
+  const { label } = saveConfig;
+  const savedText = toBlurSaveText(saveConfig.savedValue);
   const inputProps = {
     id,
     className: inputClassName,
@@ -219,13 +233,7 @@ function BlurTextField({
     max,
     autoComplete,
     onBlur: (event: React.FocusEvent<HTMLInputElement>) =>
-      void commitFieldOnBlur(
-        event.currentTarget,
-        savedValue,
-        emptyPolicy,
-        label,
-        onSave,
-      ),
+      void commitFieldOnBlur(event.currentTarget, saveConfig),
   };
   return (
     <FieldRow id={id} label={label} stacked={stacked} hint={hint}>
@@ -241,15 +249,13 @@ function BlurTextField({
 
 function BlurTextAreaField({
   id,
-  label,
-  savedValue,
-  onSave,
-  emptyPolicy = "empty-string",
   placeholder,
   stacked,
   hint,
+  ...saveConfig
 }: BlurFieldProps) {
-  const savedText = toBlurSaveText(savedValue);
+  const { label } = saveConfig;
+  const savedText = toBlurSaveText(saveConfig.savedValue);
   return (
     <FieldRow id={id} label={label} stacked={stacked} hint={hint}>
       <textarea
@@ -259,15 +265,7 @@ function BlurTextAreaField({
         defaultValue={savedText}
         placeholder={placeholder}
         rows={3}
-        onBlur={(event) =>
-          void commitFieldOnBlur(
-            event.currentTarget,
-            savedValue,
-            emptyPolicy,
-            label,
-            onSave,
-          )
-        }
+        onBlur={(event) => void commitFieldOnBlur(event.currentTarget, saveConfig)}
       />
     </FieldRow>
   );
@@ -397,22 +395,22 @@ export default function UserProfileEditor({
     }
   };
 
+  /** Lưu có thể đổi trạng thái gate hồ sơ nên làm mới cả session. */
+  const syncProfileAndSession = async (data: FullProfileDto) => {
+    syncFullProfile(data);
+    await refreshAuthSession();
+  };
+
   const updateProfileMutation = useMutation({
     mutationFn: authApi.updateMyProfile,
     scope: PROFILE_SAVE_SCOPE,
-    onSuccess: async (data) => {
-      syncFullProfile(data);
-      await refreshAuthSession();
-    },
+    onSuccess: syncProfileAndSession,
   });
 
   const updateStaffMutation = useMutation({
     mutationFn: authApi.updateMyStaffProfile,
     scope: PROFILE_SAVE_SCOPE,
-    onSuccess: async (data) => {
-      syncFullProfile(data);
-      await refreshAuthSession();
-    },
+    onSuccess: syncProfileAndSession,
   });
 
   const updateStudentMutation = useMutation({
@@ -912,6 +910,9 @@ export default function UserProfileEditor({
                   max={new Date().getFullYear()}
                   savedValue={profile.studentInfo.birthYear}
                   emptyPolicy="keep"
+                  validate={(value) =>
+                    validateBirthYear(value, new Date().getFullYear())
+                  }
                   onSave={(value) =>
                     saveStudent({ birth_year: Number(value) })
                   }
