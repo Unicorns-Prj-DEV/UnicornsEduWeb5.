@@ -23,7 +23,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
-- **Navbar học sinh fixed:** `StudentHeader` chuyển sang `fixed`, không chiếm chỗ trong layout; `main` của `/student/**` cuộn full chiều cao dưới navbar, chừa `pt` = chiều cao navbar + 1rem (trước là 1.5–2rem, trang lớp còn cộng thêm `pt-8`) và `scroll-pt` = chiều cao navbar; TOC lớp học bám sát dưới navbar (`-top-4`).
+- **Navbar học sinh fixed:** `StudentHeader` chuyển sang `fixed`, không chiếm chỗ trong layout; `main` của `/student/**` cuộn full chiều cao dưới navbar, chừa `pt` = chiều cao navbar + 1rem (trước là 1.5–2rem, trang lớp còn cộng thêm `pt-8`) và `scroll-pt` = chiều cao navbar.
+
+### Removed
+
+- **Sidebar mục lục trang lớp học sinh:** bỏ `StudentClassTocSidebar` (sidebar trái desktop của `/student/classes/[id]`); nội dung lớp chiếm trọn bề ngang `main`. Mobile (`< lg`) vẫn giữ nút nổi **Mục lục** mở dialog; desktop không còn mục lục. Key `localStorage` `student-class-toc-collapsed` không còn dùng.
 
 ### Added
 
