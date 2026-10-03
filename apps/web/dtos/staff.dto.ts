@@ -20,7 +20,6 @@ export interface StaffListItem {
     fullName: string;
     status: StaffStatus;
     roles?: string[];
-    personalAchievementLink?: string | null;
     user?: {
         province?: string | null;
         fullName?: string | null;
@@ -77,10 +76,8 @@ export interface StaffDetail {
     birthDate?: string | null;
     university?: string | null;
     highSchool?: string | null;
-    specialization?: string | null;
     bankAccount?: string | null;
     bankQrLink?: string | null;
-    personalAchievementLink?: string | null;
     googleMeetLink?: string | null;
     revenueSharePercent?: number | null;
     roles: string[];
@@ -120,10 +117,8 @@ export interface UpdateStaffPayload {
     birth_date?: string;
     university?: string;
     high_school?: string;
-    specialization?: string;
     bank_account?: string;
     bank_qr_link?: string;
-    personal_achievement_link?: string | null;
     revenue_share_percent?: number | null;
     roles?: string[];
     status?: StaffStatus;
@@ -412,10 +407,8 @@ export interface CreateStaffPayload {
     birth_date?: string;
     university?: string;
     high_school?: string;
-    specialization?: string;
     bank_account?: string;
     bank_qr_link?: string;
-    personal_achievement_link?: string | null;
     revenue_share_percent?: number | null;
     roles: string[];
     user_id: string;
@@ -428,7 +421,6 @@ export interface StaffInfoDto {
     birthdate: Date;
     university: string;
     high_school: string;
-    specialization: string;
     bank_account: string;
     bank_qr_link: string;
     status: StaffStatus;

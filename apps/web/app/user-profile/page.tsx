@@ -979,7 +979,7 @@ function UserProfilePageContent() {
           {
             id: "profile-staff",
             label: "Nhân sự",
-            description: "Hồ sơ học vấn, chuyên môn và thông tin thanh toán.",
+            description: "Hồ sơ học vấn và thông tin thanh toán.",
             completion: staffCompletion!,
             tone: "success" as const,
           },
@@ -1077,7 +1077,7 @@ function UserProfilePageContent() {
   const profileSubtitle = profile.studentInfo
     ? "Học viên — thông tin học tập và liên hệ phụ huynh."
     : profile.staffInfo
-      ? "Nhân sự — chuyên môn và thông tin thanh toán."
+      ? "Nhân sự — học vấn và thông tin thanh toán."
       : "Tài khoản và liên hệ trong hệ thống.";
 
   const sectionNavItems = sectionItems.map((item) => ({
@@ -1435,7 +1435,7 @@ function UserProfilePageContent() {
                 <ProfileSection
                   id="profile-staff"
                   title="Nhân sự"
-                  description="Học vấn, chuyên môn và thanh toán"
+                  description="Học vấn và thanh toán"
                   completion={staffCompletion!}
                   isEditing={editStaff}
                   onEdit={() => setEditStaff(true)}

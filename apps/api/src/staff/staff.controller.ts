@@ -708,16 +708,11 @@ export class StaffController {
       data.bank_qr_link,
       'Link QR ngân hàng',
     );
-    const normalizedAchievementLink = normalizeHttpHttpsUrl(
-      data.personal_achievement_link,
-      'Link thành tích cá nhân',
-    );
 
     return this.staffService.createStaff(
       {
         ...data,
         bank_qr_link: normalizedBankQrLink ?? undefined,
-        personal_achievement_link: normalizedAchievementLink ?? undefined,
       },
       {
         userId: user.id,
@@ -748,16 +743,11 @@ export class StaffController {
       data.bank_qr_link,
       'Link QR ngân hàng',
     );
-    const normalizedAchievementLink = normalizeHttpHttpsUrl(
-      data.personal_achievement_link,
-      'Link thành tích cá nhân',
-    );
 
     return this.staffService.updateStaff(
       {
         ...data,
         bank_qr_link: normalizedBankQrLink ?? undefined,
-        personal_achievement_link: normalizedAchievementLink ?? undefined,
       },
       {
         userId: user.id,
@@ -799,17 +789,12 @@ export class StaffController {
       data.bank_qr_link,
       'Link QR ngân hàng',
     );
-    const normalizedAchievementLink = normalizeHttpHttpsUrl(
-      data.personal_achievement_link,
-      'Link thành tích cá nhân',
-    );
 
     return this.staffService.updateStaffWithFixedSalaryOverrides(
       id,
       {
         ...data,
         bank_qr_link: normalizedBankQrLink ?? undefined,
-        personal_achievement_link: normalizedAchievementLink ?? undefined,
       },
       {
         userId: user.id,

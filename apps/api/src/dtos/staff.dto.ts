@@ -156,11 +156,6 @@ export class CreateStaffDto {
   @IsString()
   high_school?: string;
 
-  @ApiPropertyOptional({ example: 'Math' })
-  @IsOptional()
-  @IsString()
-  specialization?: string;
-
   @ApiPropertyOptional({ example: '1234567890' })
   @IsOptional()
   @IsString()
@@ -188,15 +183,6 @@ export class CreateStaffDto {
   @IsOptional()
   @IsStaffId()
   customer_care_managed_by_staff_id?: string | null;
-
-  @ApiPropertyOptional({
-    example: 'https://drive.google.com/drive/folders/abc123',
-    description:
-      'Link Google Drive hoặc URL thành tích cá nhân của nhân sự (không bắt buộc)',
-  })
-  @IsOptional()
-  @IsString()
-  personal_achievement_link?: string | null;
 
   @ApiPropertyOptional({
     example: 'https://meet.google.com/abc-defg-hij',

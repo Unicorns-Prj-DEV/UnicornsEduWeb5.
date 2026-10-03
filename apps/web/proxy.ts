@@ -33,10 +33,8 @@ type FullProfileGuardPayload = {
     birthDate?: string | null;
     university?: string | null;
     highSchool?: string | null;
-    specialization?: string | null;
     bankAccount?: string | null;
     bankQrLink?: string | null;
-    personalAchievementLink?: string | null;
   } | null;
 };
 
