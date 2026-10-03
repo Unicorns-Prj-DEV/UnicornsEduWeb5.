@@ -56,6 +56,8 @@ export const STUDENT_CUSTOMER_SOURCE_LABELS: Record<
   other: 'Khác',
 };
 
+export const STUDENT_DROP_OUT_REASON_MAX_LENGTH = 500;
+
 export const UNASSIGNED_CUSTOMER_SOURCE_KEY = 'unassigned';
 export const UNASSIGNED_CUSTOMER_SOURCE_LABEL = 'Chưa gán';
 
@@ -191,6 +193,15 @@ export class UpdateStudentBodyDto {
   drop_out_date?: string;
 
   @ApiPropertyOptional({
+    example: 'Chuyển sang học trung tâm khác.',
+    description: `Lý do nghỉ học. Bắt buộc khi status chuyển sang inactive; chỉ nhận khi học sinh đang/sẽ nghỉ học. Tối đa ${STUDENT_DROP_OUT_REASON_MAX_LENGTH} ký tự.`,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(STUDENT_DROP_OUT_REASON_MAX_LENGTH)
+  drop_out_reason?: string;
+
+  @ApiPropertyOptional({
     example: 'UNISTAFF-c3d4e5f6a7',
     description: 'Assigned customer care staff ID. Set null to clear.',
     nullable: true,
@@ -223,7 +234,8 @@ export class UpdateStudentBodyDto {
 
   @ApiPropertyOptional({
     example: 'Bạn học giới thiệu qua Zalo',
-    description: 'Bắt buộc khi customer_source là other. Bị xóa khi đổi sang nguồn khác.',
+    description:
+      'Bắt buộc khi customer_source là other. Bị xóa khi đổi sang nguồn khác.',
     nullable: true,
   })
   @IsOptional()
@@ -342,11 +354,12 @@ export class UpdateStudentStatusDto {
   status: StudentStatus;
 
   @ApiPropertyOptional({
-    description: 'Optional audit reason for the student status transition.',
+    description: `Lý do đổi trạng thái. Bắt buộc khi chuyển sang inactive và được lưu làm lý do nghỉ học; khi chuyển về active chỉ ghi vào lịch sử thao tác. Tối đa ${STUDENT_DROP_OUT_REASON_MAX_LENGTH} ký tự.`,
     example: 'Phụ huynh báo học sinh nghỉ học.',
   })
   @IsOptional()
   @IsString()
+  @MaxLength(STUDENT_DROP_OUT_REASON_MAX_LENGTH)
   reason?: string;
 }
 
@@ -763,7 +776,8 @@ export class StudentClassCardDto {
   teacherNames: string[];
 
   @ApiPropertyOptional({
-    description: 'Signed URL ảnh bìa lớp (1 giờ). Null = FE hiện mascot theo ID lớp.',
+    description:
+      'Signed URL ảnh bìa lớp (1 giờ). Null = FE hiện mascot theo ID lớp.',
     type: String,
     nullable: true,
   })

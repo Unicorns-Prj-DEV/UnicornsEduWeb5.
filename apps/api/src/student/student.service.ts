@@ -395,7 +395,8 @@ export class StudentService {
       classTuitionPackageSession: studentClass.class.tuitionPackageSession,
     });
     const effectiveTuitionPackageTotal = packageFields.effectivePackageTotal;
-    const effectiveTuitionPackageSession = packageFields.effectivePackageSession;
+    const effectiveTuitionPackageSession =
+      packageFields.effectivePackageSession;
     const effectiveTuitionPerSession = resolveSessionChargeTuitionFee({
       pricingMode: studentClass.class.pricingMode,
       customTuitionPerSession,
@@ -468,6 +469,7 @@ export class StudentService {
       parentReceiptEmailEnabled: student.parentReceiptEmailEnabled,
       goal: student.goal,
       dropOutDate: student.dropOutDate,
+      dropOutReason: student.dropOutReason,
       customerSource: student.customerSource,
       customerSourceNote: student.customerSourceNote,
       customerCare: student.customerCareServices
@@ -985,6 +987,37 @@ export class StudentService {
       StudentCustomerSource.other,
       dto.customer_source_note,
     );
+  }
+
+  /**
+   * Lý do nghỉ học cần lưu khi học sinh ở trạng thái nghỉ sau thao tác. Chuyển
+   * sang nghỉ học bắt buộc có lý do; học sinh đã nghỉ thì chỉ cập nhật khi có
+   * lý do mới. Học sinh học lại giữ nguyên lý do cũ (không bao giờ xoá ở đây).
+   */
+  private resolveDropOutReasonWrite(params: {
+    currentStatus: StudentStatus;
+    nextStatus: StudentStatus | undefined;
+    reason: string | undefined;
+  }): { dropOutReason?: string } {
+    if (
+      (params.nextStatus ?? params.currentStatus) !== StudentStatus.inactive
+    ) {
+      return {};
+    }
+
+    const normalized = params.reason?.trim() ?? '';
+    if (normalized) {
+      return { dropOutReason: normalized };
+    }
+    if (params.currentStatus !== StudentStatus.inactive) {
+      throw new BadRequestException(
+        'Chuyển học sinh sang nghỉ học phải nhập lý do nghỉ.',
+      );
+    }
+    if (params.reason !== undefined) {
+      throw new BadRequestException('Lý do nghỉ học không được để trống.');
+    }
+    return {};
   }
 
   private buildUpdateData(dto: UpdateStudentBodyDto) {
@@ -2590,9 +2623,21 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
+    if (
+      dto.drop_out_reason !== undefined &&
+      (dto.status ?? student.status) !== StudentStatus.inactive
+    ) {
+      throw new BadRequestException('Chỉ học sinh nghỉ học mới có lý do nghỉ.');
+    }
+
     const updateData = {
       ...this.buildUpdateData(dto),
       ...this.resolveCustomerSourceUpdate(dto, student),
+      ...this.resolveDropOutReasonWrite({
+        currentStatus: student.status,
+        nextStatus: dto.status,
+        reason: dto.drop_out_reason,
+      }),
     };
     const shouldSyncCustomerCare =
       dto.customer_care_staff_id !== undefined ||
@@ -2671,10 +2716,16 @@ export class StudentService {
       ? await this.getStudentAuditSnapshot(this.prisma, id)
       : null;
 
+    const dropOutReasonWrite = this.resolveDropOutReasonWrite({
+      currentStatus: student.status,
+      nextStatus: dto.status,
+      reason: dto.reason,
+    });
+
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.studentInfo.update({
         where: { id },
-        data: { status: dto.status },
+        data: { status: dto.status, ...dropOutReasonWrite },
       });
 
       await this.applyStudentStatusSideEffects(tx, id, dto.status);
