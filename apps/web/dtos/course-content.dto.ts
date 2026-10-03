@@ -152,6 +152,17 @@ export interface CourseLessonForClassDto {
   alreadyAdded: boolean;
 }
 
+/** Một chuyên đề của khoá nhìn từ một lớp (GET /class/:classId/modules). */
+export interface ClassModuleDto {
+  moduleId: string;
+  title: string;
+  sortOrder: number;
+  theoryLessonCount: number;
+  practiceLessonCount: number;
+  added: boolean;
+  addedAt: string | null;
+}
+
 export interface ExamLibraryItem extends CourseLesson {
   module: { id: string; title: string; sortOrder: number } | null;
   questionCount: number;

@@ -50,12 +50,14 @@ import {
   type StaffIncomeSummaryDto,
   type UpdateStaffFixedSalaryPayableDto,
   type StaffOverdueSurveyWarningItemDto,
+  type StaffSurveyDeadlineBlockWarningItemDto,
   UpdateStaffDto,
   UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
 } from 'src/dtos/staff.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { buildNameSearchWhere } from './staff-name-search';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
 import {
   generateStaffId,
@@ -85,8 +87,13 @@ import {
 } from './staff-fixed-salary-payable.util';
 import {
   ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL,
+  ATTENDANCE_COMMISSION_TUITION_BASIS_SQL,
+  commissionTuitionBasisVnd,
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
+import { findTeacherSurveyDeadlineBlocks } from '../class/survey-deadline-block';
+import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
 function toDateOrNull(
@@ -127,42 +134,6 @@ function parseCommaSeparatedIds(raw?: string): string[] {
   ];
 }
 
-function buildNameSearchWhere(search?: string): Prisma.StaffInfoWhereInput {
-  const tokens = (search ?? '')
-    .trim()
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .slice(0, 5);
-
-  if (tokens.length === 0) {
-    return {};
-  }
-
-  return {
-    AND: tokens.map((token) => ({
-      OR: [
-        {
-          user: {
-            first_name: {
-              contains: token,
-              mode: 'insensitive',
-            },
-          },
-        },
-        {
-          user: {
-            last_name: {
-              contains: token,
-              mode: 'insensitive',
-            },
-          },
-        },
-      ],
-    })),
-  };
-}
-
 const STAFF_NAME_USER_SELECT = {
   first_name: true,
   last_name: true,
@@ -182,7 +153,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   teacher: 'Giáo viên',
   assistant: 'Trợ lí',
-  lesson_plan: 'Giáo án',
+  lesson_plan: LESSON_PLAN_LABEL,
   lesson_plan_head: 'Trưởng giáo án',
   accountant: 'Kế toán',
   accountant_income: 'Kế toán thu',
@@ -778,6 +749,20 @@ export class StaffService {
   }
 
   /**
+   * Gia sư đang trong khung **chặn khảo sát sắp hạn** còn lớp chưa nộp: kế toán chi
+   * thấy cảnh báo trên màn trả trợ cấp, không chặn thao tác trả.
+   */
+  async getSurveyDeadlineBlockWarnings(
+    staffId: string,
+  ): Promise<StaffSurveyDeadlineBlockWarningItemDto[]> {
+    const blocks = await findTeacherSurveyDeadlineBlocks(this.prisma, staffId);
+    return blocks.map((block) => ({
+      ...block,
+      endDate: block.endDate.toISOString().slice(0, 10),
+    }));
+  }
+
+  /**
    * Cảnh báo (không chặn cứng) nếu nhân sự còn báo cáo khảo sát quá hạn khi
    * kế toán thanh toán. Nếu `confirmed` chưa được kế toán xác nhận (bấm "Vẫn
    * thanh toán" trên dialog cảnh báo ở FE), throw `400` với `code:
@@ -1100,6 +1085,7 @@ export class StaffService {
         id: true,
         status: true,
         roles: true,
+        customerCareDefaultProfitPercent: true,
         user: {
           select: {
             first_name: true,
@@ -1116,9 +1102,10 @@ export class StaffService {
       take: limit,
     });
 
-    return rows.map(({ user, ...staff }) => ({
+    return rows.map(({ user, customerCareDefaultProfitPercent, ...staff }) => ({
       ...staff,
       fullName: this.resolveStaffFullName(user),
+      defaultProfitPercent: Number(customerCareDefaultProfitPercent ?? 0),
     }));
   }
 
@@ -1397,6 +1384,7 @@ export class StaffService {
             class: { select: { id: true, name: true } },
           },
         },
+        _count: { select: { achievements: true } },
       },
     });
     const staffIds = data.map((staff) => staff.id);
@@ -1407,7 +1395,7 @@ export class StaffService {
       ]);
 
     const rows = await Promise.all(
-      data.map(async (staff) => {
+      data.map(async ({ _count, ...staff }) => {
         const visibleClassIds =
           listVisibleClassIdsByTeacherId.get(staff.id) ?? new Set<string>();
         const classTeachers = (staff.classTeachers ?? [])
@@ -1425,6 +1413,7 @@ export class StaffService {
             ...staff,
             classTeachers,
           })),
+          achievementCount: _count.achievements,
           unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
         };
       }),
@@ -1471,6 +1460,7 @@ export class StaffService {
         select: {
           id: true,
           university: true,
+          // Deprecated: chỉ còn đọc cho CMS landing; API ghi đã bỏ field này.
           specialization: true,
           status: true,
           achievements: {
@@ -1766,7 +1756,7 @@ export class StaffService {
         COALESCE(
           SUM(
             ROUND(
-              (COALESCE(attendance.tuition_fee, 0) * COALESCE(attendance.customer_care_coef, 0))::numeric,
+              (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * COALESCE(attendance.customer_care_coef, 0))::numeric,
               0
             )
           ),
@@ -1796,7 +1786,7 @@ export class StaffService {
         COALESCE(
           SUM(
             ROUND(
-              (COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric,
+              (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric,
               0
             )
           ),
@@ -2177,6 +2167,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         student: {
@@ -2204,7 +2195,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) *
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) *
           normalizePercent(row.customerCareCoef),
       );
 
@@ -2240,6 +2231,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         assistantPaymentStatus: true,
         student: {
           select: {
@@ -2266,7 +2258,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) * 0.03,
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) * 0.03,
       );
 
       return {
@@ -2578,6 +2570,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         student: {
@@ -2605,7 +2598,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) *
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) *
           normalizePercent(row.customerCareCoef),
       );
 
@@ -2651,6 +2644,7 @@ export class StaffService {
       select: {
         id: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         assistantPaymentStatus: true,
         student: {
           select: {
@@ -2677,7 +2671,7 @@ export class StaffService {
 
     return rows.map((row) => {
       const grossAmount = roundMoney(
-        normalizeMoneyAmount(row.tuitionFee) * 0.03,
+        normalizeMoneyAmount(commissionTuitionBasisVnd(row)) * 0.03,
       );
 
       return {
@@ -3545,6 +3539,7 @@ export class StaffService {
         id: true,
         status: true,
         tuitionFee: true,
+        payrollBasisTuitionFee: true,
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         customerCareTaxDeductionRatePercent: true,
@@ -4530,7 +4525,7 @@ export class StaffService {
         SELECT
           attendance.customer_care_staff_id AS staff_id,
           ROUND(
-            (COALESCE(attendance.tuition_fee, 0) * COALESCE(attendance.customer_care_coef, 0))::numeric,
+            (${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * COALESCE(attendance.customer_care_coef, 0))::numeric,
             0
           ) AS gross_amount
         FROM attendance
@@ -4562,7 +4557,7 @@ export class StaffService {
       assistant_unpaid_rows AS (
         SELECT
           attendance.assistant_manager_staff_id AS staff_id,
-          ROUND((COALESCE(attendance.tuition_fee, 0) * 0.03)::numeric, 0) AS gross_amount
+          ROUND((${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} * 0.03)::numeric, 0) AS gross_amount
         FROM attendance
         INNER JOIN target_staff ON target_staff.id = attendance.assistant_manager_staff_id
         WHERE attendance.status IN ('present', 'excused')
@@ -5261,8 +5256,10 @@ export class StaffService {
     ).sort((left, right) => {
       const leftIndex = roleOrder.findIndex((role) => role === left.role);
       const rightIndex = roleOrder.findIndex((role) => role === right.role);
-      return (leftIndex === -1 ? 999 : leftIndex) -
-        (rightIndex === -1 ? 999 : rightIndex);
+      return (
+        (leftIndex === -1 ? 999 : leftIndex) -
+        (rightIndex === -1 ? 999 : rightIndex)
+      );
     });
 
     const visibleFixedSalaryPayables = fixedSalaryPayableRows.filter(
@@ -5364,6 +5361,7 @@ export class StaffService {
             select: {
               ...STAFF_NAME_USER_SELECT,
               province: true,
+              phone: true,
               avatarPath: true,
             },
           },
@@ -5448,6 +5446,9 @@ export class StaffService {
           staff.revenueSharePercent == null
             ? null
             : normalizePercent(staff.revenueSharePercent),
+        customerCareDefaultProfitPercent: Number(
+          staff.customerCareDefaultProfitPercent ?? 0,
+        ),
         classAllowance,
       };
     });
@@ -5764,16 +5765,17 @@ export class StaffService {
     if (birthDateNorm !== undefined) payload.birthDate = birthDateNorm;
     if (data.university != null) payload.university = data.university;
     if (data.high_school != null) payload.highSchool = data.high_school;
-    if (data.specialization != null)
-      payload.specialization = data.specialization;
     if (data.bank_account != null) payload.bankAccount = data.bank_account;
     if (data.bank_qr_link != null) payload.bankQrLink = data.bank_qr_link;
-    if (data.personal_achievement_link !== undefined)
-      payload.personalAchievementLink = data.personal_achievement_link ?? null;
     if (data.google_meet_link !== undefined)
       payload.googleMeetLink = data.google_meet_link ?? null;
     if (data.revenue_share_percent !== undefined)
       payload.revenueSharePercent = data.revenue_share_percent ?? null;
+    if (data.customer_care_default_profit_percent != null)
+      payload.customerCareDefaultProfitPercent =
+        normalizeCustomerCareProfitPercent(
+          data.customer_care_default_profit_percent,
+        );
     if (data.roles != null) payload.roles = data.roles;
     if (data.user_id != null) payload.userId = data.user_id;
     if (data.status != null) payload.status = data.status;
@@ -6068,11 +6070,13 @@ export class StaffService {
             birthDate: toDateOrNull(data.birth_date) ?? undefined,
             university: data.university,
             highSchool: data.high_school,
-            specialization: data.specialization,
             bankAccount: data.bank_account,
             bankQrLink: data.bank_qr_link,
-            personalAchievementLink: data.personal_achievement_link ?? null,
             revenueSharePercent: data.revenue_share_percent ?? null,
+            customerCareDefaultProfitPercent:
+              normalizeCustomerCareProfitPercent(
+                data.customer_care_default_profit_percent,
+              ) ?? undefined,
             roles: data.roles,
             userId: data.user_id,
             customerCareManagedByStaffId: managedByStaffId,

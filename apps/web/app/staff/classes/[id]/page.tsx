@@ -29,6 +29,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
+import { ClassCoverImageCard } from "@/components/shared/class/ClassCoverImageCard";
 import type {
   ClassDetail,
   ClassScheduleItem,
@@ -57,6 +58,8 @@ import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker"
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classTimelineKeys } from "@/lib/query-keys";
+import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
+import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
   running: "Đang chạy",
@@ -596,6 +599,8 @@ export default function StaffClassDetailPage() {
       await staffOpsApi.createClassSurvey(id, payload);
       await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
       await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      // Nộp xong là gỡ chặn khảo sát sắp hạn ngay, không đợi staleTime của popup.
+      await queryClient.invalidateQueries({ queryKey: ["surveys", "my-warnings"] });
     },
     [id, queryClient],
   );
@@ -780,9 +785,15 @@ export default function StaffClassDetailPage() {
                 </span>
               </div>
             ) : null}
+            <ClassStandingTeachers
+              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
+              className="mt-1.5"
+            />
           </div>
         </div>
       </header>
+
+      <ClassCoverImageCard classId={id} />
 
       <EditClassSchedulePopup
         open={schedulePopupOpen}
@@ -916,7 +927,22 @@ export default function StaffClassDetailPage() {
           </ClassCard>
         </div>
 
-        <ClassCard title="Danh sách học sinh" className="w-full">
+        <ClassRosterCard
+          activeCount={activeClassStudents.length}
+          inactiveCount={inactiveClassStudents.length}
+          inactiveContent={
+            <div className="flex flex-wrap gap-2">
+              {inactiveClassStudents.map((student) => (
+                <span
+                  key={`inactive-${student.id}`}
+                  className="inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary"
+                >
+                  {student.fullName}
+                </span>
+              ))}
+            </div>
+          }
+        >
           <div className="overflow-x-auto">
             <div className="space-y-2 md:hidden">
               {activeClassStudents.length === 0 ? (
@@ -1034,26 +1060,8 @@ export default function StaffClassDetailPage() {
                 )}
               </tbody>
             </table>
-
-            {inactiveClassStudents.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Học sinh đã nghỉ ({inactiveClassStudents.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {inactiveClassStudents.map((student) => (
-                    <span
-                      key={`inactive-${student.id}`}
-                      className="inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary"
-                    >
-                      {student.fullName}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
           </div>
-        </ClassCard>
+        </ClassRosterCard>
 
         <MakeupScheduleCard
           classId={id}

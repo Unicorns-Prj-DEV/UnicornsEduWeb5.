@@ -42,6 +42,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import StudentClassTuitionPopup from "@/components/admin/student/StudentClassTuitionPopup";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
+import { ClassCoverImageCard } from "@/components/shared/class/ClassCoverImageCard";
 import {
   ClassStatus,
   ClassDetail,
@@ -63,6 +64,8 @@ import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
+import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
+import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
@@ -723,9 +726,15 @@ export default function AdminClassDetailPage() {
                 ))}
               </div>
             ) : null}
+            <ClassStandingTeachers
+              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
+              className="mt-1.5"
+            />
           </div>
         </div>
       </header>
+
+      <ClassCoverImageCard classId={id} />
 
       {canEditClassBasicInfo ? (
         <EditClassBasicInfoPopup
@@ -897,9 +906,9 @@ export default function AdminClassDetailPage() {
         </div>
 
         {/* Row 2: Danh sách học sinh */}
-        <ClassCard
-          title="Danh sách học sinh"
-          className="w-full"
+        <ClassRosterCard
+          activeCount={activeClassStudents.length}
+          inactiveCount={inactiveClassStudents.length}
           action={
             canOpenClassStudentsPopup ? (
               <button
@@ -910,6 +919,57 @@ export default function AdminClassDetailPage() {
                 Chỉnh sửa
               </button>
             ) : null
+          }
+          inactiveContent={
+            <>
+              <div className="space-y-1.5 md:hidden">
+                {inactiveClassStudents.map((student) => (
+                  <button
+                    key={`inactive-${student.id}`}
+                    type="button"
+                    onClick={
+                      canOpenStudentDetails
+                        ? () =>
+                            push(
+                              buildAdminLikePath(
+                                routeBase,
+                                `students/${encodeURIComponent(student.id)}`,
+                              ),
+                            )
+                        : undefined
+                    }
+                    className={`w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-left text-sm ${canOpenStudentDetails ? "transition hover:bg-bg-secondary" : ""}`}
+                  >
+                    <span className="font-medium text-text-primary">{student.fullName}</span>
+                    <span className="ml-2 rounded-full bg-error/15 px-2 py-0.5 text-[11px] font-medium text-error">
+                      Đã nghỉ
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="hidden flex-wrap gap-2 md:flex">
+                {inactiveClassStudents.map((student) => (
+                  <button
+                    key={`inactive-chip-${student.id}`}
+                    type="button"
+                    onClick={
+                      canOpenStudentDetails
+                        ? () =>
+                            push(
+                              buildAdminLikePath(
+                                routeBase,
+                                `students/${encodeURIComponent(student.id)}`,
+                              ),
+                            )
+                        : undefined
+                    }
+                    className={`inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary ${canOpenStudentDetails ? "transition hover:bg-bg-secondary" : ""}`}
+                  >
+                    {student.fullName}
+                  </button>
+                ))}
+              </div>
+            </>
           }
         >
           <div className="overflow-x-auto">
@@ -1206,63 +1266,8 @@ export default function AdminClassDetailPage() {
                 )}
               </tbody>
             </table>
-
-            {inactiveClassStudents.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-border-default bg-bg-secondary/40 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Học sinh đã nghỉ ({inactiveClassStudents.length})
-                </p>
-                <div className="space-y-1.5 md:hidden">
-                  {inactiveClassStudents.map((student) => (
-                    <button
-                      key={`inactive-${student.id}`}
-                      type="button"
-                      onClick={
-                        canOpenStudentDetails
-                          ? () =>
-                              push(
-                                buildAdminLikePath(
-                                  routeBase,
-                                  `students/${encodeURIComponent(student.id)}`,
-                                ),
-                              )
-                          : undefined
-                      }
-                      className={`w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-left text-sm ${canOpenStudentDetails ? "transition hover:bg-bg-secondary" : ""}`}
-                    >
-                      <span className="font-medium text-text-primary">{student.fullName}</span>
-                      <span className="ml-2 rounded-full bg-error/15 px-2 py-0.5 text-[11px] font-medium text-error">
-                        Đã nghỉ
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="hidden flex-wrap gap-2 md:flex">
-                  {inactiveClassStudents.map((student) => (
-                    <button
-                      key={`inactive-chip-${student.id}`}
-                      type="button"
-                      onClick={
-                        canOpenStudentDetails
-                          ? () =>
-                              push(
-                                buildAdminLikePath(
-                                  routeBase,
-                                  `students/${encodeURIComponent(student.id)}`,
-                                ),
-                              )
-                          : undefined
-                      }
-                      className={`inline-flex items-center rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary ${canOpenStudentDetails ? "transition hover:bg-bg-secondary" : ""}`}
-                    >
-                      {student.fullName}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
           </div>
-        </ClassCard>
+        </ClassRosterCard>
 
         <MakeupScheduleCard
           classId={id}
@@ -1309,7 +1314,6 @@ export default function AdminClassDetailPage() {
         <ClassCard title="Lịch sử & Nội dung" className="w-full">
           <ClassTimelineManager
             classId={id}
-            lessonVisibility="opt-in"
             canCreateSession={canCreateSession}
             canManageSurveys={canManageSurveys}
             canManageContent={canCreateSession}

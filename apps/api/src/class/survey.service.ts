@@ -12,6 +12,10 @@ import {
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
 import { NotificationService } from 'src/notification/notification.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  getVietnamToday,
+  isSurveyDeadlineBlockActive,
+} from './survey-deadline-block';
 import type {
   AccountantSurveyWarningDto,
   CreateSurveyDto,
@@ -652,6 +656,7 @@ export class SurveyService {
       reportedRows.map((row) => `${row.classId}::${row.surveyId}`),
     );
 
+    const vietnamToday = getVietnamToday();
     const warnings: TeacherSurveyWarningDto[] = [];
     for (const classItem of classes) {
       const pendingSurveys = openSurveys
@@ -665,6 +670,7 @@ export class SurveyService {
           name: survey.name ?? '',
           startDate: toIsoDate(survey.startDate),
           endDate: toIsoDate(survey.endDate),
+          blocking: isSurveyDeadlineBlockActive(survey.endDate, vietnamToday),
         }));
 
       if (pendingSurveys.length) {

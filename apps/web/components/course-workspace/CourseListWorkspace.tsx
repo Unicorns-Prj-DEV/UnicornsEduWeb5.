@@ -178,7 +178,11 @@ export default function CourseListWorkspace({
               </button>
             </div>
           ) : courses.length === 0 ? (
-            <p className="p-4 text-sm text-text-secondary">Chưa có khoá học nào.</p>
+            <p className="p-4 text-sm text-text-secondary">
+              {capabilities.canViewAllCourses
+                ? "Chưa có khoá học nào."
+                : "Bạn chưa được gán vào đội giáo án của khoá nào."}
+            </p>
           ) : (
             <ul className="space-y-2">
               {courses.map((course) => (

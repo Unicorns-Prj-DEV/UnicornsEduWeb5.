@@ -8,6 +8,7 @@ import {
 export const CLASS_PRICING_MODE = {
   per_session: 'per_session',
   per_block: 'per_block',
+  one_time: 'one_time',
 } as const;
 
 export type ClassPricingModeValue =
@@ -17,6 +18,19 @@ export function isBlockPricingMode(
   mode?: string | null,
 ): mode is typeof CLASS_PRICING_MODE.per_block {
   return mode === CLASS_PRICING_MODE.per_block;
+}
+
+/** Khoá thu học phí một lần. Tên khớp `courses.name` trên DB vận hành. */
+export const ONE_TIME_COURSE_NAMES = new Set(['THPTQG', 'PREVOI']);
+
+export function isOneTimeCourseName(name?: string | null): boolean {
+  return name != null && ONE_TIME_COURSE_NAMES.has(name);
+}
+
+export function isOneTimePricingMode(
+  mode?: string | null,
+): mode is typeof CLASS_PRICING_MODE.one_time {
+  return mode === CLASS_PRICING_MODE.one_time;
 }
 
 export function isFrozenSessionPaymentStatus(status?: string | null): boolean {

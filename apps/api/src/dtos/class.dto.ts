@@ -275,7 +275,7 @@ export class UpdateClassPricingModeDto {
   @ApiProperty({
     enum: ClassPricingMode,
     description:
-      'Đổi chế độ tính tiền. Buổi unpaid được tính lại; buổi paid/deposit/cọc giữ nguyên.',
+      'Đổi chế độ tính tiền. Giữa per_session và per_block: buổi unpaid được tính lại, buổi paid/deposit/cọc giữ nguyên. Đổi có dính one_time không tính lại buổi nào.',
     example: ClassPricingMode.per_session,
   })
   @IsEnum(ClassPricingMode)
@@ -610,4 +610,20 @@ export class UpdateClassDto extends PartialType(CreateClassDto) {
   @IsArray()
   @IsStudentId({ each: true })
   student_ids?: string[];
+}
+
+export class ClassCoverImageDto {
+  @ApiPropertyOptional({
+    description:
+      'Signed URL ảnh bìa (hết hạn sau 1 giờ). Null = chưa có ảnh bìa, FE hiện mascot.',
+    type: String,
+    nullable: true,
+  })
+  coverImageUrl: string | null;
+
+  @ApiProperty({
+    description:
+      'Người gọi có được upload/thay/gỡ ảnh bìa lớp này không (admin, trợ lí, Gia sư đứng lớp, Quản lý lớp).',
+  })
+  canManage: boolean;
 }

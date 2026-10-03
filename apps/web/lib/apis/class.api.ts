@@ -17,6 +17,7 @@ import {
   UpdateCoursePayload,
 } from '@/dtos/class.dto';
 import {
+  ClassCoverImage,
   ClassDetail,
   CreateClassPayload,
   UpdateClassBasicInfoPayload,
@@ -45,13 +46,13 @@ import type {
 import { normalizeMakeupScheduleEvent, normalizeMakeupScheduleFeedResponse } from "./class-schedule.api";
 import { api } from "../client";
 import { contentApiPaths } from "@/lib/content-api-paths";
-import type { ClassContentItemDto, ClassContentCreatePayload, ClassContentScheduleUpdatePayload } from "@/dtos/class-content.dto";
+import type { ClassContentItemDto, ClassContentCreatePayload, ClassContentModuleGroupDto, ClassContentScheduleUpdatePayload } from "@/dtos/class-content.dto";
 import type { ClassTheoryProgressDto } from "@/dtos/class-theory-progress.dto";
 import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
 } from "@/dtos/class-timeline.dto";
-import type { CourseLessonForClassDto } from "@/dtos/course-content.dto";
+import type { ClassModuleDto, CourseLessonForClassDto } from "@/dtos/course-content.dto";
 
 function normalizeOperatingDeductionRatePercent(
   teacher: Record<string, unknown>,
@@ -404,6 +405,17 @@ export async function getClassContent(classId: string): Promise<ClassContentItem
   return response.data;
 }
 
+/** Nội dung lớp gom theo chuyên đề (admin/staff). */
+export async function getClassContentGroups(
+  classId: string,
+): Promise<ClassContentModuleGroupDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassContentModuleGroupDto[]>(
+    `/class/${safeId}/content/groups`,
+  );
+  return response.data;
+}
+
 export async function createClassContent(
   classId: string,
   payload: ClassContentCreatePayload,
@@ -474,6 +486,16 @@ export async function restoreClassContentItem(
   return response.data;
 }
 
+export async function getStudentClassContentGroups(
+  classId: string,
+): Promise<ClassContentModuleGroupDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassContentModuleGroupDto[]>(
+    `/class/${safeId}/content/student/groups`,
+  );
+  return response.data;
+}
+
 export async function getStudentClassContent(classId: string): Promise<ClassContentItemDto[]> {
   const safeId = encodeURIComponent(classId);
   const response = await api.get<ClassContentItemDto[]>(`/class/${safeId}/content/student`);
@@ -511,6 +533,37 @@ export async function getStudentClassTimeline(
     items: Array.isArray(response.data?.items) ? response.data.items : [],
     nextCursor: response.data?.nextCursor ?? null,
   };
+}
+
+export async function getClassModules(classId: string): Promise<ClassModuleDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<ClassModuleDto[]>(`/class/${safeId}/modules`);
+  return response.data;
+}
+
+/** Thêm chuyên đề: mọi tiết lý thuyết của chuyên đề vào lớp. Trả danh sách chuyên đề mới. */
+export async function addClassModule(
+  classId: string,
+  moduleId: string,
+): Promise<ClassModuleDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.post<ClassModuleDto[]>(`/class/${safeId}/modules`, {
+    moduleId,
+  });
+  return response.data;
+}
+
+/** Gỡ chuyên đề: ẩn mềm các tiết lý thuyết của chuyên đề trong lớp. */
+export async function removeClassModule(
+  classId: string,
+  moduleId: string,
+): Promise<ClassModuleDto[]> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeModuleId = encodeURIComponent(moduleId);
+  const response = await api.delete<ClassModuleDto[]>(
+    `/class/${safeClassId}/modules/${safeModuleId}`,
+  );
+  return response.data;
 }
 
 export async function getCourseLessonsForClass(classId: string): Promise<CourseLessonForClassDto[]> {
@@ -1056,4 +1109,28 @@ export async function reorderExamLessons(
 ): Promise<void> {
   const safeId = encodeURIComponent(courseId);
   await api.post(`/course/${safeId}/exam-library/reorder`, { lessonIds });
+}
+
+function classCoverImagePath(classId: string): string {
+  return `/class/${encodeURIComponent(classId)}/cover-image`;
+}
+
+export async function getClassCoverImage(classId: string): Promise<ClassCoverImage> {
+  const response = await api.get<ClassCoverImage>(classCoverImagePath(classId));
+  return response.data;
+}
+
+export async function uploadClassCoverImage(
+  classId: string,
+  file: File,
+): Promise<ClassCoverImage> {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await api.post<ClassCoverImage>(classCoverImagePath(classId), formData);
+  return response.data;
+}
+
+export async function removeClassCoverImage(classId: string): Promise<ClassCoverImage> {
+  const response = await api.delete<ClassCoverImage>(classCoverImagePath(classId));
+  return response.data;
 }

@@ -156,11 +156,6 @@ export class CreateStaffDto {
   @IsString()
   high_school?: string;
 
-  @ApiPropertyOptional({ example: 'Math' })
-  @IsOptional()
-  @IsString()
-  specialization?: string;
-
   @ApiPropertyOptional({ example: '1234567890' })
   @IsOptional()
   @IsString()
@@ -190,15 +185,6 @@ export class CreateStaffDto {
   customer_care_managed_by_staff_id?: string | null;
 
   @ApiPropertyOptional({
-    example: 'https://drive.google.com/drive/folders/abc123',
-    description:
-      'Link Google Drive hoặc URL thành tích cá nhân của nhân sự (không bắt buộc)',
-  })
-  @IsOptional()
-  @IsString()
-  personal_achievement_link?: string | null;
-
-  @ApiPropertyOptional({
     example: 'https://meet.google.com/abc-defg-hij',
     description:
       'Link Google Meet cố định của gia sư (không bắt buộc; có thể để trống để hệ thống tự tạo khi cần)',
@@ -217,6 +203,17 @@ export class CreateStaffDto {
   @Min(0)
   @Max(100)
   revenue_share_percent?: number | null;
+
+  @ApiPropertyOptional({
+    example: 0.1,
+    description:
+      '% mặc định của CSKH, áp vào học sinh khi CSKH được gán. Phân số 0.00–0.99 (VD: 0.1 = 10%), cùng đơn vị customer_care_profit_percent của học sinh.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(0.99)
+  customer_care_default_profit_percent?: number;
 }
 
 export class UpdateStaffDto extends PartialType(CreateStaffDto) {
@@ -572,6 +569,15 @@ export class StaffPaySelectedPaymentsDto extends StaffPaymentMonthDto {
 export interface StaffOverdueSurveyWarningItemDto {
   surveyId: string;
   surveyName: string;
+  classNames: string[];
+}
+
+/** Bài khảo sát đang trong khung chặn khảo sát sắp hạn mà gia sư còn lớp chưa nộp. */
+export interface StaffSurveyDeadlineBlockWarningItemDto {
+  surveyId: string;
+  surveyName: string;
+  /** YYYY-MM-DD */
+  endDate: string;
   classNames: string[];
 }
 
