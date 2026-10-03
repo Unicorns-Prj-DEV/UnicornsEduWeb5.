@@ -182,6 +182,8 @@ export default function EditStudentPopup({
   const [status, setStatus] = useState<StudentStatus>(student.status ?? "active");
   const [statusReason, setStatusReason] = useState("");
   const [dropOutReason, setDropOutReason] = useState(student.dropOutReason ?? "");
+  const currentStatus: StudentStatus = student.status ?? "active";
+  const markingInactive = isMarkingStudentInactive(currentStatus, status);
   const [goal, setGoal] = useState(student.goal ?? "");
   const [customerSource, setCustomerSource] = useState<StudentCustomerSource | "">(
     student.customerSource ?? "",
@@ -344,7 +346,6 @@ export default function EditStudentPopup({
       return;
     }
 
-    const currentStatus = student.status ?? "active";
     const statusChanging = status !== currentStatus;
     const reasonError = validateStudentDropOutReason({
       currentStatus,
@@ -364,9 +365,8 @@ export default function EditStudentPopup({
       return;
     }
 
-    const isMarkingInactive = isMarkingStudentInactive(currentStatus, status);
     if (
-      isMarkingInactive &&
+      markingInactive &&
       !window.confirm(
         "Chuyển học sinh sang Nghỉ học? Học sinh sẽ được gỡ khỏi các roster lớp đang active, nhưng lịch sử học tập và tài chính vẫn được giữ.",
       )
@@ -635,7 +635,7 @@ export default function EditStudentPopup({
                   />
                 </label>
 
-                {isMarkingStudentInactive(student.status ?? "active", status) ? (
+                {markingInactive ? (
                   <StudentReasonField
                     name="status-reason"
                     label="Lý do nghỉ học"
@@ -644,7 +644,7 @@ export default function EditStudentPopup({
                     onChange={setStatusReason}
                     placeholder="Ví dụ: Chuyển trường, tạm nghỉ học kỳ này…"
                   />
-                ) : status !== (student.status ?? "active") ? (
+                ) : status !== currentStatus ? (
                   <StudentReasonField
                     name="status-reason"
                     label="Lý do đổi trạng thái (không bắt buộc)"
