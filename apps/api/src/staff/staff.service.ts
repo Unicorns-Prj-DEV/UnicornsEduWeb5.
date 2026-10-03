@@ -91,6 +91,7 @@ import {
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
 import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
+import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
 function toDateOrNull(
@@ -1068,6 +1069,7 @@ export class StaffService {
         id: true,
         status: true,
         roles: true,
+        customerCareDefaultProfitPercent: true,
         user: {
           select: {
             first_name: true,
@@ -1084,9 +1086,10 @@ export class StaffService {
       take: limit,
     });
 
-    return rows.map(({ user, ...staff }) => ({
+    return rows.map(({ user, customerCareDefaultProfitPercent, ...staff }) => ({
       ...staff,
       fullName: this.resolveStaffFullName(user),
+      defaultProfitPercent: Number(customerCareDefaultProfitPercent ?? 0),
     }));
   }
 
@@ -5427,6 +5430,9 @@ export class StaffService {
           staff.revenueSharePercent == null
             ? null
             : normalizePercent(staff.revenueSharePercent),
+        customerCareDefaultProfitPercent: Number(
+          staff.customerCareDefaultProfitPercent ?? 0,
+        ),
         classAllowance,
       };
     });
@@ -5749,6 +5755,11 @@ export class StaffService {
       payload.googleMeetLink = data.google_meet_link ?? null;
     if (data.revenue_share_percent !== undefined)
       payload.revenueSharePercent = data.revenue_share_percent ?? null;
+    if (data.customer_care_default_profit_percent != null)
+      payload.customerCareDefaultProfitPercent =
+        normalizeCustomerCareProfitPercent(
+          data.customer_care_default_profit_percent,
+        );
     if (data.roles != null) payload.roles = data.roles;
     if (data.user_id != null) payload.userId = data.user_id;
     if (data.status != null) payload.status = data.status;
@@ -6046,6 +6057,10 @@ export class StaffService {
             bankAccount: data.bank_account,
             bankQrLink: data.bank_qr_link,
             revenueSharePercent: data.revenue_share_percent ?? null,
+            customerCareDefaultProfitPercent:
+              normalizeCustomerCareProfitPercent(
+                data.customer_care_default_profit_percent ?? undefined,
+              ) ?? undefined,
             roles: data.roles,
             userId: data.user_id,
             customerCareManagedByStaffId: managedByStaffId,

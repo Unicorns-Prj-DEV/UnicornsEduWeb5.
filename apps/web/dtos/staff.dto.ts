@@ -42,6 +42,8 @@ export interface CustomerCareStaffOption {
     fullName: string;
     status: StaffStatus;
     roles: string[];
+    /** % mặc định của CSKH (phân số 0–0.99), áp khi gán vào học sinh. */
+    defaultProfitPercent?: number;
 }
 
 export interface StaffOption {
@@ -82,6 +84,8 @@ export interface StaffDetail {
     bankQrLink?: string | null;
     googleMeetLink?: string | null;
     revenueSharePercent?: number | null;
+    /** % mặc định của CSKH (phân số 0–0.99). */
+    customerCareDefaultProfitPercent?: number;
     roles: string[];
     status: StaffStatus;
     createdAt?: string;
@@ -122,6 +126,8 @@ export interface UpdateStaffPayload {
     bank_account?: string;
     bank_qr_link?: string;
     revenue_share_percent?: number | null;
+    /** % mặc định của CSKH (phân số 0–0.99). */
+    customer_care_default_profit_percent?: number;
     roles?: string[];
     status?: StaffStatus;
     customer_care_managed_by_staff_id?: string | null;

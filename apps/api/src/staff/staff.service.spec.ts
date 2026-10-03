@@ -333,6 +333,30 @@ describe('StaffService', () => {
     );
   });
 
+  it('exposes the customer care default percent on customer-care staff options', async () => {
+    mockPrisma.staffInfo.findMany.mockResolvedValue([
+      {
+        id: 'cc-1',
+        status: StaffStatus.active,
+        roles: [StaffRole.customer_care],
+        customerCareDefaultProfitPercent: '0.15',
+        user: {
+          first_name: 'A',
+          last_name: 'B',
+          accountHandle: null,
+          email: 'a@x.vn',
+        },
+      },
+    ]);
+
+    const rows = await service.searchCustomerCareStaff({ limit: 10 });
+
+    expect(rows[0]).toEqual(
+      expect.objectContaining({ id: 'cc-1', defaultProfitPercent: 0.15 }),
+    );
+    expect(rows[0]).not.toHaveProperty('customerCareDefaultProfitPercent');
+  });
+
   it('returns only active general staff options', async () => {
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
 
