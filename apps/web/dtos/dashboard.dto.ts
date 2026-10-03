@@ -220,7 +220,7 @@ export interface AdminDashboardFinancialDetailItem {
   amount: number;
   note: string | null;
   sourceNote?: string | null;
-  /** Số tiền theo `sources[].key` (có dấu, phạt âm). Chỉ có trên Chi phí nhân sự. */
+  /** Số tiền theo `sources[].key` (có dấu, phạt âm). Có trên Chi phí nhân sự và Trợ cấp chờ thanh toán. */
   sourceAmounts?: Record<string, number>;
 }
 

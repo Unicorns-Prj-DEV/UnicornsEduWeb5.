@@ -14,7 +14,6 @@ import type {
 import { AdminDashboardFinancialDetailSkeleton } from "@/components/admin/dashboard/AdminDashboardSkeleton";
 import { DashboardIcon } from "@/components/admin/dashboard/DashboardIcon";
 import { formatVnInteger } from "@/lib/formatters";
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 function formatCurrency(value: number) {
   return `${formatVnInteger(value)} đ`;
@@ -73,35 +72,10 @@ function getAmountForSource(
   sourceKey: string,
   rowKey: string
 ): { amount: number; note: string | null } {
-  // Chi phí nhân sự: BE trả sẵn số tiền từng nguồn.
-  if (rowKey === "personnel-cost") {
+  // Chi phí nhân sự + Trợ cấp chờ thanh toán: BE trả sẵn số tiền từng nguồn
+  // (khoá trùng `sources[].key`), không parse ghi chú.
+  if (rowKey === "personnel-cost" || rowKey === "pending-payroll") {
     return { amount: item.sourceAmounts?.[sourceKey] ?? 0, note: item.note };
-  }
-
-  // pending-payroll vẫn lọc theo tiền tố của từng đoạn ghi chú.
-  if (rowKey === "pending-payroll") {
-    if (!item.note) return { amount: 0, note: null };
-    const prefixMap: Record<string, string> = {
-      "pending-session": "Buổi dạy",
-      "pending-customer-care": "CSKH",
-      "pending-lesson": LESSON_PLAN_LABEL,
-      "pending-bonus": "Bonus",
-      "pending-extra": "Trợ cấp",
-      "pending-assistant": "Trợ lí",
-      "pending-training-manager": "QL lớp",
-    };
-    const prefix = prefixMap[sourceKey];
-    if (!prefix) return { amount: item.amount, note: item.note };
-
-    const parts = item.note.split(" • ");
-    const matchingPart = parts.find((p) => p.startsWith(prefix));
-    if (!matchingPart) return { amount: 0, note: null };
-
-    const digitStr = matchingPart.replace(/[^\d]/g, "");
-    const amount = parseInt(digitStr, 10) || 0;
-    // Keep sign of original item amount
-    const signedAmount = item.amount < 0 ? -amount : amount;
-    return { amount: signedAmount, note: matchingPart };
   }
 
   // If rowKey is other-cost, profit, or total-in, they filter by secondaryLabel:
