@@ -166,7 +166,7 @@ export default function StaffAccessGate({
                                   ? "Route `/staff/lesson-plans/tasks/[taskId]` mở cho `lesson_plan`, `lesson_plan_head`, `admin`, `staff.assistant`, và `staff.accountant_expense`; kế toán chi chỉ xem output và chỉnh trạng thái thanh toán."
                                   : isLessonPlanManageDetailsRoute ||
                                       isStaffLessonPlansHomeRoute
-                                    ? "Workspace `/staff/lesson-plans` là entrypoint chung cho lesson module trong staff shell. `lesson_plan_head` thấy 3 tab `Tổng quan / Công việc / Giáo Án`; `lesson_plan` chỉ thấy `Tổng quan / Công việc` và dữ liệu cá nhân; `accountant_expense` chỉ thấy tab `Công việc` với toàn bộ lesson output."
+                                    ? "Workspace `/staff/lesson-plans` là entrypoint chung cho lesson module trong staff shell. `lesson_plan_head` thấy 3 tab `Tổng quan / Công việc / Giáo án học sinh giỏi`; `lesson_plan` chỉ thấy `Tổng quan / Công việc` và dữ liệu cá nhân; `accountant_expense` chỉ thấy tab `Công việc` với toàn bộ lesson output."
                                     : isLessonPlanSelfRoute
                                       ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `lesson_plan` hoặc `lesson_plan_head`. Nó chỉ hiển thị lesson output của chính bạn và không cho phép chỉnh sửa."
                                       : "Màn này hiện mở cho `admin` hoặc `staff.teacher`. Teacher dùng nó để xem lớp phụ trách và thao tác buổi học; admin có thể truy cập để theo dõi hoặc hỗ trợ vận hành.";

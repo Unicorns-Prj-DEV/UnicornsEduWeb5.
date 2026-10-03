@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -361,7 +362,7 @@ function formatPendingPayrollNote(
     assistantAmount: 0,
     trainingManagerAmount: 0,
   };
-  return `Gia sư: ${formatCurrency(b.sessionAmount)} - Giáo án: ${formatCurrency(b.lessonAmount)} - SALE&CSKH: ${formatCurrency(b.customerCareAmount)} - Thưởng: ${formatCurrency(b.bonusAmount)} - Trợ cấp khác: ${formatCurrency(b.extraAllowanceAmount)} - Lương cứng: ${formatCurrency(b.fixedSalaryAmount ?? 0)} - Trợ lí: ${formatCurrency(b.assistantAmount)} - QL lớp: ${formatCurrency(b.trainingManagerAmount)} · Mọi khoản pending/unpaid mọi thời điểm (không lọc theo kỳ).`;
+  return `Gia sư: ${formatCurrency(b.sessionAmount)} - ${LESSON_PLAN_LABEL}: ${formatCurrency(b.lessonAmount)} - SALE&CSKH: ${formatCurrency(b.customerCareAmount)} - Thưởng: ${formatCurrency(b.bonusAmount)} - Trợ cấp khác: ${formatCurrency(b.extraAllowanceAmount)} - Lương cứng: ${formatCurrency(b.fixedSalaryAmount ?? 0)} - Trợ lí: ${formatCurrency(b.assistantAmount)} - QL lớp: ${formatCurrency(b.trainingManagerAmount)} · Mọi khoản pending/unpaid mọi thời điểm (không lọc theo kỳ).`;
 }
 
 function getOtherCostFromBreakdown(dashboard: AdminDashboardDto) {
@@ -715,7 +716,7 @@ export default function AdminDashboardTabPage() {
       key: "personnel-cost",
       label: "Chi phí Nhân sự",
       value: personnelCostMonthly,
-      note: "Chi phí nhân sự phát sinh trong kỳ: dạy, CSKH, giáo án, bonus, trợ cấp khác, trợ lí, quản lý lớp.",
+      note: "Chi phí nhân sự phát sinh trong kỳ: dạy, CSKH, giáo án học sinh giỏi, bonus, trợ cấp khác, trợ lí, quản lý lớp.",
     },
     {
       key: "other-cost",

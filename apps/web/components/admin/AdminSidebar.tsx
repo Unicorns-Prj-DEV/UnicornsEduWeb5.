@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
@@ -46,7 +47,7 @@ const MENU_ITEMS: {
   },
   { href: "/admin/students", label: "Học sinh", icon: <IconStudents /> },
   { href: "/admin/costs", label: "Chi phí", icon: <IconCosts /> },
-  { href: "/admin/lesson-plans", label: "Giáo Án", icon: <IconLessonPlans /> },
+  { href: "/admin/lesson-plans", label: LESSON_PLAN_LABEL, icon: <IconLessonPlans /> },
   { href: "/admin/calendar", label: "Lịch", icon: <IconCalendar /> },
   {
     href: "/admin/system-settings",

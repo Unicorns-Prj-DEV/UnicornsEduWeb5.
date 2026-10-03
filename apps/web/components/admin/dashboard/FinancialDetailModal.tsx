@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import { useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -83,7 +84,7 @@ function getAmountForSource(
     const prefixMap: Record<string, string> = {
       "pending-session": "Buổi dạy",
       "pending-customer-care": "CSKH",
-      "pending-lesson": "Giáo án",
+      "pending-lesson": LESSON_PLAN_LABEL,
       "pending-bonus": "Bonus",
       "pending-extra": "Trợ cấp",
       "pending-assistant": "Trợ lí",

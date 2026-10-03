@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -138,7 +139,7 @@ const EXPENSE_BREAKDOWN_SERIES: Array<{
 }> = [
   { key: "teacherCost", name: "Dạy", color: "var(--ue-viz-1)" },
   { key: "customerCareCost", name: "CSKH", color: "var(--ue-viz-2)" },
-  { key: "lessonCost", name: "Giáo án", color: "var(--ue-viz-3)" },
+  { key: "lessonCost", name: LESSON_PLAN_LABEL, color: "var(--ue-viz-3)" },
   { key: "bonusCost", name: "Thưởng", color: "var(--ue-viz-4)" },
   { key: "extraAllowanceCost", name: "Trợ cấp khác", color: "var(--ue-viz-5)" },
   { key: "fixedSalaryCost", name: "Lương cứng", color: "var(--ue-viz-9)" },

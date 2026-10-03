@@ -1,3 +1,4 @@
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 import { Injectable } from '@nestjs/common';
 import { ReceiptPdfService } from 'src/mail/receipt-pdf.service';
 import type {
@@ -12,7 +13,7 @@ const EXPENSE_SERIES: Array<{
 }> = [
   { key: 'teacherCost', name: 'Dạy', color: '#2563eb' },
   { key: 'customerCareCost', name: 'CSKH', color: '#db2777' },
-  { key: 'lessonCost', name: 'Giáo án', color: '#059669' },
+  { key: 'lessonCost', name: LESSON_PLAN_LABEL, color: '#059669' },
   { key: 'bonusCost', name: 'Thưởng', color: '#8b5cf6' },
   { key: 'extraAllowanceCost', name: 'Trợ cấp khác', color: '#ea580c' },
   { key: 'fixedSalaryCost', name: 'Lương cứng', color: '#0d9488' },
@@ -383,7 +384,10 @@ const EXPENSE_METRIC_GLOSSARY: Array<{ term: string; definition: string }> = [
     term: 'CSKH',
     definition: 'Hoa hồng trả cho nhân viên chăm sóc khách hàng trong tháng.',
   },
-  { term: 'Giáo án', definition: 'Chi phí làm / mua giáo án trong tháng.' },
+  {
+    term: LESSON_PLAN_LABEL,
+    definition: 'Chi phí làm / mua giáo án học sinh giỏi trong tháng.',
+  },
   { term: 'Thưởng', definition: 'Tiền thưởng trả cho nhân sự trong tháng.' },
   {
     term: 'Trợ cấp khác',

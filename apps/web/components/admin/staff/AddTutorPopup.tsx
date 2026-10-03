@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import {
   useMemo,
   useState,
@@ -40,7 +41,7 @@ const USER_STATUS_LABELS: Record<string, string> = {
 const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "teacher", label: "Giáo viên" },
   { value: "assistant", label: "Trợ lí" },
-  { value: "lesson_plan", label: "Giáo án" },
+  { value: "lesson_plan", label: LESSON_PLAN_LABEL },
   { value: "lesson_plan_head", label: "Trưởng giáo án" },
   { value: "accountant_income", label: "Kế toán thu" },
   { value: "accountant_expense", label: "Kế toán chi" },

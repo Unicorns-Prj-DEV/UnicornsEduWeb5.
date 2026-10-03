@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState, Suspense } from "react";
@@ -370,7 +371,7 @@ export function LessonTaskDetailPage({
             href={backHref}
             className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
-            Quay lại trang giáo án
+            Quay lại trang {LESSON_PLAN_LABEL}
           </Link>
         </div>
       </div>
@@ -399,7 +400,7 @@ export function LessonTaskDetailPage({
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Quay lại Giáo Án
+            Quay lại {LESSON_PLAN_LABEL}
           </Link>
         </div>
 
@@ -426,7 +427,7 @@ export function LessonTaskDetailPage({
                   href={backHref}
                   className="rounded-xl border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
-                  Trở về Giáo Án
+                  Trở về {LESSON_PLAN_LABEL}
                 </Link>
               </div>
             </div>

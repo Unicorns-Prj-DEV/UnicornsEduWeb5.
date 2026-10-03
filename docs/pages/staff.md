@@ -126,7 +126,7 @@
   - nếu actor có role `teacher` hoặc là `admin`, các dòng trong section `Lớp phụ trách` mở sang `/staff/classes/[id]` khi lớp còn phân công hiện tại; riêng admin detail `/admin/staffs/[id]` vẫn cho mở lớp đã gắn nhãn **NGHỈ DẠY**
   - nếu actor có role `customer_care`, dòng `customer_care` trong section `Công việc khác` mở sang `/staff/customer-care-detail`
   - các role `assistant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `training` mở sang self route để xem chi tiết trợ cấp của chính mình; riêng `communication`, `technical` và `training` có thêm tạo mới (pending) trên `/staff/communication-detail`, `/staff/technical-detail` và `/staff/training-detail`
-  - các role `lesson_plan` và `lesson_plan_head` mở row tương ứng trong `Công việc khác` sang self detail `/staff/lesson_plan_detail`; sidebar `Giáo Án` vẫn tiếp tục đi vào workspace `/staff/lesson-plans`
+  - các role `lesson_plan` và `lesson_plan_head` mở row tương ứng trong `Công việc khác` sang self detail `/staff/lesson_plan_detail`; sidebar `Giáo án học sinh giỏi` vẫn tiếp tục đi vào workspace `/staff/lesson-plans`
 - `/staff/classes/[id]`
   - tab **Nội dung** dùng chung `ClassContentManager` với admin: nút **Giao tiết thực hành** mở picker: chọn chuyên đề lớp đã thêm → chọn tiết thực hành của chuyên đề đó (không còn **Tạo mới cho lớp**). Tiết lý thuyết vào lớp qua nút **Chuyên đề** trên timeline (`ClassModulesDialog`, thêm/gỡ cả chuyên đề — xem `docs/pages/admin.md`). Lần giao tiết thực hành: Ngày/Giờ mở bài tuỳ chọn (để trống = mở ngay lúc thêm, `openAt` do backend); thời lượng bắt buộc 1–720 phút.
   - header lớp: tên + badge workspace; dòng meta tài chính được tách theo role: `accountant_income` thấy thông tin học phí và thấy nút `Chỉnh sửa` trong Card `Danh sách học sinh` để mở popup chỉ chỉnh gói/học phí từng học sinh, `accountant_expense` thấy trợ cấp/lương và có popup chỉnh trợ cấp + `% vận hành` gia sư, role còn lại chỉ thấy phần được phép.
@@ -204,7 +204,7 @@
   - mirror admin lesson output staff detail nhưng dùng route-base `/staff` để nút back quay về `/staff/staffs/:id`
 - `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`
   - dùng chung lesson workspace với admin nhưng route-base giữ trong nhóm `/staff`
-  - `lesson_plan_head` thấy đủ 3 tab `Tổng quan`, `Công việc`, `Giáo Án`; có quyền tạo/sửa `LessonResource`, `LessonTask`, `LessonOutput`, mở popup detail, mở màn phóng to và vào trang task detail ngay trong staff shell; không được sửa `paymentStatus` của lesson output
+  - `lesson_plan_head` thấy đủ 3 tab `Tổng quan`, `Công việc`, `Giáo án học sinh giỏi`; có quyền tạo/sửa `LessonResource`, `LessonTask`, `LessonOutput`, mở popup detail, mở màn phóng to và vào trang task detail ngay trong staff shell; không được sửa `paymentStatus` của lesson output
   - layout responsive của workspace này có dải tablet riêng: trước desktop table, các tab sẽ hiển thị card grid 2 cột để không bị nén trong staff shell
   - tab `Công việc`: chip trạng thái thanh toán ở cột **Trạng thái** hiển thị thêm người nhận (`staffDisplayName`) bên trong pill, cùng số tiền khi `pending`
   - với `lesson_plan_head` và `assistant`, item tài nguyên trong tab `Tổng quan` cũng mở popup chỉnh sửa khi bấm trực tiếp vào card/dòng; link ngoài và nút xóa vẫn giữ hành vi riêng
@@ -213,7 +213,7 @@
   - trong `participantMode`, tab `Tổng quan` vẫn có nút `Thêm tài nguyên`; staff thường được tạo tài nguyên tổng không gắn task, hoặc gắn vào một task thuộc assignment của chính mình
   - trong `participantMode`, tab `Công việc` chỉ hiển thị lesson output của chính staff hiện tại nếu đó là quyền cao nhất staff có trên endpoint `GET /lesson-work`; panel thêm output mới bắt buộc chọn một task thuộc assignment của chính mình, ẩn trường nhân sự, khóa chỉnh `paymentStatus`, và backend vẫn ép `staffId` về đúng hồ sơ đang đăng nhập
   - trong `participantMode`, route detail `/staff/lesson-plans/tasks/[taskId]` cho xem `nhân sự thực hiện`, output và tài nguyên liên quan; participant view không hiển thị dòng meta nhân sự nhận thanh toán trên từng sản phẩm; staff thường vẫn tạo output mới và tạo resource mới được ở đây, đồng thời có thể bấm từng output để mở đúng popup detail như tab `Công việc` với cùng giới hạn khóa `cost`/`paymentStatus`/assignment; vẫn không sửa task, không đính kèm resource từ DB, không gỡ resource và không mở popup resource edit
-  - `staff.accountant_expense` dùng cùng route này với `workspacePolicy="accountant"`; chỉ thấy tab `Công việc`, xem toàn bộ lesson output và cập nhật `paymentStatus`; không mở tab `Tổng quan`, không mở tab `Giáo Án`, không vào route manage detail
+  - `staff.accountant_expense` dùng cùng route này với `workspacePolicy="accountant"`; chỉ thấy tab `Công việc`, xem toàn bộ lesson output và cập nhật `paymentStatus`; không mở tab `Tổng quan`, không mở tab `Giáo án học sinh giỏi`, không vào route manage detail
   - staff có đồng thời `lesson_plan` và `accountant_expense` vẫn mở cùng route với `workspacePolicy="lesson_plan"` để giữ tab `Tổng quan`, nhưng từng endpoint trong module sẽ lấy **quyền cao nhất staff đang có trên chính endpoint đó**: `lesson-overview`, `lesson-task detail`, `lesson-task-options`, `create output/resource` vẫn chạy theo participant scope; riêng `lesson-work`, `lesson-output detail`, `update output`, bulk `paymentStatus` sẽ nâng lên accountant scope nên tab `Công việc` hiển thị toàn bộ lesson output nhưng chỉ cho sửa trạng thái thanh toán
   - `staff.assistant` dùng cùng route này với `workspacePolicy="admin"`, nên có đầy đủ quyền xóa/sửa như admin ngay trong staff shell
   - route detail `/staff/lesson-plans/tasks/[taskId]` giữ chế độ quản lí cho `assistant` / `lesson_plan_head`, còn `lesson_plan` vào cùng route nhưng render theo participant mode; task chỉ còn một nhóm `nhân sự thực hiện`; meta `Nhân sự nhận thanh toán` trên từng dòng sản phẩm chỉ hiện khi không ở participant mode
@@ -443,13 +443,13 @@
 - các route `/staff/dashboard`, `/staff/users`, `/staff/staffs`, `/staff/staffs/[id]`, `/staff/students`, `/staff/students/[id]`, `/staff/costs`, `/staff/history`, `/staff/system-settings`, `/staff/deductions`, `/staff/assistant-detail`, `/staff/accountant-detail`, `/staff/communication-detail`, `/staff/technical-detail`, `/staff/training-detail`, `/staff/lesson-plan-detail`, `/staff/lesson-plan-detail/[staffId]`, `/staff/lesson_plan_detail`, `/staff/lesson_plan_detail/[staffId]`, `/staff/lesson-plan-tasks`, `/staff/lesson-plan-tasks/[taskId]`, `/staff/lesson-plan-manage-details`, `/staff/lesson-plans`, `/staff/lesson-plans/tasks/[taskId]`, `/staff/lesson-manage-details`, `/staff/courses`, `/staff/courses/[id]` cũng đi chung staff shell; riêng direct-topup queue vẫn ở admin-only flow
 - các CTA `Quay lại` trong staff shell ưu tiên `router.back()` để trả người dùng về đúng màn trước đó trong lịch sử duyệt, thay vì ép cứng về `/staff` hoặc `/staff/profile`
 - Điều hướng của staff sidebar vẫn hiển thị theo role của staff hiện tại:
-  - `assistant`: menu admin-like gồm `Dashboard`, `User`, `Nhân sự`, `Lớp học`, `Quy định`, `Học sinh`, `Cài đặt hệ thống`, `Chi phí`, `Giáo Án`, `Lịch sử`; không còn mục riêng `Khấu trừ`
-  - `accountant_income`: có `Lớp học`, `Học sinh`, `Kế toán` theo phạm vi thu; không có `Cài đặt hệ thống`, `Chi phí`, `Nhân sự`, `Giáo Án`
-  - `accountant_expense`: có `Lớp học`, `Nhân sự`, `Chi phí`, `Giáo Án`, `Kế toán` theo phạm vi chi; không có `Cài đặt hệ thống` hoặc `Học sinh`
+  - `assistant`: menu admin-like gồm `Dashboard`, `User`, `Nhân sự`, `Lớp học`, `Quy định`, `Học sinh`, `Cài đặt hệ thống`, `Chi phí`, `Giáo án học sinh giỏi`, `Lịch sử`; không còn mục riêng `Khấu trừ`
+  - `accountant_income`: có `Lớp học`, `Học sinh`, `Kế toán` theo phạm vi thu; không có `Cài đặt hệ thống`, `Chi phí`, `Nhân sự`, `Giáo án học sinh giỏi`
+  - `accountant_expense`: có `Lớp học`, `Nhân sự`, `Chi phí`, `Giáo án học sinh giỏi`, `Kế toán` theo phạm vi chi; không có `Cài đặt hệ thống` hoặc `Học sinh`
   - `teacher` hoặc `admin`: mục `Lớp học`
   - `training`: có `Lớp học` (danh sách lớp được gán quản lý), `Lịch lớp`, `Đào Tạo` (trợ cấp + tab lớp học)
   - `customer_care`: mục `CSKH của tôi`
-  - `lesson_plan`, `lesson_plan_head`, `accountant_expense`, hoặc `admin`: mục `Giáo Án` dẫn tới `/staff/lesson-plans`
+  - `lesson_plan`, `lesson_plan_head`, `accountant_expense`, hoặc `admin`: mục `Giáo án học sinh giỏi` dẫn tới `/staff/lesson-plans`
   - `lesson_plan` hoặc `lesson_plan_head`: mục `Nội dung khoá` dẫn tới `/staff/courses` (assistant thuần / `teacher` / `accountant_*` / `customer_care` / `training` **không** thấy mục này)
   - `lesson_plan`, `lesson_plan_head`, `assistant`, hoặc `admin`: mục `Bài khảo sát` dẫn tới `/staff/surveys` (tạo/sửa/xóa Bài khảo sát; `accountant_expense` **không** thấy mục này)
   - staff có nhiều role hợp lệ sẽ thấy đồng thời các mục tương ứng; riêng assistant branch ưu tiên menu admin-like
@@ -506,7 +506,7 @@
 - `/staff/customer-care-detail` chỉ hiển thị dữ liệu CSKH của user hiện tại
 - `staff.customer_care` bấm học sinh/lớp từ `/staff/customer-care-detail` mở được `/staff/students/[id]` và `/staff/classes/[id]` theo đúng phạm vi take-care của chính mình
 - sidebar staff chỉ hiện mục `CSKH của tôi` khi actor có role `customer_care`
-- sidebar staff hiện một mục `Giáo Án` thống nhất cho `lesson_plan`, `lesson_plan_head`, `accountant_expense` và các role admin-like; route đích luôn là `/staff/lesson-plans`
+- sidebar staff hiện một mục `Giáo án học sinh giỏi` thống nhất cho `lesson_plan`, `lesson_plan_head`, `accountant_expense` và các role admin-like; route đích luôn là `/staff/lesson-plans`
 - sidebar staff hiện mục `Nội dung khoá` → `/staff/courses` cho `lesson_plan` và `lesson_plan_head`; role khác không thấy mục này
 - `/staff` route gốc render staff sidebar như các route staff khác
 - Teacher không thể đụng vào trợ cấp hay học phí học sinh từ route này

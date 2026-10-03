@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
@@ -143,7 +144,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     },
     {
       href: "/staff/lesson-plans",
-      label: "Giáo Án",
+      label: LESSON_PLAN_LABEL,
       icon: <IconLessonPlans />,
       isActive: (pathname) =>
         pathname.startsWith("/staff/lesson-plan-tasks") ||
@@ -275,7 +276,7 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
     },
     {
       href: "/staff/lesson-plans",
-      label: "Giáo Án",
+      label: LESSON_PLAN_LABEL,
       icon: <IconLessonPlans />,
       isActive: (pathname) =>
         pathname.startsWith("/staff/lesson-plan-tasks") ||

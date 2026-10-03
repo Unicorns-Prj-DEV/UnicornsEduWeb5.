@@ -1,5 +1,6 @@
 "use client";
 
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import {
   AnimatePresence,
   m,
@@ -42,7 +43,7 @@ import {
 const TAB_LABELS: Record<LessonTabId, string> = {
   overview: "Tổng quan",
   work: "Công việc",
-  exercises: "Giáo Án",
+  exercises: LESSON_PLAN_LABEL,
 };
 const TAB_INDICATOR_TRANSITION: Transition = {
   type: "spring",
@@ -631,7 +632,7 @@ export default function AdminLessonPlansWorkspace({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
-                  Giáo Án
+                  {LESSON_PLAN_LABEL}
                 </h1>
                 <span className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
                   {workspaceCopy.badge}
@@ -644,9 +645,9 @@ export default function AdminLessonPlansWorkspace({
           </div>
 
           <div
-            className="mt-6 flex w-full min-w-0 gap-6 border-b border-border-default/80"
+            className="mt-6 flex w-full min-w-0 gap-6 overflow-x-auto border-b border-border-default/80"
             role="tablist"
-            aria-label="Tổng quan, Công việc hoặc Giáo án"
+            aria-label={`Tổng quan, Công việc hoặc ${LESSON_PLAN_LABEL}`}
           >
             {(Object.keys(TAB_LABELS) as LessonTabId[]).filter((t) => visibleTabs.includes(t)).map((tabId) => {
               const isActive = activeTabState === tabId;
@@ -663,7 +664,7 @@ export default function AdminLessonPlansWorkspace({
                     await Promise.resolve();
                     syncTabToUrl(tabId);
                   }}
-                  className={`relative pb-3 text-sm font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:text-base ${isActive
+                  className={`relative shrink-0 whitespace-nowrap pb-3 text-sm font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:text-base ${isActive
                     ? "text-primary"
                     : "text-text-muted hover:text-text-primary"
                     }`}

@@ -23,6 +23,7 @@ jest.mock('src/storage/supabase-storage', () => ({
   validateImageFile: jest.fn(),
 }));
 
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 import { BadRequestException } from '@nestjs/common';
 import {
   PaymentStatus,
@@ -866,7 +867,7 @@ describe('StaffService', () => {
       },
       {
         role: StaffRole.lesson_plan,
-        label: 'Giáo án',
+        label: LESSON_PLAN_LABEL,
         total: 100000,
         paid: 80000,
         unpaid: 20000,
