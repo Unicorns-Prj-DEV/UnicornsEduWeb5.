@@ -121,6 +121,13 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
         canAccessClassWorkspace || isTraining,
     },
     {
+      href: "/staff/tutors",
+      label: "Gia sư",
+      icon: <IconStaff />,
+      isActive: (pathname) => pathname.startsWith("/staff/tutors"),
+      isVisible: ({ isTraining }) => isTraining,
+    },
+    {
       href: "/staff/costs",
       label: "Chi phí",
       icon: <IconCosts />,

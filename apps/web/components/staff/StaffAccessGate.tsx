@@ -44,6 +44,7 @@ export default function StaffAccessGate({
     isStaffNotificationRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
+    isStaffTutorsRoute,
   } = flags;
   const redirectHref = routeAccess.redirectHref;
 
@@ -60,6 +61,8 @@ export default function StaffAccessGate({
         ? "Survey Workspace Locked"
         : isStaffCoursesRoute
           ? "Course Workspace Locked"
+        : isStaffTutorsRoute
+          ? "Tutor Directory Locked"
         : isStaffCostsRoute
               ? "Cost Workspace Locked"
               : isAssistantStaffsRoute
@@ -90,6 +93,8 @@ export default function StaffAccessGate({
           ? "Tài khoản này không dùng được màn Bài khảo sát trong staff shell."
           : isStaffCoursesRoute
             ? "Tài khoản này không dùng được màn Nội dung khoá trong staff shell."
+          : isStaffTutorsRoute
+            ? "Tài khoản này không dùng được màn hồ sơ gia sư."
           : isStaffClassesRoute
           ? "Tài khoản này không dùng được màn lớp học trong staff shell."
           : isStaffDeductionsRoute
@@ -129,6 +134,8 @@ export default function StaffAccessGate({
         ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo admin đã push."
         : isStaffSurveysRoute
           ? "Route `/staff/surveys` mở cho `admin`, `staff.assistant`, `staff.lesson_plan`, và `staff.lesson_plan_head` — dùng để tạo/sửa/xóa Bài khảo sát, soạn thông báo kèm (Title/Thời gian/Nội dung/Hướng dẫn/Lưu ý/Gia sư) và sao chép để dán vào Zalo."
+          : isStaffTutorsRoute
+            ? "Route `/staff/tutors` chỉ mở cho Ban Đào Tạo (`staff.training` đang active). Màn này chỉ đọc hồ sơ gia sư: không có CCCD, thông tin cá nhân, ngân hàng hay tiền."
           : isStaffCoursesRoute
             ? "Route `/staff/courses` mở cho `staff.lesson_plan` và `staff.lesson_plan_head`. Đây là workspace khoá học dùng chung với `/admin/courses` (wrapper mỏng, `routeBase=/staff`). `lesson_plan` chỉ thấy khoá được phân công, không thêm/sửa/xoá/switch khoá, nhưng soạn được tab Nội dung / Câu hỏi / Cài đặt (3 tab). `lesson_plan_head` thấy mọi khoá và đủ thao tác workspace. `teacher`, `accountant_*`, `customer_care`, `training` bị chặn. Admin/assistant dùng `/admin/courses`."
           : isStaffClassesRoute

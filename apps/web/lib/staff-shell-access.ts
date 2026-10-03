@@ -39,6 +39,7 @@ export type StaffShellRouteFlags = {
   isStaffCalendarRoute: boolean;
   isStaffSurveysRoute: boolean;
   isStaffCoursesRoute: boolean;
+  isStaffTutorsRoute: boolean;
 };
 
 export type StaffShellAccessContext = {
@@ -260,6 +261,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffCalendarRoute = pathname.startsWith("/staff/calendar");
   const isStaffSurveysRoute = pathname.startsWith("/staff/surveys");
   const isStaffCoursesRoute = pathname.startsWith("/staff/courses");
+  const isStaffTutorsRoute = pathname.startsWith("/staff/tutors");
   const isAssistantAdminLikeRoute =
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
@@ -302,6 +304,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffCalendarRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
+    isStaffTutorsRoute,
   };
 }
 
@@ -345,6 +348,8 @@ export function resolveStaffShellRouteAccess(
                     : flags.isStaffCalendarRoute
             ? hasStaffWorkspaceAccess &&
               (isAdmin || isAssistantStaff || isTeacher || isTraining)
+          : flags.isStaffTutorsRoute
+            ? hasStaffWorkspaceAccess && isStaffOrAdmin && isTraining
           : flags.isStaffSurveysRoute
             ? hasStaffWorkspaceAccess &&
               isStaffOrAdmin &&
