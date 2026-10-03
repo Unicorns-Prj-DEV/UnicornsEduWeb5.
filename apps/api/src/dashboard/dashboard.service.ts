@@ -11,6 +11,11 @@ import {
   ATTENDANCE_COMMISSION_TUITION_BASIS_SQL,
 } from 'src/payroll/assistant-share.util';
 import {
+  FIRST_WALLET_TOP_UP_JOIN_SQL,
+  FIRST_WALLET_TOP_UP_SQL,
+  firstTopUpInRangeSql,
+} from './first-wallet-top-up.sql';
+import {
   AttendanceStatus,
   ClassStatus,
   LessonTaskStatus,
@@ -953,7 +958,10 @@ export class DashboardService {
     );
   }
 
-  /** System-wide (all StudentInfo, not scoped by CSKH staff) new/dropped counts for the selected period. */
+  /**
+   * System-wide (all StudentInfo, not scoped by CSKH staff) new/dropped counts for the selected period.
+   * Học sinh mới = lần nạp ví thành công đầu tiên rơi trong kỳ.
+   */
   private async getStudentChurnCounts(period: {
     monthStart: Date;
     monthEnd: Date;
@@ -966,9 +974,8 @@ export class DashboardService {
         SELECT
           (
             SELECT COUNT(*)
-            FROM student_info
-            WHERE student_info.created_at >= ${period.monthStart}
-              AND student_info.created_at < ${period.monthEnd}
+            FROM (${FIRST_WALLET_TOP_UP_SQL}) AS first_wallet_top_up
+            WHERE ${firstTopUpInRangeSql(period)}
           ) AS "newStudentsThisMonth",
           (
             SELECT COUNT(*)
@@ -3252,7 +3259,6 @@ export class DashboardService {
           select: {
             id: true,
             status: true,
-            createdAt: true,
             dropOutDate: true,
           },
         },
@@ -3268,9 +3274,13 @@ export class DashboardService {
         range,
       );
 
-    const [lowBalanceRows, debtRows] = await Promise.all([
+    const [lowBalanceRows, debtRows, newStudentsThisMonth] = await Promise.all([
       this.getExpiringStudentsByCustomerCareStaff(staffId, 6),
       this.getDebtStudentsByCustomerCareStaff(staffId, 6),
+      this.countNewStudentsByFirstTopUp(
+        assignedStudents.map((student) => student.id),
+        range,
+      ),
     ]);
 
     const learnedTuitionTotal = assignedStudents.reduce(
@@ -3283,11 +3293,7 @@ export class DashboardService {
     );
 
     return {
-      newStudentsThisMonth: assignedStudents.filter(
-        (student) =>
-          student.createdAt >= range.monthStart &&
-          student.createdAt < range.monthEnd,
-      ).length,
+      newStudentsThisMonth,
       droppedStudentsThisMonth: assignedStudents.filter((student) =>
         isDropOutDateInDashboardMonth(
           student.dropOutDate,
@@ -3304,6 +3310,29 @@ export class DashboardService {
       ),
       debtStudents: debtRows.map((row) => this.mapStudentAlertItem(row)),
     };
+  }
+
+  /** Đếm Học sinh mới trong nhóm học sinh: lần nạp ví thành công đầu tiên rơi trong kỳ. */
+  private async countNewStudentsByFirstTopUp(
+    studentIds: string[],
+    range: { monthStart: Date; monthEnd: Date },
+  ): Promise<number> {
+    if (studentIds.length === 0) {
+      return 0;
+    }
+
+    const [row] = await this.prisma.$queryRaw<
+      { newStudentsCount: number | string | null }[]
+    >(
+      Prisma.sql`
+        SELECT COUNT(*)::int AS "newStudentsCount"
+        FROM (${FIRST_WALLET_TOP_UP_SQL}) AS first_wallet_top_up
+        WHERE first_wallet_top_up.student_id IN (${Prisma.join(studentIds)})
+          AND ${firstTopUpInRangeSql(range)}
+      `,
+    );
+
+    return normalizeInteger(row?.newStudentsCount);
   }
 
   private async getMyCustomerCarePortfolio(
@@ -3399,14 +3428,14 @@ export class DashboardService {
 
     const typeFilter =
       params.query.type === 'new'
-        ? Prisma.sql`student_info.created_at >= ${monthStart} AND student_info.created_at < ${monthEnd}`
+        ? firstTopUpInRangeSql({ monthStart, monthEnd })
         : params.query.type === 'dropped'
           ? Prisma.sql`student_info.drop_out_date IS NOT NULL AND student_info.drop_out_date >= ${periodStartStr}::date AND student_info.drop_out_date < ${periodEndExclusiveStr}::date`
           : Prisma.sql`student_info.status = 'active'`;
 
     const dateColumn =
       params.query.type === 'new'
-        ? Prisma.sql`student_info.created_at`
+        ? Prisma.sql`first_wallet_top_up.first_top_up_at`
         : params.query.type === 'dropped'
           ? Prisma.sql`student_info.drop_out_date`
           : Prisma.sql`NULL`;
@@ -3420,6 +3449,7 @@ export class DashboardService {
           ${dateColumn} AS "eventDate"
         FROM customer_care_service
         INNER JOIN student_info ON student_info.id = customer_care_service.student_id
+        ${FIRST_WALLET_TOP_UP_JOIN_SQL}
         LEFT JOIN student_classes ON student_classes.student_id = student_info.id
         LEFT JOIN classes ON classes.id = student_classes.class_id
         WHERE customer_care_service.staff_id IN (${Prisma.join(staffIds)})
@@ -3514,7 +3544,7 @@ export class DashboardService {
             THEN student_info.id
           END)::int AS "activeStudentsCount",
           COUNT(DISTINCT CASE
-            WHEN student_info.created_at >= ${range.monthStart} AND student_info.created_at < ${range.monthEnd}
+            WHEN ${firstTopUpInRangeSql(range)}
             THEN student_info.id
           END)::int AS "newStudentsCount",
           COUNT(DISTINCT CASE
@@ -3525,6 +3555,7 @@ export class DashboardService {
           END)::int AS "droppedStudentsCount"
         FROM customer_care_service
         INNER JOIN student_info ON student_info.id = customer_care_service.student_id
+        ${FIRST_WALLET_TOP_UP_JOIN_SQL}
         WHERE customer_care_service.staff_id IN (${Prisma.join(staffIds)})
         GROUP BY customer_care_service.staff_id
       `,
@@ -3605,17 +3636,18 @@ export class DashboardService {
           SELECT DISTINCT
             student_info.id AS "studentId",
             student_info.status AS status,
-            student_info.created_at AS "createdAt",
+            first_wallet_top_up.first_top_up_at AS "firstTopUpAt",
             student_info.drop_out_date AS "dropOutDate"
           FROM customer_care_service
           INNER JOIN student_info ON student_info.id = customer_care_service.student_id
+          ${FIRST_WALLET_TOP_UP_JOIN_SQL}
           WHERE customer_care_service.staff_id IN (${Prisma.join(staffIds)})
         )
         SELECT
           COUNT(*) FILTER (WHERE status = 'active')::int AS "activeStudentsCount",
           COUNT(*) FILTER (
-            WHERE "createdAt" >= ${range.monthStart}
-              AND "createdAt" < ${range.monthEnd}
+            WHERE "firstTopUpAt" >= ${range.monthStart}
+              AND "firstTopUpAt" < ${range.monthEnd}
           )::int AS "newStudentsThisMonth",
           COUNT(*) FILTER (
             WHERE "dropOutDate" IS NOT NULL
@@ -5987,8 +6019,12 @@ export class DashboardService {
     const period = resolveFinancialPeriod(query);
     const dateColumn =
       query.type === 'new'
-        ? 'student_info.created_at'
+        ? 'first_wallet_top_up.first_top_up_at'
         : 'student_info.drop_out_date';
+    // Học sinh mới: ngày vào học = lần nạp ví thành công đầu tiên; điều kiện
+    // kỳ trên `dateColumn` loại học sinh chưa nạp nên LEFT JOIN đủ.
+    const firstTopUpJoin =
+      query.type === 'new' ? FIRST_WALLET_TOP_UP_JOIN_SQL : Prisma.empty;
 
     const cacheKey = period.isDateRange
       ? buildCacheKey('student-churn-details', {
@@ -6018,6 +6054,7 @@ export class DashboardService {
               ) AS "className",
               ${Prisma.raw(dateColumn)} AS "eventDate"
             FROM student_info
+            ${firstTopUpJoin}
             LEFT JOIN student_classes ON student_classes.student_id = student_info.id
             LEFT JOIN classes ON classes.id = student_classes.class_id
             WHERE ${Prisma.raw(dateColumn)} >= ${period.monthStart}
