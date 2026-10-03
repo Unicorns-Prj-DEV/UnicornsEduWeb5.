@@ -630,6 +630,43 @@ describe('DashboardService new students by first wallet top-up', () => {
   });
 });
 
+describe('DashboardService customer source stats', () => {
+  const prisma = { $queryRaw: jest.fn() };
+
+  it('lists Khách cũ right before Khác, then Chưa gán', async () => {
+    prisma.$queryRaw.mockResolvedValue([
+      { customerSource: 'returning_customer', studentCount: 2, revenue: 300 },
+      { customerSource: 'other', studentCount: 1, revenue: 100 },
+      { customerSource: null, studentCount: 1, revenue: 100 },
+    ]);
+    const service = new DashboardService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    const rows = (await service['getCustomerSourceStats']({
+      monthStart: new Date('2026-09-01T00:00:00.000Z'),
+      monthEnd: new Date('2026-10-01T00:00:00.000Z'),
+    })) as Array<{ key: string; label: string; studentCount: number }>;
+
+    expect(rows.map((row) => row.key)).toEqual([
+      'tiktok',
+      'fanpage_hoc_tin',
+      'fanpage_luyen_tin',
+      'referral',
+      'personal',
+      'returning_customer',
+      'other',
+      'unassigned',
+    ]);
+    expect(rows.find((row) => row.key === 'returning_customer')).toMatchObject({
+      label: 'Khách cũ',
+      studentCount: 2,
+    });
+  });
+});
+
 describe('DashboardService financial export', () => {
   const prisma = {
     $queryRaw: jest.fn(),

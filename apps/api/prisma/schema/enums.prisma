@@ -43,6 +43,7 @@ enum StudentCustomerSource {
   fanpage_luyen_tin
   referral
   personal
+  returning_customer
   other
 }
 

@@ -1,3 +1,5 @@
+import type { StudentCustomerSource } from "./student.dto";
+
 export interface AdminDashboardPeriod {
   month: string;
   year: string;
@@ -192,14 +194,8 @@ export type AdminDashboardFinancialDetailRowKey =
   | "total-in"
   | "customer-source";
 
-export type AdminDashboardCustomerSourceKey =
-  | "tiktok"
-  | "fanpage_hoc_tin"
-  | "fanpage_luyen_tin"
-  | "referral"
-  | "personal"
-  | "other"
-  | "unassigned";
+/** Mọi Nguồn khách cộng nhóm Chưa gán. */
+export type AdminDashboardCustomerSourceKey = StudentCustomerSource | "unassigned";
 
 export interface AdminDashboardCustomerSourceRow {
   key: AdminDashboardCustomerSourceKey;
