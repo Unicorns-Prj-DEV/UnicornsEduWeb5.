@@ -599,6 +599,8 @@ export default function StaffClassDetailPage() {
       await staffOpsApi.createClassSurvey(id, payload);
       await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
       await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      // Nộp xong là gỡ chặn khảo sát sắp hạn ngay, không đợi staleTime của popup.
+      await queryClient.invalidateQueries({ queryKey: ["surveys", "my-warnings"] });
     },
     [id, queryClient],
   );

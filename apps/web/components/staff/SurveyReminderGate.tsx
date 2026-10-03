@@ -2,8 +2,13 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import * as surveysApi from "@/lib/apis/surveys.api";
+import {
+  getSurveyBlockedClassIds,
+  isOnSurveyBlockedClassPage,
+} from "@/lib/survey-deadline-block";
 
 const SESSION_DISMISS_KEY = "survey-reminder-dismissed-session";
 
@@ -40,6 +45,10 @@ function getTodayIsoDate(): string {
  * sẽ hiển thị lại ngay từ lần truy cập kế tiếp (tải lại trang / mở tab mới) cho
  * đến khi báo cáo xong. Nếu không có bài quá hạn, "Để sau" ẩn cho hết phiên
  * (sessionStorage) như trước.
+ *
+ * Trong khung **chặn khảo sát sắp hạn** (API trả `blocking`), popup không có
+ * "Để sau" và không đóng được cho tới khi lớp nộp, kể cả sau hạn; chỉ nhường chỗ
+ * khi gia sư đang ở trang chi tiết của lớp bị chặn để nộp khảo sát.
  */
 /** Giá trị chỉ đọc một lần lúc mount nên không cần subscribe thật. */
 const subscribeNoop = () => () => {};
@@ -54,6 +63,7 @@ export default function SurveyReminderGate() {
     () => false,
   );
   const [dismissedLocally, setDismissedLocally] = useState(false);
+  const pathname = usePathname();
 
   const warningsQuery = useQuery({
     queryKey: ["surveys", "my-warnings"],
@@ -66,9 +76,13 @@ export default function SurveyReminderGate() {
   const hasOverdue = warnings.some((item) =>
     item.pendingSurveys.some((survey) => isOverdue(survey.endDate)),
   );
-  const isDismissed = hasOverdue
-    ? dismissedLocally
-    : dismissedThisSession || dismissedLocally;
+  const blockedClassIds = getSurveyBlockedClassIds(warnings);
+  const hasBlocking = blockedClassIds.size > 0;
+  const isDismissed = hasBlocking
+    ? isOnSurveyBlockedClassPage(pathname, blockedClassIds)
+    : hasOverdue
+      ? dismissedLocally
+      : dismissedThisSession || dismissedLocally;
   const shouldShow = warnings.length > 0 && !isDismissed;
 
   if (!shouldShow) {
@@ -76,6 +90,7 @@ export default function SurveyReminderGate() {
   }
 
   const handleDismiss = () => {
+    if (hasBlocking) return;
     if (!hasOverdue) {
       window.sessionStorage.setItem(SESSION_DISMISS_KEY, "1");
     }
@@ -93,23 +108,27 @@ export default function SurveyReminderGate() {
       >
         <div
           className={`border-b border-border-default px-5 py-4 ${
-            hasOverdue ? "bg-danger/10" : "bg-warning/10"
+            hasBlocking || hasOverdue ? "bg-danger/10" : "bg-warning/10"
           }`}
         >
           <h2
             id="survey-reminder-gate-title"
             className="text-base font-semibold text-text-primary"
           >
-            {hasOverdue
-              ? "🔴 Có báo cáo khảo sát đã quá hạn"
-              : "⚠️ Còn lớp chưa báo cáo khảo sát"}
+            {hasBlocking
+              ? "⛔ Nộp khảo sát trước khi tạo buổi học"
+              : hasOverdue
+                ? "🔴 Có báo cáo khảo sát đã quá hạn"
+                : "⚠️ Còn lớp chưa báo cáo khảo sát"}
           </h2>
           <p className="mt-1 text-sm text-text-secondary">
             Bạn đang phụ trách {warnings.length} lớp còn thiếu báo cáo khảo
             sát.{" "}
-            {hasOverdue
-              ? "Có bài đã quá hạn — cảnh báo này sẽ hiển thị lại mỗi khi bạn truy cập cho đến khi báo cáo xong."
-              : "Vui lòng báo cáo sớm."}
+            {hasBlocking
+              ? "Khảo sát sắp hết hạn — bạn không tạo được buổi học cho lớp bị chặn cho tới khi lớp nộp khảo sát."
+              : hasOverdue
+                ? "Có bài đã quá hạn — cảnh báo này sẽ hiển thị lại mỗi khi bạn truy cập cho đến khi báo cáo xong."
+                : "Vui lòng báo cáo sớm."}
           </p>
         </div>
 
@@ -134,6 +153,11 @@ export default function SurveyReminderGate() {
                           Quá hạn
                         </span>
                       ) : null}
+                      {survey.blocking ? (
+                        <span className="ml-1.5 rounded-full bg-danger/15 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
+                          Chặn tạo buổi
+                        </span>
+                      ) : null}
                     </li>
                   );
                 })}
@@ -150,15 +174,17 @@ export default function SurveyReminderGate() {
           ))}
         </div>
 
-        <div className="flex justify-end border-t border-border-default px-5 py-3">
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="rounded-md border border-border-default px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-bg-secondary"
-          >
-            Để sau
-          </button>
-        </div>
+        {hasBlocking ? null : (
+          <div className="flex justify-end border-t border-border-default px-5 py-3">
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="rounded-md border border-border-default px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-bg-secondary"
+            >
+              Để sau
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -36,6 +37,7 @@ import {
   resolveSnapshotScaleAmountVnd,
 } from './session-allowance.util';
 import { appendClassTimelineItem } from '../class-timeline/append-timeline-item';
+import { findSurveysBlockingSessionCreation } from '../class/survey-deadline-block';
 import {
   presentCustomAllowanceAsPerSession,
   standardBlockCountFromSlots,
@@ -654,6 +656,30 @@ export class SessionCreateService {
     }
   }
 
+  /** Gia sư không được tạo buổi học khi lớp đang trong khung chặn khảo sát sắp hạn. */
+  private async assertNoSurveyDeadlineBlock(classId: string) {
+    const blockingSurveys = await findSurveysBlockingSessionCreation(
+      this.prisma,
+      classId,
+    );
+    if (blockingSurveys.length === 0) {
+      return;
+    }
+
+    const surveyLabels = blockingSurveys
+      .map((survey) => {
+        const [year, month, day] = survey.endDate
+          .toISOString()
+          .slice(0, 10)
+          .split('-');
+        return `«${survey.name}» (hạn ${day}/${month}/${year})`;
+      })
+      .join(', ');
+    throw new ForbiddenException(
+      `Lớp chưa nộp khảo sát ${surveyLabels}. Nộp khảo sát trước khi tạo buổi học.`,
+    );
+  }
+
   async createSessionForStaff(
     userId: string,
     roleType: UserRole,
@@ -686,6 +712,7 @@ export class SessionCreateService {
         actor.id,
         classId,
       );
+      await this.assertNoSurveyDeadlineBlock(classId);
     }
 
     if (data.attendance && data.attendance.length > 0) {
