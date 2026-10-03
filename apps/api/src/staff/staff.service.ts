@@ -90,6 +90,7 @@ import {
   commissionTuitionBasisVnd,
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
 function toDateOrNull(
@@ -149,7 +150,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   teacher: 'Giáo viên',
   assistant: 'Trợ lí',
-  lesson_plan: 'Giáo án',
+  lesson_plan: LESSON_PLAN_LABEL,
   lesson_plan_head: 'Trưởng giáo án',
   accountant: 'Kế toán',
   accountant_income: 'Kế toán thu',

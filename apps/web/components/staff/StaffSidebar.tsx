@@ -15,6 +15,7 @@ import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 type MenuVisibility = {
   hasStaffProfile: boolean;
@@ -143,7 +144,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     },
     {
       href: "/staff/lesson-plans",
-      label: "Giáo Án",
+      label: LESSON_PLAN_LABEL,
       icon: <IconLessonPlans />,
       isActive: (pathname) =>
         pathname.startsWith("/staff/lesson-plan-tasks") ||
@@ -275,7 +276,7 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
     },
     {
       href: "/staff/lesson-plans",
-      label: "Giáo Án",
+      label: LESSON_PLAN_LABEL,
       icon: <IconLessonPlans />,
       isActive: (pathname) =>
         pathname.startsWith("/staff/lesson-plan-tasks") ||

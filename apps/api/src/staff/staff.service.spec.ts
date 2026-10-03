@@ -32,6 +32,7 @@ import {
 } from '../../generated/enums';
 import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import { StaffService } from './staff.service';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 const mockCreateSignedStorageUrl =
   createSignedStorageUrl as jest.MockedFunction<typeof createSignedStorageUrl>;
@@ -866,7 +867,7 @@ describe('StaffService', () => {
       },
       {
         role: StaffRole.lesson_plan,
-        label: 'Giáo án',
+        label: LESSON_PLAN_LABEL,
         total: 100000,
         paid: 80000,
         unpaid: 20000,

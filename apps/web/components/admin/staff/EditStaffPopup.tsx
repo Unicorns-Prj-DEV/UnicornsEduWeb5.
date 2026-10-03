@@ -25,7 +25,7 @@ import {
   type DisabledRoleOverrideWarning,
 } from "@/lib/fixed-salary-settings.helpers";
 import { moneyInputInitialFromNumber } from "@/lib/money-input.helpers";
-import { ROLE_LABELS } from "@/lib/staff.constants";
+import { LESSON_PLAN_LABEL, ROLE_LABELS } from "@/lib/staff.constants";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
@@ -45,7 +45,7 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "teacher", label: "Giáo viên" },
   { value: "assistant", label: "Trợ lí" },
-  { value: "lesson_plan", label: "Giáo án" },
+  { value: "lesson_plan", label: LESSON_PLAN_LABEL },
   { value: "lesson_plan_head", label: "Trưởng giáo án" },
   { value: "accountant_income", label: "Kế toán thu" },
   { value: "accountant_expense", label: "Kế toán chi" },

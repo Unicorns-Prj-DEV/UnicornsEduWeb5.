@@ -14,6 +14,7 @@ import type {
 import { AdminDashboardFinancialDetailSkeleton } from "@/components/admin/dashboard/AdminDashboardSkeleton";
 import { DashboardIcon } from "@/components/admin/dashboard/DashboardIcon";
 import { formatVnInteger } from "@/lib/formatters";
+import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 
 function formatCurrency(value: number) {
   return `${formatVnInteger(value)} đ`;
@@ -83,7 +84,7 @@ function getAmountForSource(
     const prefixMap: Record<string, string> = {
       "pending-session": "Buổi dạy",
       "pending-customer-care": "CSKH",
-      "pending-lesson": "Giáo án",
+      "pending-lesson": LESSON_PLAN_LABEL,
       "pending-bonus": "Bonus",
       "pending-extra": "Trợ cấp",
       "pending-assistant": "Trợ lí",

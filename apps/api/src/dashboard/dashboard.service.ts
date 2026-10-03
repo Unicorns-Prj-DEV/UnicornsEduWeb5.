@@ -80,6 +80,7 @@ import {
   SQL_TEACHER_SESSION_CAP_GROUP_BY,
 } from '../common/teacher-session-allowance-sql.util';
 import { SurveyRoundService } from '../class/survey-round.service';
+import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 type SummaryCountRow = {
   activeClasses: number | string | null;
@@ -652,7 +653,12 @@ export function buildPersonnelCostBreakdown(
       value: row.customerCareAmount,
       sign: 1,
     },
-    { key: 'lesson-cost', label: 'Giáo án', value: row.lessonAmount, sign: 1 },
+    {
+      key: 'lesson-cost',
+      label: LESSON_PLAN_LABEL,
+      value: row.lessonAmount,
+      sign: 1,
+    },
     {
       key: 'bonus-reward-cost',
       label: 'Thưởng',
@@ -4132,7 +4138,7 @@ export class DashboardService {
         },
         {
           key: 'lessonCost',
-          label: 'Giáo án',
+          label: LESSON_PLAN_LABEL,
           amount: normalizeMoneyAmount(summaryRow?.lessonCost),
         },
         {
@@ -5355,7 +5361,7 @@ export class DashboardService {
                 },
                 {
                   key: 'pending-lesson',
-                  label: 'Giáo án chưa thanh toán',
+                  label: `${LESSON_PLAN_LABEL} chưa thanh toán`,
                   amount: totalLessonAmount,
                   note: 'Trợ cấp viết giáo án/soạn tài liệu ở trạng thái chưa chi trả.',
                   tone: 'negative',
@@ -5405,7 +5411,7 @@ export class DashboardService {
                     ? `CSKH ${formatCurrencyLabel(normalizeMoneyAmount(row.customerCareAmount))}`
                     : null,
                   normalizeMoneyAmount(row.lessonAmount) > 0
-                    ? `Giáo án ${formatCurrencyLabel(normalizeMoneyAmount(row.lessonAmount))}`
+                    ? `${LESSON_PLAN_LABEL} ${formatCurrencyLabel(normalizeMoneyAmount(row.lessonAmount))}`
                     : null,
                   normalizeMoneyAmount(row.bonusAmount) > 0
                     ? `Bonus ${formatCurrencyLabel(normalizeMoneyAmount(row.bonusAmount))}`
