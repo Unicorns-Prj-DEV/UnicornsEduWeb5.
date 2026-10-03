@@ -953,6 +953,12 @@ export default function EditStudentPopup({
                     aria-selected={selectedCustomerCare?.id === option.id}
                     onClick={() => {
                       setSelectedCustomerCare(option);
+                      // CSKH mới gán nhận % mặc định trên hồ sơ; chọn lại CSKH cũ thì giữ % cũ.
+                      setCustomerCareProfitPercentInput(
+                        option.id === student.customerCare?.staff?.id
+                          ? toPercentInputValue(student.customerCare?.profitPercent)
+                          : toPercentInputValue(option.defaultProfitPercent ?? 0),
+                      );
                       setCustomerCareSearchInput("");
                       setCustomerCareSearchFocused(false);
                       setDropdownRect(null);

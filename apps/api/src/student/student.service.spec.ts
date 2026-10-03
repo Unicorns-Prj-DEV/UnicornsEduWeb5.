@@ -1836,4 +1836,95 @@ describe('StudentService', () => {
       expect.objectContaining({ where: {} }),
     );
   });
+
+  describe('customer care assignment default percent', () => {
+    const buildTx = (
+      existing: { staffId: string; profitPercent: unknown } | null,
+    ) => ({
+      customerCareService: {
+        findUnique: jest.fn().mockResolvedValue(existing),
+        upsert: jest.fn().mockResolvedValue(undefined),
+        delete: jest.fn(),
+      },
+      staffInfo: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cc-new',
+          roles: [StaffRole.customer_care],
+          customerCareDefaultProfitPercent: 0.15,
+        }),
+      },
+      attendance: { updateMany: jest.fn() },
+    });
+    const sync = (tx: unknown, dto: Record<string, unknown>) =>
+      (
+        service as unknown as {
+          syncCustomerCareAssignment: (
+            tx: unknown,
+            studentId: string,
+            dto: Record<string, unknown>,
+          ) => Promise<void>;
+        }
+      ).syncCustomerCareAssignment(tx, 'student-1', dto);
+
+    it('applies the staff default percent when a customer care staff is newly assigned', async () => {
+      const tx = buildTx(null);
+
+      await sync(tx, { customer_care_staff_id: 'cc-new' });
+
+      expect(tx.customerCareService.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: {
+            studentId: 'student-1',
+            staffId: 'cc-new',
+            profitPercent: 0.15,
+          },
+        }),
+      );
+    });
+
+    it('applies the new staff default percent when switching customer care staff', async () => {
+      const tx = buildTx({ staffId: 'cc-old', profitPercent: 0.3 });
+
+      await sync(tx, { customer_care_staff_id: 'cc-new' });
+
+      expect(tx.customerCareService.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { staffId: 'cc-new', profitPercent: 0.15 },
+        }),
+      );
+      // Buổi đã tạo giữ hệ số đã chụp: không đụng attendance.
+      expect(tx.attendance.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('keeps the current percent when the same customer care staff stays assigned', async () => {
+      const tx = buildTx({ staffId: 'cc-new', profitPercent: 0.3 });
+
+      await sync(tx, { customer_care_staff_id: 'cc-new' });
+
+      expect(tx.customerCareService.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { staffId: 'cc-new', profitPercent: 0.3 },
+        }),
+      );
+    });
+
+    it('lets an explicit percent override the staff default', async () => {
+      const tx = buildTx(null);
+
+      await sync(tx, {
+        customer_care_staff_id: 'cc-new',
+        customer_care_profit_percent: null,
+      });
+
+      expect(tx.customerCareService.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: {
+            studentId: 'student-1',
+            staffId: 'cc-new',
+            profitPercent: null,
+          },
+        }),
+      );
+    });
+  });
 });

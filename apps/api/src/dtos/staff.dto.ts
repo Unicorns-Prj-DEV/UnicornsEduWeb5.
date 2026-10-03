@@ -203,6 +203,17 @@ export class CreateStaffDto {
   @Min(0)
   @Max(100)
   revenue_share_percent?: number | null;
+
+  @ApiPropertyOptional({
+    example: 0.1,
+    description:
+      '% mặc định của CSKH, áp vào học sinh khi CSKH được gán. Phân số 0.00–0.99 (VD: 0.1 = 10%), cùng đơn vị customer_care_profit_percent của học sinh.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(0.99)
+  customer_care_default_profit_percent?: number;
 }
 
 export class UpdateStaffDto extends PartialType(CreateStaffDto) {

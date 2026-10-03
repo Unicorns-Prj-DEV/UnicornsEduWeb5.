@@ -24,6 +24,7 @@ import {
   WalletTransactionType,
 } from 'generated/enums';
 import { Prisma } from '../../generated/client';
+import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
 import {
   CreateStudentSePayTopUpOrderDto,
   CreateStudentWalletDirectTopUpRequestDto,
@@ -227,33 +228,6 @@ function normalizeNullableDecimal(
 
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function normalizeCustomerCareProfitPercent(
-  value: number | null | undefined,
-): Prisma.Decimal | null | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (value === null) {
-    return null;
-  }
-
-  if (!Number.isFinite(value)) {
-    throw new BadRequestException(
-      'Customer care profit percent must be a valid number.',
-    );
-  }
-
-  const rounded = Math.round(value * 100) / 100;
-  if (rounded < 0 || rounded > 0.99) {
-    throw new BadRequestException(
-      'Customer care profit percent must be between 0.00 and 0.99.',
-    );
-  }
-
-  return new Prisma.Decimal(rounded.toFixed(2));
 }
 
 function normalizeOptionalText(value: string | null | undefined) {
@@ -1094,12 +1068,6 @@ export class StudentService {
       dto.customer_care_staff_id !== undefined
         ? (dto.customer_care_staff_id ?? null)
         : (existingAssignment?.staffId ?? null);
-    const nextProfitPercent =
-      dto.customer_care_profit_percent !== undefined
-        ? normalizeCustomerCareProfitPercent(
-            dto.customer_care_profit_percent ?? null,
-          )
-        : (existingAssignment?.profitPercent ?? null);
 
     if (nextStaffId == null) {
       if (dto.customer_care_profit_percent != null) {
@@ -1122,6 +1090,7 @@ export class StudentService {
       select: {
         id: true,
         roles: true,
+        customerCareDefaultProfitPercent: true,
       },
     });
 
@@ -1137,6 +1106,18 @@ export class StudentService {
         'Selected staff is not eligible for customer care assignment.',
       );
     }
+
+    // % gửi kèm luôn thắng; không gửi thì CSKH mới gán nhận % mặc định trên hồ sơ,
+    // còn giữ nguyên CSKH thì giữ % cũ. Buổi đã tạo giữ `attendance.customer_care_coef` đã chụp.
+    const isNewCustomerCareStaff = existingAssignment?.staffId !== nextStaffId;
+    const nextProfitPercent =
+      dto.customer_care_profit_percent !== undefined
+        ? normalizeCustomerCareProfitPercent(
+            dto.customer_care_profit_percent ?? null,
+          )
+        : isNewCustomerCareStaff
+          ? customerCareStaff.customerCareDefaultProfitPercent
+          : (existingAssignment?.profitPercent ?? null);
 
     await tx.customerCareService.upsert({
       where: { studentId },

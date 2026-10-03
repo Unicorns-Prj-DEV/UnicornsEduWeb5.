@@ -1793,6 +1793,14 @@ export default function AdminStaffDetailPage({
                 <span className="text-sm text-text-muted">Chưa có role</span>
               )}
             </div>
+            {staff.roles?.includes("customer_care") ? (
+              <p className="mt-2 text-sm text-text-secondary">
+                % mặc định CSKH:{" "}
+                <span className="font-medium text-text-primary">
+                  {Math.round((staff.customerCareDefaultProfitPercent ?? 0) * 100)}%
+                </span>
+              </p>
+            ) : null}
             {canManageUsers && staff.user?.id ? (
               <div className="mt-3">
                 <UserLinkedProfileLinks
