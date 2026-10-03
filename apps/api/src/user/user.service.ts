@@ -1313,19 +1313,11 @@ export class UserService {
     }
     if (dto.university !== undefined) data.university = dto.university;
     if (dto.high_school !== undefined) data.highSchool = dto.high_school;
-    if (dto.specialization !== undefined)
-      data.specialization = dto.specialization;
     if (dto.bank_account !== undefined) data.bankAccount = dto.bank_account;
     if (dto.bank_qr_link !== undefined) {
       data.bankQrLink = normalizeHttpHttpsUrl(
         dto.bank_qr_link,
         'Link QR ngân hàng',
-      );
-    }
-    if (dto.personal_achievement_link !== undefined) {
-      data.personalAchievementLink = normalizeHttpHttpsUrl(
-        dto.personal_achievement_link,
-        'Link thành tích cá nhân',
       );
     }
     if (

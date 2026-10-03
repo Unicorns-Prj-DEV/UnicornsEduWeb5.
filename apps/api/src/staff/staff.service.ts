@@ -5774,12 +5774,8 @@ export class StaffService {
     if (birthDateNorm !== undefined) payload.birthDate = birthDateNorm;
     if (data.university != null) payload.university = data.university;
     if (data.high_school != null) payload.highSchool = data.high_school;
-    if (data.specialization != null)
-      payload.specialization = data.specialization;
     if (data.bank_account != null) payload.bankAccount = data.bank_account;
     if (data.bank_qr_link != null) payload.bankQrLink = data.bank_qr_link;
-    if (data.personal_achievement_link !== undefined)
-      payload.personalAchievementLink = data.personal_achievement_link ?? null;
     if (data.google_meet_link !== undefined)
       payload.googleMeetLink = data.google_meet_link ?? null;
     if (data.revenue_share_percent !== undefined)
@@ -6078,10 +6074,8 @@ export class StaffService {
             birthDate: toDateOrNull(data.birth_date) ?? undefined,
             university: data.university,
             highSchool: data.high_school,
-            specialization: data.specialization,
             bankAccount: data.bank_account,
             bankQrLink: data.bank_qr_link,
-            personalAchievementLink: data.personal_achievement_link ?? null,
             revenueSharePercent: data.revenue_share_percent ?? null,
             roles: data.roles,
             userId: data.user_id,

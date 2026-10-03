@@ -347,7 +347,7 @@
 - **Backend routes đang dùng**
   - `GET /users/me/full`
   - `PATCH /users/me` (self-service dùng để cập nhật tên staff canonical trên popup/profile)
-  - `PATCH /users/me/staff` (self-service validate `bank_qr_link` và `personal_achievement_link` chỉ `http/https`; không dùng để đổi tên canonical; `personal_achievement_link` bắt buộc để `staffProfileComplete=true`, gửi `null`/rỗng làm hồ sơ incomplete lại)
+  - `PATCH /users/me/staff` (self-service validate `bank_qr_link` chỉ `http/https`; không dùng để đổi tên canonical; không còn nhận `specialization` / `personal_achievement_link` — field gửi lên bị lọc bỏ, dữ liệu cũ trong DB giữ nguyên)
   - `GET /users/me/staff-detail`
   - `GET /users/me/staff-income-summary?month=&year=&days=` (net-first cho tổng tháng/năm + breakdown gross/tax; `incomeStatsTotalNet` = `monthlyIncomeTotals.total` cho card **Tổng nhận**, trong đó buổi dạy `unpaid`/`pending` của tháng được tính bằng NET theo CPVH + thuế hiện hành; `snapshotUnpaidTotal` = gross toàn bộ pending/unpaid hiện tại **gồm lương cứng**, không giới hạn tháng hoặc `days`, không tính cọc; `snapshotUnpaidNetTotal` = net snapshot với **mức CPVH + thuế hiện hành** cho hầu hết nguồn, **lương cứng dùng net đã đóng băng**; `yearPaidNetTotal`; `totalReceivedNet` = `yearPaidNetTotal + snapshotUnpaidNetTotal`; thêm `fixedSalaryRoleSummaries`, `fixedSalaryPayables`)
   - `GET /deduction-settings/tax?asOfDate=&roleType=&staffId=` và các mutation deduction hiện là admin-only; tab Khấu trừ trên `/staff/system-settings` vẫn gọi cùng API (assistant xem được, mutate theo policy backend)

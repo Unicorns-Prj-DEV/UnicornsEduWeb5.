@@ -291,7 +291,6 @@ describe('StaffService', () => {
         birth_date: '2000-01-01',
         university: 'HCMUS',
         high_school: 'LHP',
-        specialization: 'Math',
         bank_account: '123',
         bank_qr_link: 'qr',
         roles: [StaffRole.teacher],
