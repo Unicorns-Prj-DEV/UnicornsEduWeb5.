@@ -1399,6 +1399,7 @@ export class StaffService {
             class: { select: { id: true, name: true } },
           },
         },
+        _count: { select: { achievements: true } },
       },
     });
     const staffIds = data.map((staff) => staff.id);
@@ -1409,7 +1410,7 @@ export class StaffService {
       ]);
 
     const rows = await Promise.all(
-      data.map(async (staff) => {
+      data.map(async ({ _count, ...staff }) => {
         const visibleClassIds =
           listVisibleClassIdsByTeacherId.get(staff.id) ?? new Set<string>();
         const classTeachers = (staff.classTeachers ?? [])
@@ -1427,6 +1428,7 @@ export class StaffService {
             ...staff,
             classTeachers,
           })),
+          achievementCount: _count.achievements,
           unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
         };
       }),

@@ -2840,6 +2840,7 @@ describe('StaffService', () => {
           avatarPath: 'users/user-1/avatar',
         },
         classTeachers: [],
+        _count: { achievements: 2 },
       },
     ]);
     mockPrisma.$queryRaw.mockResolvedValue([
@@ -2873,6 +2874,7 @@ describe('StaffService', () => {
               class: { select: { id: true, name: true } },
             },
           },
+          _count: { select: { achievements: true } },
         },
       }),
     );
@@ -2882,10 +2884,12 @@ describe('StaffService', () => {
         user: expect.objectContaining({
           avatarUrl: 'signed:users/user-1/avatar',
         }),
+        achievementCount: 2,
         unpaidAmountTotal: 345000,
       }),
     ]);
     expect(result.data[0].user).not.toHaveProperty('avatarPath');
+    expect(result.data[0]).not.toHaveProperty('_count');
   });
 
   it('hides inactive class_teachers without remaining allowance on staff list', async () => {
@@ -2918,6 +2922,7 @@ describe('StaffService', () => {
             class: { id: 'class-retired-unpaid', name: 'ADVANCED 10' },
           },
         ],
+        _count: { achievements: 0 },
       },
     ]);
     jest

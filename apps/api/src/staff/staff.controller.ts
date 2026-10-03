@@ -191,7 +191,8 @@ export class StaffController {
   @Get()
   @ApiOperation({
     summary: 'List staff',
-    description: 'Get all staff records.',
+    description:
+      'Get all staff records. Each row carries `achievementCount` (number of staff achievements) for the «Xem thành tích (n)» button.',
   })
   @ApiQuery({
     name: 'page',
