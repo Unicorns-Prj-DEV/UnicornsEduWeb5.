@@ -31,3 +31,18 @@ export const FIRST_WALLET_TOP_UP_SQL = Prisma.sql`
     )
   GROUP BY wallet_transactions_history.student_id
 `;
+
+/** Gắn lần nạp đầu vào `student_info` dưới alias `first_wallet_top_up`. */
+export const FIRST_WALLET_TOP_UP_JOIN_SQL = Prisma.sql`
+  LEFT JOIN (${FIRST_WALLET_TOP_UP_SQL}) AS first_wallet_top_up
+    ON first_wallet_top_up.student_id = student_info.id
+`;
+
+/** Điều kiện lần nạp đầu rơi vào kỳ `[monthStart, monthEnd)`. */
+export function firstTopUpInRangeSql(range: {
+  monthStart: Date;
+  monthEnd: Date;
+}): Prisma.Sql {
+  return Prisma.sql`first_wallet_top_up.first_top_up_at >= ${range.monthStart}
+    AND first_wallet_top_up.first_top_up_at < ${range.monthEnd}`;
+}

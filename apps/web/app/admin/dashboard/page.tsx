@@ -237,7 +237,7 @@ function StudentChurnDetailModal({
                 Học sinh hiện tại ({activeCount})
               </button>
             </div>
-            {activeTab === "new" ? <NewStudentDefinitionHint className="px-5 pt-3" /> : null}
+            {activeTab === "new" ? <NewStudentDefinitionHint /> : null}
 
             <div className="max-h-[65vh] overflow-auto px-4 py-4 sm:px-5">
               {churnQuery.isLoading ? (

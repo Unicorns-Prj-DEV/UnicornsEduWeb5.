@@ -299,7 +299,7 @@ function StudentChangeMiniStat({
               Đóng
             </button>
           </div>
-          {type === "new" ? <NewStudentDefinitionHint className="px-5 pt-3" /> : null}
+          {type === "new" ? <NewStudentDefinitionHint /> : null}
           <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
             {query.isLoading ? (
               <p className="text-sm text-text-muted">Đang tải…</p>
@@ -385,7 +385,7 @@ function StaffStudentChangeDialog({
           Đóng
         </button>
       </div>
-      {type === "new" ? <NewStudentDefinitionHint className="px-5 pt-3" /> : null}
+      {type === "new" ? <NewStudentDefinitionHint /> : null}
       <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
         {query.isLoading ? (
           <p className="text-sm text-text-muted">Đang tải…</p>
