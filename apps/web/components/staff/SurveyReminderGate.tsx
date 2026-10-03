@@ -35,6 +35,27 @@ function getTodayIsoDate(): string {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
+/** Mức nghiêm trọng của popup, quyết định cách dismiss và copy. */
+type GateSeverity = "blocking" | "overdue" | "pending";
+
+const GATE_COPY: Record<GateSeverity, { title: string; body: string; headerClass: string }> = {
+  blocking: {
+    title: "⛔ Nộp khảo sát trước khi tạo buổi học",
+    body: "Khảo sát sắp hết hạn — bạn không tạo được buổi học cho lớp bị chặn cho tới khi lớp nộp khảo sát.",
+    headerClass: "bg-danger/10",
+  },
+  overdue: {
+    title: "🔴 Có báo cáo khảo sát đã quá hạn",
+    body: "Có bài đã quá hạn — cảnh báo này sẽ hiển thị lại mỗi khi bạn truy cập cho đến khi báo cáo xong.",
+    headerClass: "bg-danger/10",
+  },
+  pending: {
+    title: "⚠️ Còn lớp chưa báo cáo khảo sát",
+    body: "Vui lòng báo cáo sớm.",
+    headerClass: "bg-warning/10",
+  },
+};
+
 /**
  * Modal cảnh báo cho gia sư: hiện mỗi khi truy cập web nếu có lớp đang running
  * còn thiếu báo cáo bài khảo sát đã mở. Một card/lớp, mỗi card liệt kê tất cả
@@ -77,12 +98,13 @@ export default function SurveyReminderGate() {
     item.pendingSurveys.some((survey) => isOverdue(survey.endDate)),
   );
   const blockedClassIds = getSurveyBlockedClassIds(warnings);
-  const hasBlocking = blockedClassIds.size > 0;
-  const isDismissed = hasBlocking
-    ? isOnSurveyBlockedClassPage(pathname, blockedClassIds)
-    : hasOverdue
-      ? dismissedLocally
-      : dismissedThisSession || dismissedLocally;
+  const severity: GateSeverity =
+    blockedClassIds.size > 0 ? "blocking" : hasOverdue ? "overdue" : "pending";
+  const isDismissed = {
+    blocking: () => isOnSurveyBlockedClassPage(pathname, blockedClassIds),
+    overdue: () => dismissedLocally,
+    pending: () => dismissedThisSession || dismissedLocally,
+  }[severity]();
   const shouldShow = warnings.length > 0 && !isDismissed;
 
   if (!shouldShow) {
@@ -90,8 +112,8 @@ export default function SurveyReminderGate() {
   }
 
   const handleDismiss = () => {
-    if (hasBlocking) return;
-    if (!hasOverdue) {
+    if (severity === "blocking") return;
+    if (severity === "pending") {
       window.sessionStorage.setItem(SESSION_DISMISS_KEY, "1");
     }
     setDismissedLocally(true);
@@ -107,28 +129,18 @@ export default function SurveyReminderGate() {
         className="fixed left-1/2 top-1/2 z-[71] flex max-h-[85vh] w-[calc(100vw-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-warning/40 bg-bg-surface shadow-2xl sm:w-full"
       >
         <div
-          className={`border-b border-border-default px-5 py-4 ${
-            hasBlocking || hasOverdue ? "bg-danger/10" : "bg-warning/10"
-          }`}
+          className={`border-b border-border-default px-5 py-4 ${GATE_COPY[severity].headerClass}`}
         >
           <h2
             id="survey-reminder-gate-title"
             className="text-base font-semibold text-text-primary"
           >
-            {hasBlocking
-              ? "⛔ Nộp khảo sát trước khi tạo buổi học"
-              : hasOverdue
-                ? "🔴 Có báo cáo khảo sát đã quá hạn"
-                : "⚠️ Còn lớp chưa báo cáo khảo sát"}
+            {GATE_COPY[severity].title}
           </h2>
           <p className="mt-1 text-sm text-text-secondary">
             Bạn đang phụ trách {warnings.length} lớp còn thiếu báo cáo khảo
             sát.{" "}
-            {hasBlocking
-              ? "Khảo sát sắp hết hạn — bạn không tạo được buổi học cho lớp bị chặn cho tới khi lớp nộp khảo sát."
-              : hasOverdue
-                ? "Có bài đã quá hạn — cảnh báo này sẽ hiển thị lại mỗi khi bạn truy cập cho đến khi báo cáo xong."
-                : "Vui lòng báo cáo sớm."}
+            {GATE_COPY[severity].body}
           </p>
         </div>
 
@@ -174,7 +186,7 @@ export default function SurveyReminderGate() {
           ))}
         </div>
 
-        {hasBlocking ? null : (
+        {severity === "blocking" ? null : (
           <div className="flex justify-end border-t border-border-default px-5 py-3">
             <button
               type="button"

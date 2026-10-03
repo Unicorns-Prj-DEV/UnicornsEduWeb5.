@@ -102,7 +102,7 @@ describe('survey deadline block', () => {
         expect.objectContaining({
           where: {
             name: { not: null },
-            startDate: { lte: utcDate('2026-10-10') },
+            startDate: { lte: utcDate('2026-10-09') },
             endDate: { lte: utcDate('2026-10-11') },
             excludedClasses: { none: { classId: 'class-1' } },
             classSurveys: { none: { classId: 'class-1' } },

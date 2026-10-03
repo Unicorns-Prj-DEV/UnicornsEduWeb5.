@@ -20,14 +20,22 @@ export function getVietnamToday(now = new Date()): Date {
 }
 
 /**
- * **Chặn khảo sát sắp hạn** (CONTEXT.md): từ đầu ngày liền trước `endDate` trở đi,
- * kể cả sau hạn. Bài không có `endDate` không bao giờ chặn.
+ * `endDate` muộn nhất đã vào khung **chặn khảo sát sắp hạn** (CONTEXT.md) tại `today`:
+ * khung chặn bắt đầu từ đầu ngày liền trước `endDate` và kéo dài cả sau hạn.
  */
+function getLatestBlockedEndDate(today: Date): Date {
+  return new Date(today.getTime() + DAY_MS);
+}
+
+/** Bài không có `endDate` không bao giờ chặn. */
 export function isSurveyDeadlineBlockActive(
   endDate: Date | null,
   today: Date,
 ): boolean {
-  return endDate != null && today.getTime() >= endDate.getTime() - DAY_MS;
+  return (
+    endDate != null &&
+    endDate.getTime() <= getLatestBlockedEndDate(today).getTime()
+  );
 }
 
 export type SurveyBlockingSessionCreation = {
@@ -53,12 +61,16 @@ export async function findSurveysBlockingSessionCreation(
     return [];
   }
 
-  const today = getVietnamToday(now);
+  // "Đã mở" theo ngày UTC như cảnh báo gia sư (`getTeacherWarnings`) để popup
+  // luôn liệt kê đúng những bài đang chặn.
+  const utcToday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
   const surveys = await prisma.survey.findMany({
     where: {
       name: { not: null },
-      startDate: { lte: today },
-      endDate: { lte: new Date(today.getTime() + DAY_MS) },
+      startDate: { lte: utcToday },
+      endDate: { lte: getLatestBlockedEndDate(getVietnamToday(now)) },
       excludedClasses: { none: { classId } },
       classSurveys: { none: { classId } },
     },
@@ -66,11 +78,10 @@ export async function findSurveysBlockingSessionCreation(
     select: { id: true, name: true, endDate: true },
   });
 
-  return surveys
-    .filter((survey) => isSurveyDeadlineBlockActive(survey.endDate, today))
-    .map((survey) => ({
-      surveyId: survey.id,
-      name: survey.name ?? '',
-      endDate: survey.endDate as Date,
-    }));
+  // `where` đã loại `name`/`endDate` null.
+  return surveys.map((survey) => ({
+    surveyId: survey.id,
+    name: survey.name ?? '',
+    endDate: survey.endDate as Date,
+  }));
 }
