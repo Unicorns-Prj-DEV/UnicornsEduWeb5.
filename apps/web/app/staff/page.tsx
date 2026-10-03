@@ -35,6 +35,7 @@ import { formatCurrency, normalizeTimeOnly } from "@/lib/class.helpers";
 import { formatMonthPartsLabel } from "@/lib/month-format";
 import { LESSON_PLAN_LABEL, ROLE_LABELS } from "@/lib/staff.constants";
 import { formatVnDate } from "@/lib/formatters";
+import NewStudentDefinitionHint from "@/components/shared/NewStudentDefinitionHint";
 
 const TASK_STATUS_LABELS: Record<string, string> = {
   pending: "Chờ xử lý",
@@ -298,6 +299,7 @@ function StudentChangeMiniStat({
               Đóng
             </button>
           </div>
+          {type === "new" ? <NewStudentDefinitionHint className="px-5 pt-3" /> : null}
           <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
             {query.isLoading ? (
               <p className="text-sm text-text-muted">Đang tải…</p>
@@ -383,6 +385,7 @@ function StaffStudentChangeDialog({
           Đóng
         </button>
       </div>
+      {type === "new" ? <NewStudentDefinitionHint className="px-5 pt-3" /> : null}
       <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
         {query.isLoading ? (
           <p className="text-sm text-text-muted">Đang tải…</p>

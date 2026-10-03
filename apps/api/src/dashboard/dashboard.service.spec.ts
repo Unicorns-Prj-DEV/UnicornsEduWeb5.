@@ -7,6 +7,8 @@ import {
   StaffRole,
   StaffStatus,
 } from '../../generated/enums';
+import { Prisma } from '../../generated/client';
+import { FIRST_WALLET_TOP_UP_SQL } from './first-wallet-top-up.sql';
 import {
   DashboardService,
   buildPersonnelCostBreakdown,
@@ -508,6 +510,123 @@ describe('DashboardService CSKH dashboard clarity', () => {
         }),
       ]),
     );
+  });
+});
+
+describe('DashboardService new students by first wallet top-up', () => {
+  const prisma = {
+    $queryRaw: jest.fn(),
+    class: { findMany: jest.fn(), count: jest.fn() },
+    makeupScheduleEvent: { findMany: jest.fn() },
+    studentExamSchedule: { findMany: jest.fn() },
+    staffInfo: { findMany: jest.fn(), count: jest.fn() },
+    customerCareService: { findMany: jest.fn() },
+    attendance: { groupBy: jest.fn() },
+    walletTransactionsHistory: { groupBy: jest.fn() },
+  };
+  const dashboardCacheService = {
+    wrapJson: jest.fn(
+      async <T>(options: { loader: () => Promise<T> }): Promise<T> =>
+        options.loader(),
+    ),
+  };
+  const surveyRoundService = {
+    getCurrentRound: jest.fn(() => Promise.resolve(6)),
+  };
+  // Học sinh nạp QR lần đầu 10/09, nạp tiếp 05/10 và 02/11: chỉ là mới ở tháng 9.
+  const firstTopUpAt = new Date('2026-09-10T03:00:00.000Z');
+
+  let service: DashboardService;
+
+  const isFirstTopUpCountQuery = (sql: Prisma.Sql) =>
+    sql.sql.includes('"newStudentsCount"') &&
+    sql.sql.includes('first_wallet_top_up');
+
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-15T05:30:00.000Z'));
+    jest.clearAllMocks();
+    prisma.$queryRaw.mockImplementation((sql: Prisma.Sql) => {
+      if (!isFirstTopUpCountQuery(sql)) return Promise.resolve([]);
+      const [monthStart, monthEnd] = sql.values.filter(
+        (value): value is Date => value instanceof Date,
+      );
+      const inPeriod = firstTopUpAt >= monthStart && firstTopUpAt < monthEnd;
+      return Promise.resolve([{ newStudentsCount: inPeriod ? 1 : 0 }]);
+    });
+    prisma.staffInfo.findMany.mockResolvedValue([]);
+    prisma.staffInfo.count.mockResolvedValue(0);
+    prisma.customerCareService.findMany.mockResolvedValue([
+      {
+        student: {
+          id: 'student-1',
+          status: 'active',
+          dropOutDate: null,
+        },
+      },
+    ]);
+    prisma.attendance.groupBy.mockResolvedValue([]);
+    prisma.walletTransactionsHistory.groupBy.mockResolvedValue([]);
+    service = new DashboardService(
+      prisma as never,
+      dashboardCacheService as never,
+      surveyRoundService as never,
+    );
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('counts only qualifying top-ups and keeps the earliest one', () => {
+    expect(FIRST_WALLET_TOP_UP_SQL.sql).toContain(
+      'MIN(wallet_transactions_history.created_at) AS first_top_up_at',
+    );
+    expect(FIRST_WALLET_TOP_UP_SQL.sql).toContain(
+      "student_wallet_sepay_orders.status::text = 'completed'",
+    );
+    expect(FIRST_WALLET_TOP_UP_SQL.sql).toContain(
+      "student_wallet_direct_topup_requests.status::text = 'approved'",
+    );
+    expect(FIRST_WALLET_TOP_UP_SQL.sql).toContain(
+      'GROUP BY wallet_transactions_history.student_id',
+    );
+  });
+
+  it.each([
+    ['08', 0],
+    ['09', 1],
+    ['10', 0],
+    ['11', 0],
+  ])(
+    'counts a student topping up across periods only in the first top-up month (%s)',
+    async (month, expected) => {
+      const dashboard = await service.getStaffDashboard({
+        staffId: 'cskh-1',
+        staffRoles: [StaffRole.customer_care],
+        query: { month, year: '2026' },
+      });
+
+      expect(dashboard.customerCare?.newStudentsThisMonth).toBe(expected);
+    },
+  );
+
+  it('uses the first top-up for system-wide churn counts instead of profile creation', async () => {
+    prisma.$queryRaw.mockResolvedValue([
+      { newStudentsThisMonth: 3, droppedStudentsThisMonth: 1 },
+    ]);
+
+    await expect(
+      service['getStudentChurnCounts']({
+        monthStart: new Date('2026-09-01T00:00:00.000Z'),
+        monthEnd: new Date('2026-10-01T00:00:00.000Z'),
+      }),
+    ).resolves.toEqual({
+      newStudentsThisMonth: 3,
+      droppedStudentsThisMonth: 1,
+    });
+    const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
+    expect(sql.sql).toContain(FIRST_WALLET_TOP_UP_SQL.sql);
+    expect(sql.sql).not.toContain('student_info.created_at');
   });
 });
 
