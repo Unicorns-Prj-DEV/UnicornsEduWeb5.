@@ -10,12 +10,13 @@ import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import StudentGalleryEditor from "@/components/shared/student-gallery/StudentGalleryEditor";
 import { CustomerSourceFields } from "@/components/admin/student/CustomerSourceFields";
-import type {
-  StudentCustomerSource,
-  StudentDetail,
-  StudentExamScheduleItem,
-  StudentGender,
-  StudentStatus,
+import {
+  STUDENT_DROP_OUT_REASON_MAX_LENGTH,
+  type StudentCustomerSource,
+  type StudentDetail,
+  type StudentExamScheduleItem,
+  type StudentGender,
+  type StudentStatus,
 } from "@/dtos/student.dto";
 import type { CustomerCareStaffOption } from "@/dtos/staff.dto";
 import * as staffApi from "@/lib/apis/staff.api";
@@ -23,6 +24,10 @@ import * as studentApi from "@/lib/apis/student.api";
 import { createClientId } from "@/lib/client-id";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import {
+  isMarkingStudentInactive,
+  validateStudentDropOutReason,
+} from "@/lib/student-drop-out-reason";
 
 type DropdownRect = { top: number; left: number; width: number; maxHeight: number };
 
@@ -50,6 +55,44 @@ const GENDER_OPTIONS: Array<{ value: StudentGender; label: string }> = [
   { value: "male", label: "Nam" },
   { value: "female", label: "Nữ" },
 ];
+
+const REASON_TEXTAREA_CLASS =
+  "resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus";
+
+function StudentReasonField({
+  name,
+  label,
+  required = false,
+  value,
+  placeholder,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  required?: boolean;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+      <span>
+        {label}
+        {required ? <span className="text-error"> *</span> : null}
+      </span>
+      <textarea
+        name={name}
+        rows={2}
+        value={value}
+        required={required}
+        maxLength={STUDENT_DROP_OUT_REASON_MAX_LENGTH}
+        onChange={(event) => onChange(event.target.value)}
+        className={REASON_TEXTAREA_CLASS}
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
 
 function getDropdownRect(el: HTMLElement | null): DropdownRect | null {
   if (!el) return null;
@@ -138,6 +181,9 @@ export default function EditStudentPopup({
   const [gender, setGender] = useState<StudentGender>(student.gender ?? "male");
   const [status, setStatus] = useState<StudentStatus>(student.status ?? "active");
   const [statusReason, setStatusReason] = useState("");
+  const [dropOutReason, setDropOutReason] = useState(student.dropOutReason ?? "");
+  const currentStatus: StudentStatus = student.status ?? "active";
+  const markingInactive = isMarkingStudentInactive(currentStatus, status);
   const [goal, setGoal] = useState(student.goal ?? "");
   const [customerSource, setCustomerSource] = useState<StudentCustomerSource | "">(
     student.customerSource ?? "",
@@ -300,10 +346,27 @@ export default function EditStudentPopup({
       return;
     }
 
-    const isMarkingInactive =
-      student.status !== "inactive" && status === "inactive";
+    const statusChanging = status !== currentStatus;
+    const reasonError = validateStudentDropOutReason({
+      currentStatus,
+      nextStatus: status,
+      reason: statusChanging ? statusReason : dropOutReason,
+    });
+    if (reasonError) {
+      toast.error(reasonError);
+      return;
+    }
+    const trimmedDropOutReason = dropOutReason.trim();
+    const savedDropOutReason = student.dropOutReason?.trim() ?? "";
+    const editingDropOutReason =
+      !statusChanging && status === "inactive" && trimmedDropOutReason !== savedDropOutReason;
+    if (editingDropOutReason && !trimmedDropOutReason) {
+      toast.error("Lý do nghỉ học không được để trống.");
+      return;
+    }
+
     if (
-      isMarkingInactive &&
+      markingInactive &&
       !window.confirm(
         "Chuyển học sinh sang Nghỉ học? Học sinh sẽ được gỡ khỏi các roster lớp đang active, nhưng lịch sử học tập và tài chính vẫn được giữ.",
       )
@@ -337,6 +400,7 @@ export default function EditStudentPopup({
           gender,
           goal: goal.trim() || undefined,
           drop_out_date: dropOutDate.trim() || undefined,
+          ...(editingDropOutReason ? { drop_out_reason: trimmedDropOutReason } : {}),
           ...(customerSource
             ? {
                 customer_source: customerSource,
@@ -571,18 +635,31 @@ export default function EditStudentPopup({
                   />
                 </label>
 
-                {status !== (student.status ?? "active") ? (
-                  <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                    <span>Lý do đổi trạng thái (không bắt buộc)</span>
-                    <textarea
-                      name="status-reason"
-                      rows={2}
-                      value={statusReason}
-                      onChange={(event) => setStatusReason(event.target.value)}
-                      className="resize-none rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                      placeholder="Ví dụ: Chuyển trường, tạm nghỉ học kỳ này…"
-                    />
-                  </label>
+                {markingInactive ? (
+                  <StudentReasonField
+                    name="status-reason"
+                    label="Lý do nghỉ học"
+                    required
+                    value={statusReason}
+                    onChange={setStatusReason}
+                    placeholder="Ví dụ: Chuyển trường, tạm nghỉ học kỳ này…"
+                  />
+                ) : status !== currentStatus ? (
+                  <StudentReasonField
+                    name="status-reason"
+                    label="Lý do đổi trạng thái (không bắt buộc)"
+                    value={statusReason}
+                    onChange={setStatusReason}
+                    placeholder="Ví dụ: Học lại từ kỳ mới…"
+                  />
+                ) : status === "inactive" ? (
+                  <StudentReasonField
+                    name="drop-out-reason"
+                    label="Lý do nghỉ học"
+                    value={dropOutReason}
+                    onChange={setDropOutReason}
+                    placeholder="Ví dụ: Chuyển trường, tạm nghỉ học kỳ này…"
+                  />
                 ) : null}
 
                 <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">

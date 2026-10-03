@@ -78,6 +78,8 @@ model StudentInfo {
   customerSource            StudentCustomerSource?            @map("customer_source")
   customerSourceNote        String?                           @map("customer_source_note") @db.VarChar(200)
   dropOutDate               DateTime?                         @map("drop_out_date") @db.Date
+  /// Lý do nghỉ học, bắt buộc khi chuyển sang nghỉ; giữ lại khi học sinh học lại.
+  dropOutReason             String?                           @map("drop_out_reason") @db.VarChar(500)
   createdAt                 DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
   userId                    String?                           @unique @map("user_id")

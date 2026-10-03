@@ -714,6 +714,9 @@ export default function AdminStudentDetailPage() {
                                     <StudentDetailRow label="Năm sinh" value={student.birthYear ?? "—"} />
                                     <StudentDetailRow label="Ngày tạo hồ sơ" value={formatDate(student.createdAt)} />
                                     <StudentDetailRow label="Ngày ngừng theo dõi" value={formatDate(student.dropOutDate)} />
+                                    {student.dropOutReason ? (
+                                        <StudentDetailRow label="Lý do nghỉ học" value={student.dropOutReason} />
+                                    ) : null}
                                     <StudentDetailRow label="Mục tiêu học tập" value={student.goal?.trim() || "—"} />
                                 </dl>
                             </StudentInfoCard>

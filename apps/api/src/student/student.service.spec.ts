@@ -1664,6 +1664,125 @@ describe('StudentService', () => {
     expect(mockPrisma.studentClass.updateMany).not.toHaveBeenCalled();
   });
 
+  describe('drop-out reason', () => {
+    const buildStudentDetail = (status: StudentStatus) => ({
+      id: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'student@example.com',
+      parentEmail: null,
+      accountBalance: 0,
+      school: null,
+      province: null,
+      status,
+      gender: 'male',
+      birthYear: 2010,
+      parentName: null,
+      parentPhone: null,
+      goal: null,
+      dropOutDate: null,
+      dropOutReason: 'Chuyển trường',
+      createdAt: new Date('2026-10-01T10:00:00.000Z'),
+      updatedAt: new Date('2026-10-02T10:00:00.000Z'),
+      studentClasses: [],
+      examSchedules: [],
+      customerCareServices: null,
+    });
+    const mockCurrentStudent = (status: StudentStatus) => {
+      mockPrisma.studentInfo.findUnique.mockResolvedValueOnce({
+        id: 'student-1',
+        status,
+        userId: 'user-1',
+        customerSource: null,
+        customerSourceNote: null,
+      });
+      mockPrisma.studentInfo.findUnique.mockResolvedValue(
+        buildStudentDetail(status),
+      );
+    };
+
+    it('rejects marking a student inactive without a reason', async () => {
+      mockCurrentStudent(StudentStatus.active);
+
+      await expect(
+        service.updateStudentStatus('student-1', {
+          status: StudentStatus.inactive,
+          reason: '   ',
+        }),
+      ).rejects.toThrow('Chuyển học sinh sang nghỉ học phải nhập lý do nghỉ.');
+      expect(mockPrisma.studentInfo.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the trimmed reason when marking a student inactive', async () => {
+      mockCurrentStudent(StudentStatus.active);
+
+      await service.updateStudentStatus('student-1', {
+        status: StudentStatus.inactive,
+        reason: '  Chuyển trường  ',
+      });
+
+      expect(mockPrisma.studentInfo.update).toHaveBeenCalledWith({
+        where: { id: 'student-1' },
+        data: {
+          status: StudentStatus.inactive,
+          dropOutReason: 'Chuyển trường',
+        },
+      });
+    });
+
+    it('keeps the previous reason when the student comes back', async () => {
+      mockCurrentStudent(StudentStatus.inactive);
+
+      const result = await service.updateStudentStatus('student-1', {
+        status: StudentStatus.active,
+        reason: 'Học lại kỳ mới',
+      });
+
+      expect(mockPrisma.studentInfo.update).toHaveBeenCalledWith({
+        where: { id: 'student-1' },
+        data: { status: StudentStatus.active },
+      });
+      expect(mockPrisma.studentInfo.updateMany).toHaveBeenCalledWith({
+        where: { id: 'student-1', dropOutDate: { not: null } },
+        data: { dropOutDate: null },
+      });
+      expect(result).toMatchObject({ dropOutReason: 'Chuyển trường' });
+    });
+
+    it('rejects the profile form marking a student inactive without a reason', async () => {
+      mockCurrentStudent(StudentStatus.active);
+
+      await expect(
+        service.updateStudentById('student-1', {
+          status: StudentStatus.inactive,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a drop-out reason on a studying student', async () => {
+      mockCurrentStudent(StudentStatus.active);
+
+      await expect(
+        service.updateStudentById('student-1', {
+          drop_out_reason: 'Chuyển trường',
+        }),
+      ).rejects.toThrow('Chỉ học sinh nghỉ học mới có lý do nghỉ.');
+    });
+
+    it('updates the reason of a student who already left', async () => {
+      mockCurrentStudent(StudentStatus.inactive);
+
+      await service.updateStudentById('student-1', {
+        drop_out_reason: ' Gia đình chuyển nhà ',
+      });
+
+      expect(mockPrisma.studentInfo.update).toHaveBeenCalledWith({
+        where: { id: 'student-1' },
+        data: { dropOutReason: 'Gia đình chuyển nhà' },
+      });
+    });
+  });
+
   it('returns sanitized student landing profiles without status filter', async () => {
     mockPrisma.studentInfo.count.mockResolvedValue(1);
     mockPrisma.studentInfo.findMany.mockResolvedValue([
