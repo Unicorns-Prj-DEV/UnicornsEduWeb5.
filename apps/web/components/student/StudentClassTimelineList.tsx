@@ -320,18 +320,23 @@ function StudentClassTimelineListInner({
     <>
       <div className="space-y-6">
         {header}
-        <StudentClassTabs
-          activeTab={activeTab}
-          counts={tabCounts}
-          onSelect={selectTab}
-        />
-        {showSearch ? (
-          <StudentClassSearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder={SEARCH_PLACEHOLDERS[activeTab]}
+        {/* Tab + ô tìm chung một hàng từ `sm` (ô tìm cao bằng thanh tab nhờ stretch);
+            mobile xếp dọc. Ô tìm không nằm trong `tablist` vì tablist chỉ chứa tab. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <StudentClassTabs
+            activeTab={activeTab}
+            counts={tabCounts}
+            onSelect={selectTab}
           />
-        ) : null}
+          {showSearch ? (
+            <StudentClassSearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder={SEARCH_PLACEHOLDERS[activeTab]}
+              className="sm:ml-auto sm:w-72 lg:w-80"
+            />
+          ) : null}
+        </div>
         <div
           id="student-class-tabpanel"
           role="tabpanel"
