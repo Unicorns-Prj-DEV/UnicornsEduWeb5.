@@ -753,6 +753,77 @@ function formatDebtDue(row: StudentAlertSqlRow) {
   return `Thiếu khoảng ${Math.max(1, Math.ceil(debtAmount / referenceTuition))} buổi`;
 }
 
+/**
+ * Bóc tách khoản chờ thanh toán của một nhân sự theo từng nguồn (khoá trùng
+ * `sources[].key` của chi tiết Trợ cấp chờ thanh toán). FE lọc theo
+ * `sourceAmounts`, không parse ghi chú — thêm nguồn mới chỉ cần thêm ở đây.
+ */
+export function buildStaffPendingPayrollSources(
+  row: Pick<
+    StaffUnpaidAlertSqlRow,
+    | 'sessionAmount'
+    | 'customerCareAmount'
+    | 'lessonAmount'
+    | 'bonusAmount'
+    | 'extraAllowanceAmount'
+    | 'fixedSalaryAmount'
+    | 'assistantAmount'
+    | 'trainingManagerAmount'
+  >,
+): { note: string; sourceAmounts: Record<string, number> } {
+  const sources: Array<{
+    key: string;
+    label: string;
+    value: number | string | null;
+  }> = [
+    { key: 'pending-session', label: 'Buổi dạy', value: row.sessionAmount },
+    {
+      key: 'pending-customer-care',
+      label: 'CSKH',
+      value: row.customerCareAmount,
+    },
+    {
+      key: 'pending-lesson',
+      label: LESSON_PLAN_LABEL,
+      value: row.lessonAmount,
+    },
+    { key: 'pending-bonus', label: 'Bonus', value: row.bonusAmount },
+    {
+      key: 'pending-extra',
+      label: 'Trợ cấp',
+      value: row.extraAllowanceAmount,
+    },
+    {
+      key: 'pending-fixed-salary',
+      label: 'Lương cứng',
+      value: row.fixedSalaryAmount,
+    },
+    { key: 'pending-assistant', label: 'Trợ lí', value: row.assistantAmount },
+    {
+      key: 'pending-training-manager',
+      label: 'QL lớp',
+      value: row.trainingManagerAmount,
+    },
+  ];
+
+  const segments: string[] = [];
+  const sourceAmounts: Record<string, number> = {};
+  for (const source of sources) {
+    const amount = normalizeMoneyAmount(source.value);
+    if (amount <= 0) continue;
+    sourceAmounts[source.key] = amount;
+    segments.push(`${source.label} ${formatCurrencyLabel(amount)}`);
+  }
+
+  return {
+    note:
+      segments.length > 0
+        ? segments.join(' • ')
+        : 'Không có khoản pending chi tiết.',
+    sourceAmounts,
+  };
+}
+
 function buildStaffUnpaidSourceLabel(row: StaffUnpaidAlertSqlRow) {
   const sources = [
     normalizeMoneyAmount(row.sessionAmount) > 0 ? 'buổi dạy' : null,
@@ -777,14 +848,9 @@ function buildStaffUnpaidSourceLabel(row: StaffUnpaidAlertSqlRow) {
 }
 
 function formatStaffUnpaidAlertDue(row: StaffUnpaidAlertSqlRow) {
-  const pendingSourceCount = [
-    normalizeMoneyAmount(row.sessionAmount) > 0 ? 'buổi dạy' : null,
-    normalizeMoneyAmount(row.bonusAmount) > 0 ? 'bonus' : null,
-    normalizeMoneyAmount(row.customerCareAmount) > 0 ? 'CSKH' : null,
-    normalizeMoneyAmount(row.lessonAmount) > 0 ? 'giáo án' : null,
-    normalizeMoneyAmount(row.extraAllowanceAmount) > 0 ? 'trợ cấp' : null,
-    normalizeMoneyAmount(row.fixedSalaryAmount) > 0 ? 'lương cứng' : null,
-  ].filter(Boolean).length;
+  const pendingSourceCount = Object.keys(
+    buildStaffPendingPayrollSources(row).sourceAmounts,
+  ).length;
 
   return `${pendingSourceCount} nguồn pending`;
 }
@@ -5435,42 +5501,16 @@ export class DashboardService {
                 },
               ],
               items: rows.map<AdminDashboardFinancialDetailItemDto>((row) => {
-                const segments = [
-                  normalizeMoneyAmount(row.sessionAmount) > 0
-                    ? `Buổi dạy ${formatCurrencyLabel(normalizeMoneyAmount(row.sessionAmount))}`
-                    : null,
-                  normalizeMoneyAmount(row.customerCareAmount) > 0
-                    ? `CSKH ${formatCurrencyLabel(normalizeMoneyAmount(row.customerCareAmount))}`
-                    : null,
-                  normalizeMoneyAmount(row.lessonAmount) > 0
-                    ? `${LESSON_PLAN_LABEL} ${formatCurrencyLabel(normalizeMoneyAmount(row.lessonAmount))}`
-                    : null,
-                  normalizeMoneyAmount(row.bonusAmount) > 0
-                    ? `Bonus ${formatCurrencyLabel(normalizeMoneyAmount(row.bonusAmount))}`
-                    : null,
-                  normalizeMoneyAmount(row.extraAllowanceAmount) > 0
-                    ? `Trợ cấp ${formatCurrencyLabel(normalizeMoneyAmount(row.extraAllowanceAmount))}`
-                    : null,
-                  normalizeMoneyAmount(row.fixedSalaryAmount) > 0
-                    ? `Lương cứng ${formatCurrencyLabel(normalizeMoneyAmount(row.fixedSalaryAmount))}`
-                    : null,
-                  normalizeMoneyAmount(row.assistantAmount) > 0
-                    ? `Trợ lí ${formatCurrencyLabel(normalizeMoneyAmount(row.assistantAmount))}`
-                    : null,
-                  normalizeMoneyAmount(row.trainingManagerAmount) > 0
-                    ? `QL lớp ${formatCurrencyLabel(normalizeMoneyAmount(row.trainingManagerAmount))}`
-                    : null,
-                ].filter((value): value is string => value != null);
+                const { note, sourceAmounts } =
+                  buildStaffPendingPayrollSources(row);
 
                 return {
                   id: row.staffId,
                   label: formatCostStaffName(row),
                   secondaryLabel: buildStaffUnpaidSourceLabel(row),
                   amount: normalizeMoneyAmount(row.totalUnpaid),
-                  note:
-                    segments.length > 0
-                      ? segments.join(' • ')
-                      : 'Không có khoản pending chi tiết.',
+                  note,
+                  sourceAmounts,
                 };
               }),
               emptyState: 'Không có khoản thanh toán pending cho nhân sự.',

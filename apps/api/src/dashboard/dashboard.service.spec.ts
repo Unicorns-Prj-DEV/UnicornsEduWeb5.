@@ -12,6 +12,7 @@ import { FIRST_WALLET_TOP_UP_SQL } from './first-wallet-top-up.sql';
 import {
   DashboardService,
   buildPersonnelCostBreakdown,
+  buildStaffPendingPayrollSources,
   formatCostStaffName,
   monthKeysIntersectingDateRange,
 } from './dashboard.service';
@@ -1092,6 +1093,53 @@ describe('buildPersonnelCostBreakdown', () => {
   it('falls back to a placeholder note when nothing is recorded', () => {
     expect(buildPersonnelCostBreakdown(emptyRow)).toEqual({
       note: 'Không có chi phí chi tiết.',
+      sourceAmounts: {},
+    });
+  });
+});
+
+describe('buildStaffPendingPayrollSources', () => {
+  const emptyRow = {
+    sessionAmount: 0,
+    customerCareAmount: 0,
+    lessonAmount: 0,
+    bonusAmount: 0,
+    extraAllowanceAmount: 0,
+    fixedSalaryAmount: 0,
+    assistantAmount: 0,
+    trainingManagerAmount: 0,
+  };
+
+  it('keys every pending source, fixed salary included', () => {
+    const breakdown = buildStaffPendingPayrollSources({
+      ...emptyRow,
+      sessionAmount: 300_000,
+      fixedSalaryAmount: '5000000',
+      assistantAmount: 100_000,
+      trainingManagerAmount: 50_000,
+    });
+
+    expect(breakdown.sourceAmounts).toEqual({
+      'pending-session': 300_000,
+      'pending-fixed-salary': 5_000_000,
+      'pending-assistant': 100_000,
+      'pending-training-manager': 50_000,
+    });
+    expect(breakdown.note).toBe(
+      [
+        `Buổi dạy ${(300_000).toLocaleString('vi-VN')}đ`,
+        `Lương cứng ${(5_000_000).toLocaleString('vi-VN')}đ`,
+        `Trợ lí ${(100_000).toLocaleString('vi-VN')}đ`,
+        `QL lớp ${(50_000).toLocaleString('vi-VN')}đ`,
+      ].join(' • '),
+    );
+  });
+
+  it('skips zero and negative amounts', () => {
+    expect(
+      buildStaffPendingPayrollSources({ ...emptyRow, bonusAmount: -20_000 }),
+    ).toEqual({
+      note: 'Không có khoản pending chi tiết.',
       sourceAmounts: {},
     });
   });

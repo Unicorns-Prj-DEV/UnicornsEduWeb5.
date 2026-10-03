@@ -122,6 +122,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Dashboard admin lọc được theo lương cứng:** popup **Chi tiết Trợ cấp chờ thanh toán** bấm thẻ **Lương cứng chưa thanh toán** trước đây không lọc (FE parse tiền tố ghi chú, thiếu nguồn lương cứng). BE giờ trả `sourceAmounts` cho từng nhân sự như Chi phí nhân sự (`buildStaffPendingPayrollSources`, có test); FE lọc theo khoá thẻ, bỏ bảng tiền tố. Cảnh báo **Nhân sự chưa thanh toán** đếm đủ nguồn (trước bỏ sót trợ lí, QL lớp).
 - **Dashboard — chi phí của nhân sự đã nghỉ:** Trợ cấp chờ thanh toán, cảnh báo Nhân sự chưa thanh toán và dashboard kế toán bỏ lọc `staff_info.status = 'active'`, nên khoản chưa trả của người đã nghỉ không còn biến mất khỏi tổng. Tên nhân sự đã nghỉ trên các bảng chi phí gắn `(Đã nghỉ)`.
 - **Dashboard — bonus theo tháng thưởng:** xu hướng tháng, chi tiết chi phí, bảng chi phí theo nhân sự và thống kê tháng gom bonus theo `bonuses.month` thay cho `bonuses.date`, khớp payroll. Khoảng ngày lấy trọn tháng thưởng giao với khoảng chọn, có ghi chú trên UI.
 - **Email học sinh trên production trỏ localhost:** Magic link đăng nhập, email xác thực và đặt lại mật khẩu không còn fallback `http://localhost:3000` khi `NODE_ENV=production`. Origin lấy từ `FRONTEND_URL` HTTPS public, rồi `VPS_PUBLIC_HOST`, rồi `BACKEND_URL` (bỏ `/api`), rồi host `*.uniedu.vn` hoặc `*.unicornsedu.com` của request qua Nginx. Host lạ bị từ chối.
