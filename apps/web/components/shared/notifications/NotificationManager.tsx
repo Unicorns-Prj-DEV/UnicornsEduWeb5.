@@ -13,6 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import type {
   AdminNotificationItem,
@@ -510,6 +511,7 @@ function NotificationListCard({
  */
 export default function NotificationManager() {
   const queryClient = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [composerMode, setComposerMode] = useState<ComposerMode>("create");
   const [activeNotificationId, setActiveNotificationId] = useState<
     string | null
@@ -707,11 +709,21 @@ export default function NotificationManager() {
     pushMutation.mutate({ id: item.id });
   };
 
-  const handleDelete = (item: AdminNotificationItem) => {
-    const confirmed = window.confirm(
+  const handleDelete = async (item: AdminNotificationItem) => {
+    const confirmed = await confirm(
       item.status === "draft"
-        ? "Xóa bản nháp này?"
-        : "Xóa thông báo đã phát? Audience hiện tại sẽ không còn thấy nó trong feed sau lần tải kế tiếp.",
+        ? {
+            title: "Xóa bản nháp này?",
+            confirmLabel: "Xóa",
+            variant: "destructive",
+          }
+        : {
+            title: "Xóa thông báo đã phát?",
+            description:
+              "Audience hiện tại sẽ không còn thấy nó trong feed sau lần tải kế tiếp.",
+            confirmLabel: "Xóa",
+            variant: "destructive",
+          },
     );
 
     if (!confirmed) {
@@ -1300,6 +1312,7 @@ export default function NotificationManager() {
           </section>
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }

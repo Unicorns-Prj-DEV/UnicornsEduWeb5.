@@ -41,6 +41,11 @@ import {
 import { NOTIFICATION_PUBLISHER_STAFF_ROLES } from './notification-publisher-roles';
 import { NotificationService } from './notification.service';
 
+const MANAGEMENT_FORBIDDEN_RESPONSE = {
+  status: 403,
+  description: 'Gia sư và CSKH chỉ nhận thông báo, không được quản lý.',
+};
+
 @Controller('notifications')
 @ApiTags('notifications')
 @ApiCookieAuth('access_token')
@@ -51,10 +56,7 @@ export class NotificationController {
 
   @Get()
   @Roles(UserRole.admin)
-  @ApiResponse({
-    status: 403,
-    description: 'Gia sư và CSKH chỉ nhận thông báo, không được quản lý.',
-  })
+  @ApiResponse(MANAGEMENT_FORBIDDEN_RESPONSE)
   @ApiOperation({
     summary: 'List notifications for admin management',
     description:
@@ -86,10 +88,7 @@ export class NotificationController {
 
   @Post()
   @Roles(UserRole.admin)
-  @ApiResponse({
-    status: 403,
-    description: 'Gia sư và CSKH chỉ nhận thông báo, không được quản lý.',
-  })
+  @ApiResponse(MANAGEMENT_FORBIDDEN_RESPONSE)
   @ApiOperation({
     summary: 'Create a notification draft',
     description:
@@ -116,10 +115,7 @@ export class NotificationController {
 
   @Get('recipient-options')
   @Roles(UserRole.admin)
-  @ApiResponse({
-    status: 403,
-    description: 'Gia sư và CSKH chỉ nhận thông báo, không được quản lý.',
-  })
+  @ApiResponse(MANAGEMENT_FORBIDDEN_RESPONSE)
   @ApiOperation({
     summary: 'Search eligible notification recipients for tagging',
     description:
@@ -176,10 +172,7 @@ export class NotificationController {
 
   @Patch(':id')
   @Roles(UserRole.admin)
-  @ApiResponse({
-    status: 403,
-    description: 'Gia sư và CSKH chỉ nhận thông báo, không được quản lý.',
-  })
+  @ApiResponse(MANAGEMENT_FORBIDDEN_RESPONSE)
   @ApiOperation({
     summary: 'Update a notification draft',
     description:
@@ -211,10 +204,7 @@ export class NotificationController {
 
   @Post(':id/push')
   @Roles(UserRole.admin)
-  @ApiResponse({
-    status: 403,
-    description: 'Gia sư và CSKH chỉ nhận thông báo, không được quản lý.',
-  })
+  @ApiResponse(MANAGEMENT_FORBIDDEN_RESPONSE)
   @ApiOperation({
     summary: 'Push a notification to its configured audience',
     description:
@@ -248,10 +238,7 @@ export class NotificationController {
 
   @Delete(':id')
   @Roles(UserRole.admin)
-  @ApiResponse({
-    status: 403,
-    description: 'Gia sư và CSKH chỉ nhận thông báo, không được quản lý.',
-  })
+  @ApiResponse(MANAGEMENT_FORBIDDEN_RESPONSE)
   @ApiOperation({
     summary: 'Delete a notification',
     description:
