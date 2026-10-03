@@ -7,10 +7,6 @@ export function isMarkingStudentInactive(
   return currentStatus !== "inactive" && nextStatus === "inactive";
 }
 
-/**
- * Lỗi của lý do nghỉ học trên form, hoặc `null` nếu hợp lệ. Chuyển sang nghỉ học
- * bắt buộc có lý do; các trường hợp khác lý do không bắt buộc nhưng vẫn giới hạn độ dài.
- */
 function getDropOutReasonLengthError(trimmed: string): string | null {
   return trimmed.length > STUDENT_DROP_OUT_REASON_MAX_LENGTH
     ? `Lý do tối đa ${STUDENT_DROP_OUT_REASON_MAX_LENGTH} ký tự.`
@@ -24,6 +20,10 @@ export function validateBackfilledDropOutReason(reason: string): string | null {
   return getDropOutReasonLengthError(trimmed);
 }
 
+/**
+ * Lỗi của lý do nghỉ học trên form, hoặc `null` nếu hợp lệ. Chuyển sang nghỉ học
+ * bắt buộc có lý do; các trường hợp khác lý do không bắt buộc nhưng vẫn giới hạn độ dài.
+ */
 export function validateStudentDropOutReason(params: {
   currentStatus: StudentStatus;
   nextStatus: StudentStatus;

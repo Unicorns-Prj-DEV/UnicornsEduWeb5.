@@ -9,10 +9,10 @@ import { STUDENT_DROP_OUT_REASON_MAX_LENGTH } from "@/dtos/student.dto";
 import * as authApi from "@/lib/apis/auth.api";
 import * as customerCareApi from "@/lib/apis/customer-care.api";
 import * as studentApi from "@/lib/apis/student.api";
+import { DROP_OUT_REASON_REMINDER_DISMISS_KEY } from "@/lib/login-scoped-dismissals";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 import { validateBackfilledDropOutReason } from "@/lib/student-drop-out-reason";
 
-const SESSION_DISMISS_KEY = "drop-out-reason-reminder-dismissed-session";
 const MISSING_REASONS_QUERY_KEY = ["customer-care", "me", "missing-drop-out-reasons"] as const;
 
 /** Giá trị chỉ đọc một lần lúc mount nên không cần subscribe thật. */
@@ -102,13 +102,13 @@ function DropOutReasonReminderRow({ item }: { item: CustomerCareMissingDropOutRe
 /**
  * Nhắc CSKH điền bù lý do nghỉ cho học sinh mình phụ trách đã nghỉ trong tháng
  * điền bù (lý do chỉ bắt buộc từ 10/2026). Panel nổi không có backdrop nên không
- * chặn thao tác khác; "Để sau" ẩn tới hết phiên (sessionStorage).
+ * chặn thao tác khác; "Để sau" ẩn tới hết phiên (sessionStorage, xoá khi đăng xuất).
  */
 export default function DropOutReasonReminder() {
   // Server snapshot luôn là false để HTML server và lần hydrate đầu khớp nhau.
   const dismissedThisSession = useSyncExternalStore(
     subscribeNoop,
-    () => window.sessionStorage.getItem(SESSION_DISMISS_KEY) === "1",
+    () => window.sessionStorage.getItem(DROP_OUT_REASON_REMINDER_DISMISS_KEY) === "1",
     () => false,
   );
   const [dismissedLocally, setDismissedLocally] = useState(false);
@@ -138,7 +138,7 @@ export default function DropOutReasonReminder() {
   }
 
   const handleDismiss = () => {
-    window.sessionStorage.setItem(SESSION_DISMISS_KEY, "1");
+    window.sessionStorage.setItem(DROP_OUT_REASON_REMINDER_DISMISS_KEY, "1");
     setDismissedLocally(true);
   };
 

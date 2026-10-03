@@ -37,7 +37,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 const DEFAULT_DAYS = 30;
 const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
-/** Lý do nghỉ bắt buộc từ 10/2026; tháng trước đó CSKH điền bù qua popup nhắc. */
+/**
+ * Lý do nghỉ bắt buộc từ 10/2026; tháng trước đó CSKH điền bù qua popup nhắc.
+ * Điền bù xong thì bỏ endpoint `me/missing-drop-out-reasons` và hằng này.
+ */
 const DROP_OUT_REASON_BACKFILL_MONTH_KEY = '2026-09';
 
 function toNumber(value: unknown): number {
