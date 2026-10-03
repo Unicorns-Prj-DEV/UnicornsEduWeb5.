@@ -5,6 +5,5 @@ describe("STUDENT_CUSTOMER_SOURCE_OPTIONS", () => {
   it("đặt Khách cũ ngay trước Khác", () => {
     const labels = STUDENT_CUSTOMER_SOURCE_OPTIONS.map((option) => option.label);
     expect(labels.slice(-2)).toEqual(["Khách cũ", "Khác"]);
-    expect(STUDENT_CUSTOMER_SOURCE_OPTIONS).toHaveLength(7);
   });
 });

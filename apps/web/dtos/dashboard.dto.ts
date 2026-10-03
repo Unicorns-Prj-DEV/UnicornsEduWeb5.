@@ -194,7 +194,7 @@ export type AdminDashboardFinancialDetailRowKey =
   | "total-in"
   | "customer-source";
 
-/** Bảy Nguồn khách theo thứ tự hiển thị, cộng nhóm Chưa gán. */
+/** Mọi Nguồn khách cộng nhóm Chưa gán. */
 export type AdminDashboardCustomerSourceKey = StudentCustomerSource | "unassigned";
 
 export interface AdminDashboardCustomerSourceRow {

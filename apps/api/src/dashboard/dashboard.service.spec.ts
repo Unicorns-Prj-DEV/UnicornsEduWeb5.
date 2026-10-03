@@ -660,7 +660,10 @@ describe('DashboardService customer source stats', () => {
       'other',
       'unassigned',
     ]);
-    expect(rows[5]).toMatchObject({ label: 'Khách cũ', studentCount: 2 });
+    expect(rows.find((row) => row.key === 'returning_customer')).toMatchObject({
+      label: 'Khách cũ',
+      studentCount: 2,
+    });
   });
 });
 
