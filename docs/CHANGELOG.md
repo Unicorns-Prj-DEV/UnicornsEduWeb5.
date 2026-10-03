@@ -185,6 +185,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Removed
 
+- **Mascot ảnh bìa độ phân giải thấp:** xoá 6 mascot `unicorn-2798/2799/2803/2865/2866/2871.webp` (cạnh dài 83–234px, bị phóng 1,6–4,6× trên retina nên mờ ở thẻ lớp); bộ mascot còn 15 ảnh. Lớp từng dùng các mascot này (và một số lớp khác, do hash chia theo số mascot) đổi sang mascot khác.
 - Route admin rời `/admin/question-bank`, `/admin/exam-library`, `/admin/classes/courses`, `/admin/classes/courses/[id]` — **xoá thẳng, không redirect.** Bookmark cũ 404; ngân hàng câu hỏi = tab **Câu hỏi**, thư viện đề = tab **Đề thi**, cài đặt khoá = tab **Cài đặt**.
 
 ### Changed

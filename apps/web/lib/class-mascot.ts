@@ -1,7 +1,11 @@
-/** Bộ mascot kỳ lân pastel đã tách nền + cắt sát, nằm trong `public/mascots/unicorn-<id>.webp`. */
+/**
+ * Bộ mascot kỳ lân pastel đã tách nền + cắt sát, nằm trong `public/mascots/unicorn-<id>.webp`.
+ * Chỉ giữ ảnh có cạnh dài ≥ ~250px: khung mascot trên thẻ lớp ~190 CSS px, ảnh nhỏ hơn
+ * bị phóng > 1,5× trên màn retina và mờ. Thêm mascot mới thì xuất cạnh dài ≥ 400px.
+ */
 const CLASS_MASCOT_IDS = [
-  2795, 2796, 2797, 2798, 2799, 2800, 2801, 2802, 2803, 2804, 2805, 2806, 2863,
-  2864, 2865, 2866, 2867, 2868, 2869, 2870, 2871,
+  2795, 2796, 2797, 2800, 2801, 2802, 2804, 2805, 2806, 2863, 2864, 2867, 2868,
+  2869, 2870,
 ] as const;
 
 /** Nền nhạt theo token theme để mascot nổi trên cả light/dark/pink. */
