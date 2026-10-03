@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { validateStudentDropOutReason } from "@/lib/student-drop-out-reason";
+import {
+  validateBackfilledDropOutReason,
+  validateStudentDropOutReason,
+} from "@/lib/student-drop-out-reason";
 
 describe("validateStudentDropOutReason", () => {
   it("bắt buộc lý do khi chuyển sang nghỉ học", () => {
@@ -32,5 +35,16 @@ describe("validateStudentDropOutReason", () => {
         reason: "a".repeat(501),
       }),
     ).toBe("Lý do tối đa 500 ký tự.");
+  });
+});
+
+describe("validateBackfilledDropOutReason", () => {
+  it("bắt buộc lý do khác rỗng", () => {
+    expect(validateBackfilledDropOutReason("   ")).toBe("Nhập lý do nghỉ trước khi lưu.");
+  });
+
+  it("giới hạn 500 ký tự sau khi trim", () => {
+    expect(validateBackfilledDropOutReason(` ${"a".repeat(500)} `)).toBeNull();
+    expect(validateBackfilledDropOutReason("a".repeat(501))).toBe("Lý do tối đa 500 ký tự.");
   });
 });

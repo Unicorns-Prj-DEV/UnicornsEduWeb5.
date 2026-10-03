@@ -21,6 +21,7 @@ import type {
   CustomerCareCommissionListDto,
   CustomerCareCommissionListQueryDto,
   CustomerCareCommissionScope,
+  CustomerCareMissingDropOutReasonListDto,
   CustomerCareSessionCommissionDto,
   CustomerCareStudentListDto,
   CustomerCareStudentSummaryDto,
@@ -36,6 +37,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 const DEFAULT_DAYS = 30;
 const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
+/**
+ * Lý do nghỉ bắt buộc từ 10/2026; tháng trước đó CSKH điền bù qua popup nhắc.
+ * Điền bù xong thì bỏ endpoint `me/missing-drop-out-reasons` và hằng này.
+ */
+const DROP_OUT_REASON_BACKFILL_MONTH_KEY = '2026-09';
 
 function toNumber(value: unknown): number {
   if (value == null) return 0;
@@ -381,6 +387,48 @@ export class CustomerCareService {
           student.dropOutDate < monthEnd,
       ).length,
       revenueThisMonth,
+    };
+  }
+
+  /**
+   * Học sinh CSKH đang đăng nhập phụ trách, nghỉ trong tháng điền bù mà chưa có
+   * lý do nghỉ. Người không phải CSKH nhận danh sách rỗng.
+   */
+  async getMyMissingDropOutReasons(
+    userId: string,
+  ): Promise<CustomerCareMissingDropOutReasonListDto> {
+    const monthKey = DROP_OUT_REASON_BACKFILL_MONTH_KEY;
+    const staff = await this.resolveStaffProfile(userId);
+    if (!staff?.roles.includes(StaffRole.customer_care)) {
+      return { monthKey, items: [] };
+    }
+
+    const { start, endExclusive } = parseMonthRange(monthKey);
+    const assignments = await this.prisma.customerCareService.findMany({
+      where: {
+        staffId: staff.id,
+        student: {
+          status: StudentStatus.inactive,
+          dropOutReason: null,
+          dropOutDate: { gte: start, lt: endExclusive },
+        },
+      },
+      select: {
+        student: { select: { id: true, fullName: true, dropOutDate: true } },
+      },
+      orderBy: [
+        { student: { dropOutDate: 'asc' } },
+        { student: { fullName: 'asc' } },
+      ],
+    });
+
+    return {
+      monthKey,
+      items: assignments.map(({ student }) => ({
+        studentId: student.id,
+        fullName: student.fullName,
+        dropOutDate: student.dropOutDate?.toISOString().slice(0, 10) ?? '',
+      })),
     };
   }
 

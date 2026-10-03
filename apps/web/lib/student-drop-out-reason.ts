@@ -7,6 +7,19 @@ export function isMarkingStudentInactive(
   return currentStatus !== "inactive" && nextStatus === "inactive";
 }
 
+function getDropOutReasonLengthError(trimmed: string): string | null {
+  return trimmed.length > STUDENT_DROP_OUT_REASON_MAX_LENGTH
+    ? `Lý do tối đa ${STUDENT_DROP_OUT_REASON_MAX_LENGTH} ký tự.`
+    : null;
+}
+
+/** Lỗi của lý do nghỉ điền bù (học sinh đã nghỉ), hoặc `null` nếu hợp lệ. */
+export function validateBackfilledDropOutReason(reason: string): string | null {
+  const trimmed = reason.trim();
+  if (!trimmed) return "Nhập lý do nghỉ trước khi lưu.";
+  return getDropOutReasonLengthError(trimmed);
+}
+
 /**
  * Lỗi của lý do nghỉ học trên form, hoặc `null` nếu hợp lệ. Chuyển sang nghỉ học
  * bắt buộc có lý do; các trường hợp khác lý do không bắt buộc nhưng vẫn giới hạn độ dài.
@@ -20,8 +33,5 @@ export function validateStudentDropOutReason(params: {
   if (isMarkingStudentInactive(params.currentStatus, params.nextStatus) && !trimmed) {
     return "Chuyển học sinh sang nghỉ học phải nhập lý do nghỉ.";
   }
-  if (trimmed.length > STUDENT_DROP_OUT_REASON_MAX_LENGTH) {
-    return `Lý do tối đa ${STUDENT_DROP_OUT_REASON_MAX_LENGTH} ký tự.`;
-  }
-  return null;
+  return getDropOutReasonLengthError(trimmed);
 }
