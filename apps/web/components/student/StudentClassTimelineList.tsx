@@ -3,6 +3,7 @@
 import {
   Suspense,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -43,6 +44,14 @@ import {
   studentClassTabOfKind,
   type StudentClassTab,
 } from "@/lib/student-class-tabs";
+import {
+  filterModuleGroups,
+  matchesSearch,
+  normalizeSearchText,
+  searchOpenModuleKeys,
+  timelineItemSearchText,
+} from "@/lib/student-class-search";
+import StudentClassSearchInput from "./StudentClassSearchInput";
 import StudentClassTabs from "./StudentClassTabs";
 import StudentModuleCards from "./StudentModuleCards";
 
@@ -60,6 +69,22 @@ function TimelineSkeleton({ header }: { header?: ReactNode }) {
           <Skeleton key={i} className="h-20 w-full rounded-xl" />
         ))}
       </div>
+    </div>
+  );
+}
+
+const SEARCH_PLACEHOLDERS: Record<StudentClassTab, string> = {
+  "chuyen-de": "Tìm chuyên đề, tiết học…",
+  "buoi-hoc": "Tìm buổi học, nội dung, BTVN…",
+};
+
+function SearchNoMatch({ search }: { search: string }) {
+  return (
+    <div
+      role="status"
+      className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted"
+    >
+      Không có mục nào khớp «{search.trim()}».
     </div>
   );
 }
@@ -92,6 +117,17 @@ function StudentClassTimelineListInner({
   // Mục lục chỉ highlight item được bấm gần nhất (không scroll-spy theo khung nhìn).
   const [selectedTocId, setSelectedTocId] = useState<string | null>(null);
   const [tocOpen, setTocOpen] = useState(false);
+  // Từ khoá dùng chung 2 tab; lọc ở client vì cả lớp đã tải hết.
+  const [search, setSearch] = useState("");
+  const keyword = normalizeSearchText(useDeferredValue(search));
+  // Thẻ người dùng tự thu gọn trong lần tìm hiện tại; đổi từ khoá thì mở lại hết.
+  const [searchCollapsed, setSearchCollapsed] = useState<{
+    keyword: string;
+    keys: ReadonlySet<string>;
+  }>({ keyword: "", keys: new Set() });
+  if (searchCollapsed.keyword !== keyword) {
+    setSearchCollapsed({ keyword, keys: new Set() });
+  }
   const rowRefs = useRef(new Map<string, HTMLElement>());
 
   const registerRow = useCallback((id: string, el: HTMLElement | null) => {
@@ -132,16 +168,22 @@ function StudentClassTimelineListInner({
     open: openModule,
   } = useOpenModuleCards(classId);
 
+  const groups = groupsQuery.data;
+  const visibleGroups = useMemo(
+    () => filterModuleGroups(groups ?? [], keyword),
+    [groups, keyword],
+  );
+
   // Tab Chuyên đề lấy từ nhóm chuyên đề; timeline chỉ còn phục vụ tab Buổi học.
   const moduleEntries = useMemo(
     () =>
-      (groupsQuery.data ?? []).flatMap((group) =>
+      visibleGroups.flatMap((group) =>
         moduleCardItems(group).map((item) => ({
           item,
           moduleKey: moduleCardKey(group),
         })),
       ),
-    [groupsQuery.data],
+    [visibleGroups],
   );
 
   const sessionRows = useMemo(
@@ -151,8 +193,53 @@ function StudentClassTimelineListInner({
         .map((item, index) => ({ item, index })),
     [items],
   );
+  // Lọc sau khi đánh số để thẻ giữ số thứ tự gốc.
+  const visibleSessionRows = useMemo(
+    () =>
+      keyword
+        ? sessionRows.filter(({ item }) =>
+            matchesSearch(timelineItemSearchText(item), keyword),
+          )
+        : sessionRows,
+    [sessionRows, keyword],
+  );
 
-  const groups = groupsQuery.data;
+  // Đang tìm: mọi thẻ khớp tự mở (không ghi vào thẻ mở đã lưu).
+  const displayedOpenKeys = useMemo(
+    () =>
+      keyword
+        ? searchOpenModuleKeys(visibleGroups, searchCollapsed.keys)
+        : openKeys,
+    [keyword, visibleGroups, searchCollapsed.keys, openKeys],
+  );
+  const toggleDisplayedModule = useCallback(
+    (key: string) => {
+      if (!keyword) {
+        toggleModule(key);
+        return;
+      }
+      setSearchCollapsed((prev) => {
+        const keys = new Set(prev.keys);
+        if (!keys.delete(key)) keys.add(key);
+        return { ...prev, keys };
+      });
+    },
+    [keyword, toggleModule],
+  );
+  const openDisplayedModule = useCallback(
+    (key: string) => {
+      if (!keyword) {
+        openModule(key);
+        return;
+      }
+      setSearchCollapsed((prev) => {
+        const keys = new Set(prev.keys);
+        keys.delete(key);
+        return { ...prev, keys };
+      });
+    },
+    [keyword, openModule],
+  );
   // Badge = số thẻ chuyên đề / số buổi học + khảo sát; ẩn khi chưa tải xong.
   const tabCounts: Partial<Record<StudentClassTab, number>> = {
     "chuyen-de": groups?.length,
@@ -171,7 +258,7 @@ function StudentClassTimelineListInner({
             lessonKind: item.lessonKind,
             locked: isLockedModuleItem(item),
           }))
-        : sessionRows.map(({ item, index }) => ({
+        : visibleSessionRows.map(({ item, index }) => ({
             id: item.id,
             index: index + 1,
             title: item.title,
@@ -179,7 +266,7 @@ function StudentClassTimelineListInner({
             lessonKind: item.lessonKind,
             locked: false,
           })),
-    [activeTab, moduleEntries, sessionRows],
+    [activeTab, moduleEntries, visibleSessionRows],
   );
 
   const moduleKeyByItemId = useMemo(
@@ -205,7 +292,7 @@ function StudentClassTimelineListInner({
       setTocOpen(false);
       // Tiết nằm trong thẻ đang thu gọn thì mở thẻ trước khi cuộn.
       const moduleKey = moduleKeyByItemId.get(id);
-      if (moduleKey) openModule(moduleKey);
+      if (moduleKey) openDisplayedModule(moduleKey);
       // 2 frame: đợi ResponsiveDialog nhả body scroll lock và thẻ render nội dung.
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
@@ -216,8 +303,14 @@ function StudentClassTimelineListInner({
         }),
       );
     },
-    [moduleKeyByItemId, openModule],
+    [moduleKeyByItemId, openDisplayedModule],
   );
+
+  // Tab chưa có gì để tìm thì ẩn ô tìm.
+  const showSearch =
+    activeTab === "chuyen-de"
+      ? Boolean(groups?.length)
+      : sessionRows.length > 0;
 
   if (query.isLoading) {
     return <TimelineSkeleton header={header} />;
@@ -227,11 +320,23 @@ function StudentClassTimelineListInner({
     <>
       <div className="space-y-6">
         {header}
-        <StudentClassTabs
-          activeTab={activeTab}
-          counts={tabCounts}
-          onSelect={selectTab}
-        />
+        {/* Tab + ô tìm chung một hàng từ `sm` (ô tìm cao bằng thanh tab nhờ stretch);
+            mobile xếp dọc. Ô tìm không nằm trong `tablist` vì tablist chỉ chứa tab. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <StudentClassTabs
+            activeTab={activeTab}
+            counts={tabCounts}
+            onSelect={selectTab}
+          />
+          {showSearch ? (
+            <StudentClassSearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder={SEARCH_PLACEHOLDERS[activeTab]}
+              className="sm:ml-auto sm:w-72 lg:w-80"
+            />
+          ) : null}
+        </div>
         <div
           id="student-class-tabpanel"
           role="tabpanel"
@@ -251,12 +356,14 @@ function StudentClassTimelineListInner({
               <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
                 {STUDENT_CLASS_TAB_EMPTY_MESSAGES["chuyen-de"]}
               </div>
+            ) : !visibleGroups.length ? (
+              <SearchNoMatch search={search} />
             ) : (
               <StudentModuleCards
                 classId={classId}
-                groups={groups}
-                openKeys={openKeys}
-                onToggle={toggleModule}
+                groups={visibleGroups}
+                openKeys={displayedOpenKeys}
+                onToggle={toggleDisplayedModule}
                 registerRow={registerRow}
                 selectedId={selectedTocId}
               />
@@ -270,7 +377,13 @@ function StudentClassTimelineListInner({
             </div>
           ) : null}
           {activeTab === "buoi-hoc" &&
-            sessionRows.map(({ item, index }) => {
+          sessionRows.length > 0 &&
+          visibleSessionRows.length === 0 &&
+          !query.hasNextPage ? (
+            <SearchNoMatch search={search} />
+          ) : null}
+          {activeTab === "buoi-hoc" &&
+            visibleSessionRows.map(({ item, index }) => {
               // Số thứ tự + badge loại đứng đầu thẻ, cùng hàng với ngày giờ buổi
               // học, để khung video chiếm trọn bề ngang thẻ.
               const leading = (
