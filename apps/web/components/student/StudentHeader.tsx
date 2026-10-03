@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
+import { AUTH_FULL_PROFILE_QUERY_KEY } from "@/lib/profile-full-query";
 import { SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { UserProfileDialogTrigger } from "@/components/user-profile/UserProfileDialog";
@@ -20,7 +21,7 @@ export default function StudentHeader() {
   const { user } = useAuth();
 
   const { data: fullProfile } = useQuery({
-    queryKey: ["auth", "full-profile"],
+    queryKey: AUTH_FULL_PROFILE_QUERY_KEY,
     queryFn: authApi.getFullProfile,
     staleTime: 60 * 1000,
   });
