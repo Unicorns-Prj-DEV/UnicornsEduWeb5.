@@ -47,6 +47,7 @@ export function resolveCourseWorkspaceCapabilities(
 
   const profileCanEnter =
     isAdminOrAssistant || isLessonPlanHead || isLessonPlanMember;
+  // Trưởng giáo án mutate được khoá, nhưng danh sách đã bị BE lọc về khoá được gán.
   const profileCanMutateCourses = isAdminOrAssistant || isLessonPlanHead;
   // Trưởng giáo án chỉ thấy khoá được gán vào đội giáo án (BE lọc), như lesson_plan.
   const profileCanViewAllCourses = isAdminOrAssistant;

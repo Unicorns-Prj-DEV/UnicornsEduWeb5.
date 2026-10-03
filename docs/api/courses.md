@@ -12,7 +12,7 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 
 | Endpoint | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` |
 | --- | --- | --- | --- | --- | --- |
-| `GET /courses` | ✅ (class-level `admin` + `staff`) | ✅ | ✅ | ✅ | ✅ |
+| `GET /courses` | ✅ (class-level `admin` + `staff`) | ✅ | ✅ chỉ khoá được gán | ✅ chỉ khoá được gán | ✅ |
 | `GET /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | ❌ |
 | `POST /courses` | ✅ | ✅ | ✅ (tự gán người tạo vào đội giáo án) | ❌ | ❌ |
 | `PATCH /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
@@ -22,7 +22,7 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 | `PUT /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
 | `GET /courses/lesson-plan-staff` | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng giáo án sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng giáo án) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng giáo án **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng giáo án không phụ thuộc gán khoá. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
+`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng giáo án sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng giáo án) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng giáo án **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng giáo án không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng giáo án tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/trợ lí hoặc trưởng giáo án khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
 
 `DELETE /courses/:id` trả `400` khi còn lớp dùng khoá, message:
 
