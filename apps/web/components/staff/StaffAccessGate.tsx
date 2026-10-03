@@ -42,14 +42,16 @@ export default function StaffAccessGate({
     isLessonPlanSelfRoute,
     isNotesSubjectRoute,
     isStaffNotificationRoute,
+    isStaffNotificationManageRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
     isStaffTutorsRoute,
   } = flags;
   const redirectHref = routeAccess.redirectHref;
 
-  const lockedLabel =
-    isRootStaffProfileRoute || isNotesSubjectRoute || isStaffNotificationRoute
+  const lockedLabel = isStaffNotificationManageRoute
+    ? "Notification Composer Locked"
+    : isRootStaffProfileRoute || isNotesSubjectRoute || isStaffNotificationRoute
       ? "Staff Profile Locked"
       : isStaffClassesRoute
         ? "Class Workspace Locked"
@@ -84,8 +86,9 @@ export default function StaffAccessGate({
                         : isLessonPlanSelfRoute
                           ? "Lesson Plan Locked"
                           : "Staff Ops Locked";
-  const lockedTitle =
-    isRootStaffProfileRoute || isNotesSubjectRoute
+  const lockedTitle = isStaffNotificationManageRoute
+    ? "Tài khoản này không được soạn thông báo đẩy."
+    : isRootStaffProfileRoute || isNotesSubjectRoute
       ? "Tài khoản này chưa mở được hồ sơ staff tự phục vụ."
       : isStaffNotificationRoute
         ? "Tài khoản này không dùng được feed thông báo staff."
@@ -127,11 +130,12 @@ export default function StaffAccessGate({
                                     : isLessonPlanSelfRoute
                                       ? "Tài khoản này không dùng được màn lesson output cá nhân."
                                       : "Tài khoản này không dùng được màn vận hành lớp học.";
-  const lockedDescription =
-    isRootStaffProfileRoute || isNotesSubjectRoute
+  const lockedDescription = isStaffNotificationManageRoute
+    ? "Route `/staff/notification/manage` mở cho admin, trợ lí, giáo án, trưởng giáo án, kế toán thu, kế toán chi, truyền thông, kỹ thuật và đào tạo. Gia sư và CSKH chỉ nhận thông báo qua `/staff/notification`."
+    : isRootStaffProfileRoute || isNotesSubjectRoute
       ? "Route `/staff` hiện là hồ sơ của chính nhân sự đang đăng nhập. Nó chỉ mở khi tài khoản có liên kết staff record hợp lệ."
       : isStaffNotificationRoute
-        ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo admin đã push."
+        ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo đã push."
         : isStaffSurveysRoute
           ? "Route `/staff/surveys` mở cho `admin`, `staff.assistant`, `staff.lesson_plan`, và `staff.lesson_plan_head` — dùng để tạo/sửa/xóa Bài khảo sát, soạn thông báo kèm (Title/Thời gian/Nội dung/Hướng dẫn/Lưu ý/Gia sư) và sao chép để dán vào Zalo."
           : isStaffTutorsRoute
