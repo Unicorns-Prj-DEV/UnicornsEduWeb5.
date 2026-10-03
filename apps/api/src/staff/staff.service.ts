@@ -6059,7 +6059,7 @@ export class StaffService {
             revenueSharePercent: data.revenue_share_percent ?? null,
             customerCareDefaultProfitPercent:
               normalizeCustomerCareProfitPercent(
-                data.customer_care_default_profit_percent ?? undefined,
+                data.customer_care_default_profit_percent,
               ) ?? undefined,
             roles: data.roles,
             userId: data.user_id,
