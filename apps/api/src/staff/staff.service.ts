@@ -50,6 +50,7 @@ import {
   type StaffIncomeSummaryDto,
   type UpdateStaffFixedSalaryPayableDto,
   type StaffOverdueSurveyWarningItemDto,
+  type StaffSurveyDeadlineBlockWarningItemDto,
   UpdateStaffDto,
   UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
@@ -91,6 +92,7 @@ import {
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
 import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
+import { findTeacherSurveyDeadlineBlocks } from '../class/survey-deadline-block';
 import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
@@ -744,6 +746,20 @@ export class StaffService {
     }
 
     return warnings;
+  }
+
+  /**
+   * Gia sư đang trong khung **chặn khảo sát sắp hạn** còn lớp chưa nộp: kế toán chi
+   * thấy cảnh báo trên màn trả trợ cấp, không chặn thao tác trả.
+   */
+  async getSurveyDeadlineBlockWarnings(
+    staffId: string,
+  ): Promise<StaffSurveyDeadlineBlockWarningItemDto[]> {
+    const blocks = await findTeacherSurveyDeadlineBlocks(this.prisma, staffId);
+    return blocks.map((block) => ({
+      ...block,
+      endDate: block.endDate.toISOString().slice(0, 10),
+    }));
   }
 
   /**

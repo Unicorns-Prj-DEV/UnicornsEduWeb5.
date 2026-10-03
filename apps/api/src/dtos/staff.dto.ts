@@ -572,6 +572,15 @@ export interface StaffOverdueSurveyWarningItemDto {
   classNames: string[];
 }
 
+/** Bài khảo sát đang trong khung chặn khảo sát sắp hạn mà gia sư còn lớp chưa nộp. */
+export interface StaffSurveyDeadlineBlockWarningItemDto {
+  surveyId: string;
+  surveyName: string;
+  /** YYYY-MM-DD */
+  endDate: string;
+  classNames: string[];
+}
+
 export interface StaffPayAllPaymentsSourceResultDto {
   sourceType: string;
   sourceLabel: string;

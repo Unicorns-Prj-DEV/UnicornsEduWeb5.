@@ -387,6 +387,15 @@ export interface StaffOverdueSurveyWarningItem {
     classNames: string[];
 }
 
+/** Bài khảo sát đang trong khung chặn khảo sát sắp hạn mà gia sư còn lớp chưa nộp. */
+export interface StaffSurveyDeadlineBlockWarningItem {
+    surveyId: string;
+    surveyName: string;
+    /** YYYY-MM-DD */
+    endDate: string;
+    classNames: string[];
+}
+
 /** Response body khi backend trả 400 với code SURVEY_OVERDUE_WARNING (chưa xác nhận thanh toán). */
 export interface StaffOverdueSurveyWarningErrorResponse {
     statusCode: number;
