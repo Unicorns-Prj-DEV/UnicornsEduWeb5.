@@ -39,6 +39,7 @@ export const STUDENT_CUSTOMER_SOURCE_VALUES = [
   StudentCustomerSource.fanpage_luyen_tin,
   StudentCustomerSource.referral,
   StudentCustomerSource.personal,
+  StudentCustomerSource.returning_customer,
   StudentCustomerSource.other,
 ] as const;
 
@@ -51,6 +52,7 @@ export const STUDENT_CUSTOMER_SOURCE_LABELS: Record<
   fanpage_luyen_tin: 'Fanpage Luyện Tin THPT',
   referral: 'Giới thiệu từ người quen của khách',
   personal: 'Nguồn riêng của bản thân',
+  returning_customer: 'Khách cũ',
   other: 'Khác',
 };
 
