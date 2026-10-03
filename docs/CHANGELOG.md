@@ -95,6 +95,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Polish trang học phí học sinh `/student/tuition`:** cột đơn `max-w-3xl`, header có link quay lại icon `ChevronLeft` + dòng mô tả; thẻ ví thêm chip icon, vệt sáng trang trí, icon `Plus` trên CTA và dòng ghi chú chân thẻ (nhắc nạp khi số dư âm). Lịch sử giao dịch gom theo tháng giờ Việt Nam (`lib/student-wallet-history.ts`, có test), mỗi dòng có icon theo loại giao dịch, số tiền nạp màu `success`.
 - **`GET /users/me/student-classes`:** trả DTO gọn `StudentClassCardDto` (`classId`, `className`, `courseName`, `teacherNames`) sắp theo tên lớp, thay bản ghi enrollment đầy đủ. Trước đây endpoint `include` cả bản ghi user của Gia sư (gồm `passwordHash`); giờ chỉ select họ tên.
 - **Navbar học sinh dạng nổi:** `StudentHeader` bo góc, cách mép, dính khi cuộn; thêm nút **Hồ sơ & Lịch thi** và **Nạp ví** (sang `/student/tuition`), màn hẹp chỉ icon. Trang chủ `/student` bỏ card thông tin đầu trang (email, nhãn «Đang học», hai nút cũ).
 - **Hồ sơ nhân sự và QR thanh toán:**
@@ -195,6 +196,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ### Removed
 
 - **Mascot ảnh bìa độ phân giải thấp:** xoá 6 mascot `unicorn-2798/2799/2803/2865/2866/2871.webp` (cạnh dài 83–234px, bị phóng 1,6–4,6× trên retina nên mờ ở thẻ lớp); bộ mascot còn 15 ảnh. Lớp từng dùng các mascot này (và một số lớp khác, do hash chia theo số mascot) đổi sang mascot khác.
+- **Section “Học phí theo lớp” trên `/student/tuition`:** học sinh không còn thấy học phí mỗi buổi, gói học phí, nguồn học phí và số buổi đã học của từng lớp. Xoá `StudentTuitionClassList` và `lib/student-tuition.helpers.ts` (không còn nơi dùng). API `/users/me/student-detail` giữ nguyên field.
 - Route admin rời `/admin/question-bank`, `/admin/exam-library`, `/admin/classes/courses`, `/admin/classes/courses/[id]` — **xoá thẳng, không redirect.** Bookmark cũ 404; ngân hàng câu hỏi = tab **Câu hỏi**, thư viện đề = tab **Đề thi**, cài đặt khoá = tab **Cài đặt**.
 
 ### Changed
