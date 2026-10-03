@@ -1,5 +1,6 @@
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
+import { canPublishNotifications } from "@/lib/notification-publisher-access";
 import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
 
 type StaffShellProfile = FullProfileDto | UserInfoDto | null | undefined;
@@ -20,6 +21,7 @@ export type StaffShellRouteFlags = {
   isStaffStudentDetailRoute: boolean;
   isAssistantHistoryRoute: boolean;
   isStaffNotificationRoute: boolean;
+  isStaffNotificationManageRoute: boolean;
   isNotesSubjectRoute: boolean;
   isRootStaffProfileRoute: boolean;
   isCustomerCareSelfRoute: boolean;
@@ -228,6 +230,9 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffStudentDetailRoute = pathname.startsWith("/staff/students/");
   const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
   const isStaffNotificationRoute = pathname.startsWith("/staff/notification");
+  const isStaffNotificationManageRoute = pathname.startsWith(
+    "/staff/notification/manage",
+  );
   const isNotesSubjectRoute = pathname.startsWith("/staff/notes-subject");
   const isCustomerCareSelfRoute = pathname.startsWith(
     "/staff/customer-care-detail",
@@ -285,6 +290,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffStudentDetailRoute,
     isAssistantHistoryRoute,
     isStaffNotificationRoute,
+    isStaffNotificationManageRoute,
     isNotesSubjectRoute,
     isRootStaffProfileRoute: isDashboardRoute || isProfileRoute,
     isCustomerCareSelfRoute,
@@ -337,8 +343,11 @@ export function resolveStaffShellRouteAccess(
     canBypassStaffProfileRequirement ||
     (hasStaffProfile && context.staffProfileComplete);
 
-  const isAllowed =
-    flags.isDashboardRoute ||
+  const isAllowed = flags.isStaffNotificationManageRoute
+    ? hasStaffWorkspaceAccess &&
+      isStaffOrAdmin &&
+      canPublishNotifications(context.staffRoles, isAdmin)
+    : flags.isDashboardRoute ||
     flags.isProfileRoute ||
     flags.isNotesSubjectRoute ||
     flags.isStaffNotificationRoute

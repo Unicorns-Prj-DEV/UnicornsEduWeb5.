@@ -2,6 +2,6 @@
 
 import NotificationManager from "@/components/shared/notifications/NotificationManager";
 
-export default function AdminNotificationPage() {
+export default function StaffNotificationManagePage() {
   return <NotificationManager />;
 }
