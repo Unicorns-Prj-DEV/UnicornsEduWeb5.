@@ -122,7 +122,7 @@ export interface UpdateMyStudentProfileDto {
   birth_year?: number;
   parent_name?: string;
   parent_phone?: string;
-  parent_email?: string;
+  parent_email?: string | null;
   parent_receipt_email_enabled?: boolean;
   status?: StudentStatus;
   gender?: StudentGender;
