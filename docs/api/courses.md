@@ -13,16 +13,16 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 | Endpoint | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` |
 | --- | --- | --- | --- | --- | --- |
 | `GET /courses` | ✅ (class-level `admin` + `staff`) | ✅ | ✅ | ✅ | ✅ |
-| `GET /courses/:id` | ✅ | ✅ | ✅ mọi khoá | ✅ khoá được gán (`assertCanManageCourse`) | ❌ |
-| `POST /courses` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `PATCH /courses/:id` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `DELETE /courses/:id` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `GET/POST/PATCH/DELETE` difficulty-levels | ✅ | ✅ | ✅ | ✅ khoá được gán | ❌ |
-| `GET /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ | ✅ khoá được gán | ❌ |
-| `PUT /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `GET /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | ❌ |
+| `POST /courses` | ✅ | ✅ | ✅ (tự gán người tạo vào đội giáo án) | ❌ | ❌ |
+| `PATCH /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
+| `DELETE /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
+| `GET/POST/PATCH/DELETE` difficulty-levels | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | ❌ |
+| `GET /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | ❌ |
+| `PUT /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
 | `GET /courses/lesson-plan-staff` | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-`POST` / `PATCH` / `DELETE` khoá: `CourseService.create()` / `.remove()` **không nhận actor**. Guard controller là tầng bảo vệ duy nhất cho tạo/xoá. Lý do nới `lesson_plan_head` và rủi ro đã chấp nhận: `docs/adr/2026-09-10-course-workspace.md`.
+`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng giáo án sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng giáo án) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng giáo án **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng giáo án không phụ thuộc gán khoá. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
 
 `DELETE /courses/:id` trả `400` khi còn lớp dùng khoá, message:
 
@@ -44,8 +44,7 @@ Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi g�
 
 | Actor | Kết quả list |
 | --- | --- |
-| `lesson_plan` thuần (có `lesson_plan`, không kèm `admin` / `assistant` / `lesson_plan_head`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
-| `lesson_plan_head` (kể cả khi kèm `lesson_plan`) | Tất cả khoá |
+| Đội giáo án thuần (`lesson_plan` và/hoặc `lesson_plan_head`, không kèm `admin` / `assistant`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
 | `admin`, `assistant`, `training`, `accountant_income`, `accountant_expense`, `teacher`, `customer_care` | Tất cả khoá (không đổi so với trước) |
 | User đã auth nhưng không có staff profile, và không phải `lesson_plan` thuần | Tất cả khoá; không crash |
 
@@ -57,10 +56,10 @@ Controller: `apps/api/src/course-content/` — `course-module.controller.ts`, `c
 
 | Endpoint nhóm | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` (decorator) |
 | --- | --- | --- | --- | --- | --- |
-| Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ✅ | ✅ | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội giáo án |
-| Tiết học: `GET/POST/PATCH/DELETE /course/:courseId/modules/:moduleId/lessons` + `POST .../reorder` | ✅ | ✅ | ✅ | ✅ khoá được gán | Cùng quy tắc `teacher` |
-| Quiz ôn nhẹ: `GET/POST/DELETE /lessons/:lessonId/quizzes` | ✅ | ✅ | ✅ | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
-| Câu hỏi tiết thực hành: `GET/POST/PATCH/DELETE /lessons/:lessonId/questions` | ✅ | ✅ | ✅ | ✅ khoá được gán | Cùng quy tắc `teacher` |
+| Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội giáo án |
+| Tiết học: `GET/POST/PATCH/DELETE /course/:courseId/modules/:moduleId/lessons` + `POST .../reorder` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
+| Quiz ôn nhẹ: `GET/POST/DELETE /lessons/:lessonId/quizzes` | ✅ | ✅ | ✅ khoá được gán | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
+| Câu hỏi tiết thực hành: `GET/POST/PATCH/DELETE /lessons/:lessonId/questions` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
 
 Tạo chuyên đề: body `POST /course/:courseId/modules` là `{ "title": "..." }`. `courseId` lấy từ path; gửi thêm trong body cũng được, controller ghi đè bằng param.
 

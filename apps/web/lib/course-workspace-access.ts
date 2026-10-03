@@ -48,7 +48,8 @@ export function resolveCourseWorkspaceCapabilities(
   const profileCanEnter =
     isAdminOrAssistant || isLessonPlanHead || isLessonPlanMember;
   const profileCanMutateCourses = isAdminOrAssistant || isLessonPlanHead;
-  const profileCanViewAllCourses = isAdminOrAssistant || isLessonPlanHead;
+  // Trưởng giáo án chỉ thấy khoá được gán vào đội giáo án (BE lọc), như lesson_plan.
+  const profileCanViewAllCourses = isAdminOrAssistant;
   const profileCanUseAcademicTabs =
     isAdminOrAssistant || isLessonPlanHead || isLessonPlanMember;
   const profileCanMutateTeam = isAdminOrAssistant || isLessonPlanHead;
