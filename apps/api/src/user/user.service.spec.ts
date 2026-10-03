@@ -6,7 +6,7 @@ jest.mock('src/staff/staff.service', () => ({
 }));
 
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { UserRole } from '../../generated/enums';
+import { StaffRole, UserRole } from '../../generated/enums';
 import { UserService } from './user.service';
 import { ACTIVE_STANDING_TEACHER } from 'src/class/standing-teacher-filter';
 
@@ -29,6 +29,14 @@ describe('UserService', () => {
     studentClass: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      updateMany: jest.fn(),
+      createMany: jest.fn(),
+    },
+    class: {
+      findMany: jest.fn(),
+    },
+    customerCareService: {
+      upsert: jest.fn(),
     },
     studentInfo: {
       create: jest.fn(),
@@ -177,6 +185,98 @@ describe('UserService', () => {
     expect(
       authService.createPendingUserWithVerificationEmail,
     ).not.toHaveBeenCalled();
+  });
+
+  describe('createStudentUser customer care owner', () => {
+    const customerCareActor = {
+      userId: 'care-user-1',
+      userEmail: 'care@example.com',
+      roleType: UserRole.staff,
+    };
+    const payload = {
+      email: 'new-student@example.com',
+      phone: '0900000000',
+      password: 'secret',
+      accountHandle: 'new-student',
+      first_name: 'An',
+      last_name: 'Nguyen',
+      class_ids: [] as string[],
+    };
+
+    beforeEach(() => {
+      authService.createPendingUserWithVerificationEmail.mockResolvedValue({
+        message: 'Tạo học sinh thành công. Email xác thực đã được gửi.',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: payload.email,
+        studentInfo: null,
+      });
+      mockPrisma.studentInfo.create.mockResolvedValue({ id: 'student-1' });
+      mockPrisma.studentInfo.findUnique.mockResolvedValue({ id: 'student-1' });
+      mockPrisma.studentClass.findMany.mockResolvedValue([]);
+    });
+
+    it('assigns the creating customer care staff with their default percent', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+        customerCareDefaultProfitPercent: 0.15,
+      });
+
+      await service.createStudentUser(payload, customerCareActor);
+
+      expect(mockPrisma.customerCareService.upsert).toHaveBeenCalledWith({
+        where: { studentId: 'student-1' },
+        create: {
+          studentId: 'student-1',
+          staffId: 'staff-care-1',
+          profitPercent: 0.15,
+        },
+        update: {},
+      });
+    });
+
+    it('rejects class assignment when customer care creates a student', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+        customerCareDefaultProfitPercent: 0.15,
+      });
+
+      await expect(
+        service.createStudentUser(
+          { ...payload, class_ids: ['class-1'] },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(
+        authService.createPendingUserWithVerificationEmail,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('does not auto-assign customer care when an assistant creates a student', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-assistant-1',
+        roles: [StaffRole.assistant, StaffRole.customer_care],
+        customerCareDefaultProfitPercent: 0.15,
+      });
+
+      await service.createStudentUser(payload, customerCareActor);
+
+      expect(mockPrisma.customerCareService.upsert).not.toHaveBeenCalled();
+    });
+
+    it('does not look up staff when an admin creates a student', async () => {
+      await service.createStudentUser(payload, {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: UserRole.admin,
+      });
+
+      expect(mockPrisma.staffInfo.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.customerCareService.upsert).not.toHaveBeenCalled();
+    });
   });
 
   it('filters users by search tokens and clamps page to available range', async () => {

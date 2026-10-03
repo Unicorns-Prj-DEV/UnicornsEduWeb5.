@@ -867,7 +867,8 @@ export class StudentService {
 
   /**
    * Ensures the actor may mutate the student profile (admin, assistant, or
-   * assigned customer_care). Only admin/assistant can change profit percent.
+   * assigned customer_care). Only admin/assistant can change profit percent
+   * or transfer the student to another customer care staff.
    */
   private async assertCanMutateStudentProfile(
     studentId: string,
@@ -894,7 +895,13 @@ export class StudentService {
       return;
     }
 
-    if (dto?.customer_care_profit_percent === undefined) {
+    const changesProfitPercent =
+      dto?.customer_care_profit_percent !== undefined;
+    const changesCustomerCareStaff =
+      dto?.customer_care_staff_id !== undefined &&
+      (dto.customer_care_staff_id ?? null) !==
+        (await this.getAssignedCustomerCareStaffId(studentId));
+    if (!changesProfitPercent && !changesCustomerCareStaff) {
       return;
     }
 
@@ -903,16 +910,26 @@ export class StudentService {
       select: { roles: true },
     });
 
-    const canEditProfitPercent = Boolean(
+    const canManageCustomerCareAssignment = Boolean(
       staff?.roles.includes(StaffRole.admin) ||
       staff?.roles.includes(StaffRole.assistant),
     );
 
-    if (!canEditProfitPercent) {
+    if (!canManageCustomerCareAssignment) {
       throw new ForbiddenException(
-        'Only admin or assistant staff can change customer care profit percent',
+        changesCustomerCareStaff
+          ? 'Only admin or assistant staff can transfer the student to another customer care staff'
+          : 'Only admin or assistant staff can change customer care profit percent',
       );
     }
+  }
+
+  private async getAssignedCustomerCareStaffId(studentId: string) {
+    const assignment = await this.prisma.customerCareService.findUnique({
+      where: { studentId },
+      select: { staffId: true },
+    });
+    return assignment?.staffId ?? null;
   }
 
   private resolveCustomerSourceWrite(

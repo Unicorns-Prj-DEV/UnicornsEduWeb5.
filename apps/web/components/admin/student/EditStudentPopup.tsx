@@ -35,8 +35,8 @@ type Props = {
   onClose: () => void;
   student: StudentDetail;
   onSuccess?: () => void | Promise<void>;
-  /** Admin/assistant only; CSKH can edit profile but not profit %. */
-  canEditCustomerCareProfitPercent?: boolean;
+  /** Admin/assistant only; CSKH can edit profile but not change Người chăm sóc or profit %. */
+  canManageCustomerCareAssignment?: boolean;
   /** Admin/assistant only; CSKH can view achievements/gallery but not edit. Default true. */
   canEditAchievementsAndGallery?: boolean;
 };
@@ -116,7 +116,7 @@ export default function EditStudentPopup({
   onClose,
   student,
   onSuccess,
-  canEditCustomerCareProfitPercent = true,
+  canManageCustomerCareAssignment = true,
   canEditAchievementsAndGallery = true,
 }: Props) {
   const queryClient = useQueryClient();
@@ -261,7 +261,7 @@ export default function EditStudentPopup({
     }
 
     const trimmedBirthYear = birthYearInput.trim();
-    const trimmedCustomerCarePercent = canEditCustomerCareProfitPercent
+    const trimmedCustomerCarePercent = canManageCustomerCareAssignment
       ? customerCareProfitPercentInput.trim()
       : "";
     const currentYear = new Date().getFullYear();
@@ -343,9 +343,9 @@ export default function EditStudentPopup({
                 customer_source_note: customerSource === "other" ? trimmedSourceNote : null,
               }
             : {}),
-          customer_care_staff_id: selectedCustomerCare?.id ?? null,
-          ...(canEditCustomerCareProfitPercent
+          ...(canManageCustomerCareAssignment
             ? {
+                customer_care_staff_id: selectedCustomerCare?.id ?? null,
                 customer_care_profit_percent: selectedCustomerCare
                   ? parsedCustomerCareProfitPercent
                   : null,
@@ -686,68 +686,78 @@ export default function EditStudentPopup({
                               </span>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={clearCustomerCareSelection}
-                            className="inline-flex min-h-10 items-center justify-center rounded-full border border-error/20 bg-error/8 px-3.5 text-xs font-semibold text-error transition-colors hover:bg-error/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                          >
-                            Loại bỏ CSKH
-                          </button>
+                          {canManageCustomerCareAssignment ? (
+                            <button
+                              type="button"
+                              onClick={clearCustomerCareSelection}
+                              className="inline-flex min-h-10 items-center justify-center rounded-full border border-error/20 bg-error/8 px-3.5 text-xs font-semibold text-error transition-colors hover:bg-error/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            >
+                              Loại bỏ CSKH
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}
 
-                    <div
-                      className={`rounded-xl border bg-bg-surface/95 px-3 py-3 transition-colors ${customerCareSearchFocused
-                        ? "border-border-focus ring-2 ring-border-focus/30"
-                        : "border-border-default"
-                        }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <svg
-                          className="size-4 shrink-0 text-text-muted"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          aria-hidden
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-                          />
-                        </svg>
-                        <input
-                          name="customer_care_search"
-                          autoComplete="off"
-                          spellCheck={false}
-                          value={customerCareSearchInput}
-                          onChange={(event) => setCustomerCareSearchInput(event.target.value)}
-                          onFocus={() => setCustomerCareSearchFocused(true)}
-                          aria-controls={customerCareSearchFocused ? "customer-care-options-listbox" : undefined}
-                          aria-autocomplete="list"
-                          placeholder={
-                            selectedCustomerCare
-                              ? "Đổi CSKH theo họ và tên…"
-                              : "Tìm CSKH theo họ và tên…"
-                          }
-                          className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
-                        />
-                        {customerCareSearchInput ? (
-                          <button
-                            type="button"
-                            onClick={() => setCustomerCareSearchInput("")}
-                            className="rounded-full p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                            aria-label="Xóa từ khóa tìm kiếm CSKH"
+                    {!canManageCustomerCareAssignment && !selectedCustomerCare ? (
+                      <p className="rounded-xl border border-border-default/70 bg-bg-surface/90 px-3 py-3 text-sm text-text-muted">
+                        Chưa phân công
+                      </p>
+                    ) : null}
+
+                    {canManageCustomerCareAssignment ? (
+                      <div
+                        className={`rounded-xl border bg-bg-surface/95 px-3 py-3 transition-colors ${customerCareSearchFocused
+                          ? "border-border-focus ring-2 ring-border-focus/30"
+                          : "border-border-default"
+                          }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <svg
+                            className="size-4 shrink-0 text-text-muted"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden
                           >
-                            <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        ) : null}
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                            />
+                          </svg>
+                          <input
+                            name="customer_care_search"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={customerCareSearchInput}
+                            onChange={(event) => setCustomerCareSearchInput(event.target.value)}
+                            onFocus={() => setCustomerCareSearchFocused(true)}
+                            aria-controls={customerCareSearchFocused ? "customer-care-options-listbox" : undefined}
+                            aria-autocomplete="list"
+                            placeholder={
+                              selectedCustomerCare
+                                ? "Đổi CSKH theo họ và tên…"
+                                : "Tìm CSKH theo họ và tên…"
+                            }
+                            className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                          />
+                          {customerCareSearchInput ? (
+                            <button
+                              type="button"
+                              onClick={() => setCustomerCareSearchInput("")}
+                              className="rounded-full p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                              aria-label="Xóa từ khóa tìm kiếm CSKH"
+                            >
+                              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                   </div>
                 </label>
 
@@ -755,7 +765,7 @@ export default function EditStudentPopup({
                   <span>Tỷ lệ lợi nhuận (%)</span>
                   <div
                     className={`rounded-[1rem] border bg-bg-surface px-3 py-3 shadow-sm ${
-                      selectedCustomerCare && canEditCustomerCareProfitPercent
+                      selectedCustomerCare && canManageCustomerCareAssignment
                         ? "border-border-default"
                         : "border-border-default/70 opacity-70"
                     }`}
@@ -771,11 +781,11 @@ export default function EditStudentPopup({
                         step={1}
                         value={customerCareProfitPercentInput}
                         onChange={(event) => setCustomerCareProfitPercentInput(event.target.value)}
-                        disabled={!selectedCustomerCare || !canEditCustomerCareProfitPercent}
-                        readOnly={!canEditCustomerCareProfitPercent}
+                        disabled={!selectedCustomerCare || !canManageCustomerCareAssignment}
+                        readOnly={!canManageCustomerCareAssignment}
                         placeholder="Ví dụ: 20…"
                         title={
-                          canEditCustomerCareProfitPercent
+                          canManageCustomerCareAssignment
                             ? undefined
                             : "CSKH không được chỉnh tỷ lệ lợi nhuận"
                         }
@@ -784,9 +794,9 @@ export default function EditStudentPopup({
                       <span className="text-sm font-medium text-text-muted">%</span>
                     </div>
                   </div>
-                  {!canEditCustomerCareProfitPercent ? (
+                  {!canManageCustomerCareAssignment ? (
                     <span className="text-xs text-text-muted">
-                      Chỉ admin/trợ lí được chỉnh tỷ lệ lợi nhuận CSKH.
+                      Chỉ admin/trợ lí được đổi CSKH phụ trách và tỷ lệ lợi nhuận.
                     </span>
                   ) : null}
                 </label>
