@@ -125,7 +125,7 @@ export default function AdminStudentDetailPage() {
         isCustomerCareReadOnlyView,
         canManageStudent,
         canEditStudentProfile,
-        canEditCustomerCareProfitPercent,
+        canManageCustomerCareAssignment,
         canCreateWalletQr,
         canDirectlyAdjustWallet,
         canDirectlyWithdrawWallet,
@@ -379,7 +379,7 @@ export default function AdminStudentDetailPage() {
                     open={editPopupOpen}
                     onClose={() => setEditPopupOpen(false)}
                     student={student}
-                    canEditCustomerCareProfitPercent={canEditCustomerCareProfitPercent}
+                    canManageCustomerCareAssignment={canManageCustomerCareAssignment}
                     canEditAchievementsAndGallery={canManageStudent}
                 />
             ) : null}

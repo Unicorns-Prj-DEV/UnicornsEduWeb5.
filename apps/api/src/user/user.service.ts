@@ -483,12 +483,47 @@ export class UserService {
     return response;
   }
 
+  /**
+   * CSKH thuần (không kèm admin/trợ lí) tạo học sinh thì trả hồ sơ để gán làm
+   * Người chăm sóc; admin/trợ lí tự chọn Người chăm sóc nên trả null.
+   */
+  private async resolveCreatorCustomerCareStaff(actor?: ActionHistoryActor) {
+    if (!actor?.userId || actor.roleType === UserRole.admin) {
+      return null;
+    }
+
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { userId: actor.userId },
+      select: {
+        id: true,
+        roles: true,
+        customerCareDefaultProfitPercent: true,
+      },
+    });
+    if (
+      !staff?.roles.includes(StaffRole.customer_care) ||
+      staff.roles.includes(StaffRole.admin) ||
+      staff.roles.includes(StaffRole.assistant)
+    ) {
+      return null;
+    }
+
+    return staff;
+  }
+
   async createStudentUser(
     data: AdminCreateStudentUserDto,
     auditActor?: ActionHistoryActor,
     emailLinkOrigin?: PublicRequestOrigin,
   ) {
     const classIds = Array.from(new Set(data.class_ids));
+    const creatorCustomerCareStaff =
+      await this.resolveCreatorCustomerCareStaff(auditActor);
+    if (creatorCustomerCareStaff && classIds.length > 0) {
+      throw new ForbiddenException(
+        'CSKH không được xếp lớp khi tạo học sinh. Nhờ admin/trợ lí xếp lớp sau.',
+      );
+    }
     if (classIds.length > 0) {
       const classes = await this.prisma.class.findMany({
         where: { id: { in: classIds } },
@@ -623,6 +658,21 @@ export class UserService {
                 studentId: student.id,
                 status: StudentClassStatus.active,
               })),
+            });
+          }
+
+          // CSKH tạo học sinh thì tự là Người chăm sóc với % mặc định trên hồ sơ.
+          // Học sinh đã có Người chăm sóc thì giữ nguyên: chuyển người chỉ admin/trợ lí làm.
+          if (creatorCustomerCareStaff) {
+            await tx.customerCareService.upsert({
+              where: { studentId: student.id },
+              create: {
+                studentId: student.id,
+                staffId: creatorCustomerCareStaff.id,
+                profitPercent:
+                  creatorCustomerCareStaff.customerCareDefaultProfitPercent,
+              },
+              update: {},
             });
           }
 

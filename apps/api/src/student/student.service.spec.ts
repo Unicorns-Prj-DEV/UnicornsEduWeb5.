@@ -29,7 +29,12 @@ jest.mock('src/storage/image-watermark', () => ({
   ),
 }));
 
-import { BadRequestException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   AchievementLevel,
   StaffRole,
@@ -1835,6 +1840,97 @@ describe('StudentService', () => {
     expect(mockPrisma.studentAchievement.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: {} }),
     );
+  });
+
+  describe('customer care transfer permission', () => {
+    const customerCareActor = {
+      userId: 'care-user-1',
+      userEmail: 'care@example.com',
+      roleType: UserRole.staff,
+    };
+
+    beforeEach(() => {
+      mockPrisma.customerCareService.findUnique.mockResolvedValue({
+        staffId: 'staff-care-1',
+      });
+      // Không tìm thấy học sinh ngay sau bước kiểm quyền: NotFound nghĩa là đã qua kiểm quyền.
+      mockPrisma.studentInfo.findUnique.mockResolvedValue(null);
+    });
+
+    it('rejects a customer care staff transferring the student to someone else', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { customer_care_staff_id: 'staff-care-2' },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects a customer care staff removing their own assignment', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { customer_care_staff_id: null },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('lets a customer care staff resend the same assignment', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { customer_care_staff_id: 'staff-care-1' },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lets a customer care staff edit the profile without touching the assignment', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { school: 'THPT A' },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lets an assistant transfer the student to another customer care staff', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-assistant-1',
+        roles: [StaffRole.assistant],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { customer_care_staff_id: 'staff-care-2' },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 
   describe('customer care assignment default percent', () => {
