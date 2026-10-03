@@ -15,7 +15,7 @@ import StaffAchievementsDialog, {
 } from "@/components/shared/achievement/StaffAchievementsDialog";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
-import { StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
+import { StaffListItem, StaffListResponse, StaffStatus } from "@/dtos/staff.dto";
 import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
@@ -69,6 +69,8 @@ function AdminStaffPageContent() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
   const [achievementsTarget, setAchievementsTarget] = useState<{ id: string; name: string } | null>(null);
+  const openAchievements = (row: StaffListItem) =>
+    setAchievementsTarget({ id: row.id, name: row.fullName?.trim() || "" });
   const [filterDraft, setFilterDraft] = useState({
     province: "",
     university: "",
@@ -703,9 +705,7 @@ function AdminStaffPageContent() {
                         <StaffAchievementsButton
                           count={row.achievementCount}
                           className="self-start"
-                          onOpen={() =>
-                            setAchievementsTarget({ id: row.id, name: row.fullName?.trim() || "" })
-                          }
+                          onOpen={() => openAchievements(row)}
                         />
                         {classItems.length > 0 ? (
                           <div className="flex flex-col gap-1">
@@ -793,9 +793,7 @@ function AdminStaffPageContent() {
                             <span className="block truncate">{row.fullName?.trim() || "—"}</span>
                             <StaffAchievementsButton
                               count={row.achievementCount}
-                              onOpen={() =>
-                                setAchievementsTarget({ id: row.id, name: row.fullName?.trim() || "" })
-                              }
+                              onOpen={() => openAchievements(row)}
                             />
                           </td>
                           <td className="w-[20%] min-w-0 px-4 py-3 align-middle overflow-x-hidden">

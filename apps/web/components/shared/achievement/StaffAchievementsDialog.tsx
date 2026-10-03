@@ -1,6 +1,12 @@
 "use client";
 
-import { useId, useState, type KeyboardEvent, type MouseEvent } from "react";
+import {
+  useCallback,
+  useId,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ImageOff, Trophy, X } from "lucide-react";
 import type { AchievementDto, AchievementOwnerRef } from "@/dtos/achievement.dto";
@@ -40,7 +46,7 @@ export function StaffAchievementsButton({
       type="button"
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`inline-flex min-h-9 items-center gap-1.5 rounded-md text-xs font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${className}`}
+      className={`inline-flex min-h-10 items-center gap-1.5 rounded-md text-xs font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${className}`}
     >
       <Trophy className="size-3.5 shrink-0" aria-hidden />
       {label}
@@ -63,6 +69,7 @@ export default function StaffAchievementsDialog({
   const [preview, setPreview] = useState<{ src: string; title: string } | null>(
     null,
   );
+  const closePreview = useCallback(() => setPreview(null), []);
   const { data: items = [], isLoading, isError } = useQuery({
     queryKey: achievementApi.achievementQueryKey(owner),
     queryFn: () => achievementApi.listAchievements(owner),
@@ -123,7 +130,7 @@ export default function StaffAchievementsDialog({
       </ResponsiveDialogBody>
       <ImageLightbox
         open={Boolean(preview)}
-        onClose={() => setPreview(null)}
+        onClose={closePreview}
         src={preview?.src ?? ""}
         title={preview?.title}
       />
@@ -154,7 +161,7 @@ function AchievementReadonlyRow({
           <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
         </button>
       ) : (
-        <span className="flex size-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-border-default text-[10px] text-text-muted">
+        <span className="flex size-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-border-default text-[11px] text-text-muted">
           <ImageOff className="size-4" aria-hidden />
           Chưa có ảnh
         </span>
