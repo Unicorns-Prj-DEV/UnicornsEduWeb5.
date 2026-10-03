@@ -22,6 +22,7 @@ import {
   StaffIdentityOverview,
   QrLinkPopup,
   SessionHistoryTableSkeleton,
+  SurveyDeadlineBlockPaymentWarning,
 } from "@/components/admin/staff";
 import { UserLinkedProfileLinks } from "@/components/admin/user";
 import {
@@ -2780,6 +2781,7 @@ export default function AdminStaffDetailPage({
                     sách chi tiết. Thuế theo mức hiện hành tại{" "}
                     {paymentPreviewTaxAsOfDate}.
                   </p>
+                  <SurveyDeadlineBlockPaymentWarning staffId={id} className="mt-3" />
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {paymentPreviewSummary?.itemCount ? (
@@ -3638,6 +3640,9 @@ export default function AdminStaffDetailPage({
                         ? `Chọn các buổi cọc cần thanh toán. Buổi cọc không áp chi phí vận hành và không áp thuế; preview được chốt theo quy tắc hiện hành tại ${depositPaymentTaxAsOfDate}.`
                         : `Tổng cọc năm ${selectedYear}: ${formatCurrency(depositYearTotal)}`}
                     </p>
+                    {canPayAll ? (
+                      <SurveyDeadlineBlockPaymentWarning staffId={id} className="mt-3" />
+                    ) : null}
                   </div>
                   <button
                     type="button"

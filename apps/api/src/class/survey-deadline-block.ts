@@ -38,6 +38,22 @@ export function isSurveyDeadlineBlockActive(
   );
 }
 
+/**
+ * Bài khảo sát đã mở và đã vào khung chặn tại `now`. "Đã mở" theo ngày UTC như
+ * cảnh báo gia sư (`getTeacherWarnings`) để popup luôn liệt kê đúng những bài
+ * đang chặn. `endDate`/`name` null bị loại.
+ */
+function buildBlockingSurveyWhere(now: Date) {
+  const utcToday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  return {
+    name: { not: null },
+    startDate: { lte: utcToday },
+    endDate: { lte: getLatestBlockedEndDate(getVietnamToday(now)) },
+  };
+}
+
 export type SurveyBlockingSessionCreation = {
   surveyId: string;
   name: string;
@@ -61,16 +77,9 @@ export async function findSurveysBlockingSessionCreation(
     return [];
   }
 
-  // "Đã mở" theo ngày UTC như cảnh báo gia sư (`getTeacherWarnings`) để popup
-  // luôn liệt kê đúng những bài đang chặn.
-  const utcToday = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
   const surveys = await prisma.survey.findMany({
     where: {
-      name: { not: null },
-      startDate: { lte: utcToday },
-      endDate: { lte: getLatestBlockedEndDate(getVietnamToday(now)) },
+      ...buildBlockingSurveyWhere(now),
       excludedClasses: { none: { classId } },
       classSurveys: { none: { classId } },
     },
@@ -84,4 +93,74 @@ export async function findSurveysBlockingSessionCreation(
     name: survey.name ?? '',
     endDate: survey.endDate as Date,
   }));
+}
+
+export type TeacherSurveyDeadlineBlock = {
+  surveyId: string;
+  surveyName: string;
+  endDate: Date;
+  classNames: string[];
+};
+
+/**
+ * Bài khảo sát đang trong khung chặn mà gia sư còn lớp `running` chưa nộp, kèm
+ * tên các lớp đó. Cùng quy tắc với `findSurveysBlockingSessionCreation`; dùng cho
+ * cảnh báo kế toán chi khi trả trợ cấp.
+ */
+export async function findTeacherSurveyDeadlineBlocks(
+  prisma: Pick<PrismaService, 'class' | 'survey'>,
+  staffId: string,
+  now = new Date(),
+): Promise<TeacherSurveyDeadlineBlock[]> {
+  const runningClasses = await prisma.class.findMany({
+    where: {
+      status: ClassStatus.running,
+      teachers: { some: { teacherId: staffId } },
+    },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  });
+  if (!runningClasses.length) {
+    return [];
+  }
+
+  const classIds = runningClasses.map((classItem) => classItem.id);
+  const surveys = await prisma.survey.findMany({
+    where: buildBlockingSurveyWhere(now),
+    orderBy: { endDate: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      endDate: true,
+      excludedClasses: {
+        where: { classId: { in: classIds } },
+        select: { classId: true },
+      },
+      classSurveys: {
+        where: { classId: { in: classIds } },
+        select: { classId: true },
+      },
+    },
+  });
+
+  return surveys.flatMap((survey) => {
+    const settledClassIds = new Set(
+      [...survey.excludedClasses, ...survey.classSurveys].map(
+        (row) => row.classId,
+      ),
+    );
+    const classNames = runningClasses
+      .filter((classItem) => !settledClassIds.has(classItem.id))
+      .map((classItem) => classItem.name);
+    return classNames.length
+      ? [
+          {
+            surveyId: survey.id,
+            surveyName: survey.name ?? '',
+            endDate: survey.endDate as Date,
+            classNames,
+          },
+        ]
+      : [];
+  });
 }

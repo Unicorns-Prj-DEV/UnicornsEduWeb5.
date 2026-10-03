@@ -59,6 +59,7 @@ import {
   UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
+  type StaffSurveyDeadlineBlockWarningItemDto,
 } from 'src/dtos/staff.dto';
 import {
   StaffLandingProfileQueryDto,
@@ -487,6 +488,24 @@ export class StaffController {
     @Query() query: StaffPaymentMonthDto,
   ): Promise<StaffPaymentPreviewDto> {
     return this.staffService.getPaymentPreview(id, query);
+  }
+
+  @Get(':id/survey-deadline-block-warnings')
+  @ApiOperation({
+    summary: 'Get survey deadline block warnings for paying a teacher',
+    description:
+      'Surveys inside the deadline block window (from the day before endDate, Vietnam time, including after the deadline) that this teacher still has running classes not reported for. Informational only: payment endpoints are not blocked by it.',
+  })
+  @ApiParam({ name: 'id', description: 'Staff id' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'List of { surveyId, surveyName, endDate (YYYY-MM-DD), classNames }. Empty when nothing is pending.',
+  })
+  async getStaffSurveyDeadlineBlockWarnings(
+    @Param('id', new ParseStaffIdPipe()) id: string,
+  ): Promise<StaffSurveyDeadlineBlockWarningItemDto[]> {
+    return this.staffService.getSurveyDeadlineBlockWarnings(id);
   }
 
   @Get(':id/deposit-payment-preview')
