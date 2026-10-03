@@ -43,7 +43,7 @@ export function isSurveyDeadlineBlockActive(
  * cảnh báo gia sư (`getTeacherWarnings`) để popup luôn liệt kê đúng những bài
  * đang chặn. `endDate`/`name` null bị loại.
  */
-function getBlockingSurveyWindowWhere(now: Date) {
+function buildBlockingSurveyWhere(now: Date) {
   const utcToday = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
@@ -79,7 +79,7 @@ export async function findSurveysBlockingSessionCreation(
 
   const surveys = await prisma.survey.findMany({
     where: {
-      ...getBlockingSurveyWindowWhere(now),
+      ...buildBlockingSurveyWhere(now),
       excludedClasses: { none: { classId } },
       classSurveys: { none: { classId } },
     },
@@ -126,7 +126,7 @@ export async function findTeacherSurveyDeadlineBlocks(
 
   const classIds = runningClasses.map((classItem) => classItem.id);
   const surveys = await prisma.survey.findMany({
-    where: getBlockingSurveyWindowWhere(now),
+    where: buildBlockingSurveyWhere(now),
     orderBy: { endDate: 'asc' },
     select: {
       id: true,
