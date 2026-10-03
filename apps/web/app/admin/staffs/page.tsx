@@ -781,7 +781,7 @@ function AdminStaffPageContent() {
                           <td className="w-[20%] min-w-0 px-4 py-3 text-text-primary">
                             <span className="block truncate">{row.fullName?.trim() || "—"}</span>
                           </td>
-                          <td className="w-[17%] min-w-0 px-4 py-3 align-middle overflow-x-hidden">
+                          <td className="w-[20%] min-w-0 px-4 py-3 align-middle overflow-x-hidden">
                             <div className="flex flex-wrap gap-1">
                               {roleTags && roleTags.length > 0 ? (
                                 roleTags.map((role) => (
@@ -816,11 +816,11 @@ function AdminStaffPageContent() {
                               )}
                             </div>
                           </td>
-                          <td className={`w-[15%] min-w-0 px-4 py-3 tabular-nums ${hasUnpaid ? "font-semibold text-error" : "text-text-primary"}`}>
+                          <td className={`w-[14%] min-w-0 px-4 py-3 tabular-nums ${hasUnpaid ? "font-semibold text-error" : "text-text-primary"}`}>
                             {formatCurrency(unpaid)}
                           </td>
                           {canDeleteStaff ? (
-                            <td className="w-[17%] min-w-16 px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <td className="w-[5%] min-w-16 px-4 py-3" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
                                 <button
                                   type="button"

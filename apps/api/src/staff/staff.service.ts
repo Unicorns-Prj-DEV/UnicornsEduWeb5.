@@ -1473,6 +1473,7 @@ export class StaffService {
         select: {
           id: true,
           university: true,
+          // Deprecated: chỉ còn đọc cho CMS landing; API ghi đã bỏ field này.
           specialization: true,
           status: true,
           achievements: {
