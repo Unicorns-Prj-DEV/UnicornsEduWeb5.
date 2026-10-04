@@ -170,7 +170,7 @@ export class CreateClassDto {
     enum: ClassPricingMode,
     default: ClassPricingMode.per_session,
     description:
-      'Chế độ tính tiền của lớp. Mặc định theo buổi. Theo block 30 phút chỉ khi lịch chuẩn suy được số block.',
+      'Chế độ tính tiền của lớp. Mặc định theo buổi. Theo block 30 phút chỉ khi lịch chuẩn suy được số block. Lớp thuộc khoá bán một lần luôn là one_time (bỏ qua giá trị gửi lên); gửi one_time cho khoá thường bị 400. Lớp khoá bán một lần bắt buộc tuition_package_total > 0.',
   })
   @IsOptional()
   @IsEnum(ClassPricingMode)
@@ -275,7 +275,7 @@ export class UpdateClassPricingModeDto {
   @ApiProperty({
     enum: ClassPricingMode,
     description:
-      'Đổi chế độ tính tiền. Giữa per_session và per_block: buổi unpaid được tính lại, buổi paid/deposit/cọc giữ nguyên. Đổi có dính one_time không tính lại buổi nào.',
+      'Đổi chế độ tính tiền giữa per_session và per_block: buổi unpaid được tính lại, buổi paid/deposit/cọc giữ nguyên. one_time đi theo khoá (PATCH /courses/:id is_one_time): gửi one_time hoặc đổi lớp one_time ở đây bị 400.',
     example: ClassPricingMode.per_session,
   })
   @IsEnum(ClassPricingMode)

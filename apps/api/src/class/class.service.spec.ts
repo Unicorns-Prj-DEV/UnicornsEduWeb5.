@@ -1425,4 +1425,75 @@ describe('ClassService', () => {
       expect(mockTx.studentClass.create).not.toHaveBeenCalled();
     });
   });
+
+  describe('khoá bán một lần', () => {
+    beforeEach(() => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        status: ClassStatus.running,
+        pricingMode: ClassPricingMode.per_session,
+      });
+      mockTx.class.findUnique.mockResolvedValue({
+        courseId: 'course-basic',
+        tuitionPackageTotal: 1600000,
+        course: { isOneTime: false },
+      });
+    });
+
+    it('chặn đổi lớp sang khoá khác chế độ', async () => {
+      mockTx.course.findUnique.mockResolvedValue({
+        id: 'course-thptqg',
+        name: 'THPTQG',
+        isOneTime: true,
+        defaultDurationDays: null,
+      });
+      await expect(
+        service.updateClassBasicInfo('class-1', { course_id: 'course-thptqg' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockTx.class.update).not.toHaveBeenCalled();
+    });
+
+    it('cho đổi sang khoá cùng chế độ', async () => {
+      mockTx.course.findUnique.mockResolvedValue({
+        id: 'course-advance',
+        name: 'Advance',
+        isOneTime: false,
+        defaultDurationDays: null,
+      });
+      await service.updateClassBasicInfo('class-1', {
+        course_id: 'course-advance',
+      });
+      expect(mockTx.class.update).toHaveBeenCalled();
+    });
+
+    it('chặn xoá tổng gói của lớp bán một lần', async () => {
+      mockTx.class.findUnique.mockResolvedValue({
+        courseId: 'course-thptqg',
+        tuitionPackageTotal: 1600000,
+        course: { isOneTime: true },
+      });
+      await expect(
+        service.updateClassBasicInfo('class-1', { tuition_package_total: 0 }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockTx.class.update).not.toHaveBeenCalled();
+    });
+
+    it('không bật/tắt one_time trên từng lớp', async () => {
+      await expect(
+        service.updateClassPricingMode('class-1', {
+          pricing_mode: ClassPricingMode.one_time,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        pricingMode: ClassPricingMode.one_time,
+      });
+      await expect(
+        service.updateClassPricingMode('class-1', {
+          pricing_mode: ClassPricingMode.per_session,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
 });

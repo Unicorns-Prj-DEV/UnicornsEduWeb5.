@@ -15,6 +15,8 @@ export type CourseWorkspaceCapabilities = {
   canEnterWorkspace: boolean;
   canViewAllCourses: boolean;
   canMutateCourses: boolean;
+  /** Bật/tắt "Bán một lần" của khoá: chỉ admin/trợ lí (BE chặn trưởng giáo án). */
+  canChangeCourseSaleMode: boolean;
   canViewContentTab: boolean;
   canMutateContent: boolean;
   canViewQuestionTab: boolean;
@@ -83,6 +85,7 @@ export function resolveCourseWorkspaceCapabilities(
     canEnterWorkspace,
     canViewAllCourses: andShell(profileCanViewAllCourses, allowedOnThisShell),
     canMutateCourses: andShell(profileCanMutateCourses, allowedOnThisShell),
+    canChangeCourseSaleMode: andShell(isAdminOrAssistant, allowedOnThisShell),
     canViewContentTab,
     canMutateContent: canViewContentTab,
     canViewQuestionTab,

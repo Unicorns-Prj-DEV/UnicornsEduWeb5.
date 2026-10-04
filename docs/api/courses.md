@@ -24,6 +24,8 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 
 `POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng giáo án sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng giáo án) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng giáo án **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng giáo án không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng giáo án tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/trợ lí hoặc trưởng giáo án khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
 
+**Bán một lần (`is_one_time`):** `POST`/`PATCH /courses` nhận `is_one_time?: boolean`. Đổi giá trị (hoặc tạo với `true`) chỉ admin/trợ lí; trưởng giáo án → `403`. Bật trả `400` nếu lớp nào của khoá đã có điểm danh present/excused mang học phí > 0, hoặc còn lớp có Tổng gói null/≤ 0. Tắt luôn được. Mọi lớp của khoá đổi `pricing_mode` theo (`one_time` / `per_session`) trong cùng transaction, không tính lại buổi nào. Response khoá có `isOneTime`. Chi tiết: `docs/Database Schema.md` mục 4.4.0-cat và ADR `docs/adr/2026-10-04-one-time-course-setting.md`.
+
 `DELETE /courses/:id` trả `400` khi còn lớp dùng khoá, message:
 
 `Không thể xoá: còn N lớp đang dùng khoá học này. Hãy chuyển lớp sang khoá khác hoặc chỉ ẩn (is_active=false) khoá học này.`

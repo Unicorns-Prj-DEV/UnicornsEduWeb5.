@@ -1,6 +1,6 @@
 # ADR: Lớp bán một lần ghi nhận doanh thu ở buổi đầu, không hoàn ví
 
-- **Status:** Accepted
+- **Status:** Superseded by `docs/adr/2026-10-04-one-time-course-setting.md` (cờ chuyển sang khoá; backfill thay giao dịch ví theo buổi bằng một lần trừ gói)
 - **Date:** 2026-10-02
 
 ## Context
