@@ -13,6 +13,8 @@ export interface Course {
     defaultDurationDays?: number | null;
     sortOrder: number;
     isActive: boolean;
+    /** Khoá bán một lần: mọi lớp của khoá trừ cả gói ở buổi học đầu. */
+    isOneTime: boolean;
     createdAt?: string;
     updatedAt?: string;
     /** Present when returned from GET /courses (list). */
@@ -74,6 +76,7 @@ export interface CreateCoursePayload {
     name: string;
     default_duration_days?: number | null;
     sort_order?: number;
+    is_one_time?: boolean;
 }
 
 export interface UpdateCoursePayload {
@@ -81,6 +84,7 @@ export interface UpdateCoursePayload {
     default_duration_days?: number | null;
     sort_order?: number;
     is_active?: boolean;
+    is_one_time?: boolean;
 }
 
 export interface AssignCourseLessonPlanMembersPayload {

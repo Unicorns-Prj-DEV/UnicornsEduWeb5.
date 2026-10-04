@@ -45,6 +45,7 @@ describe("resolveCourseWorkspaceCapabilities", () => {
     expect(caps.detailHref("c1")).toBe("/admin/courses/c1");
     expect(caps.visibleTabIds).toEqual(["noi-dung", "cau-hoi", "cai-dat"]);
     expect(caps.canMutateCourses).toBe(true);
+    expect(caps.canChangeCourseSaleMode).toBe(true);
     expect(caps.canMutateLessonPlanTeam).toBe(true);
     expect(caps.canMutateContent).toBe(true);
   });
@@ -85,6 +86,7 @@ describe("resolveCourseWorkspaceCapabilities", () => {
     );
     expect(caps.canViewAllCourses).toBe(false);
     expect(caps.canMutateCourses).toBe(true);
+    expect(caps.canChangeCourseSaleMode).toBe(false);
     expect(caps.canViewContentTab).toBe(true);
     expect(caps.canMutateLessonPlanTeam).toBe(true);
     expect(caps.visibleTabIds).toHaveLength(3);

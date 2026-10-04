@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Bán một lần là cài đặt của khoá:** lớp `one_time` không còn nhận diện theo tên khoá mà theo cờ `courses.is_one_time`. Lớp của khoá bán một lần luôn `one_time`, phải có Tổng gói > 0đ, và chỉ đổi được sang khoá cùng chế độ. `PATCH /class/:id/pricing-mode` từ chối `one_time`. Form lớp: `CourseSelect` trên popup sửa lớp chỉ hiện khoá cùng chế độ; tạo lớp đổi khoá thì chế độ đi theo khoá; thiếu gói → toast Sonner. ADR `docs/adr/2026-10-04-one-time-course-setting.md` thay ADR 2026-10-02.
+- **Backfill ví lớp THPTQG 02 và PREVOI 02** (migration `20261004000000_one_time_course_setting`): THPTQG 02 chuyển từ khoá Basic sang khoá THPTQG. Học sinh đang học của hai lớp: xoá hẳn giao dịch trừ/hoàn học phí theo buổi của lớp, hoàn số đã trừ vào số dư, ghi một giao dịch trừ cả gói ở buổi có mặt/nghỉ phép đầu tiên; điểm danh các buổi sau về 0đ. Học sinh đã nghỉ giữ nguyên. Số dư có thể âm; doanh thu dồn về tháng buổi đầu; hoa hồng (đọc `payroll_basis_tuition_fee`) và trợ cấp gia sư không đổi.
 - **Navbar học sinh fixed:** `StudentHeader` chuyển sang `fixed`, không chiếm chỗ trong layout; `main` của `/student/**` cuộn full chiều cao dưới navbar, chừa `pt` = chiều cao navbar + 1rem (trước là 1.5–2rem, trang lớp còn cộng thêm `pt-8`) và `scroll-pt` = chiều cao navbar.
 
 ### Removed
@@ -31,6 +33,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Cài đặt «Bán một lần» trên khoá học:** cột `courses.is_one_time`. `CourseFormPopup` có Switch **Bán một lần** (admin/trợ lí), badge **Bán một lần** ở danh sách và chi tiết khoá. Bật bị chặn khi khoá đã có lớp thu học phí hoặc còn lớp thiếu gói; tắt đưa lớp về theo buổi, không tính lại.
 - **Tìm trong trang lớp học sinh:** `/student/classes/[id]` có ô tìm cùng hàng thanh tab (mobile xếp dưới), lọc tab đang mở không phân biệt dấu. Chuyên đề: lọc theo tên chuyên đề / tên tiết, thẻ khớp tự mở (không đổi thẻ mở đã lưu). Buổi học: lọc theo tiêu đề, nội dung bài, BTVN, tutorial, gia sư, tên khảo sát. Helper `lib/student-class-search.ts` có test.
 - **Popup hồ sơ từ khối tên (#174):** gia sư/staff bấm avatar footer `StaffSidebar`, học sinh bấm avatar + tên trên `StudentHeader` → popup `UserProfileDialog` dùng lại `UserProfileEditor` (lưu khi rời ô), không chuyển trang; đóng popup blur ô đang sửa để kịp lưu, link điều hướng cùng tab tự đóng popup. Query hồ sơ đầy đủ gom vào `lib/profile-full-query.ts` (có test); `StudentHeader` đổi query key `["auth","fullProfile"]` → `["auth","full-profile"]` để avatar/tên cập nhật sau khi lưu.
 - **Hồ sơ người dùng lưu khi rời ô, bố cục trái/phải (#173):** `/user-profile` bỏ chế độ xem/sửa và nút lưu chung; mỗi ô lưu khi rời ô (bỏ qua nếu không đổi, toast Sonner thành công/lỗi, lỗi thì hoàn tác). Cột trái: avatar, tên, đặt lại mật khẩu; cột phải: thông tin chung rồi khối Nhân sự / Học viên; mobile xếp dọc. Tách component tái sử dụng `UserProfileEditor` + helper `lib/profile-blur-save.ts`, `lib/user-profile-completion.ts` (có test).

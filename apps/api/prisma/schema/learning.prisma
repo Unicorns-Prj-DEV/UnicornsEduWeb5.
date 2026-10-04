@@ -162,6 +162,8 @@ model Course {
   defaultDurationDays Int?                  @map("default_duration_days")
   sortOrder           Int                   @default(0) @map("sort_order")
   isActive            Boolean               @default(true) @map("is_active")
+  /// Khoá bán một lần: mọi lớp của khoá có `pricing_mode = one_time`.
+  isOneTime           Boolean               @default(false) @map("is_one_time")
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
   classes             Class[]
