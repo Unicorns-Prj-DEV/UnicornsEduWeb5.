@@ -29,6 +29,12 @@ WHERE c."id" = cl."course_id"
   AND c."is_one_time"
   AND cl."pricing_mode" IS DISTINCT FROM 'one_time';
 
+-- Hai học sinh THPTQG 02 đăng ký chung được giảm: gói riêng còn 1.440.000.
+UPDATE "student_classes"
+SET "custom_tuition_package_total" = 1440000
+WHERE "class_id" = 'UNICL-c1f789b32e'
+  AND "student_id" IN ('UNIST-9b344d2867', 'UNIST-c17f8016fe');
+
 CREATE TEMP TABLE "_ot_students" AS
 SELECT
   sc."class_id",

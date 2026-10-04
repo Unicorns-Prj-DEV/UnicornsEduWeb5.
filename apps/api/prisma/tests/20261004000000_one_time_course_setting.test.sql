@@ -10,6 +10,8 @@ BEGIN;
 
 ALTER TABLE "courses" DROP COLUMN IF EXISTS "is_one_time";
 UPDATE "classes" SET "id" = "id" || '-t08orig' WHERE "id" IN ('UNICL-c1f789b32e', 'UNICL-dc32916487');
+-- Học sinh được giảm giá (đăng ký chung) có id cố định trong migration: đổi tạm id bản thật.
+UPDATE "student_info" SET "id" = "id" || '-t08orig' WHERE "id" = 'UNIST-9b344d2867';
 -- Khoá thật cùng tên trên DB local không được dính vào fixture.
 UPDATE "courses" SET "name" = "name" || ' (t08 orig)' WHERE "name" IN ('THPTQG', 'PREVOI');
 
@@ -24,12 +26,14 @@ INSERT INTO "student_info" ("id", "full_name", "account_balance", "updated_at") 
   ('t08-s1', 't08 s1', 100000, NOW()),
   ('t08-s2', 't08 s2', 0, NOW()),
   ('t08-s3', 't08 s3', 50000, NOW()),
-  ('t08-s4', 't08 s4', 200000, NOW());
+  ('t08-s4', 't08 s4', 200000, NOW()),
+  ('UNIST-9b344d2867', 't08 s5', 0, NOW());
 INSERT INTO "student_classes" ("id", "student_id", "class_id", "status", "custom_tuition_package_total") VALUES
   ('t08-sc1', 't08-s1', 'UNICL-c1f789b32e', 'active', 0),
   ('t08-sc2', 't08-s2', 'UNICL-c1f789b32e', 'active', 1000000),
   ('t08-sc3', 't08-s3', 'UNICL-c1f789b32e', 'inactive', NULL),
-  ('t08-sc4', 't08-s4', 'UNICL-dc32916487', 'active', NULL);
+  ('t08-sc4', 't08-s4', 'UNICL-dc32916487', 'active', NULL),
+  ('t08-sc5', 'UNIST-9b344d2867', 'UNICL-c1f789b32e', 'active', 1600000);
 INSERT INTO "sessions" ("id", "teacher_id", "class_id", "date", "start_time", "updated_at")
 SELECT v.id, (SELECT "id" FROM "staff_info" ORDER BY "id" LIMIT 1), v.class_id, v.d::date, v.t::time, NOW()
 FROM (VALUES
@@ -54,7 +58,8 @@ INSERT INTO "wallet_transactions_history" ("id", "student_id", "type", "amount",
   ('t08-w3a', 't08-s3', 'extend', 20000, 'Đóng học phí lớp t08 QG 02 buổi học 2026-08-10. | Số dư: x', '2026-08-10'),
   ('t08-w3b', 't08-s3', 'extend', 20000, 'Đóng học phí lớp t08 QG 02 buổi học 2026-08-12. | Số dư: x', '2026-08-12'),
   ('t08-w3c', 't08-s3', 'extend', 20000, 'Đóng học phí lớp t08 QG 02 buổi học 2026-08-14. | Số dư: x', '2026-08-14'),
-  ('t08-w4a', 't08-s4', 'extend', 91400, 'Đóng học phí lớp t08 PV 02 buổi học 2026-08-11. | Số dư: x', '2026-08-11');
+  ('t08-w4a', 't08-s4', 'extend', 91400, 'Đóng học phí lớp t08 PV 02 buổi học 2026-08-11. | Số dư: x', '2026-08-11'),
+  ('t08-w5b', 'UNIST-9b344d2867', 'extend', 20000, 'Đóng học phí lớp t08 QG 02 buổi học 2026-08-12. | Số dư: x', '2026-08-12');
 
 INSERT INTO "attendance" ("id", "session_id", "student_id", "status", "tuition_fee", "transaction_id") VALUES
   ('t08-a1-q1', 't08-q1', 't08-s1', 'present', 20000, 't08-w1a'),
@@ -66,7 +71,8 @@ INSERT INTO "attendance" ("id", "session_id", "student_id", "status", "tuition_f
   ('t08-a3-q1', 't08-q1', 't08-s3', 'present', 20000, 't08-w3a'),
   ('t08-a3-q2', 't08-q2', 't08-s3', 'present', 20000, 't08-w3b'),
   ('t08-a3-q3', 't08-q3', 't08-s3', 'present', 20000, 't08-w3c'),
-  ('t08-a4-p1', 't08-p1', 't08-s4', 'present', 91400, 't08-w4a');
+  ('t08-a4-p1', 't08-p1', 't08-s4', 'present', 91400, 't08-w4a'),
+  ('t08-a5-q2', 't08-q2', 'UNIST-9b344d2867', 'present', 20000, 't08-w5b');
 
 \i prisma/schema/migrations/20261004000000_one_time_course_setting/migration.sql
 
@@ -87,6 +93,19 @@ BEGIN
     RAISE EXCEPTION 'lớp sai: %', v;
   END IF;
 
+  -- Giảm giá đăng ký chung: gói riêng 1.6tr → 1.44tr; học sinh khác giữ gói riêng.
+  SELECT string_agg("id" || ':' || COALESCE("custom_tuition_package_total"::text, '-'), ',' ORDER BY "id") INTO v
+    FROM "student_classes" WHERE "id" LIKE 't08-%';
+  IF v IS DISTINCT FROM 't08-sc1:0,t08-sc2:1000000,t08-sc3:-,t08-sc4:-,t08-sc5:1440000' THEN
+    RAISE EXCEPTION 'gói riêng sai: %', v;
+  END IF;
+
+  -- s5 (giảm giá): 0 + 20k − 1.44tr.
+  SELECT "account_balance"::text INTO v FROM "student_info" WHERE "id" = 'UNIST-9b344d2867';
+  IF v IS DISTINCT FROM '-1420000' THEN
+    RAISE EXCEPTION 'số dư học sinh giảm giá sai: %', v;
+  END IF;
+
   -- s1: 100k + (20+20+20+40 − 20 hoàn) − 1.6tr gói lớp (gói riêng 0đ = không có).
   -- s2: 0 + 40k − 1tr gói riêng. s3 nghỉ: không đổi. s4: 200k + 91.4k − 3tr.
   SELECT string_agg("id" || ':' || "account_balance", ',' ORDER BY "id") INTO v
@@ -105,17 +124,18 @@ BEGIN
   SELECT string_agg(w."student_id" || ':' || w."type" || ':' || w."amount" || ':' || w."date"
       || ':' || (w."created_at" AT TIME ZONE 'Asia/Ho_Chi_Minh')::text, ',' ORDER BY w."student_id") INTO v
     FROM "wallet_transactions_history" w
-    WHERE w."student_id" LIKE 't08-%' AND w."id" NOT LIKE 't08-%';
+    WHERE (w."student_id" LIKE 't08-%' OR w."student_id" = 'UNIST-9b344d2867') AND w."id" NOT LIKE 't08-%';
   IF v IS DISTINCT FROM
     't08-s1:extend:1600000:2026-08-10:2026-08-10 18:00:00,'
     || 't08-s2:extend:1000000:2026-08-12:2026-08-12 18:00:00,'
-    || 't08-s4:extend:3000000:2026-08-11:2026-08-11 19:30:00' THEN
+    || 't08-s4:extend:3000000:2026-08-11:2026-08-11 19:30:00,'
+    || 'UNIST-9b344d2867:extend:1440000:2026-08-12:2026-08-12 18:00:00' THEN
     RAISE EXCEPTION 'giao dịch gói sai: %', v;
   END IF;
 
   -- Điểm danh không bị cascade xoá theo giao dịch.
   SELECT count(*) INTO n FROM "attendance" WHERE "id" LIKE 't08-%';
-  IF n <> 10 THEN
+  IF n <> 11 THEN
     RAISE EXCEPTION 'mất dòng điểm danh: còn %', n;
   END IF;
 
@@ -128,22 +148,22 @@ BEGIN
     't08-a1-q1:1600000:20000:new,t08-a1-q2:0:20000:none,t08-a1-q3:0:20000:none,'
     || 't08-a2-q1:0:-:none,t08-a2-q2:1000000:20000:new,t08-a2-q3:0:20000:none,'
     || 't08-a3-q1:20000:20000:t08-w3a,t08-a3-q2:20000:20000:t08-w3b,t08-a3-q3:20000:20000:t08-w3c,'
-    || 't08-a4-p1:3000000:91400:new' THEN
+    || 't08-a4-p1:3000000:91400:new,t08-a5-q2:1440000:20000:new' THEN
     RAISE EXCEPTION 'điểm danh sai: %', v;
   END IF;
 
   -- Link điểm danh trỏ đúng giao dịch gói của học sinh đó.
   SELECT count(*) INTO n
     FROM "attendance" a JOIN "wallet_transactions_history" w ON w."id" = a."transaction_id"
-    WHERE a."id" IN ('t08-a1-q1', 't08-a2-q2', 't08-a4-p1')
+    WHERE a."id" IN ('t08-a1-q1', 't08-a2-q2', 't08-a4-p1', 't08-a5-q2')
       AND w."student_id" = a."student_id" AND w."amount" = a."tuition_fee";
-  IF n <> 3 THEN
+  IF n <> 4 THEN
     RAISE EXCEPTION 'link giao dịch gói sai: %', n;
   END IF;
 
   SELECT string_agg("id" || ':' || "tuition_fee", ',' ORDER BY "id") INTO v
     FROM "sessions" WHERE "id" LIKE 't08-%';
-  IF v IS DISTINCT FROM 't08-p1:3000000,t08-q1:1620000,t08-q2:1020000,t08-q3:20000' THEN
+  IF v IS DISTINCT FROM 't08-p1:3000000,t08-q1:1620000,t08-q2:2460000,t08-q3:20000' THEN
     RAISE EXCEPTION 'học phí buổi sai: %', v;
   END IF;
 END $$;

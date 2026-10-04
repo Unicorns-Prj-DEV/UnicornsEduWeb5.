@@ -24,6 +24,7 @@ ADR 2026-10-02 nhận diện lớp bán một lần qua tên khoá (`THPTQG`, `P
 - **Backfill (migration `20261004000000_one_time_course_setting`):**
   - Chỉ lớp THPTQG 02 (`UNICL-c1f789b32e`, chuyển sang khoá THPTQG) và PREVOI 02 (`UNICL-dc32916487`), chọn theo id.
   - Chỉ học sinh `student_classes.status = active`. Học sinh nghỉ giữ nguyên lịch sử theo buổi.
+  - Hai học sinh THPTQG 02 đăng ký chung (`UNIST-9b344d2867`, `UNIST-c17f8016fe`) được giảm: migration đặt gói riêng `custom_tuition_package_total = 1.440.000` (trước 1.600.000) trước khi tính gói.
   - Hoàn theo sổ ví, xoá hẳn mọi giao dịch trừ/hoàn học phí của lớp. Giao dịch được nhận ra qua `attendance.transaction_id` hoặc qua note đúng mẫu `Đóng học phí lớp <lớp> buổi học …` / `Hoàn trả số dư lớp <lớp> buổi học …`.
   - Ghi đúng một giao dịch `extend` bằng gói, `date`/`created_at` là buổi present/excused đầu tiên.
   - Số dư mới = số dư cũ + (đã trừ − đã hoàn) − gói, chấp nhận âm.
@@ -41,7 +42,7 @@ ADR 2026-10-02 nhận diện lớp bán một lần qua tên khoá (`THPTQG`, `P
 
 - Doanh thu THPTQG 02 và PREVOI 02 dồn về tháng của buổi đầu (tháng 8 và 9/2026), nên lợi nhuận các tháng đó đổi.
 - Hoa hồng trợ lí 3% và CSKH đọc `attendance.payroll_basis_tuition_fee`, nên giữ số cũ. Trợ cấp gia sư không đổi.
-- Trên bản sao prod, sáu học sinh âm số dư sau backfill (PREVOI 02: 2, THPTQG 02: 4).
+- Trên bản sao prod, bốn học sinh âm số dư sau backfill (PREVOI 02: 2, THPTQG 02: 2).
 - Xoá giao dịch không có bản ghi đối soát trong DB. Phải dump prod ngay trước deploy và giữ bản đó.
 - `attendance.transaction_id` là FK `ON DELETE CASCADE`. Migration gỡ link trước khi xoá giao dịch, để dòng điểm danh không bị xoá theo.
 - Logic thu ở buổi mới giữ nguyên từ ADR cũ: thu ở dòng present/excused đầu tiên mang học phí > 0, khoá advisory lock theo lớp.
