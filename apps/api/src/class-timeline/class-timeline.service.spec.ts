@@ -71,6 +71,38 @@ describe('ClassTimelineService — soft hide', () => {
     );
   });
 
+  it('staff list shows session teacher as họ đệm + tên', async () => {
+    mockPrisma.classTimelineItem.findMany.mockResolvedValue([
+      {
+        id: 'tl-s1',
+        kind: 'session',
+        sortOrder: 0,
+        hiddenAt: null,
+        classContentItem: null,
+        classSurvey: null,
+        session: {
+          id: 'ses-1',
+          date: new Date('2026-10-01T00:00:00.000Z'),
+          notes: null,
+          teacherPaymentStatus: 'unpaid',
+          coefficient: null,
+          trainingManagerAllowanceAmount: null,
+          class: { name: 'Lớp A' },
+          makeupScheduleEvent: null,
+          teacher: { user: { first_name: 'Phương', last_name: 'Vũ Minh' } },
+          attendance: [],
+        },
+      },
+    ]);
+
+    const rows = await service.listForStaff('cls-1', adminActor);
+
+    expect(rows[0].session).toMatchObject({
+      teacherName: 'Vũ Minh Phương',
+      teacher: { fullName: 'Vũ Minh Phương' },
+    });
+  });
+
   it('student list omits hidden timeline items', async () => {
     mockPrisma.studentClass.findFirst.mockResolvedValue({
       id: 'sc-1',

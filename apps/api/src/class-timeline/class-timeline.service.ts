@@ -10,6 +10,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import type { ActionHistoryActor } from 'src/course-content/course-content.service';
 import { NOT_ARCHIVED_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';
+import { getUserFullNameFromParts } from 'src/common/user-name.util';
 import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
@@ -377,16 +378,14 @@ export class ClassTimelineService {
   }
 }
 
-/** Ghép họ tên staff từ quan hệ `teacher.user` (StaffInfo không có cột fullName). */
+/**
+ * Họ tên staff từ quan hệ `teacher.user` (StaffInfo không có cột fullName), theo thứ tự
+ * Việt Nam: họ + đệm (`last_name`) rồi tên (`first_name`).
+ */
 function staffFullName(
   staff: { user?: { first_name: string | null; last_name: string | null } | null } | null,
 ): string | null {
-  if (!staff?.user) return null;
-  const name = [staff.user.first_name, staff.user.last_name]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-  return name || null;
+  return getUserFullNameFromParts(staff?.user);
 }
 
 function formatTime(value: Date | null): string | null {
