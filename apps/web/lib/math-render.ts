@@ -91,3 +91,29 @@ export function renderMathInHtml(html: string): string {
     })
     .join("");
 }
+
+export type LatexPreview =
+  | { ok: true; html: string }
+  | { ok: false; message: string };
+
+/**
+ * Render một công thức LaTeX để xem trước khi chèn vào editor.
+ * Trả `null` khi chưa nhập gì; lỗi cú pháp trả message KaTeX thay vì HTML đỏ.
+ */
+export function renderLatexPreview(
+  latex: string,
+  displayMode: boolean,
+): LatexPreview | null {
+  const tex = latex.trim();
+  if (!tex) return null;
+  try {
+    return {
+      ok: true,
+      html: katex.renderToString(tex, { displayMode, throwOnError: true }),
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message.replace(/^KaTeX parse error:\s*/, "") : "";
+    return { ok: false, message: message || "Công thức không hợp lệ." };
+  }
+}
