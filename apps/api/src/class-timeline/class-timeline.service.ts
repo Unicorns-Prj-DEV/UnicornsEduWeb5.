@@ -136,61 +136,6 @@ export class ClassTimelineService {
     };
   }
 
-  async reorder(
-    classId: string,
-    orderedIds: string[],
-    actor: ActionHistoryActor,
-  ): Promise<ClassTimelineItemDto[]> {
-    const mode = await this.validateStaffClassAccess(classId, actor);
-    if (mode === 'customer_care' || mode === 'training_manager') {
-      throw new ForbiddenException('Bạn không được sắp xếp timeline lớp.');
-    }
-    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-      throw new BadRequestException('orderedIds is required');
-    }
-
-    // Dòng của tiết đã lưu trữ không hiện nên không nằm trong payload; giữ sortOrder cũ.
-    const owned = await this.prisma.classTimelineItem.findMany({
-      where: { classId, ...NOT_ARCHIVED_TIMELINE_ITEM },
-      select: { id: true },
-    });
-    const uniqueOrdered = new Set(orderedIds);
-    if (uniqueOrdered.size !== orderedIds.length) {
-      throw new BadRequestException(
-        'Reorder payload contains duplicate IDs',
-      );
-    }
-    if (owned.length !== orderedIds.length) {
-      throw new BadRequestException(
-        'Reorder must include every timeline item exactly once',
-      );
-    }
-    const ownedIds = new Set(owned.map((row) => row.id));
-    for (const id of orderedIds) {
-      if (!ownedIds.has(id)) {
-        throw new BadRequestException(
-          'Some IDs do not belong to this class timeline',
-        );
-      }
-    }
-
-    await this.prisma.$transaction(
-      [
-        this.prisma.class.update({
-          where: { id: classId },
-          data: { timelineCustomOrder: true },
-        }),
-        ...orderedIds.map((id, idx) =>
-          this.prisma.classTimelineItem.update({
-            where: { id },
-            data: { sortOrder: idx },
-          }),
-        ),
-      ],
-    );
-    return this.listForStaff(classId, actor);
-  }
-
   async findStudentIdByUserId(userId: string): Promise<string | null> {
     const student = await this.prisma.studentInfo.findUnique({
       where: { userId },

@@ -319,7 +319,6 @@ describe('CourseContentService — ClassContent methods', () => {
     it('rolls back when timeline append fails mid-create — no leftover content item', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({
         id: 'cls-1',
-        timelineCustomOrder: false,
       });
       mockPrisma.lesson.findUnique.mockResolvedValue({
         id: 'topic-practice',
@@ -370,7 +369,6 @@ describe('CourseContentService — ClassContent methods', () => {
             class: {
               findUnique: jest.fn().mockResolvedValue({
                 id: 'cls-1',
-                timelineCustomOrder: false,
               }),
             },
             classTimelineItem: {
@@ -654,7 +652,7 @@ describe('CourseContentService — ClassContent methods', () => {
 
       expect(mockPrisma.classContentItem.update).toHaveBeenCalledWith({
         where: { id: 'cci-1' },
-        data: { hiddenAt: null, hiddenByStaffId: null },
+        data: { hiddenAt: null, hiddenByStaffId: null, hiddenReason: null },
       });
       expect(mockPrisma.classTimelineItem.updateMany).toHaveBeenCalledWith({
         where: { classContentItemId: 'cci-1' },
@@ -832,7 +830,7 @@ describe('CourseContentService — ClassContent methods', () => {
   });
 
   describe('listClassContentGroups', () => {
-    it('groups class content by module with removed-module flag', async () => {
+    it('groups by the class module order and drops items of removed modules', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classContentItem.findMany.mockResolvedValue([
         {
@@ -841,6 +839,7 @@ describe('CourseContentService — ClassContent methods', () => {
           kind: 'lesson',
           sortOrder: 0,
           classId: 'cls-1',
+          hiddenAt: new Date(),
           lesson: {
             title: 'Đề',
             kind: 'practice',
@@ -864,28 +863,21 @@ describe('CourseContentService — ClassContent methods', () => {
           },
         },
       ]);
-      mockPrisma.module.findMany.mockResolvedValue([
-        { id: 'm-1', title: 'Một', sortOrder: 1, classModules: [{ id: 'cm' }] },
-        { id: 'm-old', title: 'Cũ', sortOrder: 0, classModules: [] },
+      // Thứ tự lớp ngược thứ tự khoá: m-2 (khoá 2) lên trước m-1 (khoá 1).
+      mockPrisma.classModule.findMany.mockResolvedValue([
+        { sortOrder: 1, module: { id: 'm-1', title: 'Một' } },
+        { sortOrder: 0, module: { id: 'm-2', title: 'Hai' } },
       ]);
 
       const groups = await service.listClassContentGroups('cls-1', adminActor);
 
-      expect(mockPrisma.module.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            OR: [
-              { classModules: { some: { classId: 'cls-1' } } },
-              { id: { in: ['m-old', 'm-1'] } },
-            ],
-          },
-        }),
+      expect(mockPrisma.classModule.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { classId: 'cls-1' } }),
       );
       expect(groups.map((g) => [g.moduleId, g.added])).toEqual([
-        ['m-old', false],
+        ['m-2', true],
         ['m-1', true],
       ]);
-      expect(groups[0].practiceItems[0].id).toBe('cci-p');
       expect(groups[1].theoryItems[0].moduleId).toBe('m-1');
     });
   });
@@ -1030,9 +1022,9 @@ describe('CourseContentService — ClassContent methods', () => {
           },
         },
       ]);
-      mockPrisma.module.findMany.mockResolvedValue([
-        { id: 'm-1', title: 'Một', sortOrder: 0, classModules: [{ id: 'a' }] },
-        { id: 'm-2', title: 'Hai', sortOrder: 1, classModules: [{ id: 'b' }] },
+      mockPrisma.classModule.findMany.mockResolvedValue([
+        { sortOrder: 0, module: { id: 'm-1', title: 'Một' } },
+        { sortOrder: 1, module: { id: 'm-2', title: 'Hai' } },
       ]);
 
       const groups = await service.listClassContentGroupsForStudent(
@@ -1065,7 +1057,7 @@ describe('CourseContentService — ClassContent methods', () => {
       await expect(
         service.listClassContentGroupsForStudent('cls-1', 'stu-x'),
       ).rejects.toThrow(ForbiddenException);
-      expect(mockPrisma.module.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.classModule.findMany).not.toHaveBeenCalled();
     });
   });
 

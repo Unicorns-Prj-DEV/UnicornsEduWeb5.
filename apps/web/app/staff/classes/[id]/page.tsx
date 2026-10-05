@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useCallback, useMemo, useState } from "react";
 import {
   keepPreviousData,
@@ -28,7 +28,8 @@ import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
-import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
+import ClassModulesTab from "@/components/admin/class/ClassModulesTab";
+import ClassTabList from "@/components/class-timeline/ClassTabList";
 import {
   ClassDetailHero,
   ClassStatusBadge,
@@ -51,6 +52,7 @@ import type {
 import type {
   MissedTeachingAlert,
   SessionCreatePayload,
+  SessionItem,
   SessionUpdatePayload,
 } from "@/dtos/session.dto";
 import { getFullProfile } from "@/lib/apis/auth.api";
@@ -60,7 +62,12 @@ import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
-import { classTimelineKeys } from "@/lib/query-keys";
+import {
+  CLASS_DETAIL_TAB_LABELS,
+  CLASS_DETAIL_TABS,
+} from "@/lib/class-detail-tabs";
+import { useClassDetailTab } from "@/hooks/use-class-detail-tab";
+import { cn } from "@/lib/utils";
 import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
@@ -329,7 +336,10 @@ export default function StaffClassDetailPage() {
   const [addSessionPopupOpen, setAddSessionPopupOpen] = useState(false);
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
+  const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
+  const [activeTab, selectTab] = useClassDetailTab();
 
+  const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
   const classDetailQueryKey = useMemo(() => staffOpsKeys.classDetail(id), [id]);
   const missedAlertsQueryKey = useMemo(
     () => ["staff-ops", "class", id, "missed-teaching-alerts"] as const,
@@ -399,10 +409,42 @@ export default function StaffClassDetailPage() {
     placeholderData: keepPreviousData,
     retry: false,
   });
+  const {
+    data: sessions = [],
+    isLoading: isSessionsLoading,
+    isFetching: isSessionsFetching,
+    isError: isSessionsError,
+  } = useQuery<SessionItem[]>({
+    queryKey: staffOpsKeys.classSessions(id, selectedYear, selectedMonthValue),
+    queryFn: () =>
+      staffOpsApi.getSessionsByClassId(id, {
+        month: selectedMonthValue,
+        year: selectedYear,
+      }),
+    enabled: !!id && canAccessClassWorkspace && activeTab === "buoi-hoc",
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+  const {
+    data: surveys = [],
+    isLoading: isSurveysLoading,
+    isFetching: isSurveysFetching,
+    isError: isSurveysError,
+  } = useQuery({
+    queryKey: staffOpsKeys.classSurveys(id, selectedYear, selectedMonthValue),
+    queryFn: () =>
+      staffOpsApi.getClassSurveys(id, {
+        month: selectedMonthValue,
+        year: selectedYear,
+      }),
+    enabled: !!id && canAccessClassWorkspace && activeTab === "buoi-hoc",
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
   const { data: availableSurveys = [] } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
-    enabled: canAccessClassWorkspace,
+    enabled: canAccessClassWorkspace && activeTab === "buoi-hoc",
     staleTime: 60_000,
   });
 
@@ -450,7 +492,7 @@ export default function StaffClassDetailPage() {
   const teacherCount = classDetail?.teachers?.length ?? 0;
   const canManageSchedule = isTeacherWorkspaceActor;
   const canManageSessions = isTeacherWorkspaceActor;
-  const teacherScopedSessionLabel = usesTeacherScope ? "Buổi bạn dạy trong tháng" : "Buổi trong tháng";
+  const teacherScopedHistorySummary = usesTeacherScope ? "Tổng số buổi bạn dạy" : "Tổng số buổi";
   const teacherScopedEmptyText = usesTeacherScope
     ? "Bạn chưa dạy buổi nào trong tháng này."
     : "Không có buổi học trong tháng này.";
@@ -505,8 +547,7 @@ export default function StaffClassDetailPage() {
 
   const invalidateSessionQueries = useCallback(async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) }),
-      queryClient.invalidateQueries({ queryKey: ["class-timeline-sessions", id] }),
+      queryClient.invalidateQueries({ queryKey: ["staff-ops", "sessions", "class", id] }),
       queryClient.invalidateQueries({ queryKey: missedAlertsQueryKey }),
     ]);
   }, [id, missedAlertsQueryKey, queryClient]);
@@ -599,8 +640,7 @@ export default function StaffClassDetailPage() {
   const handleCreateSurvey = useCallback(
     async (payload: CreateClassSurveyPayload) => {
       await staffOpsApi.createClassSurvey(id, payload);
-      await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
-      await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-ops", "surveys", "class", id] });
       // Nộp xong là gỡ chặn khảo sát sắp hạn ngay, không đợi staleTime của popup.
       await queryClient.invalidateQueries({ queryKey: ["surveys", "my-warnings"] });
     },
@@ -610,8 +650,7 @@ export default function StaffClassDetailPage() {
   const handleUpdateSurvey = useCallback(
     async (surveyId: string, payload: UpdateClassSurveyPayload) => {
       await staffOpsApi.updateClassSurvey(id, surveyId, payload);
-      await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
-      await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-ops", "surveys", "class", id] });
     },
     [id, queryClient],
   );
@@ -619,8 +658,7 @@ export default function StaffClassDetailPage() {
   const handleDeleteSurvey = useCallback(
     async (surveyId: string) => {
       await staffOpsApi.deleteClassSurvey(id, surveyId);
-      await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
-      await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-ops", "surveys", "class", id] });
     },
     [id, queryClient],
   );
@@ -1048,69 +1086,148 @@ export default function StaffClassDetailPage() {
           title={usesTeacherScope ? "Lịch sử & Nội dung của bạn" : "Lịch sử & Nội dung"}
           className="w-full"
         >
-          <ClassTimelineManager
-            classId={id}
-            canCreateSession={canCreateSession}
-            canManageSurveys={canManageSurveys}
-            canManageContent={canManageSessions}
-            canReorder={canManageSessions}
-            practiceActionsBasePath={`/staff/classes/${id}`}
-            onCreateSession={() => setAddSessionPopupOpen(true)}
-            fetchSessions={staffOpsApi.getSessionsByClassId}
-            fetchSurveys={staffOpsApi.getClassSurveys}
-            sessionTable={({ sessions, autoOpenSessionId, autoOpenToken }) => (
-              <SessionHistoryTable
-                sessions={sessions}
-                hideList
-                autoOpenSessionId={autoOpenSessionId}
-                autoOpenToken={autoOpenToken}
-                entityMode="teacher"
-                variant="classDetail"
-                statusMode="payment"
-                emptyText={teacherScopedEmptyText}
-                editorLayout="wide"
-                showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
-                teachers={popupTeachers}
-                getClassStudents={getClassStudentsForEditor}
-                getClassDetailForEdit={getClassDetailForEdit}
-                allowTeacherSelection={false}
-                allowFinancialEdits={false}
-                allowPaymentStatusEdit={false}
-                allowDeleteSession={false}
-                readOnlySessionDetails={
-                  canOpenReadonlyClassForms || !canManageSessions
-                }
-                showTrainingManagerAllowance={isTrainingView}
-                updateSessionFn={handleUpdateSession}
+          <div className="mb-3 flex flex-col gap-3">
+            <ClassTabList
+              tabs={CLASS_DETAIL_TABS}
+              labels={CLASS_DETAIL_TAB_LABELS}
+              activeTab={activeTab}
+              onSelect={selectTab}
+              idPrefix="staff-class-detail-tab"
+              panelId="staff-class-detail-tabpanel"
+              ariaLabel="Buổi học hoặc chuyên đề"
+            />
+
+            {activeTab === "buoi-hoc" ? (
+              <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-1.5">
+                <MonthNav
+                  value={selectedMonth}
+                  onChange={setSelectedMonth}
+                  monthPopupOpen={monthPopupOpen}
+                  setMonthPopupOpen={setMonthPopupOpen}
+                  countLabel={`${teacherScopedHistorySummary}: ${sessions.length + surveys.length}`}
+                  actionButton={
+                    canCreateSession || canManageSurveys ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {canCreateSession ? (
+                          <button
+                            type="button"
+                            onClick={() => setAddSessionPopupOpen(true)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-text-inverse shadow-sm transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <PlusIcon className="size-3.5 shrink-0" aria-hidden />
+                            <span>Tạo buổi học</span>
+                          </button>
+                        ) : null}
+                        {canManageSurveys ? (
+                          <button
+                            type="button"
+                            onClick={() => setAddSurveyPopupOpen(true)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <PlusIcon className="size-3.5 shrink-0" aria-hidden />
+                            <span>Tạo khảo sát</span>
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <section
+            id="staff-class-detail-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`staff-class-detail-tab-${activeTab}`}
+          >
+            {activeTab === "buoi-hoc" ? (
+              <>
+                <QueryRefreshStrip
+                  active={
+                    (isSessionsFetching || isSurveysFetching) &&
+                    !(isSessionsLoading || isSurveysLoading)
+                  }
+                  label="Đang tải lại dữ liệu…"
+                  className="mb-3"
+                />
+                {isSurveysLoading ? (
+                  <SessionHistoryTableSkeleton
+                    rows={3}
+                    entityMode="teacher"
+                    variant="classDetail"
+                    showActionsColumn={false}
+                  />
+                ) : (
+                  <ClassSurveyPanel
+                    className={classDetail.name}
+                    surveys={surveys}
+                    availableSurveys={availableSurveys}
+                    teachers={popupTeachers}
+                    students={popupStudents}
+                    loading={isSurveysLoading}
+                    fetching={isSurveysFetching}
+                    error={isSurveysError}
+                    canManage={canManageSurveys}
+                    canViewDetails={canOpenReadonlyClassForms}
+                    createOpen={addSurveyPopupOpen}
+                    onCreateOpenChange={setAddSurveyPopupOpen}
+                    defaultTeacherId={defaultTeacherId}
+                    onCreate={handleCreateSurvey}
+                    onUpdate={handleUpdateSurvey}
+                    onDelete={handleDeleteSurvey}
+                  />
+                )}
+                {isSurveysError ? (
+                  <p className="mt-3 text-sm text-error">Không tải được khảo sát.</p>
+                ) : null}
+
+                <div className="mt-6">
+                  {isSessionsLoading ? (
+                    <SessionHistoryTableSkeleton
+                      rows={5}
+                      entityMode="teacher"
+                      variant="classDetail"
+                      showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                    />
+                  ) : (
+                    <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
+                      <SessionHistoryTable
+                        sessions={sessions}
+                        entityMode="teacher"
+                        variant="classDetail"
+                        statusMode="payment"
+                        emptyText={teacherScopedEmptyText}
+                        editorLayout="wide"
+                        showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                        teachers={popupTeachers}
+                        getClassStudents={getClassStudentsForEditor}
+                        getClassDetailForEdit={getClassDetailForEdit}
+                        allowTeacherSelection={false}
+                        allowFinancialEdits={false}
+                        allowPaymentStatusEdit={false}
+                        allowDeleteSession={false}
+                        readOnlySessionDetails={
+                          canOpenReadonlyClassForms || !canManageSessions
+                        }
+                        showTrainingManagerAllowance={isTrainingView}
+                        updateSessionFn={handleUpdateSession}
+                      />
+                    </div>
+                  )}
+                  {isSessionsError ? (
+                    <p className="mt-3 text-sm text-error">Không tải được lịch sử buổi học.</p>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <ClassModulesTab
+                classId={id}
+                canManageContent={canManageSessions}
+                practiceActionsBasePath={`/staff/classes/${id}`}
               />
             )}
-            surveyPanel={({
-              surveys,
-              autoOpenSurveyId,
-              autoOpenToken,
-              createOpen,
-              onCreateOpenChange,
-            }) => (
-              <ClassSurveyPanel
-                className={classDetail.name}
-                surveys={surveys}
-                availableSurveys={availableSurveys}
-                teachers={popupTeachers}
-                students={popupStudents}
-                hideList
-                autoOpenSurveyId={autoOpenSurveyId}
-                autoOpenToken={autoOpenToken}
-                canManage={canManageSurveys}
-                canViewDetails={canOpenReadonlyClassForms}
-                createOpen={createOpen}
-                onCreateOpenChange={onCreateOpenChange}
-                defaultTeacherId={defaultTeacherId}
-                onCreate={handleCreateSurvey}
-                onUpdate={handleUpdateSurvey}
-                onDelete={handleDeleteSurvey}
-              />
-            )}
-          />
+          </section>
         </ClassCard>
       </div>
     </div>

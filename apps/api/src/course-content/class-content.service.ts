@@ -18,6 +18,7 @@ import {
   TheoryLessonViewResponseDto,
 } from 'src/dtos/course-content.dto';
 import {
+  ClassContentHiddenReason,
   LessonKind,
   ClassTimelineItemKind,
   StudentClassStatus,
@@ -466,8 +467,8 @@ export class ClassContentService extends CourseContentSupportService {
   }
 
   /**
-   * Trang lớp học sinh, tab Chuyên đề: cùng cách gom như staff nhưng chỉ item học
-   * sinh thấy (bỏ item ẩn, tiết lưu trữ). Chuyên đề đã gỡ chỉ còn nếu còn lần giao.
+   * Trang lớp học sinh, tab Chuyên đề: cùng cách gom và thứ tự nhóm như staff nhưng chỉ
+   * item học sinh thấy (bỏ item ẩn, tiết lưu trữ).
    */
   async listClassContentGroupsForStudent(
     classId: string,
@@ -481,30 +482,22 @@ export class ClassContentService extends CourseContentSupportService {
     classId: string,
     items: ClassContentItemResponseDto[],
   ): Promise<ClassContentModuleGroupDto[]> {
-    const itemModuleIds = [
-      ...new Set(items.flatMap((item) => item.moduleId ?? [])),
-    ];
-    const modules = await this.prisma.module.findMany({
-      where: {
-        OR: [
-          { classModules: { some: { classId } } },
-          { id: { in: itemModuleIds } },
-        ],
-      },
+    // Chỉ chuyên đề lớp đang có, theo thứ tự của lớp. Item chuyên đề đã gỡ đều đã ẩn
+    // (coi như chưa từng thêm) nên không có nhóm.
+    const classModules = await this.prisma.classModule.findMany({
+      where: { classId },
       select: {
-        id: true,
-        title: true,
         sortOrder: true,
-        classModules: { where: { classId }, select: { id: true } },
+        module: { select: { id: true, title: true } },
       },
     });
     return groupClassContentByModule(
       items,
-      modules.map((courseModule) => ({
-        id: courseModule.id,
-        title: courseModule.title,
-        sortOrder: courseModule.sortOrder,
-        added: courseModule.classModules.length > 0,
+      classModules.map((classModule) => ({
+        id: classModule.module.id,
+        title: classModule.module.title,
+        sortOrder: classModule.sortOrder,
+        added: true,
       })),
     );
   }
@@ -680,10 +673,11 @@ export class ClassContentService extends CourseContentSupportService {
     }
     const hiddenAt = item.hiddenAt ?? new Date();
     const hiddenByStaffId = await this.resolveHiddenByStaffId(actor);
+    const hiddenReason = item.hiddenReason ?? ClassContentHiddenReason.manual;
     await this.prisma.$transaction([
       this.prisma.classContentItem.update({
         where: { id: itemId },
-        data: { hiddenAt, hiddenByStaffId },
+        data: { hiddenAt, hiddenByStaffId, hiddenReason },
       }),
       this.prisma.classTimelineItem.updateMany({
         where: { classContentItemId: itemId },
@@ -715,7 +709,7 @@ export class ClassContentService extends CourseContentSupportService {
     await this.prisma.$transaction([
       this.prisma.classContentItem.update({
         where: { id: itemId },
-        data: { hiddenAt: null, hiddenByStaffId: null },
+        data: { hiddenAt: null, hiddenByStaffId: null, hiddenReason: null },
       }),
       this.prisma.classTimelineItem.updateMany({
         where: { classContentItemId: itemId },
@@ -729,8 +723,8 @@ export class ClassContentService extends CourseContentSupportService {
   }
 
   /**
-   * Tiết đã lưu trữ không khôi phục được. Tiết lý thuyết chỉ hiện lại khi lớp còn
-   * chuyên đề chứa nó — muốn hiện lại cả chuyên đề thì thêm lại chuyên đề.
+   * Tiết đã lưu trữ không khôi phục được. Item thuộc chuyên đề (lý thuyết lẫn lần giao)
+   * chỉ hiện lại khi lớp còn chuyên đề đó — muốn hiện lại cả chuyên đề thì thêm lại chuyên đề.
    */
   private async assertClassContentRestorable(
     classId: string,
@@ -745,7 +739,7 @@ export class ClassContentService extends CourseContentSupportService {
         'Tiết học đã được lưu trữ, không khôi phục vào lớp được.',
       );
     }
-    if (lesson?.kind !== LessonKind.theory || !lesson.moduleId) return;
+    if (!lesson?.moduleId) return;
     const classModule = await this.prisma.classModule.findUnique({
       where: {
         classId_moduleId: { classId, moduleId: lesson.moduleId },

@@ -6,6 +6,7 @@ import type {
 export interface GroupableModule {
   id: string;
   title: string;
+  /** Thứ tự nhóm của lớp (`class_modules.sort_order`). */
   sortOrder: number;
   /** Lớp đang thêm chuyên đề này. */
   added: boolean;
@@ -16,8 +17,9 @@ export const UNGROUPED_CONTENT_TITLE = 'Ngoài chuyên đề';
 /**
  * Gom nội dung lớp theo chuyên đề. `items` đã sắp bằng `compareClassContentItems`
  * (lý thuyết theo `order`, rồi thực hành theo `sortOrder` item) nên giữ nguyên thứ tự.
- * Nhóm: chuyên đề lớp đã thêm (kể cả rỗng) + chuyên đề đã gỡ còn item, theo
- * `sortOrder` chuyên đề; item không có chuyên đề vào nhóm cuối `moduleId: null`.
+ * Nhóm: chỉ chuyên đề lớp đang có (kể cả rỗng), theo thứ tự nhóm của lớp; item của
+ * chuyên đề đã gỡ bị bỏ (coi như chưa từng thêm). Item không có chuyên đề vào nhóm cuối
+ * `moduleId: null`.
  */
 export function groupClassContentByModule(
   items: ClassContentItemResponseDto[],
@@ -49,7 +51,7 @@ export function groupClassContentByModule(
   };
 
   const groups = modules
-    .filter((module) => module.added || byModule.has(module.id))
+    .filter((module) => module.added)
     .toSorted((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
     .map((module) => toGroup(module.id, module.title, module.added));
 

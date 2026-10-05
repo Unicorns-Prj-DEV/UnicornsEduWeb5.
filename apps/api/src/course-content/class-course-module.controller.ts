@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -17,6 +25,8 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { ParseClassIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import {
   ClassModuleAddDto,
+  ClassModuleRemovalImpactDto,
+  ClassModuleReorderDto,
   ClassModuleResponseDto,
 } from 'src/dtos/course-content.dto';
 import { ClassCourseModuleService } from './class-course-module.service';
@@ -53,7 +63,7 @@ export class ClassCourseModuleController {
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
   @ApiOperation({
     summary:
-      'Thêm chuyên đề vào lớp: đưa mọi tiết lý thuyết của chuyên đề vào nội dung lớp (hiện lại tiết đã ẩn). Tiết thực hành không đi theo.',
+      'Thêm chuyên đề vào lớp: nhóm lên đầu, đưa mọi tiết lý thuyết của chuyên đề vào nội dung lớp, hiện lại item bị ẩn do lần gỡ trước (item gia sư tự ẩn giữ nguyên). Tiết thực hành không tự giao.',
   })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiBody({ type: ClassModuleAddDto })
@@ -82,12 +92,64 @@ export class ClassCourseModuleController {
     });
   }
 
+  @Put('order')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @ApiOperation({
+    summary:
+      'Sắp lại thứ tự nhóm chuyên đề của lớp (học sinh thấy cùng thứ tự). Không đổi thứ tự chuyên đề cấp khoá.',
+  })
+  @ApiParam({ name: 'classId', description: 'ID lớp học' })
+  @ApiBody({ type: ClassModuleReorderDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Đã lưu thứ tự; trả danh sách chuyên đề mới.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'moduleIds trùng, thiếu hoặc thừa so với chuyên đề lớp đang có.',
+  })
+  async reorder(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+    @Body() dto: ClassModuleReorderDto,
+  ): Promise<ClassModuleResponseDto[]> {
+    return this.classModules.reorderClassModules(classId, dto.moduleIds, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Get(':moduleId/removal-impact')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @ApiOperation({
+    summary:
+      'Ảnh hưởng nếu gỡ chuyên đề: số câu tự luận chưa chấm và số học sinh đang làm dở lần giao của chuyên đề.',
+  })
+  @ApiParam({ name: 'classId', description: 'ID lớp học' })
+  @ApiParam({ name: 'moduleId', description: 'ID chuyên đề' })
+  @ApiResponse({ status: 200, description: 'Số liệu cảnh báo trước khi gỡ.' })
+  async removalImpact(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+    @Param('moduleId') moduleId: string,
+  ): Promise<ClassModuleRemovalImpactDto> {
+    return this.classModules.getClassModuleRemovalImpact(classId, moduleId, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
   @Delete(':moduleId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
   @ApiOperation({
     summary:
-      'Gỡ chuyên đề khỏi lớp: ẩn mềm các tiết lý thuyết của chuyên đề (giữ lượt xem). Lần giao tiết thực hành giữ nguyên.',
+      'Gỡ chuyên đề khỏi lớp (coi như chưa từng thêm): ẩn mềm tiết lý thuyết và lần giao tiết thực hành của chuyên đề. Bài làm, điểm, lượt xem giữ nguyên.',
   })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiParam({ name: 'moduleId', description: 'ID chuyên đề' })

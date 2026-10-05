@@ -25,8 +25,8 @@ type ClassModulesDialogProps = {
 };
 
 /**
- * Thêm/gỡ Chuyên đề của khoá vào lớp. Thêm chuyên đề kéo mọi tiết lý thuyết của nó;
- * tiết thực hành vẫn giao từng tiết.
+ * Thêm/gỡ Chuyên đề của khoá vào lớp. Thêm chuyên đề kéo mọi tiết lý thuyết của nó và
+ * đưa nhóm lên đầu; tiết thực hành vẫn giao từng tiết. Gỡ = coi như chưa từng thêm.
  */
 export default function ClassModulesDialog({
   classId,
@@ -74,6 +74,17 @@ export default function ClassModulesDialog({
     },
     onError: (error) =>
       toast.error(getMutationErrorMessage(error, "Không gỡ được chuyên đề.")),
+  });
+
+  const removalImpactQuery = useQuery({
+    queryKey: classKeys.moduleRemovalImpact(
+      classId,
+      removeTarget?.moduleId ?? "",
+    ),
+    queryFn: () =>
+      classApi.getClassModuleRemovalImpact(classId, removeTarget!.moduleId),
+    enabled: removeTarget !== null,
+    staleTime: 0,
   });
 
   const busy = addMutation.isPending || removeMutation.isPending;
@@ -148,7 +159,16 @@ export default function ClassModulesDialog({
           if (!open) setRemoveTarget(null);
         }}
         title={`Gỡ chuyên đề “${removeTarget?.title ?? ""}” khỏi lớp?`}
-        description="Các tiết lý thuyết của chuyên đề sẽ ẩn với học sinh (lượt xem giữ nguyên). Lần giao tiết thực hành không đổi."
+        description={
+          <RemovalImpactDescription
+            loading={removalImpactQuery.isLoading}
+            failed={removalImpactQuery.isError}
+            ungradedEssayCount={removalImpactQuery.data?.ungradedEssayCount ?? 0}
+            inProgressStudentCount={
+              removalImpactQuery.data?.inProgressStudentCount ?? 0
+            }
+          />
+        }
         confirmLabel="Gỡ chuyên đề"
         variant="destructive"
         confirmPending={removeMutation.isPending}
@@ -157,6 +177,50 @@ export default function ClassModulesDialog({
         }}
       />
     </ResponsiveDialog>
+  );
+}
+
+/** Nội dung xác nhận gỡ; nằm trong `<p>` của AlertDialog nên chỉ dùng `<span>`. */
+function RemovalImpactDescription({
+  loading,
+  failed,
+  ungradedEssayCount,
+  inProgressStudentCount,
+}: {
+  loading: boolean;
+  failed: boolean;
+  ungradedEssayCount: number;
+  inProgressStudentCount: number;
+}) {
+  const warnings = [
+    ungradedEssayCount > 0
+      ? `${ungradedEssayCount} câu tự luận chưa chấm`
+      : null,
+    inProgressStudentCount > 0
+      ? `${inProgressStudentCount} học sinh đang làm dở`
+      : null,
+  ].filter(Boolean);
+
+  return (
+    <span className="block space-y-2">
+      <span className="block">
+        Nhóm chuyên đề biến mất khỏi lớp: tiết lý thuyết và tiết thực hành đã giao
+        đều ẩn với học sinh. Bài làm, điểm và lượt xem giữ nguyên; thêm lại chuyên
+        đề sẽ hiện lại.
+      </span>
+      {loading ? (
+        <span className="block text-text-muted">Đang kiểm tra bài làm...</span>
+      ) : failed ? (
+        <span className="block text-text-muted">
+          Không kiểm tra được bài làm dở / chưa chấm.
+        </span>
+      ) : warnings.length > 0 ? (
+        <span className="block rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 font-medium text-text-primary">
+          Chuyên đề còn {warnings.join(" và ")}. Sau khi gỡ, trang Chấm bài của
+          các tiết này không còn lối vào cho tới khi thêm lại chuyên đề.
+        </span>
+      ) : null}
+    </span>
   );
 }
 

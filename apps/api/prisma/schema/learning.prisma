@@ -2,6 +2,12 @@ enum ClassContentItemKind {
   lesson
 }
 
+/// Lý do ẩn mềm một item nội dung lớp. Thêm lại chuyên đề chỉ khôi phục `module_removed`.
+enum ClassContentHiddenReason {
+  manual
+  module_removed
+}
+
 enum ClassTimelineItemKind {
   session
   class_survey
@@ -46,6 +52,8 @@ model ClassContentItem {
   /// Null = hiện với học sinh. Có giá trị = ẩn mềm; không xoá Attempt.
   hiddenAt         DateTime?            @map("hidden_at") @db.Timestamptz(6)
   hiddenByStaffId  String?              @map("hidden_by_staff_id")
+  /// Null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ chuyên đề.
+  hiddenReason     ClassContentHiddenReason? @map("hidden_reason")
   createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -84,10 +92,12 @@ model ClassTheoryLessonView {
 /// Chuyên đề mà lớp đã thêm. Thêm chuyên đề đưa mọi tiết lý thuyết của chuyên đề vào nội dung
 /// lớp (một `ClassContentItem` mỗi tiết); tiết lý thuyết thêm/gỡ khỏi chuyên đề về sau tự đồng bộ
 /// sang mọi lớp có dòng ở đây. Tiết thực hành không đi theo (giao từng tiết).
+/// `sortOrder` = thứ tự nhóm chuyên đề của riêng lớp (nhỏ lên trước); không đụng `modules.sort_order`.
 model ClassModule {
   id        String   @id @default(uuid())
   classId   String   @map("class_id")
   moduleId  String   @map("module_id")
+  sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   class  Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -95,6 +105,7 @@ model ClassModule {
 
   @@unique([classId, moduleId])
   @@index([moduleId])
+  @@index([classId, sortOrder])
   @@map("class_modules")
 }
 
@@ -125,8 +136,6 @@ model Class {
   /// Null = vô hạn. Được chốt lúc tạo lớp từ Course.defaultDurationDays,
   /// sau đó admin có thể sửa tay. Sửa Course.defaultDurationDays KHÔNG hồi tố.
   contentAccessExpiresAt        DateTime?                   @map("content_access_expires_at") @db.Date
-  /// false = timeline theo thời gian (tự sắp khi tạo/sửa ngày). true = đã DnD, giữ sort_order.
-  timelineCustomOrder           Boolean                     @default(false) @map("timeline_custom_order")
   /// Path ảnh bìa (tuỳ chọn) trong bucket private `class-covers`, dạng `{classId}/cover.{ext}`.
   /// Null = thẻ lớp hiện mascot theo ID lớp.
   coverImagePath                String?                     @map("cover_image_path")

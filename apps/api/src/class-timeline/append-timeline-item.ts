@@ -36,17 +36,11 @@ function timelineOccurredMs(row: {
   return row.createdAt.getTime();
 }
 
-/** Keep sortOrder chronological until the class has a manual DnD order. */
+/** Sắp lại sortOrder theo thời gian (mới nhất trên). Timeline lớp không sắp tay. */
 export async function syncClassTimelineSortByTime(
   db: Db,
   classId: string,
 ): Promise<void> {
-  const cls = await db.class.findUnique({
-    where: { id: classId },
-    select: { timelineCustomOrder: true },
-  });
-  if (!cls || cls.timelineCustomOrder) return;
-
   const rows = await db.classTimelineItem.findMany({
     where: { classId },
     include: {
@@ -86,30 +80,6 @@ export async function appendClassTimelineItem(
     classContentItemId?: string;
   },
 ): Promise<void> {
-  const cls = await db.class.findUnique({
-    where: { id: input.classId },
-    select: { timelineCustomOrder: true },
-  });
-  const custom = Boolean(cls?.timelineCustomOrder);
-
-  if (custom) {
-    const maxSort = await db.classTimelineItem.aggregate({
-      where: { classId: input.classId },
-      _max: { sortOrder: true },
-    });
-    await db.classTimelineItem.create({
-      data: {
-        classId: input.classId,
-        kind: input.kind,
-        sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
-        sessionId: input.sessionId ?? null,
-        classSurveyId: input.classSurveyId ?? null,
-        classContentItemId: input.classContentItemId ?? null,
-      },
-    });
-    return;
-  }
-
   await db.classTimelineItem.create({
     data: {
       classId: input.classId,
@@ -131,29 +101,13 @@ export async function appendClassTimelineContentItems(
 ): Promise<void> {
   if (classContentItemIds.length === 0) return;
 
-  const cls = await db.class.findUnique({
-    where: { id: classId },
-    select: { timelineCustomOrder: true },
-  });
-  const custom = Boolean(cls?.timelineCustomOrder);
-  const baseSort = custom
-    ? ((
-        await db.classTimelineItem.aggregate({
-          where: { classId },
-          _max: { sortOrder: true },
-        })
-      )._max.sortOrder ?? -1) + 1
-    : 0;
-
   await db.classTimelineItem.createMany({
-    data: classContentItemIds.map((classContentItemId, idx) => ({
+    data: classContentItemIds.map((classContentItemId) => ({
       classId,
       kind: ClassTimelineItemKind.content_item,
-      sortOrder: custom ? baseSort + idx : 0,
+      sortOrder: 0,
       classContentItemId,
     })),
   });
-  if (!custom) {
-    await syncClassTimelineSortByTime(db, classId);
-  }
+  await syncClassTimelineSortByTime(db, classId);
 }

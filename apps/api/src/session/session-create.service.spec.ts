@@ -82,7 +82,7 @@ describe('SessionCreateService', () => {
         createManyAndReturn: jest.fn().mockResolvedValue([]),
       },
       class: {
-        findUnique: jest.fn().mockResolvedValue({ timelineCustomOrder: true }),
+        findUnique: jest.fn().mockResolvedValue({}),
       },
       classTimelineItem: {
         aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),

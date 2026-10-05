@@ -52,7 +52,11 @@ import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
 } from "@/dtos/class-timeline.dto";
-import type { ClassModuleDto, CourseLessonForClassDto } from "@/dtos/course-content.dto";
+import type {
+  ClassModuleDto,
+  ClassModuleRemovalImpactDto,
+  CourseLessonForClassDto,
+} from "@/dtos/course-content.dto";
 
 function normalizeOperatingDeductionRatePercent(
   teacher: Record<string, unknown>,
@@ -508,18 +512,6 @@ export async function getClassTimeline(classId: string): Promise<ClassTimelineIt
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function reorderClassTimeline(
-  classId: string,
-  orderedIds: string[],
-): Promise<ClassTimelineItemDto[]> {
-  const safeId = encodeURIComponent(classId);
-  const response = await api.post<ClassTimelineItemDto[]>(
-    `/class/${safeId}/timeline/reorder`,
-    { orderedIds },
-  );
-  return Array.isArray(response.data) ? response.data : [];
-}
-
 export async function getStudentClassTimeline(
   classId: string,
   params?: { cursor?: string; limit?: number },
@@ -541,7 +533,10 @@ export async function getClassModules(classId: string): Promise<ClassModuleDto[]
   return response.data;
 }
 
-/** Thêm chuyên đề: mọi tiết lý thuyết của chuyên đề vào lớp. Trả danh sách chuyên đề mới. */
+/**
+ * Thêm chuyên đề: nhóm lên đầu, mọi tiết lý thuyết vào lớp, item bị ẩn do lần gỡ trước hiện lại.
+ * Trả danh sách chuyên đề mới.
+ */
 export async function addClassModule(
   classId: string,
   moduleId: string,
@@ -553,7 +548,7 @@ export async function addClassModule(
   return response.data;
 }
 
-/** Gỡ chuyên đề: ẩn mềm các tiết lý thuyết của chuyên đề trong lớp. */
+/** Gỡ chuyên đề (coi như chưa từng thêm): ẩn mềm tiết lý thuyết và lần giao của chuyên đề. */
 export async function removeClassModule(
   classId: string,
   moduleId: string,
@@ -562,6 +557,32 @@ export async function removeClassModule(
   const safeModuleId = encodeURIComponent(moduleId);
   const response = await api.delete<ClassModuleDto[]>(
     `/class/${safeClassId}/modules/${safeModuleId}`,
+  );
+  return response.data;
+}
+
+/** Số bài tự luận chưa chấm + học sinh đang làm dở nếu gỡ chuyên đề. */
+export async function getClassModuleRemovalImpact(
+  classId: string,
+  moduleId: string,
+): Promise<ClassModuleRemovalImpactDto> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeModuleId = encodeURIComponent(moduleId);
+  const response = await api.get<ClassModuleRemovalImpactDto>(
+    `/class/${safeClassId}/modules/${safeModuleId}/removal-impact`,
+  );
+  return response.data;
+}
+
+/** Lưu thứ tự nhóm chuyên đề của lớp (đủ mọi chuyên đề lớp đang có, trên → dưới). */
+export async function reorderClassModules(
+  classId: string,
+  moduleIds: string[],
+): Promise<ClassModuleDto[]> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.put<ClassModuleDto[]>(
+    `/class/${safeId}/modules/order`,
+    { moduleIds },
   );
   return response.data;
 }

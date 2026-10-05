@@ -66,17 +66,16 @@ describe('groupClassContentByModule', () => {
     ]);
   });
 
-  it('shows a removed module only while it still has items', () => {
+  it('drops a removed module even while it still has items', () => {
     const groups = groupClassContentByModule(
-      [item('p1', 'practice', 'm-removed')],
+      [item('p1', 'practice', 'm-removed'), item('t1', 'theory', 'm1')],
       [
         { id: 'm-removed', title: 'Đã gỡ', sortOrder: 0, added: false },
-        { id: 'm-empty', title: 'Rỗng', sortOrder: 1, added: false },
+        { id: 'm1', title: 'Một', sortOrder: 1, added: true },
       ],
     );
 
-    expect(groups).toHaveLength(1);
-    expect(groups[0]).toMatchObject({ moduleId: 'm-removed', added: false });
+    expect(groups.map((g) => g.moduleId)).toEqual(['m1']);
   });
 
   it('puts items without a module in a trailing null group', () => {
