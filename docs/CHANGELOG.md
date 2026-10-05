@@ -127,6 +127,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Lỗi hydration `<p>` lồng `<p>`/`<div>` ở đề câu hỏi học sinh:** `StudentAttemptQuestion` (làm bài) và câu quiz + phần xem lại đáp án trong tiết học (`/student/classes/[id]/lessons/[lessonId]`) bọc `MathContent` (render `<div class="prose"><p>…`) trong `<p>`, HTML không hợp lệ nên trình duyệt tự đóng thẻ, React báo hydration error và «Câu N.» / «… điểm» bị tách khỏi đề. Đổi thẻ bọc sang `<div>`, đoạn Markdown đầu hiện inline để «Câu N.» cùng dòng với đề.
 - **Dashboard admin lọc được theo lương cứng:** popup **Chi tiết Trợ cấp chờ thanh toán** bấm thẻ **Lương cứng chưa thanh toán** trước đây không lọc (FE parse tiền tố ghi chú, thiếu nguồn lương cứng). BE giờ trả `sourceAmounts` cho từng nhân sự như Chi phí nhân sự (`buildStaffPendingPayrollSources`, có test); FE lọc theo khoá thẻ, bỏ bảng tiền tố. Cảnh báo **Nhân sự chưa thanh toán** đếm đủ nguồn (trước bỏ sót trợ lí, QL lớp).
 - **Dashboard — chi phí của nhân sự đã nghỉ:** Trợ cấp chờ thanh toán, cảnh báo Nhân sự chưa thanh toán và dashboard kế toán bỏ lọc `staff_info.status = 'active'`, nên khoản chưa trả của người đã nghỉ không còn biến mất khỏi tổng. Tên nhân sự đã nghỉ trên các bảng chi phí gắn `(Đã nghỉ)`.
 - **Dashboard — bonus theo tháng thưởng:** xu hướng tháng, chi tiết chi phí, bảng chi phí theo nhân sự và thống kê tháng gom bonus theo `bonuses.month` thay cho `bonuses.date`, khớp payroll. Khoảng ngày lấy trọn tháng thưởng giao với khoảng chọn, có ghi chú trên UI.

@@ -42,13 +42,13 @@ export default function StudentAttemptQuestion({
       )}
     >
       <div className="mb-3 flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-sm font-medium text-text-primary">
+        <div className="min-w-0 flex-1 text-sm font-medium text-text-primary">
           <span className="mr-1 text-primary">Câu {index + 1}.</span>
-          <MathContent content={question.content} className="inline" />
+          <MathContent content={question.content} className="inline [&>p:first-child]:inline" />
           <span className="ml-2 text-[11px] font-normal text-text-muted">
             {question.pointsPossible} điểm
           </span>
-        </p>
+        </div>
         {canMark ? (
           <button
             type="button"
