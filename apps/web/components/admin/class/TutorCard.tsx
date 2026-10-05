@@ -17,6 +17,9 @@ type TutorItem = {
   status: string | null;
   assignmentStatus?: string | null;
   customAllowance: number | null;
+  /** Scale hiệu lực / buổi (riêng nếu có, không thì scale lớp). */
+  effectiveScaleAmount: number | null;
+  hasCustomScale: boolean;
   operatingDeductionRatePercent: number | null;
 };
 
@@ -26,6 +29,8 @@ type Props = {
   trainingManagerRatePercent?: number | null;
   /** Class default allowance per student per session (VNĐ). Used when teacher has no custom override. */
   defaultAllowancePerStudent?: number | null;
+  /** Class `scale_amount` (VNĐ / buổi). Used when teacher has no custom scale. */
+  defaultScaleAmount?: number | null;
   /** Admin, accountant, assistant only — shows per-teacher Trợ cấp + Vận hành. */
   showTeacherCompensation?: boolean;
   className?: string;
@@ -63,6 +68,7 @@ function resolveEffectiveAllowance(
 function normalizeTutors(
   teachers?: ClassTeacher[],
   defaultAllowancePerStudent?: number | null,
+  defaultScaleAmount?: number | null,
 ): TutorItem[] {
   if (!Array.isArray(teachers)) return [];
 
@@ -73,6 +79,8 @@ function normalizeTutors(
     const operatingDeductionRatePercent = normalizeRatePercent(
       teacher.operatingDeductionRatePercent ?? null,
     );
+    // 0 là scale riêng hợp lệ (gia sư không có scale), nên không dùng `||`.
+    const customScale = normalizeMoneyAmount(teacher.customScaleAmount);
 
     return [
       ...acc,
@@ -90,6 +98,8 @@ function normalizeTutors(
           normalizeMoneyAmount(teacher.customAllowance),
           defaultAllowancePerStudent,
         ),
+        effectiveScaleAmount: customScale ?? normalizeMoneyAmount(defaultScaleAmount),
+        hasCustomScale: customScale != null,
         operatingDeductionRatePercent,
       },
     ];
@@ -101,6 +111,7 @@ export default function TutorCard({
   trainingManager,
   trainingManagerRatePercent,
   defaultAllowancePerStudent,
+  defaultScaleAmount,
   showTeacherCompensation = false,
   className = "",
   action,
@@ -112,6 +123,7 @@ export default function TutorCard({
   const tutorItems = normalizeTutors(
     teachers,
     showTeacherCompensation ? defaultAllowancePerStudent : undefined,
+    showTeacherCompensation ? defaultScaleAmount : undefined,
   );
   const { push } = useRouter();
 
@@ -187,7 +199,7 @@ export default function TutorCard({
                   </div>
                   {showTeacherCompensation ? (
                     <div
-                      className="mt-2 grid grid-cols-2 gap-2 border-t border-border-default/70 pt-2"
+                      className="mt-2 grid grid-cols-2 gap-2 border-t border-border-default/70 pt-2 sm:grid-cols-3"
                       role="presentation"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
@@ -200,7 +212,25 @@ export default function TutorCard({
                           {formatCurrency(teacher.customAllowance)}
                         </p>
                       </div>
-                      <div className="min-w-0 text-right">
+                      <div className="min-w-0 text-right sm:text-left">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                          Scale / buổi
+                        </p>
+                        <p className="mt-0.5 flex items-center justify-end gap-1 text-sm font-semibold tabular-nums text-text-primary sm:justify-start">
+                          <span className="truncate">
+                            {formatCurrency(teacher.effectiveScaleAmount)}
+                          </span>
+                          {teacher.hasCustomScale ? (
+                            <span
+                              className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[10px] font-medium text-primary"
+                              title="Scale riêng của gia sư, khác scale mặc định của lớp"
+                            >
+                              riêng
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                      <div className="min-w-0 text-left sm:text-right">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
                           Vận hành
                         </p>

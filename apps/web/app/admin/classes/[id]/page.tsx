@@ -809,6 +809,9 @@ export default function AdminClassDetailPage() {
             teacherCustomAllowanceByTeacherId: Object.fromEntries(
               (classDetail.teachers ?? []).map((t) => [t.id, t.customAllowance ?? null]),
             ),
+            teacherCustomScaleByTeacherId: Object.fromEntries(
+              (classDetail.teachers ?? []).map((t) => [t.id, t.customScaleAmount ?? null]),
+            ),
           }}
           teacherMode={addSessionTeacherMode}
           onClose={() => setAddSessionPopupOpen(false)}
@@ -833,6 +836,7 @@ export default function AdminClassDetailPage() {
             trainingManager={classDetail.trainingManager}
             trainingManagerRatePercent={classDetail.trainingManagerRatePercent}
             defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
+            defaultScaleAmount={classDetail.scaleAmount}
             showTeacherCompensation={showTeacherCompensation}
             className="flex-1"
             canStopTeaching={canManageClassStatus && classDetail.status === "running"}

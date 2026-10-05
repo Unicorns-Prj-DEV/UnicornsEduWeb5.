@@ -830,6 +830,9 @@ export default function StaffClassDetailPage() {
             teacherCustomAllowanceByTeacherId: Object.fromEntries(
               (classDetail.teachers ?? []).map((t) => [t.id, t.customAllowance ?? null]),
             ),
+            teacherCustomScaleByTeacherId: Object.fromEntries(
+              (classDetail.teachers ?? []).map((t) => [t.id, t.customScaleAmount ?? null]),
+            ),
           }}
           teacherMode="readOnly"
           allowFinancialFields={false}

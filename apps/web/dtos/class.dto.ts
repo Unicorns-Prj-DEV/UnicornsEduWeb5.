@@ -149,6 +149,8 @@ export interface ClassTeacher {
     assignmentStatus?: "active" | "inactive" | string | null;
     /** Custom allowance for this teacher in this class (VNĐ). From class_teachers.custom_allowance. */
     customAllowance?: number | null;
+    /** Scale riêng (VNĐ phẳng / buổi). Null = theo scale lớp; 0 = không có scale. From class_teachers.custom_scale_amount. */
+    customScaleAmount?: number | null;
     /** Operating deduction rate for this teacher in this class in percent. */
     operatingDeductionRatePercent?: number | null;
 }
@@ -271,6 +273,8 @@ export interface UpdateClassTeacherCompensationPayload {
     teachers: Array<{
         teacher_id: string;
         custom_allowance?: number | null;
+        /** Bỏ qua = giữ nguyên; null = theo scale lớp; số ≥ 0 = scale riêng. */
+        custom_scale_amount?: number | null;
         operating_deduction_rate_percent?: number;
     }>;
 }
@@ -282,6 +286,8 @@ export interface ClassStatusActionPayload {
 export interface ClassTeacherPayload {
     teacher_id: string;
     custom_allowance?: number | null;
+    /** Bỏ qua = giữ nguyên (gán mới = null); null = theo scale lớp; số ≥ 0 = scale riêng. */
+    custom_scale_amount?: number | null;
     operating_deduction_rate_percent?: number;
 }
 

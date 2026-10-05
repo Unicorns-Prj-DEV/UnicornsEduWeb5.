@@ -66,6 +66,7 @@ const CLASS_EXPENSE_HIDDEN_FIELDS = [
 
 const TEACHER_INCOME_HIDDEN_FIELDS = [
   'customAllowance',
+  'customScaleAmount',
   'operatingDeductionRatePercent',
   'taxRatePercent',
 ] as const;
