@@ -1110,6 +1110,7 @@ describe('ClassService', () => {
             classId: 'class-1',
             teacherId: 'teacher-1',
             customAllowance: null,
+            customScaleAmount: null,
             operatingDeductionRatePercent: 0,
             status: 'active',
           },
@@ -1163,6 +1164,61 @@ describe('ClassService', () => {
       });
     });
 
+    it('preserves existing custom_scale_amount (including 0) when field is omitted', async () => {
+      mockTx.classTeacher.findMany.mockResolvedValue([
+        {
+          teacherId: 'teacher-1',
+          customAllowance: null,
+          customScaleAmount: 0,
+          operatingDeductionRatePercent: 0,
+        },
+      ]);
+
+      await service.updateClassTeachers('class-1', {
+        teachers: [{ teacher_id: 'teacher-1' }],
+      });
+
+      expect(mockTx.classTeacher.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            teacherId: 'teacher-1',
+            customScaleAmount: 0,
+          }),
+        ],
+      });
+    });
+
+    it('sets and clears custom_scale_amount explicitly', async () => {
+      mockTx.classTeacher.findMany.mockResolvedValue([
+        {
+          teacherId: 'teacher-1',
+          customAllowance: null,
+          customScaleAmount: 40000,
+          operatingDeductionRatePercent: 0,
+        },
+      ]);
+
+      await service.updateClassTeachers('class-1', {
+        teachers: [
+          { teacher_id: 'teacher-1', custom_scale_amount: null },
+          { teacher_id: 'teacher-2', custom_scale_amount: 25000 },
+        ],
+      });
+
+      expect(mockTx.classTeacher.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            teacherId: 'teacher-1',
+            customScaleAmount: null,
+          }),
+          expect.objectContaining({
+            teacherId: 'teacher-2',
+            customScaleAmount: 25000,
+          }),
+        ],
+      });
+    });
+
     it('persists operating deduction on the class-teacher assignment', async () => {
       await service.updateClassTeachers('class-1', {
         teachers: [
@@ -1180,6 +1236,7 @@ describe('ClassService', () => {
             classId: 'class-1',
             teacherId: 'teacher-1',
             customAllowance: 150000,
+            customScaleAmount: null,
             operatingDeductionRatePercent: 7.5,
             status: 'active',
           },
@@ -1329,6 +1386,36 @@ describe('ClassService', () => {
         data: {
           operatingDeductionRatePercent: 7.5,
         },
+      });
+    });
+
+    it('stores custom_scale_amount 0 as override and null as inherit', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        teachers: [
+          { teacherId: 'teacher-1', operatingDeductionRatePercent: 5 },
+          { teacherId: 'teacher-2', operatingDeductionRatePercent: 5 },
+        ],
+      });
+
+      await service.updateClassTeacherCompensation('class-1', {
+        teachers: [
+          { teacher_id: 'teacher-1', custom_scale_amount: 0 },
+          { teacher_id: 'teacher-2', custom_scale_amount: null },
+        ],
+      });
+
+      expect(mockTx.classTeacher.update).toHaveBeenCalledWith({
+        where: {
+          classId_teacherId: { classId: 'class-1', teacherId: 'teacher-1' },
+        },
+        data: { customScaleAmount: 0, operatingDeductionRatePercent: 5 },
+      });
+      expect(mockTx.classTeacher.update).toHaveBeenCalledWith({
+        where: {
+          classId_teacherId: { classId: 'class-1', teacherId: 'teacher-2' },
+        },
+        data: { customScaleAmount: null, operatingDeductionRatePercent: 5 },
       });
     });
 

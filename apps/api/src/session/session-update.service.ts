@@ -40,6 +40,7 @@ import {
   computeDefaultSessionAllowanceAmountVnd,
   hasSessionAllowanceSnapshots,
   resolveLiveSessionAllowanceSnapshots,
+  resolveTeacherScaleAmountVnd,
 } from './session-allowance.util';
 import {
   isBlockPricingMode,
@@ -113,6 +114,7 @@ function normalizeSessionPaymentStatus(
 
 type ClassTeacherAllowanceSource = {
   customAllowance: number | null;
+  customScaleAmount: number | null;
   class: {
     name: string;
     pricingMode?: string | null;
@@ -144,7 +146,10 @@ function liveAllowanceFromClassTeacher(
     classDefaultPerStudent: classTeacher.class.allowancePerSessionPerStudent,
     classDefaultPerBlock:
       classTeacher.class.allowancePerBlockPerStudent ?? null,
-    scaleAmount: classTeacher.class.scaleAmount,
+    scaleAmount: resolveTeacherScaleAmountVnd({
+      customScaleAmount: classTeacher.customScaleAmount,
+      classScaleAmount: classTeacher.class.scaleAmount,
+    }),
     reconstructionBlocks,
     storedAsPerBlock,
     snapshotBlockCount: options.snapshotBlockCount,
@@ -640,6 +645,7 @@ export class SessionUpdateService {
         let snapshotScaleAmountUpdate: number | undefined;
         let classTeacherForAllowance: {
           customAllowance: number | null;
+          customScaleAmount: number | null;
           operatingDeductionRatePercent?:
             | Prisma.Decimal
             | number
@@ -667,6 +673,7 @@ export class SessionUpdateService {
             },
             select: {
               customAllowance: true,
+              customScaleAmount: true,
               operatingDeductionRatePercent: true,
               class: {
                 select: {
@@ -731,6 +738,7 @@ export class SessionUpdateService {
                 },
                 select: {
                   customAllowance: true,
+                  customScaleAmount: true,
                   operatingDeductionRatePercent: true,
                   class: {
                     select: {
@@ -867,6 +875,7 @@ export class SessionUpdateService {
               },
               select: {
                 customAllowance: true,
+                customScaleAmount: true,
                 class: {
                   select: {
                     pricingMode: true,
@@ -880,6 +889,7 @@ export class SessionUpdateService {
             if (classTeacher) {
               classTeacherForAllowance = {
                 customAllowance: classTeacher.customAllowance,
+                customScaleAmount: classTeacher.customScaleAmount,
                 class: {
                   name: existingSession.class.name,
                   pricingMode: classTeacher.class.pricingMode,

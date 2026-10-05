@@ -29,6 +29,7 @@ import {
   computeTeacherSessionAllowanceGrossPreviewVnd,
   grossAllowanceToRawBaseVnd,
   resolveLivePreviewPerStudentAllowanceVnd,
+  resolveTeacherScaleAmountVnd,
 } from "@/lib/session-allowance.helpers";
 import {
   resolveLivePreviewStudentTuitionVnd,
@@ -108,6 +109,8 @@ export type SessionClassPricingContext = {
   maxAllowancePerBlock?: number | null;
   scaleAmount?: number | null;
   teacherCustomAllowanceByTeacherId?: Record<string, number | null | undefined>;
+  /** Scale riêng theo gia sư (null/thiếu = theo `scaleAmount` của lớp; 0 = không có scale). */
+  teacherCustomScaleByTeacherId?: Record<string, number | null | undefined>;
   pricingMode?: ClassPricingMode;
   /** Đơn giá học phí / 30 phút của lớp (`student_tuition_per_block`). */
   studentTuitionPerBlock?: number | null;
@@ -534,6 +537,16 @@ export default function AddSessionPopup({
     });
   }, [classPricing, selectedTeacherId, previewBlockCount]);
 
+  const resolvedTeacherScaleAmount = useMemo(() => {
+    if (!classPricing) return 0;
+    return resolveTeacherScaleAmountVnd({
+      customScaleAmount: selectedTeacherId
+        ? classPricing.teacherCustomScaleByTeacherId?.[selectedTeacherId]
+        : null,
+      classScaleAmount: classPricing.scaleAmount,
+    });
+  }, [classPricing, selectedTeacherId]);
+
   const chargeableAttendanceCount = useMemo(
     () =>
       noAttendance
@@ -548,9 +561,14 @@ export default function AddSessionPopup({
     return computeSessionAllowanceRawBaseVnd({
       allowancePerStudent: resolvedTeacherAllowanceBase,
       chargeableStudentCount: chargeableAttendanceCount,
-      scaleAmount: classPricing.scaleAmount,
+      scaleAmount: resolvedTeacherScaleAmount,
     });
-  }, [classPricing, resolvedTeacherAllowanceBase, chargeableAttendanceCount]);
+  }, [
+    classPricing,
+    resolvedTeacherAllowanceBase,
+    resolvedTeacherScaleAmount,
+    chargeableAttendanceCount,
+  ]);
 
   const coefficientForPreview = isTrialLesson ? 0 : 1;
 
@@ -951,7 +969,7 @@ export default function AddSessionPopup({
                         breakdownText={
                           allowanceRawBasePreview == null
                             ? null
-                            : `${resolvedTeacherAllowanceBase.toLocaleString("vi-VN")}đ/hs × ${chargeableAttendanceCount} hs + ${(classPricing?.scaleAmount ?? 0).toLocaleString("vi-VN")}đ = ${allowanceRawBasePreview.toLocaleString("vi-VN")}đ`
+                            : `${resolvedTeacherAllowanceBase.toLocaleString("vi-VN")}đ/hs × ${chargeableAttendanceCount} hs + ${resolvedTeacherScaleAmount.toLocaleString("vi-VN")}đ = ${allowanceRawBasePreview.toLocaleString("vi-VN")}đ`
                         }
                         showBreakdown={Boolean(classPricing)}
                         usesSnapshot={false}

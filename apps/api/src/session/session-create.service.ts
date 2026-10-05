@@ -30,7 +30,10 @@ import { computeTrainingManagerSessionSnapshot } from '../training-manager/train
 import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
 import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
-import { resolveLiveSessionAllowanceSnapshots } from './session-allowance.util';
+import {
+  resolveLiveSessionAllowanceSnapshots,
+  resolveTeacherScaleAmountVnd,
+} from './session-allowance.util';
 import {
   computeDefaultSessionAllowanceAmountVnd,
   resolveSnapshotPerStudentAllowanceVnd,
@@ -146,6 +149,7 @@ export class SessionCreateService {
             },
             select: {
               customAllowance: true,
+              customScaleAmount: true,
               operatingDeductionRatePercent: true,
               class: {
                 select: {
@@ -351,7 +355,10 @@ export class SessionCreateService {
               classTeacher.class.allowancePerSessionPerStudent,
             classDefaultPerBlock:
               classTeacher.class.allowancePerBlockPerStudent,
-            scaleAmount: classTeacher.class.scaleAmount,
+            scaleAmount: resolveTeacherScaleAmountVnd({
+              customScaleAmount: classTeacher.customScaleAmount,
+              classScaleAmount: classTeacher.class.scaleAmount,
+            }),
             reconstructionBlocks,
             storedAsPerBlock,
             snapshotBlockCount,

@@ -52,6 +52,20 @@ export class ClassTeacherItemDto {
 
   @ApiPropertyOptional({
     description:
+      'Custom scale for this teacher in this class (VNĐ, flat per session). Omit to preserve an existing value or inherit the class scale_amount for new assignments. Send null to inherit the class scale_amount. 0 means no scale for this teacher.',
+    example: 50000,
+    minimum: 0,
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null && value !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_scale_amount?: number | null;
+
+  @ApiPropertyOptional({
+    description:
       'Operating deduction rate for this teacher-class relation in percent. If omitted, backend persists 0.',
     example: 10,
     minimum: 0,
@@ -333,6 +347,20 @@ export class ClassTeacherCompensationItemDto {
   @IsInt()
   @Min(0)
   custom_allowance?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Custom scale for this teacher in this class (VNĐ, flat per session). Omit to leave unchanged. Send null to inherit the class scale_amount. 0 means no scale for this teacher.',
+    example: 50000,
+    minimum: 0,
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null && value !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  custom_scale_amount?: number | null;
 
   @ApiPropertyOptional({
     description:
