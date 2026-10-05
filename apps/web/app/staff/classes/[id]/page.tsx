@@ -29,7 +29,11 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
-import { ClassCoverImageCard } from "@/components/shared/class/ClassCoverImageCard";
+import {
+  ClassDetailHero,
+  ClassStatusBadge,
+  classHeroChipClassName,
+} from "@/components/shared/class/ClassDetailHero";
 import type {
   ClassDetail,
   ClassScheduleItem,
@@ -52,13 +56,11 @@ import type {
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import * as surveysApi from "@/lib/apis/surveys.api";
-import { formatCurrency } from "@/lib/class.helpers";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classTimelineKeys } from "@/lib/query-keys";
-import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
 import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
@@ -670,16 +672,6 @@ export default function StaffClassDetailPage() {
     );
   }
 
-  const statusChipClass =
-    classDetail.status === "running"
-      ? "bg-warning/15 text-warning"
-      : "bg-text-muted/15 text-text-muted";
-
-  const tuitionPackageLabel =
-    classDetail.tuitionPackageTotal != null || classDetail.tuitionPackageSession != null
-      ? `${formatCurrency(classDetail.tuitionPackageTotal)} / ${classDetail.tuitionPackageSession ?? "—"} buổi`
-      : "—";
-
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 sm:p-5">
       <button
@@ -693,107 +685,34 @@ export default function StaffClassDetailPage() {
         <span className="hidden sm:inline">{backLabel}</span>
       </button>
 
-      <header className="mb-4 flex flex-col gap-3 sm:mb-5">
-        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          <div className="relative flex shrink-0">
-            <div
-              className="flex size-12 items-center justify-center overflow-hidden rounded-xl bg-bg-tertiary text-lg font-semibold text-text-primary ring-2 ring-border-default sm:size-14 sm:text-xl"
-              aria-hidden
-            >
-              {(classDetail.name?.trim() || "L").charAt(0).toUpperCase()}
-            </div>
-            <span
-              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${classDetail.status === "running" ? "bg-warning" : "bg-text-muted"
-                }`}
-              title={STATUS_LABELS[classDetail.status]}
-              aria-hidden
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <h1 className="min-w-0 truncate text-base font-semibold leading-tight text-text-primary sm:text-lg">
-                {classDetail.name?.trim() || "Lớp học"}
-              </h1>
-              <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                {isCustomerCareView
-                  ? "Customer Care View"
-                  : isTrainingView
-                    ? "Training Manager View"
-                    : isAdmin
-                      ? "Staff Workspace"
-                      : "Teacher Workspace"}
-              </span>
-            </div>
+      <ClassDetailHero
+        classId={id}
+        title={classDetail.name?.trim() || "Lớp học"}
+        badges={
+          <>
             {showClassOperationalMeta ? (
-              <div
-                className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-text-secondary"
-                role="group"
-                aria-label="Thông tin lớp học"
-              >
-                <span
-                  className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${statusChipClass}`}
-                >
-                  {STATUS_LABELS[classDetail.status]}
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span className="inline-flex shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+              <>
+                <ClassStatusBadge
+                  running={classDetail.status === "running"}
+                  label={STATUS_LABELS[classDetail.status]}
+                />
+                <span className={classHeroChipClassName}>
                   {classDetail.course?.name ?? "—"}
                 </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Gói </span>
-                  {tuitionPackageLabel}
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Trợ cấp </span>
-                  <span className="font-medium text-primary tabular-nums">
-                    {formatCurrency(classDetail.allowancePerSessionPerStudent)}/hs
-                  </span>
-                  <span className="text-text-muted"> + </span>
-                  <span className="font-medium text-primary tabular-nums">
-                    {formatCurrency(classDetail.scaleAmount ?? 0)}
-                  </span>
-                  <span className="text-text-muted"> scale</span>
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Sĩ số </span>
-                  <span className="tabular-nums text-text-primary">{classDetail.maxStudents ?? "—"}</span>
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Học sinh </span>
-                  <span className="tabular-nums text-text-primary">{classStudents.length}</span>
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Gia sư </span>
-                  <span className="tabular-nums text-text-primary">{teacherCount}</span>
-                </span>
-              </div>
+              </>
             ) : null}
-            <ClassStandingTeachers
-              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
-              className="mt-1.5"
-            />
-          </div>
-        </div>
-      </header>
-
-      <ClassCoverImageCard classId={id} />
+            <span className="inline-flex rounded-full border border-primary/20 px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+              {isCustomerCareView
+                ? "Customer Care View"
+                : isTrainingView
+                  ? "Training Manager View"
+                  : isAdmin
+                    ? "Staff Workspace"
+                    : "Teacher Workspace"}
+            </span>
+          </>
+        }
+      />
 
       <EditClassSchedulePopup
         open={schedulePopupOpen}

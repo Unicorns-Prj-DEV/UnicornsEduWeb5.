@@ -42,7 +42,11 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import StudentClassTuitionPopup from "@/components/admin/student/StudentClassTuitionPopup";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
-import { ClassCoverImageCard } from "@/components/shared/class/ClassCoverImageCard";
+import {
+  ClassDetailHero,
+  ClassStatusBadge,
+  classHeroChipClassName,
+} from "@/components/shared/class/ClassDetailHero";
 import {
   ClassStatus,
   ClassDetail,
@@ -64,7 +68,6 @@ import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
-import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
 import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
 
@@ -165,11 +168,6 @@ export default function AdminClassDetailPage() {
   const adminAccess = resolveAdminShellAccess(fullProfile);
   const { isAdmin, isAccountant } = adminAccess;
   const isAssistant = adminAccess.isAssistant;
-  const isIncomeAccountantOnly =
-    adminAccess.isAccountantIncome &&
-    !adminAccess.isAccountantExpense &&
-    !isAdmin &&
-    !isAssistant;
   const isExpenseAccountantOnly =
     adminAccess.isAccountantExpense &&
     !adminAccess.isAccountantIncome &&
@@ -184,7 +182,6 @@ export default function AdminClassDetailPage() {
   const showStudentTuitionColumn = showClassTuitionMeta;
   /** Admin / assistant / both accountants see wallet balance; training/teacher never use this page. */
   const showStudentBalanceColumn = isAdmin || isAssistant || isAccountant;
-  const showClassCompensationMeta = !isIncomeAccountantOnly;
   const showTeacherCompensation =
     adminAccess.isAdmin || adminAccess.isAssistant || adminAccess.isAccountantExpense;
   const canEditClassBasicInfo = isAdmin || isAssistant;
@@ -555,77 +552,6 @@ export default function AdminClassDetailPage() {
     );
   }
 
-  const tuitionPackageLabel =
-    classDetail.tuitionPackageTotal != null || classDetail.tuitionPackageSession != null
-      ? `${formatCurrency(classDetail.tuitionPackageTotal)} / ${classDetail.tuitionPackageSession ?? "—"} buổi`
-      : "—";
-
-  const statusChipClass =
-    classDetail.status === "running"
-      ? "bg-warning/15 text-warning"
-      : "bg-text-muted/15 text-text-muted";
-  const classMetaItems = [
-    {
-      key: "status",
-      node: (
-        <span
-          className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${statusChipClass}`}
-        >
-          {STATUS_LABELS[classDetail.status]}
-        </span>
-      ),
-    },
-    {
-      key: "type",
-      node: (
-        <span className="inline-flex shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
-          {classDetail.course?.name ?? "—"}
-        </span>
-      ),
-    },
-    ...(showClassTuitionMeta
-      ? [
-          {
-            key: "tuition",
-            node: (
-              <span>
-                <span className="text-text-muted">Gói </span>
-                {tuitionPackageLabel}
-              </span>
-            ),
-          },
-        ]
-      : []),
-    ...(showClassCompensationMeta
-      ? [
-          {
-            key: "allowance",
-            node: (
-              <span>
-                <span className="text-text-muted">Trợ cấp </span>
-                <span className="font-medium text-primary tabular-nums">
-                  {formatCurrency(classDetail.allowancePerSessionPerStudent)}/hs
-                </span>
-                <span className="text-text-muted"> + </span>
-                <span className="font-medium text-primary tabular-nums">
-                  {formatCurrency(classDetail.scaleAmount ?? 0)}
-                </span>
-                <span className="text-text-muted"> scale</span>
-              </span>
-            ),
-          },
-        ]
-      : []),
-    {
-      key: "capacity",
-      node: (
-        <span>
-          <span className="text-text-muted">Sĩ số </span>
-          <span className="tabular-nums text-text-primary">{classDetail.maxStudents ?? "—"}</span>
-        </span>
-      ),
-    },
-  ];
   const handleEndClass = () => {
     if (!canEndClass) {
       toast.error(endClassBlockReason);
@@ -663,26 +589,26 @@ export default function AdminClassDetailPage() {
         <span className="hidden sm:inline">Quay lại danh sách lớp</span>
       </button>
 
-      <header className="mb-4 flex flex-col gap-3 sm:mb-5">
-        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          <div className="relative flex shrink-0">
-            <div
-              className="flex size-12 items-center justify-center overflow-hidden rounded-xl bg-bg-tertiary text-lg font-semibold text-text-primary ring-2 ring-border-default sm:size-14 sm:text-xl"
-              aria-hidden
-            >
-              {(classDetail.name?.trim() || "L").charAt(0).toUpperCase()}
-            </div>
-            <span
-              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${classDetail.status === "running" ? "bg-success" : "bg-error"}`}
-              title={STATUS_LABELS[classDetail.status]}
-              aria-hidden
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <h1 className="min-w-0 truncate text-base font-semibold leading-tight text-text-primary sm:text-lg">
-                {classDetail.name?.trim() || "Lớp học"}
-              </h1>
+      <ClassDetailHero
+        classId={id}
+        title={classDetail.name?.trim() || "Lớp học"}
+        badges={
+          showClassOperationalMeta ? (
+            <>
+              <ClassStatusBadge
+                running={classDetail.status === "running"}
+                label={STATUS_LABELS[classDetail.status]}
+              />
+              <span className={classHeroChipClassName}>
+                {classDetail.course?.name ?? "—"}
+              </span>
+            </>
+          ) : undefined
+        }
+        actions={
+          canEditClassBasicInfo ||
+          (canManageClassStatus && classDetail.status === "running") ? (
+            <>
               {canEditClassBasicInfo ? (
                 <button
                   type="button"
@@ -707,34 +633,10 @@ export default function AdminClassDetailPage() {
                   {endClassMutation.isPending ? "Đang lưu..." : "Kết thúc lớp"}
                 </button>
               ) : null}
-            </div>
-            {showClassOperationalMeta ? (
-              <div
-                className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-text-secondary"
-                role="group"
-                aria-label="Thông tin lớp học"
-              >
-                {classMetaItems.map((item, index) => (
-                  <span key={item.key} className="inline-flex items-center gap-1.5">
-                    {index > 0 ? (
-                      <span className="text-text-muted/80" aria-hidden>
-                        ·
-                      </span>
-                    ) : null}
-                    {item.node}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            <ClassStandingTeachers
-              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
-              className="mt-1.5"
-            />
-          </div>
-        </div>
-      </header>
-
-      <ClassCoverImageCard classId={id} />
+            </>
+          ) : undefined
+        }
+      />
 
       {canEditClassBasicInfo ? (
         <EditClassBasicInfoPopup
