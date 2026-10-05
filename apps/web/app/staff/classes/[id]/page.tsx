@@ -494,8 +494,8 @@ export default function StaffClassDetailPage() {
   const canManageSessions = isTeacherWorkspaceActor;
   const teacherScopedHistorySummary = usesTeacherScope ? "Tổng số buổi bạn dạy" : "Tổng số buổi";
   const teacherScopedEmptyText = usesTeacherScope
-    ? "Bạn chưa dạy buổi nào trong tháng này."
-    : "Không có buổi học trong tháng này.";
+    ? "Không có buổi bạn dạy hay khảo sát trong tháng này."
+    : "Không có buổi học hay khảo sát trong tháng này.";
   const canCreateSession =
     canManageSessions &&
     activeClassStudents.length > 0 &&
@@ -1151,74 +1151,65 @@ export default function StaffClassDetailPage() {
                   label="Đang tải lại dữ liệu…"
                   className="mb-3"
                 />
-                {isSurveysLoading ? (
-                  <SessionHistoryTableSkeleton
-                    rows={3}
-                    entityMode="teacher"
-                    variant="classDetail"
-                    showActionsColumn={false}
-                  />
-                ) : (
-                  <ClassSurveyPanel
-                    className={classDetail.name}
-                    surveys={surveys}
-                    availableSurveys={availableSurveys}
-                    teachers={popupTeachers}
-                    students={popupStudents}
-                    loading={isSurveysLoading}
-                    fetching={isSurveysFetching}
-                    error={isSurveysError}
-                    canManage={canManageSurveys}
-                    canViewDetails={canOpenReadonlyClassForms}
-                    createOpen={addSurveyPopupOpen}
-                    onCreateOpenChange={setAddSurveyPopupOpen}
-                    defaultTeacherId={defaultTeacherId}
-                    onCreate={handleCreateSurvey}
-                    onUpdate={handleUpdateSurvey}
-                    onDelete={handleDeleteSurvey}
-                  />
-                )}
-                {isSurveysError ? (
-                  <p className="mt-3 text-sm text-error">Không tải được khảo sát.</p>
-                ) : null}
-
-                <div className="mt-6">
-                  {isSessionsLoading ? (
-                    <SessionHistoryTableSkeleton
-                      rows={5}
-                      entityMode="teacher"
-                      variant="classDetail"
-                      showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
-                    />
-                  ) : (
-                    <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
-                      <SessionHistoryTable
-                        sessions={sessions}
+                <ClassSurveyPanel
+                  className={classDetail.name}
+                  surveys={surveys}
+                  availableSurveys={availableSurveys}
+                  teachers={popupTeachers}
+                  students={popupStudents}
+                  error={isSurveysError}
+                  canManage={canManageSurveys}
+                  canViewDetails={canOpenReadonlyClassForms}
+                  createOpen={addSurveyPopupOpen}
+                  onCreateOpenChange={setAddSurveyPopupOpen}
+                  defaultTeacherId={defaultTeacherId}
+                  onCreate={handleCreateSurvey}
+                  onUpdate={handleUpdateSurvey}
+                  onDelete={handleDeleteSurvey}
+                  renderList={(surveyRows) =>
+                    isSessionsLoading || isSurveysLoading ? (
+                      <SessionHistoryTableSkeleton
+                        rows={5}
                         entityMode="teacher"
                         variant="classDetail"
-                        statusMode="payment"
-                        emptyText={teacherScopedEmptyText}
-                        editorLayout="wide"
                         showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
-                        teachers={popupTeachers}
-                        getClassStudents={getClassStudentsForEditor}
-                        getClassDetailForEdit={getClassDetailForEdit}
-                        allowTeacherSelection={false}
-                        allowFinancialEdits={false}
-                        allowPaymentStatusEdit={false}
-                        allowDeleteSession={false}
-                        readOnlySessionDetails={
-                          canOpenReadonlyClassForms || !canManageSessions
-                        }
-                        showTrainingManagerAllowance={isTrainingView}
-                        updateSessionFn={handleUpdateSession}
                       />
-                    </div>
-                  )}
-                  {isSessionsError ? (
-                    <p className="mt-3 text-sm text-error">Không tải được lịch sử buổi học.</p>
-                  ) : null}
-                </div>
+                    ) : (
+                      <div
+                        className={cn(
+                          "transition-opacity",
+                          (isSessionsFetching || isSurveysFetching) && "opacity-70",
+                        )}
+                      >
+                        <SessionHistoryTable
+                          sessions={sessions}
+                          extraRows={surveyRows}
+                          entityMode="teacher"
+                          variant="classDetail"
+                          statusMode="payment"
+                          emptyText={teacherScopedEmptyText}
+                          editorLayout="wide"
+                          showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                          teachers={popupTeachers}
+                          getClassStudents={getClassStudentsForEditor}
+                          getClassDetailForEdit={getClassDetailForEdit}
+                          allowTeacherSelection={false}
+                          allowFinancialEdits={false}
+                          allowPaymentStatusEdit={false}
+                          allowDeleteSession={false}
+                          readOnlySessionDetails={
+                            canOpenReadonlyClassForms || !canManageSessions
+                          }
+                          showTrainingManagerAllowance={isTrainingView}
+                          updateSessionFn={handleUpdateSession}
+                        />
+                      </div>
+                    )
+                  }
+                />
+                {isSessionsError ? (
+                  <p className="mt-3 text-sm text-error">Không tải được lịch sử buổi học.</p>
+                ) : null}
               </>
             ) : (
               <ClassModulesTab

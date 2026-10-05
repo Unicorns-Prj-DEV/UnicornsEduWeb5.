@@ -1321,79 +1321,67 @@ export default function AdminClassDetailPage() {
                   label="Đang tải lại dữ liệu…"
                   className="mb-3"
                 />
-                {isSurveysLoading ? (
-                  <SessionHistoryTableSkeleton
-                    rows={3}
-                    entityMode="none"
-                    variant="classDetail"
-                    showBulkSelectionColumn={false}
-                    showActionsColumn={false}
-                  />
-                ) : (
-                  <ClassSurveyPanel
-                    className={classDetail.name}
-                    surveys={surveysInMonth}
-                    availableSurveys={availableSurveys}
-                    teachers={popupTeachers}
-                    students={activeSurveyStudents}
-                    loading={isSurveysLoading}
-                    fetching={isSurveysFetching}
-                    error={isSurveysError}
-                    canManage={canManageSurveys}
-                    createOpen={addSurveyPopupOpen}
-                    onCreateOpenChange={setAddSurveyPopupOpen}
-                    defaultTeacherId={currentClassTeacherId}
-                    onCreate={handleCreateSurvey}
-                    onUpdate={handleUpdateSurvey}
-                    onDelete={handleDeleteSurvey}
-                  />
-                )}
-                {isSurveysError ? (
+                <ClassSurveyPanel
+                  className={classDetail.name}
+                  surveys={surveysInMonth}
+                  availableSurveys={availableSurveys}
+                  teachers={popupTeachers}
+                  students={activeSurveyStudents}
+                  error={isSurveysError}
+                  canManage={canManageSurveys}
+                  createOpen={addSurveyPopupOpen}
+                  onCreateOpenChange={setAddSurveyPopupOpen}
+                  defaultTeacherId={currentClassTeacherId}
+                  onCreate={handleCreateSurvey}
+                  onUpdate={handleUpdateSurvey}
+                  onDelete={handleDeleteSurvey}
+                  renderList={(surveyRows) =>
+                    isSessionsLoading || isSurveysLoading ? (
+                      <SessionHistoryTableSkeleton
+                        rows={5}
+                        entityMode="none"
+                        variant="classDetail"
+                        showBulkSelectionColumn
+                        showActionsColumn
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          "transition-opacity",
+                          (isSessionsFetching || isSurveysFetching) && "opacity-70",
+                        )}
+                      >
+                        <SessionHistoryTable
+                          sessions={sessionsInMonth}
+                          extraRows={surveyRows}
+                          entityMode="teacher"
+                          hideTeacherDisplay
+                          variant="classDetail"
+                          emptyText="Không có buổi học hay khảo sát trong tháng này."
+                          editorLayout="wide"
+                          enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
+                          allowTeacherSelection={canEditSessions}
+                          allowFinancialEdits={canEditSessions}
+                          allowAllowanceEdit={canEditSessions}
+                          allowAttendanceTuitionEdits={canEditSessions}
+                          allowPaymentStatusEdit={canEditSessionPaymentStatus}
+                          readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
+                          allowDeleteSession={canEditSessions && !isAccountant}
+                          onSessionUpdated={handleSessionUpdated}
+                          teachers={popupTeachers}
+                          getClassStudents={getClassStudents}
+                          sessionTuitionTotal={totalSessionTuition}
+                          showTrainingManagerAllowance={showTeacherCompensation}
+                        />
+                      </div>
+                    )
+                  }
+                />
+                {isSessionsError ? (
                   <p className="mt-3 text-sm text-error" role="alert">
-                    Không tải được khảo sát.
+                    Không tải được lịch sử buổi học.
                   </p>
                 ) : null}
-
-                <div className="mt-6">
-                  {isSessionsLoading ? (
-                    <SessionHistoryTableSkeleton
-                      rows={5}
-                      entityMode="none"
-                      variant="classDetail"
-                      showBulkSelectionColumn
-                      showActionsColumn
-                    />
-                  ) : (
-                    <div className={cn("transition-opacity", isSessionsFetching && "opacity-70")}>
-                      <SessionHistoryTable
-                        sessions={sessionsInMonth}
-                        entityMode="teacher"
-                        hideTeacherDisplay
-                        variant="classDetail"
-                        emptyText="Không có buổi học trong tháng này."
-                        editorLayout="wide"
-                        enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
-                        allowTeacherSelection={canEditSessions}
-                        allowFinancialEdits={canEditSessions}
-                        allowAllowanceEdit={canEditSessions}
-                        allowAttendanceTuitionEdits={canEditSessions}
-                        allowPaymentStatusEdit={canEditSessionPaymentStatus}
-                        readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
-                        allowDeleteSession={canEditSessions && !isAccountant}
-                        onSessionUpdated={handleSessionUpdated}
-                        teachers={popupTeachers}
-                        getClassStudents={getClassStudents}
-                        sessionTuitionTotal={totalSessionTuition}
-                        showTrainingManagerAllowance={showTeacherCompensation}
-                      />
-                    </div>
-                  )}
-                  {isSessionsError ? (
-                    <p className="mt-3 text-sm text-error" role="alert">
-                      Không tải được lịch sử buổi học.
-                    </p>
-                  ) : null}
-                </div>
               </>
             ) : (
               <ClassModulesTab classId={id} canManageContent={canCreateSession} />
