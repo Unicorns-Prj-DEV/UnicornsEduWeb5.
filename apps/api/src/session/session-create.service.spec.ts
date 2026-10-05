@@ -11,7 +11,7 @@ jest.mock('../payroll/lesson-plan-head-commission.util', () => ({
 import { AttendanceStatus, StaffRole, UserRole } from '../../generated/enums';
 import { SessionCreateService } from './session-create.service';
 import { SessionValidationService } from './session-validation.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 
 describe('SessionCreateService', () => {
   const mockPrisma = {
@@ -21,6 +21,9 @@ describe('SessionCreateService', () => {
     },
     class: {
       findUnique: jest.fn(),
+    },
+    survey: {
+      findMany: jest.fn(),
     },
   };
 
@@ -79,9 +82,7 @@ describe('SessionCreateService', () => {
         createManyAndReturn: jest.fn().mockResolvedValue([]),
       },
       class: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ timelineCustomOrder: true }),
+        findUnique: jest.fn().mockResolvedValue({ timelineCustomOrder: true }),
       },
       classTimelineItem: {
         aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
@@ -112,6 +113,64 @@ describe('SessionCreateService', () => {
       snapshotService as never,
       scheduleRulesService as never,
       actionHistoryService as never,
+    );
+  });
+
+  it('blocks a teacher from creating a session while a survey deadline block is active', async () => {
+    accessService.resolveActor.mockResolvedValue({
+      id: 'teacher-1',
+      roles: [StaffRole.teacher],
+    });
+    mockPrisma.class.findUnique.mockResolvedValue({ status: 'running' });
+    mockPrisma.survey.findMany.mockResolvedValue([
+      {
+        id: 'survey-1',
+        name: 'Khảo sát giữa kỳ',
+        endDate: new Date('2020-01-02T00:00:00.000Z'),
+      },
+    ]);
+    const createSessionSpy = jest.spyOn(service, 'createSession');
+
+    const promise = service.createSessionForStaff(
+      'user-1',
+      UserRole.staff,
+      'class-1',
+      {
+        date: '2026-10-10',
+        lessonContent: '<p>Nội dung</p>',
+        homework: '<p>BTVN</p>',
+        tutorial: '<p>Tutorial</p>',
+      },
+    );
+
+    await expect(promise).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(promise).rejects.toThrow(
+      'Lớp chưa nộp khảo sát «Khảo sát giữa kỳ» (hạn 02/01/2020). Nộp khảo sát trước khi tạo buổi học.',
+    );
+    expect(createSessionSpy).not.toHaveBeenCalled();
+  });
+
+  it('lets a teacher create a session once the class has no blocking survey', async () => {
+    accessService.resolveActor.mockResolvedValue({
+      id: 'teacher-1',
+      roles: [StaffRole.teacher],
+    });
+    mockPrisma.class.findUnique.mockResolvedValue({ status: 'running' });
+    mockPrisma.survey.findMany.mockResolvedValue([]);
+    const createSessionSpy = jest
+      .spyOn(service, 'createSession')
+      .mockResolvedValue({ id: 'session-3' } as never);
+
+    await service.createSessionForStaff('user-1', UserRole.staff, 'class-1', {
+      date: '2026-10-10',
+      lessonContent: '<p>Nội dung</p>',
+      homework: '<p>BTVN</p>',
+      tutorial: '<p>Tutorial</p>',
+    });
+
+    expect(createSessionSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ classId: 'class-1', teacherId: 'teacher-1' }),
+      undefined,
     );
   });
 

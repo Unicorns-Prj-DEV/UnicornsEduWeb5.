@@ -7,7 +7,6 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import Link from "next/link";
 import {
   DndContext,
   KeyboardSensor,
@@ -26,31 +25,27 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, Eye, GripVertical, PenLine, Plus, X } from "lucide-react";
+import { GripVertical, Layers, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import * as classApi from "@/lib/apis/class.api";
 import SessionTimelineCard from "@/components/admin/session/SessionTimelineCard";
 import SurveyTimelineCard from "@/components/admin/class/SurveyTimelineCard";
 import * as sessionApi from "@/lib/apis/session.api";
-import { classTimelineKeys } from "@/lib/query-keys";
+import { classKeys, classTimelineKeys } from "@/lib/query-keys";
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import type { ClassTheoryProgressStudentDto } from "@/dtos/class-theory-progress.dto";
 import type { SessionItem } from "@/dtos/session.dto";
 import type { ClassSurveyRecord } from "@/dtos/class-survey.dto";
 import ClassContentManager from "@/components/admin/ClassContentManager";
+import ClassModulesDialog from "@/components/admin/ClassModulesDialog";
+import ClassModuleGroups from "@/components/admin/class/ClassModuleGroups";
+import type { TheoryProgressTarget } from "@/dtos/class-content.dto";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
-
-const OCCURRED_AT_FORMATTER = new Intl.DateTimeFormat("vi-VN", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
 
 const VIEWED_AT_FORMATTER = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
@@ -70,15 +65,6 @@ function monthYearFromIso(iso: string | null): { month: string; year: string } |
   };
 }
 
-function formatOccurredAt(iso: string | null): string {
-  if (!iso) return "";
-  try {
-    return OCCURRED_AT_FORMATTER.format(new Date(iso));
-  } catch {
-    return "";
-  }
-}
-
 function formatViewedAt(iso: string | null): string {
   if (!iso) return "Chưa xem";
   try {
@@ -91,14 +77,10 @@ function formatViewedAt(iso: string | null): string {
 function SortableTimelineRow({
   item,
   canReorder,
-  practiceActionsBasePath,
-  onOpenTheoryProgress,
   onOpen,
 }: {
   item: ClassTimelineItemDto;
   canReorder: boolean;
-  practiceActionsBasePath?: string | null;
-  onOpenTheoryProgress?: (item: ClassTimelineItemDto) => void;
   onOpen: (item: ClassTimelineItemDto) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -108,14 +90,6 @@ function SortableTimelineRow({
     transition,
     opacity: isDragging ? 0.7 : 1,
   };
-  const showPracticeActions =
-    item.kind === "content_item" &&
-    item.lessonKind === "practice" &&
-    Boolean(item.classContentItemId && practiceActionsBasePath);
-  const showTheoryActions =
-    item.kind === "content_item" &&
-    item.lessonKind === "theory" &&
-    Boolean(item.classContentItemId && onOpenTheoryProgress);
 
   return (
     <div
@@ -134,9 +108,7 @@ function SortableTimelineRow({
           <GripVertical className="size-4" />
         </button>
       ) : null}
-      <div
-        className="min-w-0 flex-1"
-      >
+      <div className="min-w-0 flex-1">
         <div
           role="button"
           tabIndex={0}
@@ -160,70 +132,14 @@ function SortableTimelineRow({
               <SurveyTimelineCard survey={item.survey} />
             </div>
           ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                <TimelineKindBadge
-                  kind={item.kind}
-                  lessonKind={item.lessonKind}
-                  label={item.kindLabel}
-                />
-                {item.hiddenAt ? (
-                  <span className="inline-flex rounded-full bg-error/10 px-2 py-0.5 text-[10px] font-semibold text-error">
-                    Đã ẩn
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-1 truncate text-sm font-medium text-text-primary">
+            <div className="space-y-1">
+              <TimelineKindBadge kind={item.kind} label={item.kindLabel} />
+              <p className="truncate text-sm font-medium text-text-primary">
                 {item.title}
               </p>
-              {item.lessonKind === "practice" &&
-              (item.openAt || item.durationMinutes) ? (
-                <p className="mt-0.5 text-xs text-text-muted">
-                  {[
-                    item.openAt ? `Mở: ${formatOccurredAt(item.openAt)}` : null,
-                    item.durationMinutes
-                      ? `${item.durationMinutes} phút`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              ) : null}
-            </>
+            </div>
           )}
         </div>
-        {showPracticeActions || showTheoryActions ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
-            {showPracticeActions ? (
-              <>
-                <Link
-                  href={`${practiceActionsBasePath}/practice/${item.classContentItemId}/stats`}
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border-default px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary"
-                >
-                  <BarChart3 className="size-3.5" />
-                  Thống kê
-                </Link>
-                <Link
-                  href={`${practiceActionsBasePath}/grading/${item.classContentItemId}`}
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border-default px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary"
-                >
-                  <PenLine className="size-3.5" />
-                  Chấm bài
-                </Link>
-              </>
-            ) : null}
-            {showTheoryActions ? (
-              <button
-                type="button"
-                onClick={() => onOpenTheoryProgress?.(item)}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border-default px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary"
-              >
-                <Eye className="size-3.5" />
-                Tiến độ
-              </button>
-            ) : null}
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -244,11 +160,11 @@ function TheoryProgressDialog({
   onClose,
 }: {
   classId: string;
-  item: ClassTimelineItemDto;
+  item: TheoryProgressTarget;
   onClose: () => void;
 }) {
   const [filter, setFilter] = useState<TheoryProgressFilter>("all");
-  const contentItemId = item.classContentItemId ?? "";
+  const contentItemId = item.contentItemId;
   const { data, isLoading, isError } = useQuery({
     queryKey: ["class-theory-progress", classId, contentItemId],
     queryFn: () => classApi.getClassTheoryProgress(classId, contentItemId),
@@ -438,42 +354,12 @@ function TheoryProgressStudentRow({
 
 type MonthYearParams = { month: string; year: string };
 
-/** Trang gọi quyết định — không đọc role bên trong component. */
-export type TimelineLessonVisibility = "always" | "opt-in";
-
-function LessonItemsToggle({
-  checked,
-  onCheckedChange,
-}: {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-surface px-3 py-2">
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-text-primary">
-          Hiện tiết học
-        </span>
-        <span className="block text-xs text-text-muted">
-          Tiết lý thuyết và tiết thực hành
-        </span>
-      </span>
-      <Switch
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        aria-label="Hiện tiết học lý thuyết và tiết học thực hành"
-      />
-    </label>
-  );
-}
-
 export default function ClassTimelineManager({
   classId,
   canCreateSession,
   canManageSurveys,
   canManageContent,
   canReorder,
-  lessonVisibility = "always",
   practiceActionsBasePath,
   onCreateSession,
   fetchSessions,
@@ -486,7 +372,6 @@ export default function ClassTimelineManager({
   canManageSurveys: boolean;
   canManageContent: boolean;
   canReorder?: boolean;
-  lessonVisibility?: TimelineLessonVisibility;
   practiceActionsBasePath?: string | null;
   onCreateSession: () => void;
   fetchSessions?: (
@@ -516,6 +401,7 @@ export default function ClassTimelineManager({
   );
   const [orderDirty, setOrderDirty] = useState(false);
   const [topicAddOpen, setTopicAddOpen] = useState(false);
+  const [modulesOpen, setModulesOpen] = useState(false);
   const [surveyCreateOpen, setSurveyCreateOpen] = useState(false);
   const [openSession, setOpenSession] = useState<{
     id: string;
@@ -534,22 +420,18 @@ export default function ClassTimelineManager({
     token: number;
   } | null>(null);
   const [theoryProgressItem, setTheoryProgressItem] =
-    useState<ClassTimelineItemDto | null>(null);
-  const [showLessonItems, setShowLessonItems] = useState(
-    lessonVisibility === "always",
-  );
+    useState<TheoryProgressTarget | null>(null);
 
   const { data: serverItems = [], isLoading } = useQuery({
     queryKey: classTimelineKeys.list(classId),
     queryFn: () => classApi.getClassTimeline(classId),
   });
   const items = localItems ?? serverItems;
+  // Tiết học hiện trong nhóm chuyên đề; timeline chỉ còn buổi học + khảo sát.
+  // Kéo-thả vẫn trên list đầy đủ để `orderedIds` gồm mọi dòng đúng 1 lần.
   const displayedItems = useMemo(
-    () =>
-      showLessonItems
-        ? items
-        : items.filter((item) => item.kind !== "content_item"),
-    [items, showLessonItems],
+    () => items.filter((item) => item.kind !== "content_item"),
+    [items],
   );
 
   const loadSessions = fetchSessions ?? sessionApi.getSessionsByClassId;
@@ -592,9 +474,14 @@ export default function ClassTimelineManager({
   });
 
   const invalidate = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: classTimelineKeys.list(classId),
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: classTimelineKeys.list(classId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: classKeys.contentGroups(classId),
+      }),
+    ]);
     setLocalItems((prev) => (orderDirty ? prev : null));
   }, [classId, orderDirty, queryClient]);
 
@@ -674,7 +561,6 @@ export default function ClassTimelineManager({
     }
   };
 
-  const empty = items.length === 0;
   const displayedEmpty = displayedItems.length === 0;
 
   return (
@@ -691,14 +577,24 @@ export default function ClassTimelineManager({
           </button>
         ) : null}
         {canManageContent ? (
-          <button
-            type="button"
-            onClick={() => setTopicAddOpen(true)}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
-          >
-            <Plus className="size-3.5" />
-            Tiết học
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setModulesOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+            >
+              <Layers className="size-3.5" />
+              Chuyên đề
+            </button>
+            <button
+              type="button"
+              onClick={() => setTopicAddOpen(true)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary"
+            >
+              <Plus className="size-3.5" />
+              Tiết thực hành
+            </button>
+          </>
         ) : null}
         {canManageSurveys ? (
           <button
@@ -731,27 +627,35 @@ export default function ClassTimelineManager({
           </div>
         ) : null}
       </div>
-      {lessonVisibility === "opt-in" ? (
-        <LessonItemsToggle
-          checked={showLessonItems}
-          onCheckedChange={setShowLessonItems}
+      <section className="space-y-2" aria-labelledby="class-module-groups-title">
+        <h3
+          id="class-module-groups-title"
+          className="text-xs font-semibold uppercase tracking-wider text-text-muted"
+        >
+          Chuyên đề
+        </h3>
+        <ClassModuleGroups
+          classId={classId}
+          practiceActionsBasePath={practiceActionsBasePath}
+          onOpenItem={(id) => setOpenContent({ id, token: Date.now() })}
+          onOpenTheoryProgress={
+            canManageContent ? setTheoryProgressItem : undefined
+          }
         />
-      ) : null}
+      </section>
 
+      <h3 className="pt-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+        Buổi học và khảo sát
+      </h3>
       {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-16 w-full rounded-xl" />
           ))}
         </div>
-      ) : empty ? (
-        <div className="rounded-xl border border-dashed border-border-default p-8 text-center text-sm text-text-muted">
-          Chưa có buổi học, tiết học hay khảo sát trên timeline.
-        </div>
       ) : displayedEmpty ? (
         <div className="rounded-xl border border-dashed border-border-default p-8 text-center text-sm text-text-muted">
-          Chưa có buổi học hay khảo sát trên timeline. Bật Hiện tiết học để xem
-          tiết lý thuyết và tiết thực hành.
+          Chưa có buổi học hay khảo sát trên timeline.
         </div>
       ) : (
         <DndContext
@@ -769,10 +673,6 @@ export default function ClassTimelineManager({
                   key={item.id}
                   item={item}
                   canReorder={allowReorder}
-                  practiceActionsBasePath={practiceActionsBasePath}
-                  onOpenTheoryProgress={
-                    canManageContent ? setTheoryProgressItem : undefined
-                  }
                   onOpen={handleOpen}
                 />
               ))}
@@ -793,6 +693,13 @@ export default function ClassTimelineManager({
           void invalidate();
         }}
       />
+
+      {modulesOpen ? (
+        <ClassModulesDialog
+          classId={classId}
+          onClose={() => setModulesOpen(false)}
+        />
+      ) : null}
 
       {openSession
         ? sessionTable({

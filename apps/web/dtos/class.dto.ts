@@ -3,7 +3,7 @@ import { StaffInfoDto, StaffStatus } from "./staff.dto";
 
 export type ClassStatus = "running" | "ended";
 
-export type ClassPricingMode = "per_session" | "per_block";
+export type ClassPricingMode = "per_session" | "per_block" | "one_time";
 
 /** Khoá học — chương trình học độc lập có nội dung học thuật riêng. */
 export interface Course {
@@ -13,6 +13,8 @@ export interface Course {
     defaultDurationDays?: number | null;
     sortOrder: number;
     isActive: boolean;
+    /** Khoá bán một lần: mọi lớp của khoá trừ cả gói ở buổi học đầu. */
+    isOneTime: boolean;
     createdAt?: string;
     updatedAt?: string;
     /** Present when returned from GET /courses (list). */
@@ -74,6 +76,7 @@ export interface CreateCoursePayload {
     name: string;
     default_duration_days?: number | null;
     sort_order?: number;
+    is_one_time?: boolean;
 }
 
 export interface UpdateCoursePayload {
@@ -81,6 +84,7 @@ export interface UpdateCoursePayload {
     default_duration_days?: number | null;
     sort_order?: number;
     is_active?: boolean;
+    is_one_time?: boolean;
 }
 
 export interface AssignCourseLessonPlanMembersPayload {
@@ -322,4 +326,10 @@ export interface ClassListItemDto {
     createdAt: Date;
     updatedAt: Date;
     teachers: StaffInfoDto[];
+}
+
+/** Ảnh bìa lớp (`GET/POST/DELETE /class/:id/cover-image`). `canManage` do backend quyết định. */
+export interface ClassCoverImage {
+  coverImageUrl: string | null;
+  canManage: boolean;
 }

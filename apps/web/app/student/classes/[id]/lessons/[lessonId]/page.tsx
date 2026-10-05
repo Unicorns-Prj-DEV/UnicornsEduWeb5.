@@ -172,7 +172,7 @@ export default function StudentTopicDetailPage() {
           href={studentClassLessonsHref(classId)}
           className="inline-flex items-center gap-1 font-medium text-text-muted transition-colors hover:text-primary max-w-[200px] sm:max-w-xs truncate"
         >
-          {classDetail?.class?.name || "Chi tiết lớp"}
+          {classDetail?.className || "Chi tiết lớp"}
         </Link>
         <span>/</span>
         <span className="font-semibold text-text-primary max-w-[220px] sm:max-w-sm truncate">

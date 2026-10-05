@@ -49,6 +49,49 @@ describe('SurveyService', () => {
     );
   });
 
+  describe('getTeacherWarnings', () => {
+    afterEach(() => jest.useRealTimers());
+
+    it('flags pending surveys inside the deadline block window as blocking', async () => {
+      jest.useFakeTimers({
+        now: new Date('2026-10-09T17:00:00.000Z'),
+        doNotFake: ['nextTick', 'setImmediate'],
+      });
+      prisma.class.findMany.mockResolvedValue([
+        { id: 'class-1', name: 'Lớp 1' },
+      ]);
+      prisma.survey.findMany.mockResolvedValue([
+        {
+          id: 'survey-soon',
+          name: 'Hạn 11/10',
+          startDate: new Date('2026-10-01T00:00:00.000Z'),
+          endDate: new Date('2026-10-11T00:00:00.000Z'),
+          excludedClasses: [],
+        },
+        {
+          id: 'survey-later',
+          name: 'Hạn 12/10',
+          startDate: new Date('2026-10-01T00:00:00.000Z'),
+          endDate: new Date('2026-10-12T00:00:00.000Z'),
+          excludedClasses: [],
+        },
+      ]);
+      prisma.classSurvey.findMany.mockResolvedValue([]);
+
+      const [warning] = await service.getTeacherWarnings('teacher-1');
+
+      expect(
+        warning.pendingSurveys.map(({ surveyId, blocking }) => ({
+          surveyId,
+          blocking,
+        })),
+      ).toEqual([
+        { surveyId: 'survey-soon', blocking: true },
+        { surveyId: 'survey-later', blocking: false },
+      ]);
+    });
+  });
+
   describe('getMissingClasses', () => {
     it('returns missing running classes not in excluded list', async () => {
       prisma.surveyExcludedClass.findMany.mockResolvedValue([

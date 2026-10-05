@@ -56,12 +56,17 @@ import {
 } from 'src/common/student-class-tuition.util';
 import {
   assertCanEnableBlockPricing,
+  assertCourseChangeKeepsSaleMode,
+  assertOneTimePackageTotal,
   clockHmsFromUnknown,
   isBlockPricingMode,
   isFrozenSessionPaymentStatus,
+  isOneTimePricingMode,
+  resolveClassPricingModeForCourse,
   resolveAllowanceReconstructionBlockCount,
   resolveSnapshotBlockCountForPricingMode,
 } from 'src/common/class-pricing-mode.util';
+import { findOneTimeChargedStudentIds } from 'src/common/one-time-charge.util';
 import {
   dualWritePerBlockClassFields,
   perSessionToPerBlock,
@@ -560,6 +565,7 @@ export class ClassService {
       | 'classTeacher'
       | 'studentClass'
       | 'classScheduleEntry'
+      | 'attendance'
       | '$queryRaw'
     >,
     id: string,
@@ -640,6 +646,10 @@ export class ClassService {
       orderBy: [{ createdAt: 'asc' }, { studentId: 'asc' }],
     });
 
+    const oneTimeChargedStudentIds = isOneTimePricingMode(classInfo.pricingMode)
+      ? await findOneTimeChargedStudentIds(db, { classId: id })
+      : new Set<string>();
+
     const students = classStudents.map((student) => {
       const customTuitionPerSession = normalizeStudentClassCustomTuitionMoney(
         student.customStudentTuitionPerSession,
@@ -657,16 +667,31 @@ export class ClassService {
       const effectiveTuitionPackageSession =
         customTuitionPackageSession ??
         normalizeNullableMoney(classInfo.tuitionPackageSession);
-      const effectiveTuitionPerSession = resolveEffectiveTuitionPerSession({
-        customTuitionPerSession,
-        classTuitionPerSession: classInfo.studentTuitionPerSession,
-        effectivePackageTotal: effectiveTuitionPackageTotal,
-        effectivePackageSession: effectiveTuitionPackageSession,
-        hasCustomPackageOverride: hasCustomPackageOverride({
-          customTuitionPackageTotal,
-          customTuitionPackageSession,
-        }),
+      const packageOverride = hasCustomPackageOverride({
+        customTuitionPackageTotal,
+        customTuitionPackageSession,
       });
+      const effectiveTuitionPerSession = isOneTimePricingMode(
+        classInfo.pricingMode,
+      )
+        ? resolveSessionChargeTuitionFee({
+            pricingMode: classInfo.pricingMode,
+            customTuitionPerSession,
+            classTuitionPerSession: classInfo.studentTuitionPerSession,
+            effectivePackageTotal: effectiveTuitionPackageTotal,
+            effectivePackageSession: effectiveTuitionPackageSession,
+            hasCustomPackageOverride: packageOverride,
+            oneTimeAlreadyCharged: oneTimeChargedStudentIds.has(
+              student.studentId,
+            ),
+          })
+        : resolveEffectiveTuitionPerSession({
+            customTuitionPerSession,
+            classTuitionPerSession: classInfo.studentTuitionPerSession,
+            effectivePackageTotal: effectiveTuitionPackageTotal,
+            effectivePackageSession: effectiveTuitionPackageSession,
+            hasCustomPackageOverride: packageOverride,
+          });
       const { customerCareServices, ...studentInfo } = student.student;
       const customerCareStaff = customerCareServices?.staff
         ? {
@@ -767,6 +792,7 @@ export class ClassService {
       | 'classTeacher'
       | 'studentClass'
       | 'classScheduleEntry'
+      | 'attendance'
       | '$queryRaw'
     >,
     id: string,
@@ -1299,24 +1325,41 @@ export class ClassService {
   private async resolveCourseWithDuration(
     db: Prisma.TransactionClient | PrismaService,
     courseId?: string,
-  ): Promise<{ courseId: string; defaultDurationDays: number | null }> {
+  ): Promise<{
+    courseId: string;
+    courseName: string;
+    courseIsOneTime: boolean;
+    defaultDurationDays: number | null;
+  }> {
     if (courseId) {
       const course = await db.course.findUnique({
         where: { id: courseId },
-        select: { id: true, defaultDurationDays: true },
+        select: {
+          id: true,
+          name: true,
+          isOneTime: true,
+          defaultDurationDays: true,
+        },
       });
       if (!course) {
         throw new NotFoundException('Khoá học không tồn tại.');
       }
       return {
         courseId: course.id,
+        courseName: course.name,
+        courseIsOneTime: course.isOneTime,
         defaultDurationDays: course.defaultDurationDays,
       };
     }
     const defaultCourse = await db.course.findFirst({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      select: { id: true, defaultDurationDays: true },
+      select: {
+        id: true,
+        name: true,
+        isOneTime: true,
+        defaultDurationDays: true,
+      },
     });
     if (!defaultCourse) {
       throw new NotFoundException(
@@ -1325,8 +1368,49 @@ export class ClassService {
     }
     return {
       courseId: defaultCourse.id,
+      courseName: defaultCourse.name,
+      courseIsOneTime: defaultCourse.isOneTime,
       defaultDurationDays: defaultCourse.defaultDurationDays,
     };
+  }
+
+  /**
+   * Luật khoá bán một lần khi sửa lớp: chỉ đổi sang khoá cùng chế độ, và lớp
+   * bán một lần luôn giữ Tổng gói > 0đ.
+   */
+  private async assertClassSaleModeRules(
+    db: Prisma.TransactionClient | PrismaService,
+    classId: string,
+    next: { courseId?: string; tuitionPackageTotal?: number | null },
+  ) {
+    const current = await db.class.findUnique({
+      where: { id: classId },
+      select: {
+        courseId: true,
+        tuitionPackageTotal: true,
+        course: { select: { isOneTime: true } },
+      },
+    });
+    if (!current) {
+      throw new NotFoundException('Class not found');
+    }
+    const fromCourseIsOneTime = current.course?.isOneTime ?? false;
+    let toCourseIsOneTime = fromCourseIsOneTime;
+    if (next.courseId !== undefined && next.courseId !== current.courseId) {
+      const target = await this.resolveCourseWithDuration(db, next.courseId);
+      toCourseIsOneTime = target.courseIsOneTime;
+      assertCourseChangeKeepsSaleMode({
+        fromCourseIsOneTime,
+        toCourseIsOneTime,
+      });
+    }
+    assertOneTimePackageTotal({
+      isOneTime: toCourseIsOneTime,
+      tuitionPackageTotal:
+        next.tuitionPackageTotal !== undefined
+          ? next.tuitionPackageTotal
+          : current.tuitionPackageTotal,
+    });
   }
 
   /** Chốt ngày hết hạn nội dung từ Course.defaultDurationDays. */
@@ -1364,13 +1448,19 @@ export class ClassService {
       studentTuitionPerBlock: data.student_tuition_per_block,
       standardBlockCount,
     });
-    const pricingMode = data.pricing_mode ?? ClassPricingMode.per_session;
-    if (isBlockPricingMode(pricingMode)) {
-      assertCanEnableBlockPricing(standardBlockCount);
-    }
-
     const classDetail = await this.prisma.$transaction(async (tx) => {
       const resolved = await this.resolveCourseWithDuration(tx, data.course_id);
+      const pricingMode = resolveClassPricingModeForCourse({
+        courseIsOneTime: resolved.courseIsOneTime,
+        requestedMode: data.pricing_mode,
+      }) as ClassPricingMode;
+      if (isBlockPricingMode(pricingMode)) {
+        assertCanEnableBlockPricing(standardBlockCount);
+      }
+      assertOneTimePackageTotal({
+        isOneTime: resolved.courseIsOneTime,
+        tuitionPackageTotal: data.tuition_package_total,
+      });
 
       const createdClass = await tx.class.create({
         data: {
@@ -1512,6 +1602,10 @@ export class ClassService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await this.assertClassSaleModeRules(tx, data.id, {
+        courseId: data.course_id,
+        tuitionPackageTotal: data.tuition_package_total,
+      });
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, data.id)
         : null;
@@ -1797,6 +1891,10 @@ export class ClassService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await this.assertClassSaleModeRules(tx, id, {
+        courseId: dto.course_id,
+        tuitionPackageTotal: dto.tuition_package_total,
+      });
       const beforeValue = auditActor
         ? await this.getClassAuditSnapshot(tx, id)
         : null;
@@ -1874,6 +1972,15 @@ export class ClassService {
     }
 
     const nextMode = dto.pricing_mode;
+    // Bán một lần đi theo khoá: không bật/tắt trên từng lớp.
+    if (
+      isOneTimePricingMode(nextMode) ||
+      isOneTimePricingMode(existing.pricingMode)
+    ) {
+      throw new BadRequestException(
+        'Bán một lần là cài đặt của khoá. Hãy đổi trên khoá học.',
+      );
+    }
     if (isBlockPricingMode(nextMode)) {
       const standardBlockCount = await this.loadStandardBlockCount(
         this.prisma,
