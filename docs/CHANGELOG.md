@@ -39,6 +39,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ### Added
 
 - **Xem trước khi nhập LaTeX** (`MathRichTextEditor` — soạn câu hỏi, bài lý thuyết, tiết thực hành): nút Σ / công thức khối không còn dùng `window.prompt`; mở panel ngay dưới toolbar gồm ô nhập LaTeX, khung **Xem trước** render KaTeX trực tiếp và báo lỗi cú pháp (lỗi thì khoá nút Chèn). Enter chèn công thức cùng dòng, Ctrl/⌘+Enter chèn công thức khối, Esc huỷ mà không đóng dialog bao ngoài. Bấm vào công thức có sẵn trong ô soạn để sửa / xoá. Component `components/ui/MathLatexInputPanel.tsx`, helper `renderLatexPreview` trong `lib/math-render.ts` (+ test).
+- **Tab Xem trước khi soạn câu hỏi** (`QuestionFormFields` — popup **Thêm/Sửa câu hỏi** tab Câu hỏi của `/admin/courses/:id` và panel **Soạn mới** tiết thực hành): thanh tab **Soạn thảo / Xem trước** (`ClassTabList`). Xem trước render câu hỏi bằng chính `StudentAttemptQuestion` ở chế độ xem lại (nội dung, phương án A–F với LaTeX `$…$`, đáp án đúng, giải thích / hướng dẫn trả lời), ẩn điểm qua prop mới `hidePoints`. Component `components/admin/question/QuestionPreview.tsx`.
 
 - **Scale riêng của gia sư theo lớp:** cột `class_teachers.custom_scale_amount` (migration `20261005000000_add_class_teacher_custom_scale_amount`). `null` = theo scale lớp, `0` = gia sư không có scale, số dương = khoá số đó. Tạo buổi snapshot `snapshot_scale_amount = scale riêng ?? scale lớp`; sửa scale riêng không tính lại buổi đã có, buổi unpaid đổi gia sư/lớp tính lại theo scale của gia sư mới. API: `custom_scale_amount?` trên `PATCH /class/:id/teachers` và `PATCH /class/:id/teacher-compensation` (omit = giữ nguyên); ẩn với `accountant_income` và quản lý đào tạo. Web: ô **Scale riêng** ở popup trợ cấp và popup roster, `TutorCard` hiện scale hiệu lực kèm nhãn **riêng**, preview trợ cấp khi thêm/sửa buổi dùng scale của gia sư dạy buổi. Payroll SQL không đổi.
 - **Cài đặt «Bán một lần» trên khoá học:** cột `courses.is_one_time`. `CourseFormPopup` có Switch **Bán một lần** (admin/trợ lí), badge **Bán một lần** ở danh sách và chi tiết khoá. Bật bị chặn khi khoá đã có lớp thu học phí hoặc còn lớp thiếu gói; tắt đưa lớp về theo buổi, không tính lại.
@@ -132,6 +133,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 
 ### Fixed
+
+- **Công thức chèn bằng nút Σ không hiện khi hiển thị:** Tiptap Mathematics lưu công thức thành phần tử rỗng `<span data-type="inline-math" data-latex="…">` / `<div data-type="block-math" data-latex="…">`, nhưng `renderMathInHtml` (dùng bởi `MathContent`) chỉ render delimiter `$…$` / `\(…\)` / `$$…$$` / `\[…\]` → học sinh và màn danh sách câu hỏi thấy chỗ trống. Nay `renderMathInHtml` render cả node Tiptap (giá trị attribute có `>` vẫn đúng; thay bằng placeholder trước để các pass delimiter không quét lại HTML KaTeX), có test.
 
 - **Thanh toán khoản đã chọn lỗi khi có giáo án:** `PATCH /staff/:id/payment-status/pay-selected` validate `items[].id` bằng `@IsUUID('4')`, nhưng giáo án (`lesson_output`) dùng id ngắn `UNILOT-<10 hex>` → bấm **Chọn tất cả** rồi **Thanh toán N khoản đã chọn** trên `/admin/staffs/:id` bị 400. Nay id được kiểm theo `sourceType`: `lesson_output` phải đúng format `UNILOT-…`, các nguồn khác vẫn UUID v4.
 
