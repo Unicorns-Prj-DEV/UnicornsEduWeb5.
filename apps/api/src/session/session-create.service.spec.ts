@@ -82,7 +82,7 @@ describe('SessionCreateService', () => {
         createManyAndReturn: jest.fn().mockResolvedValue([]),
       },
       class: {
-        findUnique: jest.fn().mockResolvedValue({ timelineCustomOrder: true }),
+        findUnique: jest.fn().mockResolvedValue({}),
       },
       classTimelineItem: {
         aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
@@ -121,12 +121,17 @@ describe('SessionCreateService', () => {
       id: 'teacher-1',
       roles: [StaffRole.teacher],
     });
-    mockPrisma.class.findUnique.mockResolvedValue({ status: 'running' });
+    mockPrisma.class.findUnique.mockResolvedValue({
+      status: 'running',
+      sessions: [{ date: new Date('2019-12-01T00:00:00.000Z') }],
+      teachers: [{ createdAt: new Date('2019-12-01T00:00:00.000Z') }],
+    });
     mockPrisma.survey.findMany.mockResolvedValue([
       {
         id: 'survey-1',
         name: 'Khảo sát giữa kỳ',
         endDate: new Date('2020-01-02T00:00:00.000Z'),
+        createdAt: new Date('2019-12-20T00:00:00.000Z'),
       },
     ]);
     const createSessionSpy = jest.spyOn(service, 'createSession');
@@ -155,7 +160,11 @@ describe('SessionCreateService', () => {
       id: 'teacher-1',
       roles: [StaffRole.teacher],
     });
-    mockPrisma.class.findUnique.mockResolvedValue({ status: 'running' });
+    mockPrisma.class.findUnique.mockResolvedValue({
+      status: 'running',
+      sessions: [{ date: new Date('2019-12-01T00:00:00.000Z') }],
+      teachers: [{ createdAt: new Date('2019-12-01T00:00:00.000Z') }],
+    });
     mockPrisma.survey.findMany.mockResolvedValue([]);
     const createSessionSpy = jest
       .spyOn(service, 'createSession')
@@ -415,6 +424,108 @@ describe('SessionCreateService', () => {
     });
 
     expect(result.id).toBe('session-no-recording');
+  });
+
+  it('snapshots the teacher custom scale instead of the class scale', async () => {
+    let sessionCreate: jest.Mock | undefined;
+    mockPrisma.$transaction.mockImplementation(async (callback: never) => {
+      const tx = baseTx({
+        classTeacher: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'ct-1',
+            customAllowance: null,
+            customScaleAmount: 0,
+            operatingDeductionRatePercent: 0,
+            class: {
+              allowancePerSessionPerStudent: 100000,
+              scaleAmount: 50000,
+              tuitionPackageTotal: 10,
+              tuitionPackageSession: 10,
+            },
+          }),
+        },
+        customerCareService: { findMany: jest.fn().mockResolvedValue([]) },
+        staffInfo: { findMany: jest.fn().mockResolvedValue([]) },
+        studentClass: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              studentId: 'student-1',
+              customStudentTuitionPerSession: 100000,
+              student: { accountBalance: 0 },
+              class: {},
+            },
+            {
+              studentId: 'student-2',
+              customStudentTuitionPerSession: 100000,
+              student: { accountBalance: 0 },
+              class: {},
+            },
+          ]),
+        },
+        session: {
+          create: (sessionCreate = jest.fn().mockResolvedValue({
+            id: 'session-no-recording',
+            attendance: [
+              { id: 'att-1', studentId: 'student-1' },
+              { id: 'att-2', studentId: 'student-2' },
+            ],
+          })),
+        },
+        classScheduleEntry: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      });
+      return (callback as (tx: unknown) => Promise<unknown>)(tx);
+    });
+    scheduleRulesService.assertSessionMatchesDeclaredSchedule.mockResolvedValue(
+      { makeupEventId: null },
+    );
+    validationService.parseSessionDate.mockReturnValue(new Date('2026-03-20'));
+    validationService.parseSessionTime.mockImplementation(
+      (time: string) =>
+        new Date(`1970-01-01T${time.length === 5 ? `${time}:00` : time}Z`),
+    );
+    validationService.normalizeCoefficient.mockReturnValue(1);
+    validationService.isTuitionChargeableStatus.mockReturnValue(true);
+    validationService.resolveChargeableAttendanceTuitionFee.mockReturnValue(
+      100000,
+    );
+    validationService.resolveDefaultStudentTuitionPerSession.mockReturnValue(
+      100000,
+    );
+
+    const result = await service.createSession({
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      date: '2026-03-20',
+      startTime: '19:00:00',
+      endTime: '20:30:00',
+      lessonContent: '<p>Nội dung</p>',
+      homework: '<p>BTVN</p>',
+      tutorial: '<p>Tutorial</p>',
+      attendance: [
+        {
+          studentId: 'student-1',
+          status: AttendanceStatus.present,
+          notes: null,
+        },
+        {
+          studentId: 'student-2',
+          status: AttendanceStatus.present,
+          notes: null,
+        },
+      ],
+    });
+
+    expect(result.id).toBe('session-no-recording');
+    expect(sessionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          snapshotScaleAmount: 0,
+          allowanceAmount: 200000,
+        }),
+      }),
+    );
   });
 
   it('resolves retail attendance tuition with the same snapshot block count as teacher allowance', async () => {

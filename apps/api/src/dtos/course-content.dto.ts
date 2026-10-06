@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayUnique,
   IsArray,
   IsDateString,
   IsEnum,
@@ -427,18 +428,42 @@ export interface CourseLessonForClassDto {
 export class ClassModuleAddDto {
   @ApiProperty({
     description:
-      'ID chuyên đề thuộc khoá của lớp. Thêm chuyên đề đưa mọi tiết lý thuyết của chuyên đề vào lớp; tiết thực hành không đi theo.',
+      'ID chuyên đề thuộc khoá của lớp. Thêm chuyên đề đưa mọi tiết lý thuyết của chuyên đề vào lớp và đưa nhóm lên đầu; tiết thực hành không đi theo.',
     example: '6f1c2c0e-2a5b-4d7e-9a35-1f3d7c9b2e10',
   })
   @IsString()
   moduleId: string;
 }
 
+export class ClassModuleReorderDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'Toàn bộ ID chuyên đề lớp đã thêm, đúng một lần mỗi ID, theo thứ tự hiển thị mới (trên → dưới).',
+  })
+  @IsArray()
+  @ArrayUnique({ message: 'moduleIds không được trùng' })
+  @IsString({ each: true })
+  moduleIds: string[];
+}
+
+/** Ảnh hưởng nếu gỡ chuyên đề: dialog xác nhận báo trước, không chặn gỡ. */
+export interface ClassModuleRemovalImpactDto {
+  moduleId: string;
+  /** Số câu tự luận đã nộp nhưng chưa chấm, thuộc lần giao của chuyên đề trong lớp. */
+  ungradedEssayCount: number;
+  /** Số học sinh đang làm dở (bài chưa nộp) lần giao của chuyên đề trong lớp. */
+  inProgressStudentCount: number;
+}
+
 /** Một chuyên đề của khoá, nhìn từ một lớp: đã thêm hay chưa + số tiết. */
 export interface ClassModuleResponseDto {
   moduleId: string;
   title: string;
+  /** Thứ tự chuyên đề trong khoá. */
   sortOrder: number;
+  /** Thứ tự nhóm của riêng lớp (nhỏ lên trước); null khi lớp chưa thêm. */
+  classSortOrder: number | null;
   theoryLessonCount: number;
   practiceLessonCount: number;
   added: boolean;

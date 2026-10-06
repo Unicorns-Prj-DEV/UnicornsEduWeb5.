@@ -30,7 +30,10 @@ import { computeTrainingManagerSessionSnapshot } from '../training-manager/train
 import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
 import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
 import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
-import { resolveLiveSessionAllowanceSnapshots } from './session-allowance.util';
+import {
+  resolveLiveSessionAllowanceSnapshots,
+  resolveTeacherScaleAmountVnd,
+} from './session-allowance.util';
 import {
   computeDefaultSessionAllowanceAmountVnd,
   resolveSnapshotPerStudentAllowanceVnd,
@@ -146,6 +149,7 @@ export class SessionCreateService {
             },
             select: {
               customAllowance: true,
+              customScaleAmount: true,
               operatingDeductionRatePercent: true,
               class: {
                 select: {
@@ -351,7 +355,10 @@ export class SessionCreateService {
               classTeacher.class.allowancePerSessionPerStudent,
             classDefaultPerBlock:
               classTeacher.class.allowancePerBlockPerStudent,
-            scaleAmount: classTeacher.class.scaleAmount,
+            scaleAmount: resolveTeacherScaleAmountVnd({
+              customScaleAmount: classTeacher.customScaleAmount,
+              classScaleAmount: classTeacher.class.scaleAmount,
+            }),
             reconstructionBlocks,
             storedAsPerBlock,
             snapshotBlockCount,
@@ -657,10 +664,10 @@ export class SessionCreateService {
   }
 
   /** Gia sư không được tạo buổi học khi lớp đang trong khung chặn khảo sát sắp hạn. */
-  private async assertNoSurveyDeadlineBlock(classId: string) {
+  private async assertNoSurveyDeadlineBlock(classId: string, staffId: string) {
     const blockingSurveys = await findSurveysBlockingSessionCreation(
       this.prisma,
-      classId,
+      { classId, staffId },
     );
     if (blockingSurveys.length === 0) {
       return;
@@ -712,7 +719,7 @@ export class SessionCreateService {
         actor.id,
         classId,
       );
-      await this.assertNoSurveyDeadlineBlock(classId);
+      await this.assertNoSurveyDeadlineBlock(classId, actor.id);
     }
 
     if (data.attendance && data.attendance.length > 0) {

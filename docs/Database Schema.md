@@ -312,7 +312,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
     - `no_attendance` (`BOOLEAN`, default `false`): bật=True nghĩa là lớp **không điểm danh**; khi tạo buổi học hệ thống tự tạo `Attendance.present` cho tất cả học sinh active, bỏ qua form điểm danh. Gán/tắt chỉ bởi admin/assistant (`PATCH /class/:id/basic-info`). Session snapshot giá trị này vào `sessions.snapshot_no_attendance` để FE hiển thị đúng cho buổi đã tạo. Đổi cờ lớp **không** hồi tố buổi cũ.
   - **Hạn xem nội dung (contentAccessExpiresAt):**
     - `content_access_expires_at` (`DATE`, nullable): mốc tuyệt đối mà cả lớp cùng mất quyền xem nội dung. Được chốt lúc tạo lớp từ `Course.defaultDurationDays` (null = vô hạn). Sửa `Course.defaultDurationDays` sau đó **không hồi tố** cho lớp đã tạo. Admin có thể sửa tay qua `PATCH /class/:id/basic-info` (`content_access_expires_at`, YYYY-MM-DD hoặc null để xoá hạn).
-    - `timeline_custom_order` (`BOOLEAN`, default `false`): `false` = timeline lớp **mới nhất trên, cũ nhất dưới** (buổi = ngày+giờ, khảo sát = ngày báo cáo, chuyên đề = `open_at` hoặc `created_at`); tạo/sửa ngày tự xếp lại. `true` sau lần DnD đầu (`POST .../timeline/reorder`); mục mới khi đó append cuối. Migrations `20260916000000_timeline_sort_by_time`, `20260917000000_timeline_newest_first`.
+    - ~~`timeline_custom_order`~~ — đã bỏ ở migration `20261005120000_class_module_order_and_hidden_reason`: timeline lớp không sắp tay nữa, luôn **mới nhất trên** (xem `class_timeline_items`).
     - Học sinh quá hạn: bị chặn toàn bộ trang lớp (list + detail + sub-resources); lớp biến khỏi danh sách. Gia sư/admin vẫn xem được.
     - `ClassStatus.ended` và hết hạn là **hai trục độc lập**: lớp `ended` còn hạn vẫn xem được; lớp `running` hết hạn vẫn bị chặn.
 - Mối quan hệ: teachers, students, sessions, makeupScheduleEvents, surveys, `trainingManager` (StaffInfo), `lessons` (tiết riêng lớp, via `class_id`)
@@ -320,6 +320,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - Expand #134: `custom_allowance` **giữ tên**, backfill sang đơn vị mỗi block 30 phút (`ROUND(giá_cũ / số_block_chuẩn)`). API vẫn nhận/trả mức **theo buổi** (chia lúc ghi, nhân lúc đọc) để không đổi số tiền trên UI/payroll.
   - `status` (`TEXT`, nullable): `null` hoặc `active` được hiểu là phân công gia sư đang mở; `inactive` là **nghỉ dạy theo lớp**. Khi gia sư nghỉ dạy ở một lớp, record được giữ để bảo toàn lịch sử trợ cấp/payroll nhưng không còn là phân công hiện tại.
   - Data migration `20260617120000_inactivate_teachers_on_settled_ended_classes` (superseded): ban đầu yêu cầu cả học phí học sinh có `transaction_id`; `20260617130000_inactivate_teachers_on_teacher_paid_ended_classes` sửa lại — chỉ cần mọi `sessions.teacher_payment_status = paid` trên lớp `ended`, rồi inactive gia sư active trên `class_teachers`; không đụng `student_classes`. Runbook: `docs/ops/README.md`.
+  - `custom_scale_amount` (`INTEGER`, nullable, Prisma `customScaleAmount`, migration `20261005000000_add_class_teacher_custom_scale_amount`): **scale riêng** của gia sư trên lớp, VNĐ phẳng mỗi buổi (không nhân sĩ số, không nhân block, không đổi đơn vị theo `pricing_mode`). **null** = theo `classes.scale_amount`; **0** = gia sư không có scale; số dương = khoá số đó, không theo các lần sửa scale lớp sau này. Chỉ đọc lúc tạo buổi (`snapshot_scale_amount = custom_scale_amount ?? classes.scale_amount`) và lúc tính lại buổi unpaid đổi gia sư/lớp; sửa giá trị **không** tính lại buổi đã có. Ẩn với `accountant_income` và quản lý đào tạo như `custom_allowance`. Full update lớp (`POST`/`PATCH /class`) xoá-tạo lại `class_teachers` nhưng giữ giá trị khi payload bỏ field.
   - `tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `operatingDeductionRatePercent`): % **khấu trừ vận hành** của gia sư theo từng lớp.
   - FE đang dùng semantic `operating_deduction_rate_percent`; backend vẫn map về cột `tax_rate_percent` để tương thích dữ liệu hiện có.
 - Ghi chú:
@@ -419,20 +420,25 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `duration_minutes` (`INT`, nullable) — thời lượng làm bài (phút) của lần giao. 1–720. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`.
 - `hidden_at` (`TIMESTAMPTZ`, nullable, default null) — thời điểm ẩn mềm khỏi học sinh. Null = đang hiện.
 - `hidden_by_staff_id` (nullable FK → `staff_info.id`, `onDelete: SetNull`) — staff đã ẩn.
+- `hidden_reason` (`ClassContentHiddenReason`, nullable) — null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ chuyên đề (cả tiết lý thuyết lẫn **lần giao tiết thực hành** của chuyên đề; attempt giữ nguyên). Thêm lại chuyên đề chỉ hiện lại item `module_removed`, item `manual` vẫn ẩn. ADR `docs/adr/2026-10-05-class-module-order-and-removal.md`.
 - Unique constraint: `(class_id, lesson_id)` — mỗi tiết chỉ xuất hiện tối đa 1 lần trong nội dung của một lớp; cùng một tiết vẫn giao được cho nhiều lớp (mỗi lớp một hàng độc lập). Item đã ẩn vẫn chiếm unique — khôi phục, không thêm lại.
 - Migration: `20260910000000_add_class_content_items` — tạo bảng + backfill các topic (cũ) `class_id IS NOT NULL`.
 - Migration: `20260912000000_add_class_content_assignment_schedule` — thêm `open_at` + `duration_minutes`.
 - Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
 - Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
 - Migration: `20261002120000_add_class_modules` — lớp có tiết lý thuyết thêm lẻ (đang hiện) được thêm nguyên chuyên đề + tiết lý thuyết còn thiếu (item + dòng timeline); lớp không bật thứ tự timeline tuỳ chỉnh được sắp lại theo thời gian; item + dòng timeline của tiết riêng lớp bị ẩn.
+- Migration: `20261005120000_class_module_order_and_hidden_reason` — thêm enum `ClassContentHiddenReason` + cột `hidden_reason`; backfill item đang ẩn (lý thuyết của chuyên đề lớp không còn = `module_removed`, còn lại `manual`); ẩn (`module_removed`) lần giao thực hành đang hiện thuộc chuyên đề lớp đã gỡ, kèm dòng timeline.
 
 ### 4.4.0b-mod `class_modules` (Chuyên đề của lớp)
 
 - Một hàng = lớp đã thêm một Chuyên đề của khoá. Nguồn sự thật để đồng bộ tiết lý thuyết của chuyên đề vào `class_content_items`. Tiết thực hành không tự kéo theo.
-- `id` (UUID, PK), `class_id` (FK → `classes.id`, `onDelete: Cascade`), `module_id` (FK → `modules.id`, `onDelete: Cascade`), `created_at` (`TIMESTAMPTZ`).
-- Unique `(class_id, module_id)`; index `(module_id)` (tra lớp khi tạo tiết lý thuyết mới).
+- `id` (UUID, PK), `class_id` (FK → `classes.id`, `onDelete: Cascade`), `module_id` (FK → `modules.id`, `onDelete: Cascade`), `sort_order` (`INT`, default 0), `created_at` (`TIMESTAMPTZ`).
+- `sort_order` — thứ tự nhóm chuyên đề **của riêng lớp** (nhỏ lên trước); admin/staff kéo-thả trên tab **Chuyên đề** (`PUT /class/:id/modules/order`), học sinh thấy cùng thứ tự. Thêm (hoặc thêm lại) chuyên đề → lên đầu. Không đọc/ghi `modules.sort_order` (thứ tự cấp khoá).
+- Gỡ chuyên đề = xoá hàng (coi như chưa từng thêm): tiết lý thuyết + lần giao thực hành của chuyên đề bị ẩn `hidden_reason = module_removed`.
+- Unique `(class_id, module_id)`; index `(module_id)` (tra lớp khi tạo tiết lý thuyết mới), `(class_id, sort_order)`.
 - Chuyên đề phải thuộc khoá của lớp (guard ứng dụng, 400).
 - Migration: `20261002120000_add_class_modules` (test SQL: `apps/api/prisma/tests/20261002120000_add_class_modules.test.sql`).
+- Migration: `20261005120000_class_module_order_and_hidden_reason` — thêm `sort_order`, backfill theo `modules.sort_order` trong từng lớp.
 
 ### 4.4.0ba `class_theory_lesson_views` (Lượt xem tiết lý thuyết)
 
@@ -451,9 +457,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `kind` (`ClassTimelineItemKind`): `session` | `class_survey` | `content_item`
 - XOR FK (CHECK + unique từng cột): `session_id`, `class_survey_id`, `class_content_item_id` — cascade khi xóa entity gốc.
 - `hidden_at` / `hidden_by_staff_id` — cùng nghĩa ẩn mềm với `class_content_items`. Ẩn lần giao đồng thời ẩn dòng timeline `content_item`. Học sinh `GET .../timeline/student` lọc `hidden_at IS NULL`.
-- `sort_order` — thứ tự DnD admin/staff; học sinh đọc cùng thứ tự (cursor = id dòng trước, lọc `sort_order >`).
+- `sort_order` — luôn **mới nhất trên, cũ nhất dưới** (buổi = ngày+giờ, khảo sát = ngày báo cáo, chuyên đề = `open_at` hoặc `created_at`); tạo/sửa ngày tự xếp lại. Không sắp tay (đã bỏ DnD + `POST .../timeline/reorder` + `classes.timeline_custom_order`, migration `20261005120000_class_module_order_and_hidden_reason`). Học sinh đọc cùng thứ tự (cursor = id dòng trước, lọc `sort_order >`). Lịch sử: `20260916000000_timeline_sort_by_time` (ASC) rồi `20260917000000_timeline_newest_first` (DESC).
 - Index: `(class_id, sort_order)`.
-- `classes.timeline_custom_order` (default `false`): chưa DnD thì `sort_order` **mới nhất trên, cũ nhất dưới** (buổi = ngày+giờ, khảo sát = ngày báo cáo, chuyên đề = `open_at` hoặc `created_at`); tạo/sửa ngày tự xếp lại. `true` sau lần DnD đầu. Migration `20260916000000_timeline_sort_by_time` (cột + mix theo giờ ASC) rồi `20260917000000_timeline_newest_first` (DESC).
 - Migration: `20260915000000_add_class_timeline_items` — bảng + CHECK + backfill ban đầu. `20260921000000_rename_three_level_content` chèn thêm dòng timeline khi một lần giao lý thuyết nở thành N tiết.
 
 ### 4.4.0c `attempts` / `attempt_answers` (Bài làm)
@@ -525,7 +530,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `recording_url` (`TEXT`, nullable): link video YouTube ghi lại buổi học để học sinh xem lại bài giảng.
 - `allowance_amount`: snapshot **trước hệ số**. Lớp theo buổi: `(snapshot_per_student_allowance × sĩ số present/excused) + snapshot_scale_amount`. Lớp theo block: cùng phép cộng vì `snapshot_per_student_allowance` đã là `đơn_giá_block × snapshot_block_count` (tương đương cả buổi); `scale_amount` không nhân block. Payroll **không** cộng thêm `classes.scale_amount`.
 - `snapshot_per_student_allowance` (`INTEGER`, nullable): trợ cấp mỗi học sinh đã resolve tại lúc **tạo**/recalc unpaid. Lớp theo buổi: `custom_allowance` reconstruct per-session ?? default lớp. Lớp theo block: `đơn_giá_block × snapshot_block_count` (session-equivalent).
-- `snapshot_scale_amount` (`INTEGER`, nullable): `classes.scale_amount` tại thời điểm **tạo** buổi học; không ghi đè sau đó.
+- `snapshot_scale_amount` (`INTEGER`, nullable): scale hiệu lực của gia sư dạy buổi tại thời điểm **tạo** buổi học — `class_teachers.custom_scale_amount ?? classes.scale_amount` (0 giữ là 0); không ghi đè sau đó (trừ tính lại buổi unpaid khi đổi gia sư/lớp).
 - `snapshot_block_count` (`INTEGER`, nullable): số block 30 phút của buổi tại thời điểm **tạo** (từ `start_time`/`end_time`, fallback số block chuẩn của lớp), **chỉ khi** lớp `pricing_mode = per_block`. Payroll lịch sử không được suy lại từ giờ buổi. Trần trợ cấp lớp theo block = `max_allowance_per_block × snapshot_block_count`.
 - Khi sửa điểm danh buổi chưa thanh toán (`teacher_payment_status = unpaid`), API tự tính lại `allowance_amount` từ snapshot per-student + scale (không nhân lại block). Buổi cũ không có snapshot (null) fallback đọc live từ `classes` / `class_teachers`.
 - Trần trợ cấp không snapshot tại `sessions`. Aggregate payroll/report: lớp `per_session` đọc `classes.max_allowance_per_session`; lớp `per_block` có `snapshot_block_count` đọc `max_allowance_per_block × snapshot_block_count`. `0`/`null` = không trần. Buổi frozen thiếu snapshot block vẫn dùng trần theo buổi dù lớp đã đổi sang per_block.
@@ -886,6 +891,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `AttendanceStatus`: `present | excused | absent`
 - `LessonKind`: `theory | practice` — phân loại tiết học: `theory` (lý thuyết, video + nội dung) hoặc `practice` (thực hành, thuần câu hỏi). Đổi tên enum từ `TopicKind` ở `20260921000000_rename_three_level_content`.
 - `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
+- `ClassContentHiddenReason`: `manual`, `module_removed` — lý do ẩn mềm `class_content_items` (`20261005120000_class_module_order_and_hidden_reason`)
 - `ClassTimelineItemKind`: `session` | `class_survey` | `content_item` — loại mục trên timeline lớp (`class_timeline_items`)
 - `QuestionType`: `single_choice | essay` — phân loại câu hỏi trong ngân hàng câu hỏi
 - `AttemptStatus`: `in_progress | submitted | timed_out` — trạng thái lượt làm bài

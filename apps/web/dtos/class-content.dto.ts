@@ -21,7 +21,7 @@ export interface ClassContentModuleGroupDto {
   /** `null` = nhóm item không thuộc chuyên đề nào (xếp cuối). */
   moduleId: string | null;
   title: string;
-  /** `false` = lớp đã gỡ chuyên đề (còn lần giao / item ẩn) hoặc nhóm `null`. */
+  /** `true` với mọi chuyên đề lớp đang có (đã gỡ thì không trả nhóm); `false` chỉ ở nhóm `null`. */
   added: boolean;
   /** Theo thứ tự tiết trong chuyên đề. */
   theoryItems: ClassContentItemDto[];

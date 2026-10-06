@@ -9,6 +9,7 @@ import {
   getSurveyBlockedClassIds,
   isOnSurveyBlockedClassPage,
 } from "@/lib/survey-deadline-block";
+import { staffClassDetailHref } from "@/lib/class-detail-tabs";
 
 const SESSION_DISMISS_KEY = "survey-reminder-dismissed-session";
 
@@ -175,7 +176,7 @@ export default function SurveyReminderGate() {
                 })}
               </ul>
               <Link
-                href={`/staff/classes/${item.classId}?tab=surveys`}
+                href={staffClassDetailHref(item.classId)}
                 prefetch={false}
                 onClick={handleDismiss}
                 className="mt-3 inline-flex rounded-md bg-primary px-3 py-2 text-xs font-semibold text-text-inverse transition hover:opacity-90"

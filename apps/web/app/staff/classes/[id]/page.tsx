@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useCallback, useMemo, useState } from "react";
 import {
   keepPreviousData,
@@ -28,8 +28,13 @@ import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
-import ClassTimelineManager from "@/components/admin/ClassTimelineManager";
-import { ClassCoverImageCard } from "@/components/shared/class/ClassCoverImageCard";
+import ClassModulesTab from "@/components/admin/class/ClassModulesTab";
+import ClassTabList from "@/components/class-timeline/ClassTabList";
+import {
+  ClassDetailHero,
+  ClassStatusBadge,
+  classHeroChipClassName,
+} from "@/components/shared/class/ClassDetailHero";
 import type {
   ClassDetail,
   ClassScheduleItem,
@@ -47,18 +52,22 @@ import type {
 import type {
   MissedTeachingAlert,
   SessionCreatePayload,
+  SessionItem,
   SessionUpdatePayload,
 } from "@/dtos/session.dto";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import * as surveysApi from "@/lib/apis/surveys.api";
-import { formatCurrency } from "@/lib/class.helpers";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
-import { classTimelineKeys } from "@/lib/query-keys";
-import ClassStandingTeachers from "@/components/shared/class/ClassStandingTeachers";
+import {
+  CLASS_DETAIL_TAB_LABELS,
+  CLASS_DETAIL_TABS,
+} from "@/lib/class-detail-tabs";
+import { useClassDetailTab } from "@/hooks/use-class-detail-tab";
+import { cn } from "@/lib/utils";
 import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
@@ -327,7 +336,10 @@ export default function StaffClassDetailPage() {
   const [addSessionPopupOpen, setAddSessionPopupOpen] = useState(false);
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
+  const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
+  const [activeTab, selectTab] = useClassDetailTab();
 
+  const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
   const classDetailQueryKey = useMemo(() => staffOpsKeys.classDetail(id), [id]);
   const missedAlertsQueryKey = useMemo(
     () => ["staff-ops", "class", id, "missed-teaching-alerts"] as const,
@@ -397,10 +409,42 @@ export default function StaffClassDetailPage() {
     placeholderData: keepPreviousData,
     retry: false,
   });
+  const {
+    data: sessions = [],
+    isLoading: isSessionsLoading,
+    isFetching: isSessionsFetching,
+    isError: isSessionsError,
+  } = useQuery<SessionItem[]>({
+    queryKey: staffOpsKeys.classSessions(id, selectedYear, selectedMonthValue),
+    queryFn: () =>
+      staffOpsApi.getSessionsByClassId(id, {
+        month: selectedMonthValue,
+        year: selectedYear,
+      }),
+    enabled: !!id && canAccessClassWorkspace && activeTab === "buoi-hoc",
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+  const {
+    data: surveys = [],
+    isLoading: isSurveysLoading,
+    isFetching: isSurveysFetching,
+    isError: isSurveysError,
+  } = useQuery({
+    queryKey: staffOpsKeys.classSurveys(id, selectedYear, selectedMonthValue),
+    queryFn: () =>
+      staffOpsApi.getClassSurveys(id, {
+        month: selectedMonthValue,
+        year: selectedYear,
+      }),
+    enabled: !!id && canAccessClassWorkspace && activeTab === "buoi-hoc",
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
   const { data: availableSurveys = [] } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
-    enabled: canAccessClassWorkspace,
+    enabled: canAccessClassWorkspace && activeTab === "buoi-hoc",
     staleTime: 60_000,
   });
 
@@ -448,10 +492,10 @@ export default function StaffClassDetailPage() {
   const teacherCount = classDetail?.teachers?.length ?? 0;
   const canManageSchedule = isTeacherWorkspaceActor;
   const canManageSessions = isTeacherWorkspaceActor;
-  const teacherScopedSessionLabel = usesTeacherScope ? "Buổi bạn dạy trong tháng" : "Buổi trong tháng";
+  const teacherScopedHistorySummary = usesTeacherScope ? "Tổng số buổi bạn dạy" : "Tổng số buổi";
   const teacherScopedEmptyText = usesTeacherScope
-    ? "Bạn chưa dạy buổi nào trong tháng này."
-    : "Không có buổi học trong tháng này.";
+    ? "Không có buổi bạn dạy hay khảo sát trong tháng này."
+    : "Không có buổi học hay khảo sát trong tháng này.";
   const canCreateSession =
     canManageSessions &&
     activeClassStudents.length > 0 &&
@@ -503,8 +547,7 @@ export default function StaffClassDetailPage() {
 
   const invalidateSessionQueries = useCallback(async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) }),
-      queryClient.invalidateQueries({ queryKey: ["class-timeline-sessions", id] }),
+      queryClient.invalidateQueries({ queryKey: ["staff-ops", "sessions", "class", id] }),
       queryClient.invalidateQueries({ queryKey: missedAlertsQueryKey }),
     ]);
   }, [id, missedAlertsQueryKey, queryClient]);
@@ -597,8 +640,7 @@ export default function StaffClassDetailPage() {
   const handleCreateSurvey = useCallback(
     async (payload: CreateClassSurveyPayload) => {
       await staffOpsApi.createClassSurvey(id, payload);
-      await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
-      await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-ops", "surveys", "class", id] });
       // Nộp xong là gỡ chặn khảo sát sắp hạn ngay, không đợi staleTime của popup.
       await queryClient.invalidateQueries({ queryKey: ["surveys", "my-warnings"] });
     },
@@ -608,8 +650,7 @@ export default function StaffClassDetailPage() {
   const handleUpdateSurvey = useCallback(
     async (surveyId: string, payload: UpdateClassSurveyPayload) => {
       await staffOpsApi.updateClassSurvey(id, surveyId, payload);
-      await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
-      await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-ops", "surveys", "class", id] });
     },
     [id, queryClient],
   );
@@ -617,8 +658,7 @@ export default function StaffClassDetailPage() {
   const handleDeleteSurvey = useCallback(
     async (surveyId: string) => {
       await staffOpsApi.deleteClassSurvey(id, surveyId);
-      await queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(id) });
-      await queryClient.invalidateQueries({ queryKey: ["class-timeline-surveys", id] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-ops", "surveys", "class", id] });
     },
     [id, queryClient],
   );
@@ -670,16 +710,6 @@ export default function StaffClassDetailPage() {
     );
   }
 
-  const statusChipClass =
-    classDetail.status === "running"
-      ? "bg-warning/15 text-warning"
-      : "bg-text-muted/15 text-text-muted";
-
-  const tuitionPackageLabel =
-    classDetail.tuitionPackageTotal != null || classDetail.tuitionPackageSession != null
-      ? `${formatCurrency(classDetail.tuitionPackageTotal)} / ${classDetail.tuitionPackageSession ?? "—"} buổi`
-      : "—";
-
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg-primary p-3 sm:p-5">
       <button
@@ -693,107 +723,34 @@ export default function StaffClassDetailPage() {
         <span className="hidden sm:inline">{backLabel}</span>
       </button>
 
-      <header className="mb-4 flex flex-col gap-3 sm:mb-5">
-        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          <div className="relative flex shrink-0">
-            <div
-              className="flex size-12 items-center justify-center overflow-hidden rounded-xl bg-bg-tertiary text-lg font-semibold text-text-primary ring-2 ring-border-default sm:size-14 sm:text-xl"
-              aria-hidden
-            >
-              {(classDetail.name?.trim() || "L").charAt(0).toUpperCase()}
-            </div>
-            <span
-              className={`absolute bottom-0 right-0 block size-3 rounded-full border-2 border-bg-surface ${classDetail.status === "running" ? "bg-warning" : "bg-text-muted"
-                }`}
-              title={STATUS_LABELS[classDetail.status]}
-              aria-hidden
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <h1 className="min-w-0 truncate text-base font-semibold leading-tight text-text-primary sm:text-lg">
-                {classDetail.name?.trim() || "Lớp học"}
-              </h1>
-              <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                {isCustomerCareView
-                  ? "Customer Care View"
-                  : isTrainingView
-                    ? "Training Manager View"
-                    : isAdmin
-                      ? "Staff Workspace"
-                      : "Teacher Workspace"}
-              </span>
-            </div>
+      <ClassDetailHero
+        classId={id}
+        title={classDetail.name?.trim() || "Lớp học"}
+        badges={
+          <>
             {showClassOperationalMeta ? (
-              <div
-                className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-text-secondary"
-                role="group"
-                aria-label="Thông tin lớp học"
-              >
-                <span
-                  className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${statusChipClass}`}
-                >
-                  {STATUS_LABELS[classDetail.status]}
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span className="inline-flex shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+              <>
+                <ClassStatusBadge
+                  running={classDetail.status === "running"}
+                  label={STATUS_LABELS[classDetail.status]}
+                />
+                <span className={classHeroChipClassName}>
                   {classDetail.course?.name ?? "—"}
                 </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Gói </span>
-                  {tuitionPackageLabel}
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Trợ cấp </span>
-                  <span className="font-medium text-primary tabular-nums">
-                    {formatCurrency(classDetail.allowancePerSessionPerStudent)}/hs
-                  </span>
-                  <span className="text-text-muted"> + </span>
-                  <span className="font-medium text-primary tabular-nums">
-                    {formatCurrency(classDetail.scaleAmount ?? 0)}
-                  </span>
-                  <span className="text-text-muted"> scale</span>
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Sĩ số </span>
-                  <span className="tabular-nums text-text-primary">{classDetail.maxStudents ?? "—"}</span>
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Học sinh </span>
-                  <span className="tabular-nums text-text-primary">{classStudents.length}</span>
-                </span>
-                <span className="text-text-muted/80" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  <span className="text-text-muted">Gia sư </span>
-                  <span className="tabular-nums text-text-primary">{teacherCount}</span>
-                </span>
-              </div>
+              </>
             ) : null}
-            <ClassStandingTeachers
-              names={(classDetail.teachers ?? []).map((t) => t.fullName)}
-              className="mt-1.5"
-            />
-          </div>
-        </div>
-      </header>
-
-      <ClassCoverImageCard classId={id} />
+            <span className="inline-flex rounded-full border border-primary/20 px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+              {isCustomerCareView
+                ? "Customer Care View"
+                : isTrainingView
+                  ? "Training Manager View"
+                  : isAdmin
+                    ? "Staff Workspace"
+                    : "Teacher Workspace"}
+            </span>
+          </>
+        }
+      />
 
       <EditClassSchedulePopup
         open={schedulePopupOpen}
@@ -829,6 +786,9 @@ export default function StaffClassDetailPage() {
             ),
             teacherCustomAllowanceByTeacherId: Object.fromEntries(
               (classDetail.teachers ?? []).map((t) => [t.id, t.customAllowance ?? null]),
+            ),
+            teacherCustomScaleByTeacherId: Object.fromEntries(
+              (classDetail.teachers ?? []).map((t) => [t.id, t.customScaleAmount ?? null]),
             ),
           }}
           teacherMode="readOnly"
@@ -1126,69 +1086,139 @@ export default function StaffClassDetailPage() {
           title={usesTeacherScope ? "Lịch sử & Nội dung của bạn" : "Lịch sử & Nội dung"}
           className="w-full"
         >
-          <ClassTimelineManager
-            classId={id}
-            canCreateSession={canCreateSession}
-            canManageSurveys={canManageSurveys}
-            canManageContent={canManageSessions}
-            canReorder={canManageSessions}
-            practiceActionsBasePath={`/staff/classes/${id}`}
-            onCreateSession={() => setAddSessionPopupOpen(true)}
-            fetchSessions={staffOpsApi.getSessionsByClassId}
-            fetchSurveys={staffOpsApi.getClassSurveys}
-            sessionTable={({ sessions, autoOpenSessionId, autoOpenToken }) => (
-              <SessionHistoryTable
-                sessions={sessions}
-                hideList
-                autoOpenSessionId={autoOpenSessionId}
-                autoOpenToken={autoOpenToken}
-                entityMode="teacher"
-                variant="classDetail"
-                statusMode="payment"
-                emptyText={teacherScopedEmptyText}
-                editorLayout="wide"
-                showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
-                teachers={popupTeachers}
-                getClassStudents={getClassStudentsForEditor}
-                getClassDetailForEdit={getClassDetailForEdit}
-                allowTeacherSelection={false}
-                allowFinancialEdits={false}
-                allowPaymentStatusEdit={false}
-                allowDeleteSession={false}
-                readOnlySessionDetails={
-                  canOpenReadonlyClassForms || !canManageSessions
-                }
-                showTrainingManagerAllowance={isTrainingView}
-                updateSessionFn={handleUpdateSession}
+          <div className="mb-3 flex flex-col gap-3">
+            <ClassTabList
+              tabs={CLASS_DETAIL_TABS}
+              labels={CLASS_DETAIL_TAB_LABELS}
+              activeTab={activeTab}
+              onSelect={selectTab}
+              idPrefix="staff-class-detail-tab"
+              panelId="staff-class-detail-tabpanel"
+              ariaLabel="Buổi học hoặc chuyên đề"
+            />
+
+            {activeTab === "buoi-hoc" ? (
+              <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-1.5">
+                <MonthNav
+                  value={selectedMonth}
+                  onChange={setSelectedMonth}
+                  monthPopupOpen={monthPopupOpen}
+                  setMonthPopupOpen={setMonthPopupOpen}
+                  countLabel={`${teacherScopedHistorySummary}: ${sessions.length + surveys.length}`}
+                  actionButton={
+                    canCreateSession || canManageSurveys ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {canCreateSession ? (
+                          <button
+                            type="button"
+                            onClick={() => setAddSessionPopupOpen(true)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-text-inverse shadow-sm transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <PlusIcon className="size-3.5 shrink-0" aria-hidden />
+                            <span>Tạo buổi học</span>
+                          </button>
+                        ) : null}
+                        {canManageSurveys ? (
+                          <button
+                            type="button"
+                            onClick={() => setAddSurveyPopupOpen(true)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                          >
+                            <PlusIcon className="size-3.5 shrink-0" aria-hidden />
+                            <span>Tạo khảo sát</span>
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <section
+            id="staff-class-detail-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`staff-class-detail-tab-${activeTab}`}
+          >
+            {activeTab === "buoi-hoc" ? (
+              <>
+                <QueryRefreshStrip
+                  active={
+                    (isSessionsFetching || isSurveysFetching) &&
+                    !(isSessionsLoading || isSurveysLoading)
+                  }
+                  label="Đang tải lại dữ liệu…"
+                  className="mb-3"
+                />
+                <ClassSurveyPanel
+                  className={classDetail.name}
+                  surveys={surveys}
+                  availableSurveys={availableSurveys}
+                  teachers={popupTeachers}
+                  students={popupStudents}
+                  error={isSurveysError}
+                  canManage={canManageSurveys}
+                  canViewDetails={canOpenReadonlyClassForms}
+                  createOpen={addSurveyPopupOpen}
+                  onCreateOpenChange={setAddSurveyPopupOpen}
+                  defaultTeacherId={defaultTeacherId}
+                  onCreate={handleCreateSurvey}
+                  onUpdate={handleUpdateSurvey}
+                  onDelete={handleDeleteSurvey}
+                  renderList={(surveyRows) =>
+                    isSessionsLoading || isSurveysLoading ? (
+                      <SessionHistoryTableSkeleton
+                        rows={5}
+                        entityMode="teacher"
+                        variant="classDetail"
+                        showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          "transition-opacity",
+                          (isSessionsFetching || isSurveysFetching) && "opacity-70",
+                        )}
+                      >
+                        <SessionHistoryTable
+                          sessions={sessions}
+                          extraRows={surveyRows}
+                          entityMode="teacher"
+                          variant="classDetail"
+                          statusMode="payment"
+                          emptyText={teacherScopedEmptyText}
+                          editorLayout="wide"
+                          showActionsColumn={canManageSessions || canOpenReadonlyClassForms}
+                          teachers={popupTeachers}
+                          getClassStudents={getClassStudentsForEditor}
+                          getClassDetailForEdit={getClassDetailForEdit}
+                          allowTeacherSelection={false}
+                          allowFinancialEdits={false}
+                          allowPaymentStatusEdit={false}
+                          allowDeleteSession={false}
+                          readOnlySessionDetails={
+                            canOpenReadonlyClassForms || !canManageSessions
+                          }
+                          showTrainingManagerAllowance={isTrainingView}
+                          updateSessionFn={handleUpdateSession}
+                        />
+                      </div>
+                    )
+                  }
+                />
+                {isSessionsError ? (
+                  <p className="mt-3 text-sm text-error">Không tải được lịch sử buổi học.</p>
+                ) : null}
+              </>
+            ) : (
+              <ClassModulesTab
+                classId={id}
+                canManageContent={canManageSessions}
+                practiceActionsBasePath={`/staff/classes/${id}`}
               />
             )}
-            surveyPanel={({
-              surveys,
-              autoOpenSurveyId,
-              autoOpenToken,
-              createOpen,
-              onCreateOpenChange,
-            }) => (
-              <ClassSurveyPanel
-                className={classDetail.name}
-                surveys={surveys}
-                availableSurveys={availableSurveys}
-                teachers={popupTeachers}
-                students={popupStudents}
-                hideList
-                autoOpenSurveyId={autoOpenSurveyId}
-                autoOpenToken={autoOpenToken}
-                canManage={canManageSurveys}
-                canViewDetails={canOpenReadonlyClassForms}
-                createOpen={createOpen}
-                onCreateOpenChange={onCreateOpenChange}
-                defaultTeacherId={defaultTeacherId}
-                onCreate={handleCreateSurvey}
-                onUpdate={handleUpdateSurvey}
-                onDelete={handleDeleteSurvey}
-              />
-            )}
-          />
+          </section>
         </ClassCard>
       </div>
     </div>

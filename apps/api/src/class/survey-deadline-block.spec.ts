@@ -73,7 +73,10 @@ describe('survey deadline block', () => {
       prisma.class.findUnique.mockResolvedValue({ status: ClassStatus.ended });
 
       await expect(
-        findSurveysBlockingSessionCreation(prisma as never, 'class-1'),
+        findSurveysBlockingSessionCreation(prisma as never, {
+          classId: 'class-1',
+          staffId: 'staff-1',
+        }),
       ).resolves.toEqual([]);
       expect(prisma.survey.findMany).not.toHaveBeenCalled();
     });
@@ -81,14 +84,27 @@ describe('survey deadline block', () => {
     it('returns open, unreported, non-excluded surveys inside the block window', async () => {
       prisma.class.findUnique.mockResolvedValue({
         status: ClassStatus.running,
+        sessions: [{ date: utcDate('2026-09-01') }],
+        teachers: [{ createdAt: new Date('2026-09-01T03:00:00.000Z') }],
       });
       prisma.survey.findMany.mockResolvedValue([
-        { id: 'survey-1', name: 'Khảo sát 10', endDate: utcDate('2026-10-11') },
+        {
+          id: 'survey-1',
+          name: 'Khảo sát 10',
+          endDate: utcDate('2026-10-11'),
+          createdAt: new Date('2026-10-01T03:00:00.000Z'),
+        },
+        {
+          id: 'survey-before-class',
+          name: 'Tạo trước buổi đầu',
+          endDate: utcDate('2026-10-11'),
+          createdAt: new Date('2026-08-20T03:00:00.000Z'),
+        },
       ]);
 
       const result = await findSurveysBlockingSessionCreation(
         prisma as never,
-        'class-1',
+        { classId: 'class-1', staffId: 'staff-1' },
         new Date('2026-10-09T17:00:00.000Z'),
       );
 
@@ -131,17 +147,28 @@ describe('survey deadline block', () => {
       expect(prisma.survey.findMany).not.toHaveBeenCalled();
     });
 
-    it('lists only running classes that are neither excluded nor reported, in the same window', async () => {
+    it('lists only running classes that are not excluded, reported or exempt, in the same window', async () => {
+      const startedClass = {
+        sessions: [{ date: utcDate('2026-09-01') }],
+        teachers: [{ createdAt: new Date('2026-09-01T03:00:00.000Z') }],
+      };
       prisma.class.findMany.mockResolvedValue([
-        { id: 'class-a', name: 'Lớp A' },
-        { id: 'class-b', name: 'Lớp B' },
-        { id: 'class-c', name: 'Lớp C' },
+        { id: 'class-a', name: 'Lớp A', ...startedClass },
+        { id: 'class-b', name: 'Lớp B', ...startedClass },
+        { id: 'class-c', name: 'Lớp C', ...startedClass },
+        {
+          id: 'class-d',
+          name: 'Lớp D (gia sư mới vào)',
+          sessions: [{ date: utcDate('2026-09-01') }],
+          teachers: [{ createdAt: new Date('2026-10-05T03:00:00.000Z') }],
+        },
       ]);
       prisma.survey.findMany.mockResolvedValue([
         {
           id: 'survey-1',
           name: 'Khảo sát 10',
           endDate: utcDate('2026-10-11'),
+          createdAt: new Date('2026-10-01T03:00:00.000Z'),
           excludedClasses: [{ classId: 'class-b' }],
           classSurveys: [{ classId: 'class-c' }],
         },
@@ -149,11 +176,13 @@ describe('survey deadline block', () => {
           id: 'survey-2',
           name: 'Đã nộp hết',
           endDate: utcDate('2026-10-10'),
+          createdAt: new Date('2026-10-01T03:00:00.000Z'),
           excludedClasses: [],
           classSurveys: [
             { classId: 'class-a' },
             { classId: 'class-b' },
             { classId: 'class-c' },
+            { classId: 'class-d' },
           ],
         },
       ]);

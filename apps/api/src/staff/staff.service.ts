@@ -93,6 +93,10 @@ import {
 } from 'src/payroll/assistant-share.util';
 import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 import { findTeacherSurveyDeadlineBlocks } from '../class/survey-deadline-block';
+import {
+  FIRST_SESSION_SELECT,
+  isSurveyRequiredFor,
+} from '../class/survey-requirement';
 import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
@@ -685,8 +689,9 @@ export class StaffService {
    * `running` của nhân sự (gia sư) này còn thiếu báo cáo. Dùng để cảnh báo
    * kế toán trước khi thanh toán (pay-all/pay-selected/pay-deposit) — không
    * áp dụng bộ lọc dismissal của banner kế toán chi (dismissal chỉ ẩn UI
-   * thông báo, không liên quan tới cảnh báo tại thời điểm thanh toán). Xem
-   * thêm `SurveyService.getAccountantWarnings` cho logic tương tự.
+   * thông báo, không liên quan tới cảnh báo tại thời điểm thanh toán). Bỏ lớp
+   * được miễn (`isSurveyRequiredFor`). Xem thêm `SurveyService.getAccountantWarnings`
+   * cho logic tương tự.
    */
   private async getOverdueSurveyWarningsForPayment(
     staffId: string,
@@ -698,6 +703,7 @@ export class StaffService {
       select: {
         id: true,
         name: true,
+        createdAt: true,
         excludedClasses: { select: { classId: true } },
       },
     });
@@ -708,7 +714,15 @@ export class StaffService {
         status: 'running',
         teachers: { some: { teacherId: staffId } },
       },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        sessions: FIRST_SESSION_SELECT,
+        teachers: {
+          where: { teacherId: staffId },
+          select: { createdAt: true },
+        },
+      },
     });
     if (!runningClasses.length) return [];
 
@@ -733,6 +747,12 @@ export class StaffService {
         .filter((classItem) => !excludedIds.has(classItem.id))
         .filter(
           (classItem) => !reportedKeys.has(`${classItem.id}::${survey.id}`),
+        )
+        .filter((classItem) =>
+          isSurveyRequiredFor(survey.createdAt, {
+            sessions: classItem.sessions,
+            teacherJoinedAt: classItem.teachers[0]?.createdAt,
+          }),
         )
         .map((classItem) => classItem.name);
 

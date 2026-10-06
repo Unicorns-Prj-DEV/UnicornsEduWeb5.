@@ -617,8 +617,7 @@ describe('StaffService', () => {
         nextRoles: [StaffRole.teacher, StaffRole.assistant],
       }),
     );
-    const updateOrder =
-      mockPrisma.staffInfo.update.mock.invocationCallOrder[0];
+    const updateOrder = mockPrisma.staffInfo.update.mock.invocationCallOrder[0];
     const syncOrder =
       fixedSalarySettingsService.syncStaffRoleOverridesInTx.mock
         .invocationCallOrder[0];
@@ -2750,11 +2749,17 @@ describe('StaffService', () => {
       {
         id: 'survey-1',
         name: 'Bài khảo sát 7',
+        createdAt: new Date('2026-02-20T03:00:00.000Z'),
         excludedClasses: [],
       },
     ]);
     mockPrisma.class.findMany.mockResolvedValue([
-      { id: 'class-1', name: 'Lớp Toán A' },
+      {
+        id: 'class-1',
+        name: 'Lớp Toán A',
+        sessions: [{ date: new Date('2026-02-01T00:00:00.000Z') }],
+        teachers: [{ createdAt: new Date('2026-02-01T03:00:00.000Z') }],
+      },
     ]);
     mockPrisma.classSurvey.findMany.mockResolvedValue([]);
 
@@ -2793,11 +2798,17 @@ describe('StaffService', () => {
       {
         id: 'survey-1',
         name: 'Bài khảo sát 7',
+        createdAt: new Date('2026-02-20T03:00:00.000Z'),
         excludedClasses: [],
       },
     ]);
     mockPrisma.class.findMany.mockResolvedValue([
-      { id: 'class-1', name: 'Lớp Toán A' },
+      {
+        id: 'class-1',
+        name: 'Lớp Toán A',
+        sessions: [{ date: new Date('2026-02-01T00:00:00.000Z') }],
+        teachers: [{ createdAt: new Date('2026-02-01T03:00:00.000Z') }],
+      },
     ]);
     mockPrisma.classSurvey.findMany.mockResolvedValue([]);
     mockPrisma.session.findMany.mockResolvedValue([
@@ -2824,11 +2835,17 @@ describe('StaffService', () => {
       {
         id: 'survey-1',
         name: 'Bài khảo sát 7',
+        createdAt: new Date('2026-02-20T03:00:00.000Z'),
         excludedClasses: [],
       },
     ]);
     mockPrisma.class.findMany.mockResolvedValue([
-      { id: 'class-1', name: 'Lớp Toán A' },
+      {
+        id: 'class-1',
+        name: 'Lớp Toán A',
+        sessions: [{ date: new Date('2026-02-01T00:00:00.000Z') }],
+        teachers: [{ createdAt: new Date('2026-02-01T03:00:00.000Z') }],
+      },
     ]);
     mockPrisma.classSurvey.findMany.mockResolvedValue([
       { classId: 'class-1', surveyId: 'survey-1' },
@@ -3216,7 +3233,9 @@ describe('StaffService', () => {
           },
         ],
       });
-    jest.spyOn(service as any, 'guardOverdueSurveyReports').mockResolvedValue(undefined);
+    jest
+      .spyOn(service as any, 'guardOverdueSurveyReports')
+      .mockResolvedValue(undefined);
 
     await service.payAllPayments(
       'staff-1',

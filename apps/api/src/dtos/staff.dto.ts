@@ -24,9 +24,15 @@ import {
   Max,
   Min,
   MinLength,
+  Validate,
   ValidateIf,
   ValidateNested,
+  ValidatorConstraint,
+  isUUID,
+  type ValidationArguments,
+  type ValidatorConstraintInterface,
 } from 'class-validator';
+import { isLessonOutputId } from '../common/entity-id';
 import { IsStaffId } from '../common/entity-id.validators';
 
 export class SearchAssignableStaffUsersDto {
@@ -536,6 +542,23 @@ export class UpdateStaffFixedSalaryPayableDto {
 export type StaffPaymentSourceTypeDto =
   (typeof STAFF_PAYMENT_SOURCE_TYPES)[number];
 
+/** Giáo án (`lesson_output`) dùng id ngắn `UNILOT-…`; các nguồn còn lại là UUID v4. */
+@ValidatorConstraint({ name: 'staffPaymentItemId' })
+class StaffPaymentItemIdConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown, args: ValidationArguments): boolean {
+    const { sourceType } = args.object as StaffPaySelectedPaymentItemDto;
+    if (sourceType === 'lesson_output') return isLessonOutputId(value);
+    return typeof value === 'string' && isUUID(value, '4');
+  }
+
+  defaultMessage(args: ValidationArguments): string {
+    const { sourceType } = args.object as StaffPaySelectedPaymentItemDto;
+    return sourceType === 'lesson_output'
+      ? `${args.property} must be a valid lesson output id (e.g. UNILOT-a1b2c3d4e5)`
+      : `${args.property} must be a UUID`;
+  }
+}
+
 export class StaffPaySelectedPaymentItemDto {
   @ApiProperty({
     description: 'Payment preview source type',
@@ -547,10 +570,11 @@ export class StaffPaySelectedPaymentItemDto {
   sourceType: StaffPaymentSourceTypeDto;
 
   @ApiProperty({
-    description: 'Entity id from payment preview item',
+    description:
+      'Entity id from payment preview item. UUID v4, except lesson_output which uses UNILOT-<10 hex>.',
     example: '53d7f00c-4ae7-4a1d-b4d3-67415159f4c8',
   })
-  @IsUUID('4')
+  @Validate(StaffPaymentItemIdConstraint)
   id: string;
 }
 
