@@ -1,23 +1,14 @@
 import { ClassStatus } from 'generated/enums';
-import { VIETNAM_TIME_ZONE } from 'src/fixed-salary-settings/current-month.util';
 import type { PrismaService } from 'src/prisma/prisma.service';
+import {
+  FIRST_SESSION_SELECT,
+  getVietnamToday,
+  isSurveyRequiredFor,
+} from './survey-requirement';
+
+export { getVietnamToday };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Hôm nay theo giờ Việt Nam, dạng ngày UTC 00:00 để so trực tiếp với cột `@db.Date`.
- * "Đầu ngày" của khung chặn khảo sát tính theo giờ Việt Nam, không theo UTC.
- */
-export function getVietnamToday(now = new Date()): Date {
-  const isoDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: VIETNAM_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-  const [year, month, day] = isoDate.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-}
 
 /**
  * `endDate` muộn nhất đã vào khung **chặn khảo sát sắp hạn** (CONTEXT.md) tại `today`:
@@ -61,17 +52,23 @@ export type SurveyBlockingSessionCreation = {
 };
 
 /**
- * Bài khảo sát đang chặn gia sư tạo buổi học cho lớp: lớp `running`, bài đã mở,
- * đã vào khung chặn, lớp không bị loại trừ và chưa nộp báo cáo. Rỗng = được tạo.
+ * Bài khảo sát đang chặn gia sư `staffId` tạo buổi học cho lớp: lớp `running`, bài
+ * đã mở, đã vào khung chặn, lớp không bị loại trừ, chưa nộp báo cáo và lớp/gia sư
+ * thuộc diện phải báo cáo (`isSurveyRequiredFor`). Rỗng = được tạo.
  */
 export async function findSurveysBlockingSessionCreation(
   prisma: Pick<PrismaService, 'class' | 'survey'>,
-  classId: string,
+  params: { classId: string; staffId: string },
   now = new Date(),
 ): Promise<SurveyBlockingSessionCreation[]> {
+  const { classId, staffId } = params;
   const classRow = await prisma.class.findUnique({
     where: { id: classId },
-    select: { status: true },
+    select: {
+      status: true,
+      sessions: FIRST_SESSION_SELECT,
+      teachers: { where: { teacherId: staffId }, select: { createdAt: true } },
+    },
   });
   if (classRow?.status !== ClassStatus.running) {
     return [];
@@ -84,15 +81,21 @@ export async function findSurveysBlockingSessionCreation(
       classSurveys: { none: { classId } },
     },
     orderBy: { endDate: 'asc' },
-    select: { id: true, name: true, endDate: true },
+    select: { id: true, name: true, endDate: true, createdAt: true },
   });
 
+  const subject = {
+    sessions: classRow.sessions,
+    teacherJoinedAt: classRow.teachers[0]?.createdAt,
+  };
   // `where` đã loại `name`/`endDate` null.
-  return surveys.map((survey) => ({
-    surveyId: survey.id,
-    name: survey.name ?? '',
-    endDate: survey.endDate as Date,
-  }));
+  return surveys
+    .filter((survey) => isSurveyRequiredFor(survey.createdAt, subject))
+    .map((survey) => ({
+      surveyId: survey.id,
+      name: survey.name ?? '',
+      endDate: survey.endDate as Date,
+    }));
 }
 
 export type TeacherSurveyDeadlineBlock = {
@@ -103,8 +106,8 @@ export type TeacherSurveyDeadlineBlock = {
 };
 
 /**
- * Bài khảo sát đang trong khung chặn mà gia sư còn lớp `running` chưa nộp, kèm
- * tên các lớp đó. Cùng quy tắc với `findSurveysBlockingSessionCreation`; dùng cho
+ * Bài khảo sát đang trong khung chặn mà gia sư còn lớp `running` chưa nộp (và
+ * thuộc diện phải báo cáo), kèm tên các lớp đó. Cùng quy tắc với `findSurveysBlockingSessionCreation`; dùng cho
  * cảnh báo kế toán chi khi trả trợ cấp.
  */
 export async function findTeacherSurveyDeadlineBlocks(
@@ -118,7 +121,12 @@ export async function findTeacherSurveyDeadlineBlocks(
       teachers: { some: { teacherId: staffId } },
     },
     orderBy: { name: 'asc' },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      sessions: FIRST_SESSION_SELECT,
+      teachers: { where: { teacherId: staffId }, select: { createdAt: true } },
+    },
   });
   if (!runningClasses.length) {
     return [];
@@ -132,6 +140,7 @@ export async function findTeacherSurveyDeadlineBlocks(
       id: true,
       name: true,
       endDate: true,
+      createdAt: true,
       excludedClasses: {
         where: { classId: { in: classIds } },
         select: { classId: true },
@@ -151,6 +160,12 @@ export async function findTeacherSurveyDeadlineBlocks(
     );
     const classNames = runningClasses
       .filter((classItem) => !settledClassIds.has(classItem.id))
+      .filter((classItem) =>
+        isSurveyRequiredFor(survey.createdAt, {
+          sessions: classItem.sessions,
+          teacherJoinedAt: classItem.teachers[0]?.createdAt,
+        }),
+      )
       .map((classItem) => classItem.name);
     return classNames.length
       ? [

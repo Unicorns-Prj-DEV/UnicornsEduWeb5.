@@ -85,6 +85,10 @@ import {
   SQL_TEACHER_SESSION_CAP_GROUP_BY,
 } from '../common/teacher-session-allowance-sql.util';
 import { SurveyRoundService } from '../class/survey-round.service';
+import {
+  FIRST_SESSION_SELECT,
+  isSurveyRequiredFor,
+} from '../class/survey-requirement';
 import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 type SummaryCountRow = {
@@ -2419,6 +2423,7 @@ export class DashboardService {
   /**
    * Running classes that have NOT reported active/open survey(s)
    * (survey has name != null, startDate <= CURRENT_DATE, class is not excluded, and no class_surveys row with this surveyId).
+   * Lớp có buổi đầu tiên muộn hơn ngày tạo bài (giờ VN) được miễn — cùng quy tắc `isSurveyRequiredFor`.
    */
   private async getMissingSurveyClassAlertRows(params: {
     limit: number;
@@ -2460,6 +2465,12 @@ export class DashboardService {
             SELECT 1
             FROM class_surveys cs
             WHERE cs.class_id = c.id AND cs.survey_id = s.id
+          )
+          AND EXISTS (
+            SELECT 1
+            FROM sessions se
+            WHERE se.class_id = c.id
+              AND se.date <= (s.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
           )
       ),
       counted AS (
@@ -2591,6 +2602,11 @@ export class DashboardService {
           select: {
             id: true,
             name: true,
+            sessions: FIRST_SESSION_SELECT,
+            teachers: {
+              where: { teacherId: staffId },
+              select: { createdAt: true },
+            },
             _count: {
               select: {
                 surveys: true,
@@ -2636,11 +2652,21 @@ export class DashboardService {
           select: {
             id: true,
             name: true,
+            createdAt: true,
             excludedClasses: { select: { classId: true } },
           },
         }),
       ]);
 
+    const surveySubjectByClassId = new Map(
+      assignedClasses.map((item) => [
+        item.id,
+        {
+          sessions: item.sessions,
+          teacherJoinedAt: item.teachers[0]?.createdAt,
+        },
+      ]),
+    );
     const assignedClassesIds = assignedClasses.map((item) => item.id);
     const [latestSurveyRows, reportedSurveyRows] =
       assignedClassesIds.length > 0
@@ -2705,10 +2731,13 @@ export class DashboardService {
           const latestClassSurveyTestNumber =
             latestSurveyByClassId.get(item.id) ?? null;
           const missingSchedule = item.scheduleCount === 0;
+          const surveySubject = surveySubjectByClassId.get(item.id);
           const missingSurveys = openSurveys.filter(
             (s) =>
               !s.excludedClasses.some((e) => e.classId === item.id) &&
-              !reportedSurveyKeySet.has(`${item.id}::${s.id}`),
+              !reportedSurveyKeySet.has(`${item.id}::${s.id}`) &&
+              surveySubject != null &&
+              isSurveyRequiredFor(s.createdAt, surveySubject),
           );
           const missingSurvey = missingSurveys.length > 0;
 

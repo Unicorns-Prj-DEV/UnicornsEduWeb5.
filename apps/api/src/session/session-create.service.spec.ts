@@ -121,12 +121,17 @@ describe('SessionCreateService', () => {
       id: 'teacher-1',
       roles: [StaffRole.teacher],
     });
-    mockPrisma.class.findUnique.mockResolvedValue({ status: 'running' });
+    mockPrisma.class.findUnique.mockResolvedValue({
+      status: 'running',
+      sessions: [{ date: new Date('2019-12-01T00:00:00.000Z') }],
+      teachers: [{ createdAt: new Date('2019-12-01T00:00:00.000Z') }],
+    });
     mockPrisma.survey.findMany.mockResolvedValue([
       {
         id: 'survey-1',
         name: 'Khảo sát giữa kỳ',
         endDate: new Date('2020-01-02T00:00:00.000Z'),
+        createdAt: new Date('2019-12-20T00:00:00.000Z'),
       },
     ]);
     const createSessionSpy = jest.spyOn(service, 'createSession');
@@ -155,7 +160,11 @@ describe('SessionCreateService', () => {
       id: 'teacher-1',
       roles: [StaffRole.teacher],
     });
-    mockPrisma.class.findUnique.mockResolvedValue({ status: 'running' });
+    mockPrisma.class.findUnique.mockResolvedValue({
+      status: 'running',
+      sessions: [{ date: new Date('2019-12-01T00:00:00.000Z') }],
+      teachers: [{ createdAt: new Date('2019-12-01T00:00:00.000Z') }],
+    });
     mockPrisma.survey.findMany.mockResolvedValue([]);
     const createSessionSpy = jest
       .spyOn(service, 'createSession')
