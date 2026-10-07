@@ -1,36 +1,99 @@
 import {
   Body,
-  Column,
-  Container,
   Head,
   Heading,
-  Hr,
   Html,
   Img,
-  Preview,
-  Row,
   Section,
   Text,
 } from '@react-email/components';
 import type { TuitionReceiptEmailProps } from '../receipt.types';
+import {
+  EmailAmountHighlight,
+  EmailLayout,
+  EmailMutedNote,
+  EmailParagraph,
+  EMAIL_COLORS,
+  EMAIL_FONT_FAMILY,
+  EMAIL_MONO_FONT_FAMILY,
+  formatVnd,
+} from './components/email-layout';
 
-const BORDER = '#1e40af';
-const BLUE950 = '#172554';
-const BLUE900 = '#1e3a8a';
+const INK = '#1e3a8a';
 const BLUE100 = '#dbeafe';
 const BLUE50 = '#eff6ff';
-const SLATE200 = '#e2e8f0';
-const SLATE500 = '#64748b';
 
-function formatVnd(amount: number): string {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(amount);
+export function TuitionReceiptEmail(props: TuitionReceiptEmailProps) {
+  if (props.variant === 'pdf') {
+    return (
+      <Html lang="vi">
+        <Head />
+        <Body
+          style={{
+            backgroundColor: '#ffffff',
+            fontFamily: EMAIL_FONT_FAMILY,
+            margin: 0,
+            padding: 0,
+          }}
+        >
+          <ReceiptDocument {...props} />
+        </Body>
+      </Html>
+    );
+  }
+
+  const {
+    documentTitle,
+    invoiceCode,
+    issueDate,
+    studentName,
+    totalAmount,
+    parentName,
+    hasPdfAttachment,
+    siteUrl,
+    brandLogoSrc,
+  } = props;
+  const greetingName = parentName?.trim() || 'Quý phụ huynh';
+
+  return (
+    <EmailLayout
+      preview={`${documentTitle} — ${invoiceCode} — ${studentName} — ${formatVnd(totalAmount)}`}
+      tone="success"
+      icon="🧾"
+      eyebrow="Nạp ví thành công"
+      title="Unicorns Edu đã nhận học phí"
+      logoSrc={brandLogoSrc ?? null}
+      siteUrl={siteUrl ?? null}
+    >
+      <EmailParagraph>Kính gửi {greetingName},</EmailParagraph>
+      <EmailParagraph>
+        Trung tâm xác nhận đã nhận khoản nạp ví cho học viên{' '}
+        <strong style={{ color: EMAIL_COLORS.text }}>{studentName}</strong>.
+        Biên lai điện tử của giao dịch nằm ngay bên dưới.
+      </EmailParagraph>
+
+      <EmailAmountHighlight
+        tone="success"
+        label="Số tiền đã nhận"
+        amount={totalAmount}
+        caption={`Mã biên lai ${invoiceCode} · ${issueDate}`}
+      />
+
+      <ReceiptDocument {...props} />
+
+      <EmailMutedNote>
+        {hasPdfAttachment
+          ? '📎 Bản PDF biên lai được đính kèm trong email này để Quý phụ huynh lưu trữ. '
+          : null}
+        Nếu Quý phụ huynh không thực hiện giao dịch này, vui lòng liên hệ trung
+        tâm ngay.
+      </EmailMutedNote>
+    </EmailLayout>
+  );
 }
 
-export function TuitionReceiptEmail({
+/** Khối biên lai: dùng chung cho thân email và file PDF. */
+function ReceiptDocument({
   documentTitle,
   invoiceCode,
   issueDate,
@@ -45,456 +108,354 @@ export function TuitionReceiptEmail({
   logoMainSrc,
   logoTinSrc,
   stampSrc,
+  variant,
 }: TuitionReceiptEmailProps) {
+  const isPdf = variant === 'pdf';
+
   return (
-    <Html lang="vi">
-      <Head />
-      <Preview>
-        {documentTitle} — {invoiceCode} — {studentName} —{' '}
-        {formatVnd(totalAmount)}
-      </Preview>
-      <Body
+    <Section
+      style={{
+        backgroundColor: '#ffffff',
+        border: `1px solid ${isPdf ? '#1e40af' : EMAIL_COLORS.border}`,
+        borderRadius: '14px',
+        padding: '18px 18px 16px',
+      }}
+    >
+      {logoMainSrc || logoTinSrc ? (
+        <table
+          role="presentation"
+          cellPadding={0}
+          cellSpacing={0}
+          align="center"
+          style={{ margin: '0 auto', borderCollapse: 'collapse' }}
+        >
+          <tbody>
+            <tr>
+              {logoMainSrc ? (
+                <td style={{ padding: '0 10px', verticalAlign: 'middle' }}>
+                  <Img
+                    src={logoMainSrc}
+                    alt="Unicorns Edu"
+                    height={isPdf ? 56 : 44}
+                    style={{ display: 'block' }}
+                  />
+                </td>
+              ) : null}
+              {logoTinSrc ? (
+                <td style={{ padding: '0 10px', verticalAlign: 'middle' }}>
+                  <Img
+                    src={logoTinSrc}
+                    alt="Học Tin cùng Chuyên tin"
+                    height={isPdf ? 52 : 42}
+                    style={{ display: 'block', borderRadius: '6px' }}
+                  />
+                </td>
+              ) : null}
+            </tr>
+          </tbody>
+        </table>
+      ) : null}
+
+      <Heading
+        as="h2"
         style={{
-          backgroundColor: '#f1f5f9',
-          fontFamily:
-            "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-          margin: 0,
-          padding: '24px 12px',
+          margin: '12px 0 2px',
+          color: INK,
+          fontSize: '15px',
+          fontWeight: 800,
+          letterSpacing: '0.06em',
+          lineHeight: 1.3,
+          textAlign: 'center',
+          textTransform: 'uppercase',
         }}
       >
-        <Container style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <Text
-            style={{
-              margin: '0 0 12px',
-              fontSize: '13px',
-              color: SLATE500,
-              lineHeight: 1.5,
-            }}
-          >
-            Kính gửi Quý phụ huynh — dưới đây là biên lai điện tử tương ứng giao
-            dịch nạp ví học sinh.
-          </Text>
+        {documentTitle}
+      </Heading>
+      <Text
+        style={{
+          margin: '0 0 14px',
+          color: EMAIL_COLORS.textMuted,
+          fontSize: '12px',
+          lineHeight: 1.5,
+          textAlign: 'center',
+        }}
+      >
+        Unicorns Edu — Học Tin cùng Chuyên tin
+      </Text>
 
-          {/* Khối biên lai */}
-          <Section
-            style={{
-              backgroundColor: '#ffffff',
-              border: `1px solid ${BORDER}`,
-              borderRadius: '12px',
-              padding: '14px 16px 16px',
-              boxShadow: '0 12px 40px rgba(30, 64, 175, 0.12)',
-            }}
-          >
-            {/* Bảng presentation: email client không chia 50% như Row/Column → logo giữa + gap */}
-            <Section style={{ marginBottom: '8px', textAlign: 'center' }}>
-              <table
-                role="presentation"
-                cellPadding={0}
-                cellSpacing={0}
-                align="center"
+      <table
+        role="presentation"
+        cellPadding={0}
+        cellSpacing={0}
+        width="100%"
+        style={{
+          width: '100%',
+          borderCollapse: 'separate',
+          backgroundColor: BLUE50,
+          border: `1px solid ${BLUE100}`,
+          borderRadius: '10px',
+        }}
+      >
+        <tbody>
+          <tr>
+            <MetaCell label="Mã biên lai" value={invoiceCode} mono />
+            <MetaCell label="Ngày lập" value={issueDate} />
+          </tr>
+          <tr>
+            <MetaCell label="Học viên" value={studentName} />
+            <MetaCell label="Mã học viên" value={studentCode?.trim() || '—'} />
+          </tr>
+        </tbody>
+      </table>
+
+      {receiptSummary ? (
+        <Text
+          style={{
+            margin: '12px 0 0',
+            color: EMAIL_COLORS.text,
+            fontSize: '13px',
+            lineHeight: 1.55,
+          }}
+        >
+          <span style={{ color: INK, fontWeight: 700 }}>Nội dung: </span>
+          {receiptSummary}
+        </Text>
+      ) : null}
+
+      <Text
+        style={{
+          margin: '8px 0 14px',
+          color: EMAIL_COLORS.text,
+          fontSize: '13px',
+          lineHeight: 1.55,
+        }}
+      >
+        <span style={{ color: INK, fontWeight: 700 }}>Người nhận: </span>
+        <strong>{receiverName}</strong>
+        {receiverBankName ? (
+          <>
+            <span style={{ color: EMAIL_COLORS.textFaint }}> · </span>
+            {receiverBankName}
+          </>
+        ) : null}
+        {receiverBankAccount ? (
+          <>
+            <span style={{ color: EMAIL_COLORS.textFaint }}> · </span>
+            STK{' '}
+            <span
+              style={{ fontFamily: EMAIL_MONO_FONT_FAMILY, fontWeight: 700 }}
+            >
+              {receiverBankAccount}
+            </span>
+          </>
+        ) : null}
+      </Text>
+
+      <table
+        role="presentation"
+        cellPadding={0}
+        cellSpacing={0}
+        width="100%"
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          fontSize: '12px',
+        }}
+      >
+        <thead>
+          <tr>
+            {(['Ngày', 'Nội dung', 'Số tiền'] as const).map((h) => (
+              <th
+                key={h}
                 style={{
-                  margin: '0 auto',
-                  borderCollapse: 'collapse',
-                }}
-              >
-                <tbody>
-                  <tr>
-                    {logoMainSrc ? (
-                      <td
-                        style={{
-                          padding: '0 12px 0 0',
-                          verticalAlign: 'middle',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <Img
-                          src={logoMainSrc}
-                          alt="Unicorns Edu"
-                          height={56}
-                          style={{ display: 'block', margin: '0 auto' }}
-                        />
-                      </td>
-                    ) : null}
-                    {logoTinSrc ? (
-                      <td
-                        style={{
-                          padding: logoMainSrc ? '0 0 0 12px' : 0,
-                          verticalAlign: 'middle',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <Img
-                          src={logoTinSrc}
-                          alt="Học tin học"
-                          height={52}
-                          style={{
-                            display: 'block',
-                            margin: '0 auto',
-                            borderRadius: '6px',
-                          }}
-                        />
-                      </td>
-                    ) : null}
-                  </tr>
-                </tbody>
-              </table>
-              <Text
-                style={{
-                  margin: '6px 0 0',
+                  backgroundColor: BLUE100,
+                  borderBottom: `1px solid ${BLUE100}`,
+                  color: INK,
                   fontSize: '11px',
-                  fontWeight: 600,
-                  color: BORDER,
-                  letterSpacing: '0.02em',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  padding: '8px',
+                  textAlign: h === 'Số tiền' ? 'right' : 'left',
+                  textTransform: 'uppercase',
+                  width:
+                    h === 'Ngày'
+                      ? '76px'
+                      : h === 'Số tiền'
+                        ? '96px'
+                        : undefined,
                 }}
               >
-                Unicorns Edu — Học Tin cùng Chuyên tin
-              </Text>
-            </Section>
-
-            <Heading
-              as="h2"
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {lineItems.map((row, i) => (
+            <tr key={i}>
+              <td style={cellStyle({ nowrap: true })}>{row.date}</td>
+              <td style={cellStyle({})}>
+                {row.memo}
+                {row.referenceCode?.trim() ? (
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: '2px',
+                      color: EMAIL_COLORS.textMuted,
+                      fontFamily: EMAIL_MONO_FONT_FAMILY,
+                      fontSize: '11px',
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    Mã GD: {row.referenceCode.trim()}
+                  </span>
+                ) : null}
+              </td>
+              <td
+                style={cellStyle({ nowrap: true, right: true, strong: true })}
+              >
+                {formatVnd(row.amount)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td
+              colSpan={2}
               style={{
-                margin: '8px 0 10px',
-                textAlign: 'center',
+                backgroundColor: INK,
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: 700,
+                padding: '10px 8px',
+              }}
+            >
+              Tổng cộng
+            </td>
+            <td
+              style={{
+                backgroundColor: INK,
+                color: '#ffffff',
                 fontSize: '13px',
                 fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: BLUE900,
-                lineHeight: 1.25,
+                padding: '10px 8px',
+                textAlign: 'right',
+                whiteSpace: 'nowrap',
               }}
             >
-              {documentTitle}
-            </Heading>
+              {formatVnd(totalAmount)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
 
-            {/* meta 2 cột */}
-            <Section
-              style={{
-                marginBottom: '10px',
-                padding: '8px 10px',
-                backgroundColor: BLUE50,
-                borderRadius: '8px',
-                border: `1px solid ${BLUE100}`,
-              }}
-            >
-              <Row>
-                <Column style={{ width: '50%', verticalAlign: 'top' }}>
-                  <MetaBlock label="Mã biên lai" value={invoiceCode} />
-                  <MetaBlock
-                    label="Mã học viên"
-                    value={studentCode?.trim() || '—'}
-                  />
-                  <MetaBlock label="Học viên" value={studentName} />
-                </Column>
-                <Column style={{ width: '50%', verticalAlign: 'top' }}>
-                  <MetaBlock label="Ngày lập" value={issueDate} />
-                </Column>
-              </Row>
-            </Section>
-
-            {receiptSummary ? (
-              <Section
+      <table
+        role="presentation"
+        cellPadding={0}
+        cellSpacing={0}
+        width="100%"
+        style={{ width: '100%', marginTop: '12px', borderCollapse: 'collapse' }}
+      >
+        <tbody>
+          <tr>
+            <td valign="bottom" style={{ verticalAlign: 'bottom' }}>
+              <Text
                 style={{
-                  marginBottom: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  backgroundColor: '#f8fafc',
-                  border: `1px solid ${SLATE200}`,
+                  margin: 0,
+                  color: EMAIL_COLORS.textMuted,
+                  fontSize: '12px',
+                  lineHeight: 1.5,
                 }}
               >
-                <Text
-                  style={{
-                    margin: 0,
-                    fontSize: '12px',
-                    lineHeight: 1.5,
-                    color: BLUE950,
-                  }}
-                >
-                  <span style={{ fontWeight: 700, color: BORDER }}>
-                    Nội dung:
-                  </span>{' '}
-                  {receiptSummary}
-                </Text>
-              </Section>
-            ) : null}
-
-            {/* Người nhận */}
-            <Section
-              style={{
-                padding: '8px 10px',
-                margin: '0 0 10px',
-                fontSize: '11px',
-                lineHeight: 1.45,
-                border: '1px solid #93c5fd',
-                borderRadius: '8px',
-                backgroundColor: '#ffffff',
-                color: BLUE950,
-              }}
-            >
-              <Text style={{ margin: 0 }}>
-                <span style={{ fontWeight: 700, color: BORDER }}>
-                  Người nhận:
-                </span>{' '}
-                <strong>{receiverName}</strong>
-                {receiverBankName ? (
-                  <>
-                    {' '}
-                    <span style={{ color: SLATE500 }}>·</span>{' '}
-                    {receiverBankName}
-                  </>
-                ) : null}
-                {receiverBankAccount ? (
-                  <>
-                    {' '}
-                    <span style={{ color: SLATE500 }}>·</span>{' '}
-                    <span style={{ fontWeight: 700, color: BORDER }}>STK</span>{' '}
-                    <span
-                      style={{
-                        fontFamily:
-                          'ui-monospace, Consolas, "Cascadia Mono", monospace',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {receiverBankAccount}
-                    </span>
-                  </>
-                ) : null}
+                Biên lai điện tử, có giá trị xác nhận đã thu.
+                <br />
+                Đối chiếu sao kê ngân hàng nếu cần.
               </Text>
-            </Section>
-
-            {/* Bảng chi tiết — không cột xóa (email) */}
-            <Section
+            </td>
+            <td
+              valign="bottom"
               style={{
-                borderRadius: '8px',
-                border: `1px solid ${SLATE200}`,
-                overflow: 'hidden',
+                textAlign: 'right',
+                verticalAlign: 'bottom',
+                width: '120px',
               }}
             >
-              <table
-                cellPadding={0}
-                cellSpacing={0}
-                role="presentation"
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '11px',
-                }}
-              >
-                <thead>
-                  <tr>
-                    {['#', 'Ngày', 'Nội dung', 'Mã GD', 'Số tiền'].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          border: `1px solid ${SLATE200}`,
-                          padding: '5px 6px',
-                          backgroundColor: BLUE100,
-                          color: BLUE900,
-                          fontWeight: 700,
-                          fontSize: '10px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          textAlign: h === 'Số tiền' ? 'right' : 'left',
-                          width:
-                            h === '#'
-                              ? '28px'
-                              : h === 'Ngày'
-                                ? '72px'
-                                : h === 'Số tiền'
-                                  ? '88px'
-                                  : undefined,
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {lineItems.map((row, i) => (
-                    <tr key={i}>
-                      <td
-                        style={{
-                          border: `1px solid ${SLATE200}`,
-                          padding: '5px 6px',
-                          textAlign: 'center',
-                          color: SLATE500,
-                        }}
-                      >
-                        {i + 1}
-                      </td>
-                      <td
-                        style={{
-                          border: `1px solid ${SLATE200}`,
-                          padding: '5px 6px',
-                          whiteSpace: 'nowrap',
-                          color: BLUE950,
-                        }}
-                      >
-                        {row.date}
-                      </td>
-                      <td
-                        style={{
-                          border: `1px solid ${SLATE200}`,
-                          padding: '5px 6px',
-                          wordBreak: 'break-word',
-                          color: BLUE950,
-                        }}
-                      >
-                        {row.memo}
-                      </td>
-                      <td
-                        style={{
-                          border: `1px solid ${SLATE200}`,
-                          padding: '5px 6px',
-                          wordBreak: 'break-all',
-                          fontFamily: 'ui-monospace, Consolas, monospace',
-                          fontSize: '10px',
-                          color: SLATE500,
-                        }}
-                      >
-                        {row.referenceCode?.trim() || '—'}
-                      </td>
-                      <td
-                        style={{
-                          border: `1px solid ${SLATE200}`,
-                          padding: '5px 6px',
-                          textAlign: 'right',
-                          whiteSpace: 'nowrap',
-                          fontWeight: 600,
-                          color: BLUE900,
-                        }}
-                      >
-                        {formatVnd(row.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td
-                      colSpan={4}
-                      style={{
-                        border: `1px solid ${SLATE200}`,
-                        padding: '6px 8px',
-                        fontWeight: 700,
-                        backgroundColor: BLUE900,
-                        color: '#ffffff',
-                      }}
-                    >
-                      Tổng cộng
-                    </td>
-                    <td
-                      style={{
-                        border: `1px solid ${SLATE200}`,
-                        padding: '6px 8px',
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        backgroundColor: BLUE900,
-                        color: '#ffffff',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {formatVnd(totalAmount)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </Section>
-
-            <table
-              role="presentation"
-              cellPadding={0}
-              cellSpacing={0}
-              width="100%"
-              style={{
-                marginTop: '12px',
-                width: '100%',
-                borderCollapse: 'collapse',
-              }}
-            >
-              <tbody>
-                <tr>
-                  <td
-                    valign="bottom"
-                    style={{
-                      textAlign: 'left',
-                      verticalAlign: 'bottom',
-                      paddingRight: '12px',
-                      width: '58%',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        margin: 0,
-                        fontSize: '11px',
-                        color: SLATE500,
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      Đối chiếu sao kê ngân hàng nếu cần.
-                    </Text>
-                  </td>
-                  <td
-                    valign="bottom"
-                    style={{
-                      textAlign: 'right',
-                      verticalAlign: 'bottom',
-                      width: '42%',
-                    }}
-                  >
-                    {stampSrc ? (
-                      <Img
-                        src={stampSrc}
-                        alt="Con dấu xác nhận"
-                        width={100}
-                        style={{ display: 'inline-block' }}
-                      />
-                    ) : null}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </Section>
-
-          <Hr style={{ borderColor: SLATE200, margin: '20px 0' }} />
-          <Text style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
-            Unicorns Edu — email tự động, vui lòng không trả lời trực tiếp.
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+              {stampSrc ? (
+                <Img
+                  src={stampSrc}
+                  alt="Con dấu xác nhận"
+                  width={110}
+                  style={{ display: 'inline-block' }}
+                />
+              ) : null}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </Section>
   );
 }
 
-function MetaBlock({ label, value }: { label: string; value: string }) {
+function MetaCell({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <Row style={{ marginBottom: '8px' }}>
-      <Column>
-        <Text
-          style={{
-            margin: '0 0 2px',
-            fontSize: '9px',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: SLATE500,
-          }}
-        >
-          {label}
-        </Text>
-        <Text
-          style={{
-            margin: 0,
-            fontSize: '12px',
-            fontWeight: 600,
-            color: BLUE950,
-            wordBreak: 'break-word',
-          }}
-        >
-          {value}
-        </Text>
-      </Column>
-    </Row>
+    <td
+      valign="top"
+      style={{ width: '50%', padding: '10px 12px', verticalAlign: 'top' }}
+    >
+      <Text
+        style={{
+          margin: 0,
+          color: EMAIL_COLORS.textMuted,
+          fontSize: '11px',
+          fontWeight: 700,
+          letterSpacing: '0.05em',
+          lineHeight: '14px',
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          margin: '3px 0 0',
+          color: EMAIL_COLORS.text,
+          fontFamily: mono ? EMAIL_MONO_FONT_FAMILY : undefined,
+          fontSize: '14px',
+          fontWeight: 700,
+          lineHeight: 1.4,
+          wordBreak: 'break-word',
+        }}
+      >
+        {value}
+      </Text>
+    </td>
   );
+}
+
+function cellStyle(opts: {
+  nowrap?: boolean;
+  right?: boolean;
+  strong?: boolean;
+}) {
+  return {
+    borderBottom: `1px solid ${EMAIL_COLORS.border}`,
+    color: EMAIL_COLORS.text,
+    fontSize: '12px',
+    fontWeight: opts.strong ? 700 : 400,
+    lineHeight: 1.5,
+    padding: '9px 8px',
+    textAlign: opts.right ? ('right' as const) : ('left' as const),
+    verticalAlign: 'top' as const,
+    whiteSpace: opts.nowrap ? ('nowrap' as const) : undefined,
+    wordBreak: 'break-word' as const,
+  };
 }

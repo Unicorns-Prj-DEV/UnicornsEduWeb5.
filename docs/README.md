@@ -22,6 +22,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 | [Workplan.md](Workplan.md)                                   | Kế hoạch 8 tuần, phase, DoD, route-to-domain, risk, launch checklist.                         |
 | [UI-Schema.md](UI-Schema.md)                                 | Design tokens, theme (light/dark/pink), semantic naming, component mapping.                   |
 | [Database Schema.md](Database%20Schema.md)                   | Prisma schema tại `apps/api/prisma/schema/`, bảng theo domain, quan hệ, source of truth.      |
+| [Email Templates.md](Email%20Templates.md)                   | Email giao dịch API: layout chung React Email, 5 template, ảnh inline CID, biên lai email/PDF. |
 | [Seed Question Bank.md](Seed%20Question%20Bank.md)           | Seed ngân hàng câu hỏi + đề luyện tập (`pnpm seed:question-bank`), pack dữ liệu, tính idempotent. |
 | [api/unioj-integration.md](api/unioj-integration.md)         | Hướng dẫn tích hợp API chấm bài UNIOJ (Online Judge) cho học sinh.                            |
 | [api/courses.md](api/courses.md)                             | Phân quyền API khoá học: CRUD khoá, cây Chuyên đề/Tiết học (`/course/:id/modules`, `/lessons/:id/...`), difficulty-levels. |

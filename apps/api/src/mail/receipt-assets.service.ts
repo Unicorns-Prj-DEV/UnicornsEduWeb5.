@@ -9,7 +9,8 @@ export type ReceiptImageDataUris = {
 };
 
 /**
- * Ảnh biên lai thu nhỏ (logo_main_sm, logo_tin_sm, stamp_sm) trong `src/mail/assets/`.
+ * Ảnh biên lai thu nhỏ (logo_main_sm, logo_tin_sm, stamp_sm) và logo header email
+ * (logo_mark_sm) trong `src/mail/assets/`.
  * Tái tạo bằng pipeline xử lý ảnh nội bộ khi cần cập nhật asset.
  */
 @Injectable()
@@ -30,6 +31,19 @@ export class ReceiptAssetsService {
     } catch (error) {
       this.logger.warn(
         `Không đọc được ảnh biên lai (logo/stamp): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
+  /** Logo kỳ lân vuông nền trắng cho header email (`logo_mark_sm.png`, 144px). */
+  getBrandMarkDataUri(): string | null {
+    try {
+      const buf = readFileSync(this.resolveAssetPath('logo_mark_sm.png'));
+      return `data:image/png;base64,${buf.toString('base64')}`;
+    } catch (error) {
+      this.logger.warn(
+        `Không đọc được logo email (logo_mark_sm): ${error instanceof Error ? error.message : String(error)}`,
       );
       return null;
     }

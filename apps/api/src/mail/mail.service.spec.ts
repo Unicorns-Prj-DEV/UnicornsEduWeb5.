@@ -55,6 +55,7 @@ describe('MailService', () => {
 
   const receiptAssetsService = {
     getReceiptImageDataUris: jest.fn().mockReturnValue(null),
+    getBrandMarkDataUri: jest.fn().mockReturnValue(null),
   };
 
   beforeEach(() => {
