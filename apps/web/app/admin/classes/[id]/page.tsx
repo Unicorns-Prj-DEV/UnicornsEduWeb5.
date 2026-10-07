@@ -15,6 +15,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
@@ -168,6 +169,11 @@ export default function AdminClassDetailPage() {
   const [activeTab, selectTab] = useClassDetailTab();
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [stopTeachingPendingTeacherId, setStopTeachingPendingTeacherId] = useState<string | null>(null);
+  const [stopTeachingTarget, setStopTeachingTarget] = useState<{
+    teacherId: string;
+    teacherName: string;
+  } | null>(null);
+  const [stopTeachingReason, setStopTeachingReason] = useState("");
   const [stopLearningPendingStudentId, setStopLearningPendingStudentId] = useState<string | null>(null);
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
@@ -604,13 +610,20 @@ export default function AdminClassDetailPage() {
     endClassMutation.mutate(reason);
   };
   const handleStopTeaching = (teacherId: string) => {
-    const confirmed = window.confirm(
-      "Chuyển gia sư sang nghỉ dạy lớp này? Lịch tương lai liên quan sẽ được xoá.",
-    );
-    if (!confirmed) return;
+    const teacherName =
+      classDetail?.teachers?.find((teacher) => teacher.id === teacherId)?.fullName?.trim() ||
+      "gia sư";
+    setStopTeachingReason("");
+    setStopTeachingTarget({ teacherId, teacherName });
+  };
 
-    const reason = window.prompt("Lý do (không bắt buộc)") ?? undefined;
-    stopTeachingMutation.mutate({ teacherId, reason });
+  const handleConfirmStopTeaching = () => {
+    if (!stopTeachingTarget) return;
+    const reason = stopTeachingReason.trim();
+    stopTeachingMutation.mutate({
+      teacherId: stopTeachingTarget.teacherId,
+      reason: reason || undefined,
+    });
   };
 
   return (
@@ -625,6 +638,35 @@ export default function AdminClassDetailPage() {
         </svg>
         <span className="hidden sm:inline">Quay lại danh sách lớp</span>
       </button>
+
+      <ConfirmDialog
+        open={stopTeachingTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setStopTeachingTarget(null);
+        }}
+        title={`Cho ${stopTeachingTarget?.teacherName ?? "gia sư"} nghỉ dạy lớp này?`}
+        description="Lịch tương lai liên quan sẽ bị xoá. Trợ cấp các buổi đã phát sinh giữ nguyên."
+        confirmLabel="Nghỉ dạy"
+        variant="destructive"
+        onConfirm={handleConfirmStopTeaching}
+        confirmPending={stopTeachingMutation.isPending}
+      >
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="stop-teaching-reason"
+            className="text-xs font-medium text-text-secondary"
+          >
+            Lý do (không bắt buộc)
+          </label>
+          <textarea
+            id="stop-teaching-reason"
+            value={stopTeachingReason}
+            onChange={(event) => setStopTeachingReason(event.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
+          />
+        </div>
+      </ConfirmDialog>
 
       <ClassDetailHero
         classId={id}

@@ -84,6 +84,7 @@ import {
   redactClassListForAccountantView,
   redactClassListForTrainingManagerView,
   redactClassStudentWalletBalances,
+  redactOtherTeachersIncome,
   resolveAccountantFinanceView,
 } from 'src/common/accountant-finance-redaction.util';
 import {
@@ -1194,7 +1195,14 @@ export class ClassService {
       return redactClassStudentWalletBalances(result, { mode: 'full' });
     }
 
-    if (accessMode === 'teacher' || accessMode === 'training_manager') {
+    if (accessMode === 'teacher') {
+      return redactClassStudentWalletBalances(
+        redactOtherTeachersIncome(result, actor.id),
+        { mode: 'none' },
+      );
+    }
+
+    if (accessMode === 'training_manager') {
       return redactClassStudentWalletBalances(result, { mode: 'none' });
     }
 

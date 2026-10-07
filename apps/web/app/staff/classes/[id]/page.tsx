@@ -793,6 +793,7 @@ export default function StaffClassDetailPage() {
           }}
           teacherMode="readOnly"
           allowFinancialFields={false}
+          showAllowancePreview={isAdmin || teacherAssignedToClass}
           createSessionFn={handleCreateSession}
           onClose={() => setAddSessionPopupOpen(false)}
         />
@@ -808,6 +809,10 @@ export default function StaffClassDetailPage() {
             teachers={classDetail.teachers}
             trainingManager={classDetail.trainingManager}
             trainingManagerRatePercent={classDetail.trainingManagerRatePercent}
+            defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
+            defaultScaleAmount={classDetail.scaleAmount}
+            showTeacherCompensation={isAdmin || teacherAssignedToClass}
+            compensationTeacherId={isAdmin ? null : actorStaffId}
             className="flex-1"
             enableTeacherNavigation={false}
             action={
@@ -1098,7 +1103,7 @@ export default function StaffClassDetailPage() {
             />
 
             {activeTab === "buoi-hoc" ? (
-              <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-1.5">
+              <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-secondary/55 px-2.5 py-2 sm:py-1.5">
                 <MonthNav
                   value={selectedMonth}
                   onChange={setSelectedMonth}
@@ -1107,12 +1112,12 @@ export default function StaffClassDetailPage() {
                   countLabel={`${teacherScopedHistorySummary}: ${sessions.length + surveys.length}`}
                   actionButton={
                     canCreateSession || canManageSurveys ? (
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex w-full items-center gap-2 sm:w-auto">
                         {canCreateSession ? (
                           <button
                             type="button"
                             onClick={() => setAddSessionPopupOpen(true)}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-text-inverse shadow-sm transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg sm:min-h-9 sm:flex-none bg-primary px-3 py-1.5 text-xs font-semibold text-text-inverse shadow-sm transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           >
                             <PlusIcon className="size-3.5 shrink-0" aria-hidden />
                             <span>Tạo buổi học</span>
@@ -1122,7 +1127,7 @@ export default function StaffClassDetailPage() {
                           <button
                             type="button"
                             onClick={() => setAddSurveyPopupOpen(true)}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg sm:min-h-9 sm:flex-none border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           >
                             <PlusIcon className="size-3.5 shrink-0" aria-hidden />
                             <span>Tạo khảo sát</span>

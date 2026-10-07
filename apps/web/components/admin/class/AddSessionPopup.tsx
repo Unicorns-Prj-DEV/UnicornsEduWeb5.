@@ -130,6 +130,11 @@ type Props = {
   classPricing?: SessionClassPricingContext;
   teacherMode?: SessionTeacherMode;
   allowFinancialFields?: boolean;
+  /**
+   * Hiện thẻ "Trợ cấp buổi" chỉ đọc kể cả khi không được sửa trợ cấp
+   * (gia sư tự tạo buổi xem trước trợ cấp của mình).
+   */
+  showAllowancePreview?: boolean;
   allowAllowanceField?: boolean;
   allowAttendanceTuitionEdits?: boolean;
   /** Lớp không cần điểm danh — ẩn phần điểm danh, BE tự sinh present. */
@@ -274,6 +279,7 @@ export default function AddSessionPopup({
   classPricing,
   teacherMode = "select",
   allowFinancialFields = true,
+  showAllowancePreview = false,
   allowAllowanceField,
   allowAttendanceTuitionEdits,
   noAttendance = false,
@@ -962,7 +968,7 @@ export default function AddSessionPopup({
                       onChange={setIsTrialLesson}
                     />
 
-                    {canEditAllowance && classPricing ? (
+                    {(canEditAllowance || showAllowancePreview) && classPricing ? (
                       <SessionTeacherAllowanceEstimateCard
                         amount={finalAllowancePreview}
                         estimatedAmount={expectedAllowanceGrossPreview}
@@ -974,7 +980,12 @@ export default function AddSessionPopup({
                         showBreakdown={Boolean(classPricing)}
                         usesSnapshot={false}
                         isManualOverride={manualAllowanceGrossOverride !== null}
-                        canEdit
+                        canEdit={canEditAllowance}
+                        footnote={
+                          canEditAllowance
+                            ? null
+                            : "Ước tính trước khấu trừ vận hành/thuế. Số chính thức chốt khi lưu buổi theo điểm danh."
+                        }
                         editLocked={isTrialLesson}
                         editLockedReason={
                           isTrialLesson

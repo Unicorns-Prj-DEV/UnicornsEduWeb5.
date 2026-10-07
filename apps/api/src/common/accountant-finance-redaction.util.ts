@@ -332,6 +332,35 @@ export function redactClassForTrainingManagerView<T>(classRecord: T): T {
   return next as T;
 }
 
+/**
+ * Gia sư xem lớp: chỉ giữ cấu hình trợ cấp / scale / vận hành của chính mình,
+ * che số của các gia sư khác trong `teachers[]`.
+ */
+export function redactOtherTeachersIncome<T>(
+  classRecord: T,
+  viewerTeacherId: string,
+): T {
+  if (!classRecord || typeof classRecord !== 'object') {
+    return classRecord;
+  }
+
+  const next = { ...(classRecord as Record<string, unknown>) };
+  if (Array.isArray(next.teachers)) {
+    next.teachers = next.teachers.map((teacher) =>
+      teacher &&
+      typeof teacher === 'object' &&
+      (teacher as { id?: unknown }).id !== viewerTeacherId
+        ? omitFields(
+            teacher as Record<string, unknown>,
+            TEACHER_INCOME_HIDDEN_FIELDS,
+          )
+        : teacher,
+    );
+  }
+
+  return next as T;
+}
+
 export function redactSessionForTrainingManagerView<T>(session: T): T {
   if (!session || typeof session !== 'object') {
     return session;
