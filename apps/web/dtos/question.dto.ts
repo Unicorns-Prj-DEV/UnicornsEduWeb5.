@@ -1,7 +1,12 @@
 export enum QuestionTypeDto {
   single_choice = "single_choice",
   essay = "essay",
+  /** Nhóm câu Đúng/Sai: 4 nhận định a–d nằm trong `options`, đáp án ở `tfAnswerKey` (chỉ hồ sơ IT). */
+  true_false_group = "true_false_group",
 }
+
+/** Nhãn nhận định của câu Đúng/Sai. */
+export const TRUE_FALSE_STATEMENT_LABELS = ["a", "b", "c", "d"] as const;
 
 export interface Question {
   id: string;
@@ -12,6 +17,8 @@ export interface Question {
   content: string;
   options: string[] | null;
   correctIndex: number | null;
+  /** Đáp án 4 nhận định của câu Đúng/Sai (true = Đúng). Rỗng với loại khác. */
+  tfAnswerKey: boolean[];
   explanation: string | null;
   answerGuide: string | null;
   createdAt: string;
@@ -32,6 +39,7 @@ export type QuestionFormInitial = Pick<
   | "content"
   | "options"
   | "correctIndex"
+  | "tfAnswerKey"
   | "explanation"
   | "answerGuide"
 >;
@@ -44,6 +52,7 @@ export interface CreateQuestionInput {
   content: string;
   options?: string[];
   correctIndex?: number;
+  tfAnswerKey?: boolean[];
   explanation?: string;
   answerGuide?: string;
 }
@@ -75,6 +84,7 @@ export interface AiQuestionItem {
   content: string;
   options?: string[];
   correctIndex?: number;
+  tfAnswerKey?: boolean[];
   explanation?: string;
   answerGuide?: string;
   difficulty: string;
@@ -97,6 +107,7 @@ export interface BulkCreateQuestionInput {
     content: string;
     options?: string[];
     correctIndex?: number;
+    tfAnswerKey?: boolean[];
     explanation?: string;
     answerGuide?: string;
     difficultyLevelId: string;
@@ -106,4 +117,14 @@ export interface BulkCreateQuestionInput {
 export interface BulkCreateResponse {
   count: number;
   questions: Question[];
+}
+
+export const QUESTION_TYPE_LABELS: Record<QuestionTypeDto, string> = {
+  [QuestionTypeDto.single_choice]: "Trắc nghiệm",
+  [QuestionTypeDto.true_false_group]: "Đúng/Sai",
+  [QuestionTypeDto.essay]: "Tự luận",
+};
+
+export function questionTypeLabel(type: QuestionTypeDto | string): string {
+  return QUESTION_TYPE_LABELS[type as QuestionTypeDto] ?? type;
 }

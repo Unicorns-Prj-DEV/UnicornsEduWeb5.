@@ -9,11 +9,13 @@ import { Prisma } from '../../generated/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActionHistoryService } from '../action-history/action-history.service';
 import { CourseAccessService } from '../class/course-access.service';
+import { LmsProfileService } from '../lms-profile/lms-profile.service';
+import { regradeQuestionAnswerKey } from '../attempt/regrade';
+import { assertQuestionShape } from './question-rules';
 import {
   CreateQuestionDto,
   UpdateQuestionDto,
   QuestionFilterDto,
-  QuestionTypeDto,
   BulkCreateQuestionDto,
 } from '../dtos/question.dto';
 
@@ -29,6 +31,7 @@ export class QuestionService {
     private readonly prisma: PrismaService,
     private readonly actionHistory: ActionHistoryService,
     private readonly courseAccess: CourseAccessService,
+    private readonly lmsProfile: LmsProfileService = new LmsProfileService(),
   ) {}
 
   private async assertWriteAccess(
@@ -76,21 +79,7 @@ export class QuestionService {
 
   async create(dto: CreateQuestionDto, actor: QuestionActor) {
     await this.assertWriteAccess(actor, dto.courseId);
-    // Validate single_choice constraints
-    if (dto.type === QuestionTypeDto.single_choice) {
-      if (!dto.options || dto.options.length < 2 || dto.options.length > 6) {
-        throw new BadRequestException('single_choice must have 2‑6 options');
-      }
-      if (dto.correctIndex === undefined || dto.correctIndex === null) {
-        throw new BadRequestException('single_choice requires correctIndex');
-      }
-      if (dto.correctIndex < 0 || dto.correctIndex >= dto.options.length) {
-        throw new BadRequestException('correctIndex out of bounds');
-      }
-    }
-    if (dto.type === QuestionTypeDto.essay && dto.options) {
-      throw new BadRequestException('essay type must not include options');
-    }
+    assertQuestionShape(dto, this.lmsProfile.config);
 
     // Cross-course validation
     await this.assertModuleBelongsToCourse(dto.moduleId, dto.courseId);
@@ -119,23 +108,34 @@ export class QuestionService {
       throw new NotFoundException('Question not found');
     await this.assertWriteAccess(actor, existing.courseId);
 
-    const effectiveType = existing.type;
+    assertQuestionShape(
+      {
+        type: existing.type,
+        options: dto.options ?? existing.options,
+        correctIndex:
+          dto.correctIndex !== undefined
+            ? dto.correctIndex
+            : existing.correctIndex,
+        tfAnswerKey: dto.tfAnswerKey ?? existing.tfAnswerKey,
+      },
+      this.lmsProfile.config,
+    );
 
-    if (effectiveType === 'single_choice') {
-      const options = (dto.options ?? existing.options) as string[] | null;
-      const correctIdx = dto.correctIndex ?? existing.correctIndex;
-      if (!options || options.length < 2 || options.length > 6) {
-        throw new BadRequestException('single_choice must have 2‑6 options');
-      }
-      if (correctIdx === undefined || correctIdx === null) {
-        throw new BadRequestException('single_choice requires correctIndex');
-      }
-      if (correctIdx < 0 || correctIdx >= options.length) {
-        throw new BadRequestException('correctIndex out of bounds');
-      }
+    const answerKeyChange: {
+      correctIndex?: number | null;
+      tfAnswerKey?: boolean[];
+    } = {};
+    if (
+      dto.correctIndex !== undefined &&
+      dto.correctIndex !== existing.correctIndex
+    ) {
+      answerKeyChange.correctIndex = dto.correctIndex;
     }
-    if (effectiveType === 'essay' && (dto.options ?? existing.options)) {
-      throw new BadRequestException('essay type cannot have options');
+    if (
+      dto.tfAnswerKey !== undefined &&
+      dto.tfAnswerKey.join() !== existing.tfAnswerKey.join()
+    ) {
+      answerKeyChange.tfAnswerKey = dto.tfAnswerKey;
     }
 
     const before = existing;
@@ -144,6 +144,8 @@ export class QuestionService {
         where: { id },
         data: { ...dto },
       });
+      // Sửa đáp án → chấm lại mọi Bài làm chứa câu (ADR it-absolute-scoring).
+      await regradeQuestionAnswerKey(tx, id, answerKeyChange);
       await this.actionHistory.recordUpdate(tx, {
         entityType: 'question',
         entityId: id,
@@ -192,32 +194,7 @@ export class QuestionService {
 
     // Validate each item
     for (const [i, item] of dto.questions.entries()) {
-      if (item.type === QuestionTypeDto.single_choice) {
-        if (
-          !item.options ||
-          item.options.length < 2 ||
-          item.options.length > 6
-        ) {
-          throw new BadRequestException(
-            `Question ${i + 1}: single_choice must have 2-6 options`,
-          );
-        }
-        if (item.correctIndex === undefined || item.correctIndex === null) {
-          throw new BadRequestException(
-            `Question ${i + 1}: single_choice requires correctIndex`,
-          );
-        }
-        if (item.correctIndex < 0 || item.correctIndex >= item.options.length) {
-          throw new BadRequestException(
-            `Question ${i + 1}: correctIndex out of bounds`,
-          );
-        }
-      }
-      if (item.type === QuestionTypeDto.essay && item.options) {
-        throw new BadRequestException(
-          `Question ${i + 1}: essay type must not include options`,
-        );
-      }
+      assertQuestionShape(item, this.lmsProfile.config, `Câu ${i + 1}: `);
       if (!item.content || !item.content.trim()) {
         throw new BadRequestException(`Question ${i + 1}: content is required`);
       }
@@ -239,6 +216,7 @@ export class QuestionService {
             content: item.content,
             options: item.options ?? undefined,
             correctIndex: item.correctIndex ?? undefined,
+            tfAnswerKey: item.tfAnswerKey ?? [],
             explanation: item.explanation ?? undefined,
             answerGuide: item.answerGuide ?? undefined,
           },

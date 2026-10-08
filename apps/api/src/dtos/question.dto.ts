@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -17,6 +18,8 @@ import { Type } from 'class-transformer';
 export enum QuestionTypeDto {
   single_choice = 'single_choice',
   essay = 'essay',
+  /** Nhóm câu Đúng/Sai: 4 nhận định a–d trong `options`, đáp án trong `tfAnswerKey`. */
+  true_false_group = 'true_false_group',
 }
 
 // --- Response DTOs ----------------------------------------------------------
@@ -30,6 +33,8 @@ export interface QuestionResponseDto {
   content: string;
   options: string[] | null;
   correctIndex: number | null;
+  /** Đáp án 4 nhận định (true = Đúng); rỗng với loại khác. */
+  tfAnswerKey: boolean[];
   explanation: string | null;
   answerGuide: string | null;
   createdAt: Date;
@@ -72,7 +77,8 @@ export class CreateQuestionDto {
   content: string;
 
   @ApiPropertyOptional({
-    description: 'Array of option strings (HTML or LaTeX). Length 2‑6.',
+    description:
+      'single_choice: 2–6 phương án; true_false_group: đúng 4 nhận định a–d (HTML).',
     type: [String],
   })
   @IsOptional()
@@ -92,6 +98,19 @@ export class CreateQuestionDto {
   @Min(0)
   @Max(5)
   correctIndex?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Nhóm câu Đúng/Sai: đáp án 4 nhận định a–d theo thứ tự `options` (true = Đúng). Bắt buộc với true_false_group.',
+    type: [Boolean],
+    example: [true, false, false, true],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsBoolean({ each: true })
+  @ArrayMinSize(4)
+  @ArrayMaxSize(4)
+  tfAnswerKey?: boolean[];
 
   @ApiPropertyOptional({
     description: 'Explanation shown after answering (HTML).',
@@ -136,6 +155,19 @@ export class UpdateQuestionDto {
   @Max(5)
   correctIndex?: number;
 
+  @ApiPropertyOptional({
+    description:
+      'Nhóm câu Đúng/Sai: đáp án 4 nhận định a–d theo thứ tự `options` (true = Đúng). Bắt buộc với true_false_group.',
+    type: [Boolean],
+    example: [true, false, false, true],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsBoolean({ each: true })
+  @ArrayMinSize(4)
+  @ArrayMaxSize(4)
+  tfAnswerKey?: boolean[];
+
   @ApiPropertyOptional({ description: 'Explanation (HTML).' })
   @IsOptional()
   @IsString()
@@ -177,6 +209,19 @@ export class BulkCreateQuestionItemDto {
   @Min(0)
   @Max(5)
   correctIndex?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Nhóm câu Đúng/Sai: đáp án 4 nhận định a–d theo thứ tự `options` (true = Đúng). Bắt buộc với true_false_group.',
+    type: [Boolean],
+    example: [true, false, false, true],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsBoolean({ each: true })
+  @ArrayMinSize(4)
+  @ArrayMaxSize(4)
+  tfAnswerKey?: boolean[];
 
   @ApiPropertyOptional({ description: 'Explanation (single_choice).' })
   @IsOptional()

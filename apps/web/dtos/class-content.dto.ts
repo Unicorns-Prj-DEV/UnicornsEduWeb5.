@@ -11,6 +11,8 @@ export interface ClassContentItemDto {
   moduleTitle?: string;
   openAt: string | null;
   durationMinutes: number | null;
+  /** Đảo câu + đảo phương án mỗi lượt làm. */
+  shuffleQuestions: boolean;
   isOpen: boolean;
   hiddenAt: string | null;
   hiddenByStaffId: string | null;
@@ -35,12 +37,15 @@ export interface ClassContentCreatePayload {
   openAt?: string;
   /** Required for practice. Integer 1–720. */
   durationMinutes?: number;
+  /** Mặc định true. */
+  shuffleQuestions?: boolean;
 }
 
 export interface ClassContentScheduleUpdatePayload {
   openAt: string;
   /** Integer 1–720. */
   durationMinutes: number;
+  shuffleQuestions?: boolean;
 }
 
 /** Tiết lý thuyết cần mở dialog Tiến độ (roster đã xem / hoàn thành). */

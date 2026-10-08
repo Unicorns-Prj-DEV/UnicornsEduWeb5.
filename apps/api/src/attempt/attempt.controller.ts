@@ -49,7 +49,7 @@ export class StudentAttemptController {
   @ApiOperation({
     summary: 'Lobby lần giao luyện tập',
     description:
-      'Danh sách lượt làm của học sinh cho một ClassContentItem (assignment). Chặn trước openAt và khi lớp hết hạn xem.',
+      'Danh sách lượt làm của học sinh cho một ClassContentItem (assignment). Chặn trước openAt và khi lớp hết hạn xem. `closeAt` = openAt + durationMinutes; trước hạn điểm các lượt là null, `closed` = true từ hạn trở đi.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiParam({ name: 'assignmentId', description: 'class_content_items.id' })
@@ -71,12 +71,15 @@ export class StudentAttemptController {
   @ApiOperation({
     summary: 'Bắt đầu hoặc tiếp tục Attempt',
     description:
-      'Tạo lượt mới gắn assignmentId. Nếu đang có lượt in_progress thì trả lại lượt đó (đồng hồ không reset).',
+      'Tạo lượt mới gắn assignmentId. Nếu đang có lượt in_progress thì trả lại lượt đó (đồng hồ không reset). Từ hạn lần giao (openAt + durationMinutes) không tạo lượt mới.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiParam({ name: 'assignmentId', description: 'class_content_items.id' })
   @ApiResponse({ status: 201, description: 'Attempt started or resumed.' })
-  @ApiResponse({ status: 403, description: 'Chưa mở bài hoặc lớp hết hạn.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Chưa mở bài, lớp hết hạn, hoặc đã hết hạn làm bài.',
+  })
   async start(
     @CurrentUser() user: JwtPayload,
     @Param('classId', new ParseClassIdPipe()) classId: string,
@@ -93,7 +96,7 @@ export class StudentAttemptController {
   @ApiOperation({
     summary: 'Chi tiết Attempt',
     description:
-      'Nếu hết giờ thì chốt câu đã trả lời và chấm MCQ (không huỷ bài). Cron mỗi phút cũng chốt lượt in_progress đã quá endsAt khi học sinh không quay lại.',
+      'Nếu hết giờ thì chốt câu đã trả lời và chấm MCQ (không huỷ bài). Cron mỗi phút cũng chốt lượt in_progress đã quá endsAt khi học sinh không quay lại. Đã nộp nhưng chưa tới hạn lần giao (`resultsReleased = false`): ẩn điểm và đáp án từng câu.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiParam({ name: 'attemptId', description: 'Attempt ID' })

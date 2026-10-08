@@ -104,3 +104,19 @@ Học sinh: `GET/POST /users/me/student-classes/:classId/lessons/:lessonId` (+ `
 - `question.controller.ts`
 - `exam-library.controller.ts`
 - các endpoint `difficulty-levels` trên `CourseController`
+
+## Hồ sơ môn IT (`LMS_PROFILE=it`) — câu hỏi Tin học (#178–#191)
+
+ADR `docs/adr/2026-10-07-instance-subject-profile.md`, `docs/adr/2026-10-07-it-absolute-scoring-and-answer-key-regrade.md`.
+
+| Method | Path | Ghi chú |
+| --- | --- | --- |
+| `GET` | `/public/app-config` | Không cần đăng nhập. `{ profile, questionTypes, optionCount: { min, max, default }, scoring, electiveGroups }`. IT: `questionTypes = ["single_choice","true_false_group"]`, `scoring = "absolute_it"`, `electiveGroups = true`. Web cache vô hạn (`useAppConfig`). |
+| `POST/PATCH` | `/questions`, `POST /questions/bulk` | `type` phải thuộc `questionTypes` của hồ sơ (IT gửi `essay` → `400`). `true_false_group`: `options` đúng 4 chuỗi (nhận định a–d) + `tfAnswerKey: boolean[4]`, không có `correctIndex`. Loại khác gửi `tfAnswerKey` → `400`. Sửa `correctIndex`/`tfAnswerKey` → chấm lại im lặng các bài đã nộp có câu này. |
+| `PATCH` | tiết học (khoá học / lớp / thư viện đề) | Nhận thêm `elective1Name`, `elective2Name` (`string \| null`, ≤ 120 ký tự). |
+| `POST/PATCH` | `/lessons/:lessonId/questions` | Nhận thêm `slot`: `required` \| `elective_1` \| `elective_2`. Chỉ câu `true_false_group` được vào nhóm tự chọn; hồ sơ không có `electiveGroups` → chỉ nhận `required`. Summary trả `formWarning` (`null` khi hợp lệ; cảnh báo khi nhóm tự chọn chứa câu không phải Đúng/Sai, chỉ có một nhóm, hoặc hai nhóm lệch số câu). Đề sai form → học sinh bắt đầu làm bài bị `400` và câu kèm `tfAnswerKey`. |
+| `PATCH` | `.../attempts/:attemptId/answers`, `POST .../submit` | Mỗi câu nhận thêm `tfChoices: (boolean \| null)[4]` (null = bỏ trống nhận định). |
+| `GET` | chi tiết attempt (học sinh) | Thêm `scoring`, `electiveVoided`, `electiveGroupNames: { elective_1, elective_2 }`; mỗi câu thêm `slot`, `tfChoices`, `tfAnswerKey` (chỉ sau khi nộp). Điểm `absolute_it` là 1/100 điểm: 1000 = 10,00đ. |
+| `POST` | ôn nhẹ `/users/me/student-classes/:classId/lessons/:lessonId/quizzes` | Câu Đúng/Sai gửi `tfChoices`; review trả `tfAnswerKey`. |
+
+Chấm `absolute_it`: trắc nghiệm đúng = 25; Đúng/Sai theo số ý đúng 1 → 10, 2 → 25, 3 → 50, 4 → 100. Có nhận định được chọn ở cả hai nhóm tự chọn → `electiveVoided = true`, mọi câu tự chọn 0 điểm.

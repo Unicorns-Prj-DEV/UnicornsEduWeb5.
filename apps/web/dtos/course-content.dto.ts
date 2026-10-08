@@ -1,4 +1,5 @@
 import type { QuestionTypeDto } from "@/dtos/question.dto";
+import type { QuestionSlotDto, TrueFalseChoices } from "@/dtos/attempt.dto";
 
 export type LessonKind = "theory" | "practice";
 
@@ -24,6 +25,9 @@ export interface CourseLesson {
   videoUrl: string | null;
   content: string | null;
   order: number;
+  /** Tên nhóm tự chọn (tiết thực hành IT). */
+  elective1Name?: string | null;
+  elective2Name?: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt?: string;
@@ -60,6 +64,8 @@ export interface UpdateCourseLessonPayload {
   title?: string;
   videoUrl?: string | null;
   content?: string | null;
+  elective1Name?: string | null;
+  elective2Name?: string | null;
 }
 
 export interface QuestionLinkQuestion {
@@ -71,6 +77,7 @@ export interface QuestionLinkQuestion {
   content: string;
   options: string[] | null;
   correctIndex: number | null;
+  tfAnswerKey: boolean[];
   explanation: string | null;
   answerGuide: string | null;
 }
@@ -81,23 +88,28 @@ export interface QuestionLink {
   questionId: string;
   order: number | null;
   points: number | null;
+  slot: QuestionSlotDto;
   question: QuestionLinkQuestion;
 }
 
 export interface QuestionLinkSummary {
   totalQuestions: number;
   totalPoints: number;
+  /** Lý do đề sai form nhóm tự chọn (IT); null khi hợp lệ. */
+  formWarning: string | null;
 }
 
 export interface CreateQuestionLinkPayload {
   questionId: string;
   order?: number | null;
   points?: number | null;
+  slot?: QuestionSlotDto;
 }
 
 export interface UpdateQuestionLinkPayload {
   order?: number | null;
   points?: number | null;
+  slot?: QuestionSlotDto;
 }
 
 export interface LessonQuizQuestion {
@@ -111,6 +123,7 @@ export interface LessonQuizQuestion {
     content: string;
     options: string[] | null;
     correctIndex: number | null;
+    tfAnswerKey?: boolean[];
     explanation: string | null;
     answerGuide: string | null;
   };
@@ -123,6 +136,7 @@ export interface LessonQuizAnswer {
   studentId: string;
   choiceIndex: number | null;
   essayAnswer: string | null;
+  tfChoices?: TrueFalseChoices | null;
   createdAt: string;
   updatedAt: string;
   question: {
@@ -131,6 +145,7 @@ export interface LessonQuizAnswer {
     content: string;
     options: string[] | null;
     correctIndex: number | null;
+    tfAnswerKey?: boolean[];
     explanation: string | null;
     answerGuide: string | null;
   };
@@ -140,6 +155,7 @@ export interface SubmitQuizAnswerPayload {
   questionId: string;
   choiceIndex?: number | null;
   essayAnswer?: string | null;
+  tfChoices?: TrueFalseChoices | null;
 }
 
 /** Tiết học từ khoá — dùng cho panel chọn nội dung lớp. */

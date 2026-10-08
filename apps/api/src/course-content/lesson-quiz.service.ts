@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LessonKind } from 'generated/enums';
+import { normalizeTrueFalseChoices } from '../attempt/grading';
 import {
   ActionHistoryActor,
   CourseContentSupportService,
@@ -130,6 +131,7 @@ export class LessonQuizService extends CourseContentSupportService {
             content: true,
             options: true,
             correctIndex: true,
+            tfAnswerKey: true,
             explanation: true,
             answerGuide: true,
           },
@@ -160,7 +162,7 @@ export class LessonQuizService extends CourseContentSupportService {
 
     return quizzes.map((q) => ({
       ...q,
-      question: { ...q.question, correctIndex: null },
+      question: { ...q.question, correctIndex: null, tfAnswerKey: [] },
     }));
   }
 
@@ -171,6 +173,7 @@ export class LessonQuizService extends CourseContentSupportService {
       questionId: string;
       choiceIndex?: number | null;
       essayAnswer?: string | null;
+      tfChoices?: unknown;
     }[],
   ) {
     await this.loadTheoryLesson(lessonId);
@@ -206,10 +209,16 @@ export class LessonQuizService extends CourseContentSupportService {
             studentId,
             choiceIndex: a.choiceIndex ?? null,
             essayAnswer: a.essayAnswer ?? null,
+            ...(a.tfChoices != null && {
+              tfChoices: normalizeTrueFalseChoices(a.tfChoices),
+            }),
           },
           update: {
             choiceIndex: a.choiceIndex ?? null,
             essayAnswer: a.essayAnswer ?? null,
+            ...(a.tfChoices != null && {
+              tfChoices: normalizeTrueFalseChoices(a.tfChoices),
+            }),
           },
         }),
       ),
@@ -225,6 +234,7 @@ export class LessonQuizService extends CourseContentSupportService {
             content: true,
             options: true,
             correctIndex: true,
+            tfAnswerKey: true,
             explanation: true,
             answerGuide: true,
           },
@@ -244,6 +254,7 @@ export class LessonQuizService extends CourseContentSupportService {
             content: true,
             options: true,
             correctIndex: true,
+            tfAnswerKey: true,
             explanation: true,
             answerGuide: true,
           },

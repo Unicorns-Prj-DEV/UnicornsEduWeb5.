@@ -11,7 +11,15 @@ import {
   saveAttemptAnswers,
   submitAttempt,
 } from "@/lib/apis/attempt.api";
-import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
+import type {
+  AttemptDetailDto,
+  AttemptQuestionDto,
+  TrueFalseChoices,
+} from "@/dtos/attempt.dto";
+import { formatScore } from "@/lib/attempt-score";
+import { refetchIntervalUntilClose } from "@/lib/assignment-window";
+import { formatDateTime } from "@/lib/class.helpers";
+import { buildExamLayout, isElectiveConflict } from "@/lib/exam-layout";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import {
   answeredQuestionCount,
@@ -21,6 +29,7 @@ import {
   unansweredQuestionNumbers,
 } from "@/lib/attempt-autosave.helpers";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import StudentAttemptTimer from "@/components/student/StudentAttemptTimer";
 import StudentAttemptQuestion from "@/components/student/StudentAttemptQuestion";
 import StudentAttemptQuestionGrid from "@/components/student/StudentAttemptQuestionGrid";
@@ -56,8 +65,15 @@ export default function StudentAttemptPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["attempt", classId, attemptId],
     queryFn: () => getAttempt(classId, attemptId),
-    refetchInterval: (q) =>
-      q.state.data?.status === "in_progress" ? 15_000 : false,
+    // Đang làm: đồng bộ 15s. Đã nộp mà chưa tới hạn: refetch đúng lúc công bố.
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      if (d?.status === "in_progress") return 15_000;
+      return refetchIntervalUntilClose(
+        d?.closeAt,
+        d ? !d.resultsReleased : false,
+      );
+    },
   });
 
   const saveMutation = useMutation({
@@ -67,6 +83,7 @@ export default function StudentAttemptPage() {
           questionId: q.questionId,
           choiceIndex: q.choiceIndex,
           essayAnswer: q.essayAnswer,
+          tfChoices: q.tfChoices,
           markedForReview: q.markedForReview ?? false,
         })),
       }),
@@ -88,6 +105,7 @@ export default function StudentAttemptPage() {
             questionId: q.questionId,
             choiceIndex: q.choiceIndex,
             essayAnswer: q.essayAnswer,
+            tfChoices: q.tfChoices,
             markedForReview: q.markedForReview ?? false,
           })),
         });
@@ -199,6 +217,7 @@ export default function StudentAttemptPage() {
     val: {
       choiceIndex?: number | null;
       essayAnswer?: string | null;
+      tfChoices?: TrueFalseChoices | null;
       markedForReview?: boolean;
     },
   ) => {
@@ -216,9 +235,7 @@ export default function StudentAttemptPage() {
         (q) => (q.essayAnswer?.length ?? 0) > CONTENT_LIMITS.essayAnswer,
       )
     ) {
-      toast.error(
-        overLimitMessage("Câu trả lời", CONTENT_LIMITS.essayAnswer),
-      );
+      toast.error(overLimitMessage("Câu trả lời", CONTENT_LIMITS.essayAnswer));
       return false;
     }
     if (saveTimer.current) {
@@ -243,10 +260,7 @@ export default function StudentAttemptPage() {
       viewMode={viewMode}
       dataTitle={data.title}
       dataStatus={data.status}
-      autoGradedScore={data.autoGradedScore}
-      autoGradedMax={data.autoGradedMax}
-      scoreMax={data.scoreMax}
-      hasUngradedEssay={data.hasUngradedEssay}
+      attempt={data}
       endsAt={data.endsAt}
       questions={questions}
       lobbyHref={lobbyHref}
@@ -280,10 +294,7 @@ function StudentAttemptInProgress({
   viewMode,
   dataTitle,
   dataStatus,
-  autoGradedScore,
-  autoGradedMax,
-  scoreMax,
-  hasUngradedEssay,
+  attempt,
   endsAt,
   questions,
   lobbyHref,
@@ -308,10 +319,18 @@ function StudentAttemptInProgress({
   viewMode: AttemptViewMode;
   dataTitle: string;
   dataStatus: string;
-  autoGradedScore: number | null;
-  autoGradedMax: number | null;
-  scoreMax: number;
-  hasUngradedEssay: boolean;
+  attempt: Pick<
+    AttemptDetailDto,
+    | "autoGradedScore"
+    | "autoGradedMax"
+    | "scoreMax"
+    | "hasUngradedEssay"
+    | "scoring"
+    | "electiveVoided"
+    | "electiveGroupNames"
+    | "closeAt"
+    | "resultsReleased"
+  >;
   endsAt: string;
   questions: AttemptQuestionDto[];
   lobbyHref: string;
@@ -330,6 +349,7 @@ function StudentAttemptInProgress({
     val: {
       choiceIndex?: number | null;
       essayAnswer?: string | null;
+      tfChoices?: TrueFalseChoices | null;
       markedForReview?: boolean;
     },
   ) => void;
@@ -360,6 +380,14 @@ function StudentAttemptInProgress({
 
   const isReview = !closed && viewMode === "review";
   const questionsDisabled = closed || isReview;
+  const layout = buildExamLayout(
+    questions,
+    attempt.scoring,
+    attempt.electiveGroupNames,
+  );
+  const labelOf = (n: number) => layout[n - 1]?.shortLabel ?? String(n);
+  const electiveConflict = !closed && isElectiveConflict(questions);
+  const isIt = attempt.scoring === "absolute_it";
 
   return (
     <div className="space-y-4 pb-28">
@@ -371,121 +399,197 @@ function StudentAttemptInProgress({
         {dataTitle}
       </Link>
 
-      {!closed && <StudentAttemptTimer endsAt={endsAt} onExpire={onExpire} />}
+      <div
+        className={cn(
+          "flex flex-col gap-4",
+          !closed &&
+            "lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-6",
+        )}
+      >
+        {/* Mobile: `contents` để timer + lưới câu bám sticky theo cả trang, xếp trên
+            nội dung. Desktop: thành cột phải sticky, cuộn riêng nếu đề dài. */}
+        {!closed && (
+          <aside
+            aria-label="Thời gian và danh sách câu"
+            className="contents lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain"
+          >
+            <StudentAttemptTimer
+              endsAt={endsAt}
+              onExpire={onExpire}
+              className="sticky top-0 lg:static"
+            />
+            <StudentAttemptQuestionGrid
+              questions={questions}
+              labels={layout.map((v) => v.shortLabel)}
+              className="sticky top-[3.75rem] lg:static"
+            />
+          </aside>
+        )}
 
-      {!closed && (
-        <StudentAttemptQuestionGrid
-          questions={questions}
-          stickyTopClassName="top-[3.75rem]"
-        />
-      )}
+        <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-1">
+          {isReview && (
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-semibold text-text-primary">
+                Xem lại trước khi nộp
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                {answeredCount} đã làm · {unanswered.length} chưa làm ·{" "}
+                {markedForReview.length} quay lại
+              </p>
+              {unanswered.length > 0 ? (
+                <p className="mt-2 text-xs text-text-muted">
+                  Còn câu chưa trả lời: {unanswered.map(labelOf).join(", ")}.
+                  Bạn vẫn có thể nộp.
+                </p>
+              ) : null}
+            </div>
+          )}
 
-      {isReview && (
-        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
-          <p className="text-sm font-semibold text-text-primary">
-            Xem lại trước khi nộp
-          </p>
-          <p className="mt-1 text-sm text-text-secondary">
-            {answeredCount} đã làm · {unanswered.length} chưa làm ·{" "}
-            {markedForReview.length} quay lại
-          </p>
-          {unanswered.length > 0 ? (
-            <p className="mt-2 text-xs text-text-muted">
-              Còn câu chưa trả lời: {unanswered.join(", ")}. Bạn vẫn có thể
-              nộp.
+          {saveLabel ? (
+            <p className="text-xs text-text-muted" aria-live="polite">
+              {saveError ? (
+                <button
+                  type="button"
+                  onClick={onRetrySave}
+                  className="font-medium text-error underline-offset-2 hover:underline"
+                >
+                  {saveLabel}
+                </button>
+              ) : (
+                saveLabel
+              )}
             </p>
           ) : null}
-        </div>
-      )}
 
-      {saveLabel ? (
-        <p className="text-xs text-text-muted" aria-live="polite">
-          {saveError ? (
+          {electiveConflict ? (
+            <p
+              role="alert"
+              className="rounded-2xl border border-warning/40 bg-warning/10 p-3 text-sm text-text-primary"
+            >
+              Bạn đang làm cả hai nhóm tự chọn. Nếu nộp như vậy, phần tự chọn sẽ
+              bị 0 điểm — hãy bỏ chọn các nhận định ở nhóm không làm.
+            </p>
+          ) : null}
+
+          {closed && (
+            <div className="rounded-2xl border border-border-default bg-bg-surface p-4">
+              <p className="text-sm font-semibold text-text-primary">
+                {dataStatus === "timed_out"
+                  ? "Hết giờ — đã chốt bài"
+                  : "Đã nộp"}
+              </p>
+              {!attempt.resultsReleased ? (
+                <p className="mt-1 text-sm text-text-muted">
+                  Điểm và đáp án sẽ công bố khi hết hạn làm bài
+                  {attempt.closeAt
+                    ? ` (${formatDateTime(attempt.closeAt)})`
+                    : ""}
+                  .
+                </p>
+              ) : isIt ? (
+                <p className="mt-1 text-sm text-text-muted">
+                  Điểm:{" "}
+                  <span className="font-semibold tabular-nums text-text-primary">
+                    {formatScore(
+                      attempt.autoGradedScore ?? 0,
+                      attempt.scoreMax,
+                      attempt.scoring,
+                    )}
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-text-muted">
+                  Trắc nghiệm: {attempt.autoGradedScore ?? 0}/
+                  {attempt.autoGradedMax ?? 0}
+                  {" · Thang "}
+                  {attempt.scoreMax}/100
+                  {attempt.hasUngradedEssay ? " · Có câu tự luận chờ chấm" : ""}
+                </p>
+              )}
+              {attempt.electiveVoided ? (
+                <p className="mt-2 text-sm text-error">
+                  Bạn đã làm cả hai nhóm tự chọn nên phần tự chọn bị tính 0
+                  điểm.
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {layout.map((view, idx) => (
+              <div key={view.question.questionId} className="space-y-3">
+                {view.partHeader ? (
+                  <h2 className="pt-2 text-base font-bold tracking-wide text-text-primary">
+                    {view.partHeader}
+                  </h2>
+                ) : null}
+                {view.groupHeader ? (
+                  <h3 className="text-sm font-semibold text-primary">
+                    {view.groupHeader}
+                  </h3>
+                ) : null}
+                <StudentAttemptQuestion
+                  question={view.question}
+                  index={idx}
+                  number={view.number}
+                  scoring={attempt.scoring}
+                  disabled={questionsDisabled}
+                  reveal={closed && attempt.resultsReleased}
+                  onChange={(val) =>
+                    onChangeQuestion(view.question.questionId, val)
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
+          {!closed && !isReview && (
+            <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border-default bg-bg-surface/95 p-3 sm:static sm:border-0 sm:bg-transparent sm:p-0">
+              <button
+                type="button"
+                onClick={() => void onRequestSubmit()}
+                disabled={submitPending || savePending}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-text-inverse sm:w-auto disabled:opacity-60"
+              >
+                <Send className="size-4" />
+                {submitPending ? "Đang nộp…" : "Nộp bài"}
+              </button>
+            </div>
+          )}
+
+          {!closed && isReview && (
+            <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border-default bg-bg-surface/95 p-3 sm:static sm:flex sm:flex-wrap sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0">
+              <button
+                type="button"
+                onClick={onBackToTaking}
+                disabled={submitPending}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-border-default px-4 text-sm font-medium text-text-secondary sm:w-auto disabled:opacity-60"
+              >
+                Quay lại làm bài
+              </button>
+              <button
+                type="button"
+                onClick={onConfirmSubmit}
+                disabled={submitPending || savePending}
+                className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-text-inverse sm:mt-0 sm:w-auto disabled:opacity-60"
+              >
+                <Send className="size-4" />
+                {submitPending ? "Đang nộp…" : "Xác nhận nộp bài"}
+              </button>
+            </div>
+          )}
+
+          {closed && (
             <button
               type="button"
-              onClick={onRetrySave}
-              className="font-medium text-error underline-offset-2 hover:underline"
+              onClick={onGoLobby}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default px-4 text-sm font-medium"
             >
-              {saveLabel}
+              Về lần giao
             </button>
-          ) : (
-            saveLabel
           )}
-        </p>
-      ) : null}
-
-      {closed && (
-        <div className="rounded-2xl border border-border-default bg-bg-surface p-4">
-          <p className="text-sm font-semibold text-text-primary">
-            {dataStatus === "timed_out" ? "Hết giờ — đã chốt bài" : "Đã nộp"}
-          </p>
-          <p className="mt-1 text-sm text-text-muted">
-            Trắc nghiệm: {autoGradedScore ?? 0}/{autoGradedMax ?? 0}
-            {" · Thang "}
-            {scoreMax}/100
-            {hasUngradedEssay ? " · Có câu tự luận chờ chấm" : ""}
-          </p>
         </div>
-      )}
-
-      <div className="space-y-3">
-        {questions.map((q, idx) => (
-          <StudentAttemptQuestion
-            key={q.questionId}
-            question={q}
-            index={idx}
-            disabled={questionsDisabled}
-            reveal={closed}
-            onChange={(val) => onChangeQuestion(q.questionId, val)}
-          />
-        ))}
       </div>
-
-      {!closed && !isReview && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border-default bg-bg-surface/95 p-3 sm:static sm:border-0 sm:bg-transparent sm:p-0">
-          <button
-            type="button"
-            onClick={() => void onRequestSubmit()}
-            disabled={submitPending || savePending}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-text-inverse sm:w-auto disabled:opacity-60"
-          >
-            <Send className="size-4" />
-            {submitPending ? "Đang nộp…" : "Nộp bài"}
-          </button>
-        </div>
-      )}
-
-      {!closed && isReview && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border-default bg-bg-surface/95 p-3 sm:static sm:flex sm:flex-wrap sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0">
-          <button
-            type="button"
-            onClick={onBackToTaking}
-            disabled={submitPending}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-border-default px-4 text-sm font-medium text-text-secondary sm:w-auto disabled:opacity-60"
-          >
-            Quay lại làm bài
-          </button>
-          <button
-            type="button"
-            onClick={onConfirmSubmit}
-            disabled={submitPending || savePending}
-            className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-text-inverse sm:mt-0 sm:w-auto disabled:opacity-60"
-          >
-            <Send className="size-4" />
-            {submitPending ? "Đang nộp…" : "Xác nhận nộp bài"}
-          </button>
-        </div>
-      )}
-
-      {closed && (
-        <button
-          type="button"
-          onClick={onGoLobby}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default px-4 text-sm font-medium"
-        >
-          Về lần giao
-        </button>
-      )}
     </div>
   );
 }

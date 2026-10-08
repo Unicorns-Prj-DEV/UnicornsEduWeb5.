@@ -21,8 +21,34 @@ function q(
     choiceIndex: partial.choiceIndex ?? null,
     essayAnswer: partial.essayAnswer ?? null,
     markedForReview: partial.markedForReview ?? false,
+    slot: partial.slot ?? "required",
+    tfChoices: partial.tfChoices ?? null,
   };
 }
+
+describe("câu Đúng/Sai + nhóm tự chọn", () => {
+  it("chỉ tính đã làm khi đủ 4 nhận định", () => {
+    expect(
+      isAttemptQuestionUnanswered(
+        q({ type: "true_false_group", tfChoices: [true, false, null, true] }),
+      ),
+    ).toBe(true);
+    expect(
+      isAttemptQuestionUnanswered(
+        q({ type: "true_false_group", tfChoices: [true, false, false, true] }),
+      ),
+    ).toBe(false);
+  });
+
+  it("đã chọn Tự chọn 1 thì câu Tự chọn 2 không bị nhắc chưa làm", () => {
+    const qs = [
+      q({ questionId: "a", type: "true_false_group", slot: "elective_1", tfChoices: [true, true, true, true] }),
+      q({ questionId: "b", type: "true_false_group", slot: "elective_1", tfChoices: [true, null, null, null] }),
+      q({ questionId: "c", type: "true_false_group", slot: "elective_2" }),
+    ];
+    expect(unansweredQuestionNumbers(qs)).toEqual([2]);
+  });
+});
 
 describe("isAttemptQuestionUnanswered", () => {
   it("treats choiceIndex 0 as answered", () => {

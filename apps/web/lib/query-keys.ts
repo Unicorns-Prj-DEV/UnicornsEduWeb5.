@@ -178,3 +178,7 @@ export const classTimelineKeys = {
   student: (classId: string) =>
     [...classTimelineKeys.all, "student", classId] as const,
 };
+
+export const appConfigKeys = {
+  all: ["app-config"] as const,
+};

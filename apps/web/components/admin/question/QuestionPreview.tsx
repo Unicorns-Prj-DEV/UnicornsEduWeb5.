@@ -31,15 +31,19 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
   }
 
   const isChoice = value.type === QuestionTypeDto.single_choice;
+  const isTrueFalse = value.type === QuestionTypeDto.true_false_group;
   const question: AttemptQuestionDto = {
     questionId: "preview",
     order: 0,
     pointsPossible: 0,
     type: value.type,
+    slot: "required",
     content: value.content,
-    options: isChoice ? value.options : null,
+    options: isChoice ? value.options : isTrueFalse ? value.statements : null,
     choiceIndex: null,
     essayAnswer: null,
+    tfChoices: null,
+    tfAnswerKey: isTrueFalse ? value.tfAnswerKey : undefined,
     markedForReview: false,
     correctIndex: isChoice ? value.correctIndex : null,
     isCorrect: null,

@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  QuestionTypeDto,
+  TRUE_FALSE_STATEMENT_LABELS,
+  questionTypeLabel,
+} from "@/dtos/question.dto";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { useState, useMemo, useCallback, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,6 +20,7 @@ import {
 } from "@/lib/hooks/useCourseTaxonomyCreate";
 import {
   allQuestionsReviewed,
+  DEFAULT_AI_QUESTION_TYPES,
   importDisabledReason,
   remapReviewedAfterRemove,
   revalidateAiQuestion,
@@ -79,6 +86,13 @@ export default function AiImportModal({
   });
 
   const { data: difficultyLevels = [] } = useCourseDifficultyLevels(courseId);
+  const { data: appConfig } = useAppConfig();
+  const allowedTypes = useMemo(
+    () =>
+      (appConfig?.questionTypes as QuestionTypeDto[] | undefined) ??
+      DEFAULT_AI_QUESTION_TYPES,
+    [appConfig?.questionTypes],
+  );
 
   const { data: modules = [] } = useCourseModules(courseId);
 
@@ -136,6 +150,27 @@ export default function AiImportModal({
     const diffList = difficultyNames.length
       ? difficultyNames.map((name) => `  - ${name}`).join("\n")
       : "  (chưa có level)";
+    const hasEssay = allowedTypes.includes(QuestionTypeDto.essay);
+    const hasTf = allowedTypes.includes(QuestionTypeDto.true_false_group);
+    const typeList = allowedTypes.map((t) => `"${t}"`).join(" hoặc ");
+    const second = hasTf
+      ? `{"type":"true_false_group","content":"Câu 2 (đoạn dẫn)","options":["nhận định a","nhận định b","nhận định c","nhận định d"],"tfAnswerKey":[true,false,true,false],"explanation":"...","difficulty":"Thông hiểu"}`
+      : `{"type":"essay","content":"Câu 2","answerGuide":"...","difficulty":"Thông hiểu"}`;
+    const schemaExtra = [
+      hasTf
+        ? `true_false_group (Đúng/Sai):
+  type, content (đoạn dẫn chung), options (ĐÚNG 4 nhận định a–d),
+  tfAnswerKey (mảng 4 true/false theo thứ tự a–d), explanation (tuỳ chọn), difficulty
+  KHÔNG có correctIndex`
+        : "",
+      hasEssay
+        ? `essay:
+  type, content, answerGuide (barem chấm), difficulty
+  KHÔNG có options, KHÔNG có correctIndex`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     return `Bạn là trợ lý soạn câu hỏi cho khoá ${courseName} của Unicorns Edu.
 
 NHIỆM VỤ
@@ -151,13 +186,13 @@ Mỗi phần tử của mảng phải là OBJECT JSON {...}, KHÔNG phải chu�
 ĐÚNG — mảng các object (dán thẳng vào hệ thống):
 [
   {"type":"single_choice","content":"Câu 1","options":["A","B","C","D"],"correctIndex":0,"explanation":"...","difficulty":"Nhận biết"},
-  {"type":"essay","content":"Câu 2","answerGuide":"...","difficulty":"Thông hiểu"}
+  ${second}
 ]
 
 SAI — tuyệt đối không làm thế này:
 [
   "{"type":"single_choice",...}",
-  "{"type":"essay",...}"
+  "{"type":"${hasTf ? "true_false_group" : "essay"}",...}"
 ]
 Lỗi trên là bọc mỗi câu trong dấu ngoặc kép → JSON.parse sẽ hỏng.
 KHÔNG JSON.stringify từng câu. KHÔNG xuất từng dòng object rời rồi bọc vào array string.
@@ -167,20 +202,23 @@ single_choice:
   type, content, options (mảng 2–6 chuỗi), correctIndex (số nguyên 0-based),
   explanation (tuỳ chọn), difficulty
 
-essay:
-  type, content, answerGuide (barem chấm), difficulty
-  KHÔNG có options, KHÔNG có correctIndex
+${schemaExtra}
 
 QUY TẮC TỪNG TRƯỜNG
-- type          "single_choice" hoặc "essay"
+- type          ${typeList}
 - content       chuỗi không rỗng
-- options       chỉ single_choice; 2–6 phương án; không thêm A./B./1./2. đầu dòng
+- options       single_choice: 2–6 phương án; không thêm A./B./1./2. đầu dòng${hasTf ? "\n                true_false_group: đúng 4 nhận định; không thêm a)/b) đầu dòng\n- tfAnswerKey   chỉ true_false_group; 4 giá trị true/false" : ""}
 - correctIndex  chỉ single_choice; số nguyên; 0 ≤ correctIndex < options.length
-- explanation   tuỳ chọn; single_choice
-- answerGuide   essay; ý chính để gia sư chấm
+- explanation   tuỳ chọn${hasEssay ? "\n- answerGuide   essay; ý chính để gia sư chấm" : ""}
 - difficulty    bắt buộc; khớp TUYỆT ĐỐI một trong:
 ${diffList}
 Không thêm trường nào khác.
+
+CODE / BẢNG
+- Đoạn code: HTML <pre><code class="language-python">…</code></pre> (hoặc language-cpp), escape < > &.
+- Cùng đoạn code viết bằng Python và C++ đặt cạnh nhau: <div data-code-parallel><pre><code class="language-python">…</code></pre><pre><code class="language-cpp">…</code></pre></div>.
+- Bảng: HTML <table><tr><th>…</th></tr><tr><td>…</td></tr></table>.
+- Ảnh: <img src="https://…">, chỉ dùng link ảnh có sẵn trong đề.
 
 CÔNG THỨC TOÁN
 - LaTeX giữa hai dấu $, ví dụ: $y = x^3 - 3x + 2$.
@@ -195,9 +233,15 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
 1. JSON.parse(output) thành công.
 2. output là Array; mỗi phần tử là object (typeof item === "object"), không phải string.
 3. single_choice: có options hợp lệ + correctIndex trong khoảng.
-4. essay: không có options, không có correctIndex.
+${hasTf ? "4. true_false_group: đúng 4 options + tfAnswerKey 4 phần tử boolean." : "4. essay: không có options, không có correctIndex."}
 5. Mọi difficulty khớp danh sách trên.`;
-  }, [course?.name, difficultyNames, questionCount, selectedChapterTitle]);
+  }, [
+    allowedTypes,
+    course?.name,
+    difficultyNames,
+    questionCount,
+    selectedChapterTitle,
+  ]);
 
   const markViewed = (index: number) => {
     setReviewed((prev) => {
@@ -223,7 +267,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
   };
 
   const handleValidate = () => {
-    const result = validateAiJson(rawJson, difficultyNames);
+    const result = validateAiJson(rawJson, difficultyNames, allowedTypes);
     if (result.parseError) {
       toast.error(result.parseError);
       return;
@@ -248,7 +292,11 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item;
-        return revalidateAiQuestion({ ...item, ...patch }, difficultyNames);
+        return revalidateAiQuestion(
+          { ...item, ...patch },
+          difficultyNames,
+          allowedTypes,
+        );
       }),
     );
   };
@@ -287,6 +335,7 @@ TỰ KIỂM TRA (bắt buộc trước khi trả lời)
           content: item.content,
           options: item.options,
           correctIndex: item.correctIndex,
+          tfAnswerKey: item.tfAnswerKey,
           explanation: item.explanation,
           answerGuide: item.answerGuide,
           difficultyLevelId: item.difficultyLevelId,
@@ -763,7 +812,7 @@ function QuestionReviewCard({
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
         <span className="text-xs font-medium text-text-muted">#{index + 1}</span>
         <Badge variant={item.type === "single_choice" ? "info" : "success"}>
-          {item.type === "single_choice" ? "Trắc nghiệm" : "Tự luận"}
+          {questionTypeLabel(item.type)}
         </Badge>
         <Badge variant={viewed ? "success" : "secondary"}>
           {viewed ? "Đã xem" : "Chưa xem"}
@@ -890,7 +939,61 @@ function QuestionReviewCard({
           </div>
         )}
 
-        {item.type === "single_choice" && (
+        {item.type === "true_false_group" && (
+          <div>
+            <p className="mb-1 block text-xs font-medium text-text-muted">
+              Nhận định và đáp án
+            </p>
+            <div className="space-y-2">
+              {TRUE_FALSE_STATEMENT_LABELS.map((label, i) => {
+                const key = item.tfAnswerKey?.[i];
+                return (
+                  <div key={label} className="flex items-start gap-2">
+                    <label
+                      htmlFor={`${fieldId}-statement-${i}`}
+                      className="mt-3 w-6 text-center text-xs font-bold text-text-muted"
+                    >
+                      {label})
+                    </label>
+                    <input
+                      id={`${fieldId}-statement-${i}`}
+                      value={item.options?.[i] ?? ""}
+                      onChange={(e) => {
+                        const next = [0, 1, 2, 3].map(
+                          (j) => item.options?.[j] ?? "",
+                        );
+                        next[i] = e.target.value;
+                        onUpdate({ options: next });
+                      }}
+                      autoComplete="off"
+                      className="min-h-11 flex-1 rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-primary focus:border-border-focus focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Đáp án nhận định ${label}: ${key ? "Đúng" : "Sai"} — bấm để đổi`}
+                      onClick={() => {
+                        const next = [0, 1, 2, 3].map(
+                          (j) => item.tfAnswerKey?.[j] ?? true,
+                        );
+                        next[i] = !next[i];
+                        onUpdate({ tfAnswerKey: next });
+                      }}
+                      className={`min-h-11 min-w-14 rounded-md border px-2 text-xs font-semibold ${
+                        key
+                          ? "border-success/40 text-success"
+                          : "border-error/40 text-error"
+                      }`}
+                    >
+                      {key ? "Đúng" : "Sai"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {item.type !== "essay" && (
           <div>
             <label
               htmlFor={`${fieldId}-explanation`}

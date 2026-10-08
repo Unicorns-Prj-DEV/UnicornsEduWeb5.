@@ -101,6 +101,12 @@ export class CourseLessonService extends CourseContentSupportService {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.videoUrl !== undefined && { videoUrl: dto.videoUrl }),
         ...(dto.content !== undefined && { content: dto.content }),
+        ...(dto.elective1Name !== undefined && {
+          elective1Name: dto.elective1Name?.trim() || null,
+        }),
+        ...(dto.elective2Name !== undefined && {
+          elective2Name: dto.elective2Name?.trim() || null,
+        }),
         updatedBy: actor.userId,
       },
     });

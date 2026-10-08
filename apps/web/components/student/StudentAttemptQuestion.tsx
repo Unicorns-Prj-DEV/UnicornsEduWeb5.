@@ -3,15 +3,20 @@
 import { Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MathContent from "@/components/ui/MathContent";
-import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
-import {
-  CONTENT_LIMITS,
-  overLimitMessage,
-} from "@/dtos/content-limits";
+import type {
+  AttemptQuestionDto,
+  AttemptScoringDto,
+  TrueFalseChoices,
+} from "@/dtos/attempt.dto";
+import { formatScoreValue } from "@/lib/attempt-score";
+import TrueFalseStatements from "@/components/student/TrueFalseStatements";
+import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 
 export default function StudentAttemptQuestion({
   question,
   index,
+  number,
+  scoring = "equal_100",
   disabled,
   reveal,
   hidePoints = false,
@@ -19,6 +24,9 @@ export default function StudentAttemptQuestion({
 }: {
   question: AttemptQuestionDto;
   index: number;
+  /** Số hiển thị "Câu n" (đề IT đánh số lại ở Phần II). Mặc định index + 1. */
+  number?: number;
+  scoring?: AttemptScoringDto;
   disabled: boolean;
   reveal: boolean;
   /** Xem trước khi soạn: điểm chỉ chốt lúc giao đề (100/N). */
@@ -26,31 +34,49 @@ export default function StudentAttemptQuestion({
   onChange: (val: {
     choiceIndex?: number | null;
     essayAnswer?: string | null;
+    tfChoices?: TrueFalseChoices | null;
     markedForReview?: boolean;
   }) => void;
 }) {
   const isMcq = question.type === "single_choice";
+  const isTrueFalse = question.type === "true_false_group";
+  const isEssay = question.type === "essay";
   const options = question.options ?? [];
   const canMark = !disabled && !reveal;
   const marked = question.markedForReview ?? false;
+  // Câu tự chọn học sinh không chạm vào (thường là nhóm không chọn): xem lại
+  // không tô xanh/đỏ.
+  const untouchedElective =
+    isTrueFalse &&
+    question.slot !== "required" &&
+    !(question.tfChoices ?? []).some((c) => typeof c === "boolean");
+  const graded = reveal && question.isCorrect != null && !untouchedElective;
 
   return (
     <div
       id={`attempt-q-${question.questionId}`}
       className={cn(
         "scroll-mt-28 rounded-2xl border p-4 sm:p-5",
-        reveal && question.isCorrect === true && "border-success/30 bg-success/5",
-        reveal && question.isCorrect === false && "border-error/30 bg-error/5",
-        (!reveal || question.isCorrect == null) && "border-border-default bg-bg-surface",
+        graded &&
+          question.isCorrect === true &&
+          "border-success/30 bg-success/5",
+        graded && question.isCorrect === false && "border-error/30 bg-error/5",
+        !graded && "border-border-default bg-bg-surface",
       )}
     >
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1 text-sm font-medium text-text-primary">
-          <span className="mr-1 text-primary">Câu {index + 1}.</span>
-          <MathContent content={question.content} className="inline [&>p:first-child]:inline" />
+          <span className="mr-1 text-primary">Câu {number ?? index + 1}.</span>
+          <MathContent
+            content={question.content}
+            className="inline [&>p:first-child]:inline"
+          />
           {hidePoints ? null : (
             <span className="ml-2 text-[11px] font-normal text-text-muted">
-              {question.pointsPossible} điểm
+              {reveal && question.pointsAwarded != null
+                ? `${formatScoreValue(question.pointsAwarded, scoring)}/`
+                : ""}
+              {formatScoreValue(question.pointsPossible, scoring)} điểm
             </span>
           )}
         </div>
@@ -109,6 +135,17 @@ export default function StudentAttemptQuestion({
             </label>
           ))}
         </div>
+      ) : isTrueFalse ? (
+        <TrueFalseStatements
+          name={`q-${question.questionId}`}
+          statements={options}
+          choices={question.tfChoices}
+          answerKey={reveal ? question.tfAnswerKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
+          neutralWhenBlank={question.slot !== "required"}
+          onChange={(tfChoices) => onChange({ tfChoices })}
+        />
       ) : (
         <textarea
           value={question.essayAnswer ?? ""}
@@ -123,7 +160,7 @@ export default function StudentAttemptQuestion({
           className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         />
       )}
-      {!isMcq &&
+      {isEssay &&
         (question.essayAnswer?.length ?? 0) > CONTENT_LIMITS.essayAnswer && (
           <p className="mt-1 text-xs text-error">
             {overLimitMessage("Câu trả lời", CONTENT_LIMITS.essayAnswer)}
@@ -131,7 +168,7 @@ export default function StudentAttemptQuestion({
         )}
 
       {reveal && isMcq && question.correctIndex != null && (
-        <p className="mt-3 text-xs text-text-muted">
+        <div className="mt-3 text-xs text-text-muted">
           Đáp án đúng:{" "}
           <span className="inline-flex flex-wrap items-baseline gap-1 font-medium text-success">
             <span>{String.fromCharCode(65 + question.correctIndex)}.</span>
@@ -140,18 +177,28 @@ export default function StudentAttemptQuestion({
               className="inline text-xs text-success [&_.katex]:text-success"
             />
           </span>
-        </p>
+        </div>
       )}
       {reveal && question.explanation && (
         <div className="mt-2 rounded-lg bg-bg-secondary/50 p-2.5">
-          <span className="text-xs font-semibold text-text-muted">Giải thích: </span>
-          <MathContent content={question.explanation} className="text-xs text-text-secondary" />
+          <span className="text-xs font-semibold text-text-muted">
+            Giải thích:{" "}
+          </span>
+          <MathContent
+            content={question.explanation}
+            className="text-xs text-text-secondary"
+          />
         </div>
       )}
       {reveal && question.type === "essay" && question.answerGuide && (
         <div className="mt-2 rounded-lg bg-bg-secondary/50 p-2.5">
-          <span className="text-xs font-semibold text-text-muted">Hướng dẫn: </span>
-          <MathContent content={question.answerGuide} className="text-xs text-text-secondary" />
+          <span className="text-xs font-semibold text-text-muted">
+            Hướng dẫn:{" "}
+          </span>
+          <MathContent
+            content={question.answerGuide}
+            className="text-xs text-text-secondary"
+          />
         </div>
       )}
     </div>

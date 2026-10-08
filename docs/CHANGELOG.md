@@ -21,8 +21,44 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- **Hồ sơ môn IT — câu hỏi Tin học theo đề THPT (#178–#191):** API đọc `LMS_PROFILE` (`it` | `jp` | `eng`), web lấy qua `GET /public/app-config` (`useAppConfig`). Hồ sơ IT:
+  - Loại câu `true_false_group` (4 nhận định a–d, đáp án `tfAnswerKey`); bỏ tự luận khỏi ngân hàng câu hỏi, nhập AI và seed.
+  - Điểm tuyệt đối đơn vị 1/100 (`attempts.scoring = absolute_it`): trắc nghiệm 0,25đ; Đúng/Sai 1đ chấm bậc thang 0,1 / 0,25 / 0,5 / 1. Làm đúng hết đề 0525 (24 TN + 4 Đúng/Sai tính điểm) = 10,00.
+  - Vị trí câu Bắt buộc / Tự chọn 1 / Tự chọn 2 (`question_links.slot`) + tên nhóm trên tiết học; học sinh trả lời ở cả hai nhóm tự chọn → phần tự chọn 0 điểm (`attempts.elective_voided`) và trang làm bài cảnh báo trước khi nộp.
+  - Đề hiển thị Phần I (trắc nghiệm) / Phần II (Đúng/Sai, đánh số lại từ 1, chia nhóm tự chọn); bảng câu dùng nhãn `II.1`.
+  - Sửa đáp án câu ở ngân hàng → chấm lại im lặng các bài đã nộp.
+  - Ôn nhẹ hỗ trợ câu Đúng/Sai.
+- **Rich text cho nội dung câu hỏi:** editor TipTap thêm bảng (`@tiptap/extension-table`), ảnh qua link https (`@tiptap/extension-image`), khối code Python/C++ và code song song Python | C++ (node `codeParallel`, lưu `<div data-code-parallel>`). Render có số dòng code, nhãn ngôn ngữ, mobile xếp chồng hai khối code.
+- **Editor: chèn bảng/ảnh/code song song khi con trỏ đang trong khối code:** trước đây làm tách khối code và mất `language`. Nay helper `leaveCodeBlock` tạo đoạn trống ngay sau khối code ngoài cùng rồi mới chèn.
+- **Editor: placeholder đè lên bảng / code song song bị xếp lệch khi editor trống:** Placeholder TipTap coi bảng/code trống là "editor trống" nên gắn `::before` float lên node đầu. Nay placeholder chỉ hiện khi tài liệu đúng một paragraph trống (CSS `.rich-content > p.is-editor-empty:first-child:last-child` trong `globals.css`). Chèn bảng/ảnh/code song song vào paragraph trống thì thay chỗ paragraph đó (`prepareBlockInsert`), không để sót dòng trống phía trên.
+- **Xem lại bài làm:** dòng "Đáp án đúng" đổi `<p>` → `<div>` (bọc `MathContent` render `<div>`), hết cảnh báo hydration "`<div>` cannot be a descendant of `<p>`".
+
+- **Trang soạn tiết thực hành (admin/staff, `LessonWorkspace` + `PracticeLessonQuestionsCard`) nâng cấp:**
+  - Câu hiển thị theo bố cục đề học sinh: Phần I trắc nghiệm → Phần II Đúng/Sai (bắt buộc → Tự chọn 1 → Tự chọn 2), đánh số "Câu N" giống Bài làm (`orderExamQuestions` khớp `orderExamLinks` phía API, rồi `buildExamLayout`).
+  - Hồ sơ IT có ô tổng quan (`ExamStructureSummary`): số câu từng phần, điểm tối đa so với thang 10 (chỉ tính một nhóm tự chọn — `itExamBreakdown`), cảnh báo sai form nhóm tự chọn.
+  - Nút lên/xuống đổi thứ tự câu trong cùng phần/nhóm (`POST .../questions/reorder`, cập nhật cache trước). Lần đổi đầu ghi lại `order` của cả đề theo thứ tự hiển thị.
+  - Chế độ xem Đầy đủ / Gọn (Gọn: cắt ngắn đề, đáp án một dòng). Tên nhóm tự chọn gom vào mục thu gọn. Tiết thực hành dùng layout rộng `max-w-5xl`.
+  - Tách component: `components/admin/practice-lesson/{AddPracticeQuestionDialog,PracticeQuestionLinkItem,ExamStructureSummary}.tsx`. Dialog thêm câu chỉ hiện "Đang lưu…" ở câu đang thêm.
+  - Breadcrumb mới (`components/course-workspace/WorkspaceBreadcrumb.tsx`): nút **Quay lại** về chuyên đề + đường dẫn Khoá học › Khoá › Chuyên đề › tên tiết (mục cuối `aria-current="page"`, mỗi mục cắt ngắn, skeleton khi đang tải). Ô tên tiết học full width, nút "Xoá tiết học" dời lên hàng badge loại tiết.
+  - `LessonWorkspace`: hết lỗi hydration (hook `useHydrated`, render skeleton tới khi hydrate xong); lưu tên tiết, tên nhóm tự chọn và xoá tiết học chuyển sang `useMutation`.
+
+- **Form câu hỏi trắc nghiệm — chọn đáp án đúng bằng ô tick xanh:** thay radio nhỏ bằng nút `CorrectOptionToggle` (`QuestionFormFields.tsx`): ô 36px viền xám, bấm thành nền xanh `success` có dấu ✓; ô nhập phương án đúng cũng viền xanh. Nhóm `role="radiogroup"` + `aria-checked`, kèm gợi ý "Bấm ô tick để chọn đáp án đúng". Nút xoá phương án đổi sang icon `X` cỡ 36px.
+
+- **Trang làm bài học sinh — đồng hồ + lưới câu thành cột phải sticky:** từ `lg` trở lên, `StudentAttemptTimer` và `StudentAttemptQuestionGrid` chuyển từ dải sticky đầu trang sang khối bên phải (cột 18rem, `sticky top-0`, tự cuộn nếu đề dài hơn màn hình); cột nội dung bên trái rộng hơn. Mobile giữ nguyên sticky trên đầu (aside dùng `display: contents`). Hai component nhận `className` để trang tự quyết vị trí thay cho prop `stickyTopClassName`. Lưới câu chuyển sang CSS grid cột đều (`repeat(auto-fill,minmax(2.5rem,1fr))`, ô cao 40px): ô «TC1·3» bằng ô «1», nhãn dài hơn 4 ký tự dùng chữ 10px.
+
+- **Lần giao — Đảo câu:** cột `class_content_items.shuffle_questions` (mặc định bật, migration `20261008000000_assignment_shuffle`) + công tắc **Đảo câu** trong dialog giao / sửa lần giao. Lúc `start`, mỗi lượt xáo thứ tự câu (đề IT giữ khung Phần I → bắt buộc → TC1 → TC2, xáo trong nhóm) và thứ tự phương án trắc nghiệm / nhận định Đúng/Sai; hoán vị lưu ở `attempt_answers.option_order`, chấm lại khi sửa đáp án đổi đáp án sang thứ tự hiển thị. Câu có phương án nhắc vị trí («ở trên», «Cả A và B», «ý a»…) tự nhận diện và giữ thứ tự phương án.
+- **Lần giao — chỉ xem điểm sau hạn:** hạn = `openAt + durationMinutes` (helper `assignmentCloseAt`, không thêm cột). Trước hạn API ẩn điểm + đáp án + giải thích (`AttemptDetailDto.resultsReleased=false`, lobby trả điểm `null`); sau hạn `start` trả 403 *Đã hết hạn làm bài.*, lượt đang làm dở vẫn chạy hết giờ riêng. Web: lobby hiện hạn, «Điểm công bố sau hạn», khoá nút làm bài sau hạn; trang lượt đã nộp hiện thông báo chờ công bố và tự refetch đúng lúc tới hạn.
+- **Xem lại bài IT — nhóm tự chọn bỏ trống không tô xanh/đỏ:** `TrueFalseStatements` thêm prop `neutralWhenBlank` (bật cho câu `slot` khác `required`): nhận định bỏ trống hiện trung tính, bỏ dòng «bạn bỏ trống» màu đỏ. `StudentAttemptQuestion` không tô khung đỏ cho câu tự chọn học sinh không chọn nhận định nào. Câu bắt buộc bỏ trống giữ nguyên màu đỏ.
+
+### Security
+
+- **Sanitize HTML rich text trước khi render (#180):** `MathContent` lọc nội dung câu hỏi/phương án/lời giải bằng DOMPurify (`lib/rich-html.ts`) — loại `<script>`, `on*`, `javascript:`, `style`, iframe; giữ node công thức, bảng, ảnh, `class="language-*"`. Test XSS chạy vitest jsdom.
+
 ### Changed
 
+- **Thiết kế lại toàn bộ email giao dịch:** layout React Email dùng chung `apps/api/src/mail/templates/components/email-layout.tsx` (thanh màu theo tone, header logo tròn + «Unicorns Edu», hero icon/eyebrow/tiêu đề, footer hỗ trợ, responsive mobile). Áp dụng cho xác thực email, đặt lại mật khẩu, xác minh đăng nhập (trước là HTML chuỗi, nay có template `login-verification.email.tsx`), xác nhận nạp thẳng (tone cam, khối số tiền + bảng chi tiết), biên lai nạp ví (tone xanh lá, lời chào phụ huynh, khối số tiền, biên lai gọn, ghi chú PDF đính kèm). Biên lai tách `variant` `email`/`pdf`; bảng giao dịch còn 3 cột, mã GD thành dòng phụ dưới nội dung. Asset mới `apps/api/src/mail/assets/logo_mark_sm.png` (CID `brand-logo@unicorns-edu`, `ReceiptAssetsService.getBrandMarkDataUri`). Tài liệu: `docs/Email Templates.md`.
 - **`MonthNav` responsive:** mobile xếp dọc (chọn tháng → nhãn tổng → nút thao tác full-width), `sm` tháng một hàng trên + nhãn/nút hàng dưới, `lg` một hàng như cũ. Trang lớp staff: nút **Tạo buổi học** / **Tạo khảo sát** không xuống dòng chữ, chia đều chiều ngang trên mobile.
 - **Card gia sư trang lớp — nút Nghỉ dạy + gia sư xem trợ cấp của mình:** admin/assistant: nút **Nghỉ dạy** đổi đỏ, lên dòng header cạnh badge trạng thái (mobile badge + nút xuống dòng 2); `window.confirm`/`window.prompt` thay bằng `ConfirmDialog` destructive có ô lý do (`ConfirmDialog` nhận thêm `children`). Gia sư trên `/staff/classes/[id]`: dòng của chính mình hiện **Trợ cấp / học sinh**, **Scale / buổi**, **Vận hành** kèm nhãn `(bạn)`; popup **Thêm buổi học** hiện thẻ **Trợ cấp buổi** chỉ đọc (gộp + breakdown, ghi chú ước tính trước khấu trừ). `GET /staff-ops/classes/:id` với access mode `teacher` bỏ field thu nhập của các gia sư khác trong `teachers[]` (`redactOtherTeachersIncome`).
 - **Khảo sát — giới hạn đối tượng phải báo cáo:** bớt cảnh báo tràn lan tới gia sư. Lớp có buổi đầu tiên muộn hơn ngày tạo bài khảo sát (hoặc chưa có buổi nào) được miễn; gia sư vào lớp sau ngày tạo bài được miễn cho lớp đó. So ngày theo giờ Việt Nam, cùng ngày vẫn phải báo cáo. Áp dụng cho modal cảnh báo gia sư, chặn tạo buổi, cảnh báo kế toán chi, cảnh báo khi thanh toán, dashboard gia sư; KPI/danh sách lớp chưa báo cáo/thông báo khi tạo bài/cảnh báo dashboard admin chỉ dùng điều kiện buổi đầu tiên. Helper mới `apps/api/src/class/survey-requirement.ts`.

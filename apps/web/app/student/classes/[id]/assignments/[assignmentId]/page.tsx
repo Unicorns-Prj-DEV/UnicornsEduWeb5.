@@ -1,11 +1,17 @@
 "use client";
 
+import { formatScore } from "@/lib/attempt-score";
+import { refetchIntervalUntilClose } from "@/lib/assignment-window";
+import { formatDateTime } from "@/lib/class.helpers";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Play, RotateCcw } from "lucide-react";
+import { ChevronLeft, Lock, Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import { getAssignmentLobby, startAssignmentAttempt } from "@/lib/apis/attempt.api";
+import {
+  getAssignmentLobby,
+  startAssignmentAttempt,
+} from "@/lib/apis/attempt.api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +32,12 @@ export default function StudentAssignmentLobbyPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["assignment-lobby", classId, assignmentId],
     queryFn: () => getAssignmentLobby(classId, assignmentId),
+    // Tới hạn: khoá nút làm bài + hiện điểm mà không cần F5.
+    refetchInterval: (q) =>
+      refetchIntervalUntilClose(
+        q.state.data?.closeAt,
+        q.state.data?.closed === false,
+      ),
   });
 
   const startMutation = useMutation({
@@ -90,29 +102,45 @@ export default function StudentAssignmentLobbyPage() {
           Thời lượng {data.durationMinutes} phút — đồng hồ chạy riêng từ lúc bạn
           bấm bắt đầu.
         </p>
-        <button
-          type="button"
-          onClick={() => startMutation.mutate()}
-          disabled={startMutation.isPending}
-          className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-text-inverse sm:w-auto"
-        >
-          {inProgress ? (
-            <>
-              <Play className="size-4" />
-              Tiếp tục làm bài
-            </>
-          ) : data.attempts.length > 0 ? (
-            <>
-              <RotateCcw className="size-4" />
-              Làm lại
-            </>
-          ) : (
-            <>
-              <Play className="size-4" />
-              Bắt đầu làm bài
-            </>
-          )}
-        </button>
+        {data.closeAt ? (
+          <p className="mt-1 text-sm text-text-muted">
+            Hạn làm bài:{" "}
+            <span className="font-medium text-text-primary">
+              {formatDateTime(data.closeAt)}
+            </span>
+            {data.closed ? "" : " — điểm và đáp án công bố sau hạn."}
+          </p>
+        ) : null}
+        {data.closed && !inProgress ? (
+          <p className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-tertiary px-4 text-sm font-medium text-text-secondary sm:w-auto">
+            <Lock className="size-4" aria-hidden />
+            Đã hết hạn làm bài
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => startMutation.mutate()}
+            disabled={startMutation.isPending}
+            className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-text-inverse sm:w-auto"
+          >
+            {inProgress ? (
+              <>
+                <Play className="size-4" />
+                Tiếp tục làm bài
+              </>
+            ) : data.attempts.length > 0 ? (
+              <>
+                <RotateCcw className="size-4" />
+                Làm lại
+              </>
+            ) : (
+              <>
+                <Play className="size-4" />
+                Bắt đầu làm bài
+              </>
+            )}
+          </button>
+        )}
       </header>
 
       <Card>
@@ -135,10 +163,14 @@ export default function StudentAssignmentLobbyPage() {
                     </span>
                     <span className="text-xs text-text-muted">
                       {att.autoGradedScore != null
-                        ? `${att.autoGradedScore}/${att.autoGradedMax} MCQ`
-                        : att.hasUngradedEssay
-                          ? "Chờ chấm tự luận"
-                          : "—"}
+                        ? att.scoring === "absolute_it"
+                          ? `${formatScore(att.autoGradedScore, att.autoGradedMax ?? 0, att.scoring)} điểm`
+                          : `${att.autoGradedScore}/${att.autoGradedMax} MCQ`
+                        : att.status !== "in_progress" && !data.closed
+                          ? "Điểm công bố sau hạn"
+                          : att.hasUngradedEssay
+                            ? "Chờ chấm tự luận"
+                            : "—"}
                     </span>
                   </Link>
                 </li>

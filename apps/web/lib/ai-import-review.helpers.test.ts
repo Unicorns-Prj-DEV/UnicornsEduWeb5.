@@ -144,3 +144,52 @@ describe("formatQuestionErrors", () => {
     );
   });
 });
+
+describe("validateAiJson — hồ sơ IT (Đúng/Sai, không tự luận)", () => {
+  const IT_TYPES = [
+    QuestionTypeDto.single_choice,
+    QuestionTypeDto.true_false_group,
+  ];
+  const tf = (overrides: Record<string, unknown> = {}) => ({
+    type: "true_false_group",
+    content: "Cho đoạn chương trình Python…",
+    options: ["a", "b", "c", "d"],
+    tfAnswerKey: [true, false, true, false],
+    difficulty: "Thông hiểu",
+    ...overrides,
+  });
+
+  it("nhận câu Đúng/Sai hợp lệ", () => {
+    const { items } = validateAiJson(JSON.stringify([tf()]), DIFFS, IT_TYPES);
+    expect(items[0]._valid).toBe(true);
+    expect(items[0].type).toBe(QuestionTypeDto.true_false_group);
+    expect(items[0].tfAnswerKey).toEqual([true, false, true, false]);
+  });
+
+  it("báo lỗi khi thiếu nhận định hoặc đáp án", () => {
+    const { items } = validateAiJson(
+      JSON.stringify([tf({ options: ["a", "b"], tfAnswerKey: [true] })]),
+      DIFFS,
+      IT_TYPES,
+    );
+    expect(items[0]._valid).toBe(false);
+    expect(items[0]._errors.join(" ")).toContain("4 nhận định");
+    expect(items[0]._errors.join(" ")).toContain("tfAnswerKey");
+  });
+
+  it("từ chối tự luận ở hồ sơ IT", () => {
+    const essay = { type: "essay", content: "Viết…", difficulty: "Nhận biết" };
+    const { items } = validateAiJson(JSON.stringify([essay]), DIFFS, IT_TYPES);
+    expect(items[0]._valid).toBe(false);
+    expect(items[0]._errors[0]).toContain('"single_choice" hoặc "true_false_group"');
+  });
+
+  it("trắc nghiệm không được kèm tfAnswerKey", () => {
+    const { items } = validateAiJson(
+      JSON.stringify([validChoice({ tfAnswerKey: [true, true, true, true] })]),
+      DIFFS,
+      IT_TYPES,
+    );
+    expect(items[0]._valid).toBe(false);
+  });
+});

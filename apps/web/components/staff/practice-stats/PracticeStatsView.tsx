@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatVnDayMonthTime } from "@/lib/formatters";
+import { formatScore, formatScoreValue } from "@/lib/attempt-score";
 import {
   Table,
   TableBody,
@@ -95,11 +96,22 @@ function sortStudents(
   });
 }
 
+/** Tiêu đề cột điểm: IT tổng tối đa khác nhau giữa các đề nên không ghi `/ 100`. */
+function scoreHeader(data: PracticeStatsDto): string {
+  return data.scoring === "absolute_it" ? "Điểm" : "Điểm / 100";
+}
+
+function scoreText(data: PracticeStatsDto, row: PracticeStatsStudentRowDto): string | null {
+  if (row.score == null) return null;
+  const max = row.scoreMax ?? data.scoreMax ?? 100;
+  return formatScore(row.score, max, data.scoring);
+}
+
 function downloadCsv(data: PracticeStatsDto, students: PracticeStatsStudentRowDto[]) {
-  const header = ["Học sinh", "Điểm / 100", "Số lượt", "Thời gian", "Trạng thái"];
+  const header = ["Học sinh", scoreHeader(data), "Số lượt", "Thời gian", "Trạng thái"];
   const rows = students.map((s) => [
     s.studentName,
-                s.score == null ? "" : `${s.score}/100`,
+    scoreText(data, s) ?? "",
     String(s.attemptCount),
     formatDuration(s.durationMs),
     statusLabel(s.status),
@@ -233,10 +245,17 @@ export default function PracticeStatsView() {
         <Card className="gap-2 py-4">
           <CardContent>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-text-muted">
-              Điểm trung bình / 100
+              Điểm trung bình
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
-              {data.averageScore == null ? "—" : data.averageScore}
+              {data.averageScore == null
+                ? "—"
+                : formatScoreValue(data.averageScore, data.scoring)}
+              {data.averageScore != null ? (
+                <span className="text-base text-text-muted">
+                  /{formatScoreValue(data.scoreMax ?? 100, data.scoring)}
+                </span>
+              ) : null}
             </p>
           </CardContent>
         </Card>
@@ -297,7 +316,7 @@ export default function PracticeStatsView() {
                   onClick={() => toggleSort("score")}
                   className="inline-flex items-center gap-1 font-medium hover:text-text-primary"
                 >
-                  Điểm / 100
+                  {scoreHeader(data)}
                   <span aria-hidden>
                     {sortKey === "score" ? (sortDir === "asc" ? "▴" : "▾") : "↕"}
                   </span>
@@ -331,7 +350,7 @@ export default function PracticeStatsView() {
                   {row.studentName}
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {row.score == null ? "—" : `${row.score}/100`}
+                  {scoreText(data, row) ?? "—"}
                 </TableCell>
                 <TableCell className="tabular-nums">{row.attemptCount}</TableCell>
                 <TableCell className="tabular-nums">

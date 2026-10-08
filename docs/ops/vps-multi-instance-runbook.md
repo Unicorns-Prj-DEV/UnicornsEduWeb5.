@@ -18,7 +18,19 @@ GitHub push main
 | `eng` | `/root/UnicornsEduEng` | `unicorns-eng` | `127.0.0.1:8080` | `eng.unicornsedu.com` |
 | `jp` | `/root/UnicornsEduJP` | `unicorns-jp` | `127.0.0.1:8081` | `jp.unicornsedu.com` |
 
-**Khác nhau giữa các instance:** chỉ `.env` runtime (DB, `FRONTEND_URL`, `BACKEND_URL`, JWT, SePay, …) — **không** build web image riêng.
+**Khác nhau giữa các instance:** chỉ `.env` runtime (DB, `LMS_PROFILE`, `FRONTEND_URL`, `BACKEND_URL`, JWT, SePay, …) — **không** build web image riêng.
+
+### `LMS_PROFILE` — bắt buộc trên mọi instance
+
+API đọc **Hồ sơ môn** từ `LMS_PROFILE` (`it` | `jp` | `eng`); thiếu hoặc sai thì API **không khởi động** (ADR [`2026-10-07-instance-subject-profile`](../adr/2026-10-07-instance-subject-profile.md)). Web lấy hồ sơ qua `GET /api/public/app-config`.
+
+| Instance | `LMS_PROFILE` |
+|---|---|
+| `it` | `it` |
+| `eng` | `eng` |
+| `jp` | `jp` |
+
+Lần đầu lên bản có biến này: thêm `LMS_PROFILE` vào `.env` của **cả ba** VPS **trước** khi merge vào `main` (CD). Sau deploy kiểm tra `curl -s https://<domain>/api/public/app-config`.
 
 Registry: [`deploy/instances.json`](../../deploy/instances.json). Tắt instance tạm thời: `"enabled": false`.
 
@@ -200,7 +212,7 @@ curl -fsS https://jp.unicornsedu.com/api/
 ### ENG
 
 - [ ] DB Supabase riêng cho ENG
-- [ ] Clone `/root/UnicornsEduEng` + `.env`
+- [ ] Clone `/root/UnicornsEduEng` + `.env` (có `LMS_PROFILE=eng`)
 - [ ] Migrate DB ENG
 - [ ] Cloudflared `eng.*` → `:8080`
 - [ ] `"enabled": true` cho `eng`
@@ -208,7 +220,7 @@ curl -fsS https://jp.unicornsedu.com/api/
 ### JP
 
 - [ ] DB Supabase riêng cho JP
-- [ ] Clone `/root/UnicornsEduJP` + `.env` từ `.env.production.jp.example`
+- [ ] Clone `/root/UnicornsEduJP` + `.env` từ `.env.production.jp.example` (có `LMS_PROFILE=jp`)
 - [ ] Migrate DB JP
 - [ ] Cloudflared `jp.*` → `:8081`
 - [ ] `jq` trên VPS (nếu chưa có)

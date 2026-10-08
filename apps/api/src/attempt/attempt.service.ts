@@ -1,15 +1,19 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
+  AttemptScoring,
   AttemptStatus,
+  QuestionSlot,
   QuestionType,
   StudentClassStatus,
 } from 'generated/enums';
+import { LmsProfileService } from 'src/lms-profile/lms-profile.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CourseContentService } from 'src/course-content/course-content.service';
 import type {
@@ -24,10 +28,17 @@ import type {
   PracticeStatsStudentRowDto,
   SaveAttemptAnswerItemDto,
 } from 'src/dtos/attempt.dto';
+import { ATTEMPT_TOTAL_POINTS, splitTotalPoints } from './split-total-points';
 import {
-  ATTEMPT_TOTAL_POINTS,
-  splitTotalPoints,
-} from './split-total-points';
+  IT_SINGLE_CHOICE_POINTS,
+  IT_TRUE_FALSE_POINTS,
+  autoGradedMaxOf,
+  gradeAnswers,
+  normalizeTrueFalseChoices,
+} from './grading';
+import { assertExamForm, examGroupRank, orderExamLinks } from './exam-form';
+import { shuffleQuestionOptions, shuffleWithinGroups } from './shuffle';
+import { assignmentCloseAt, isAssignmentClosed } from './assignment-window';
 
 /** Include chấm/đọc bài: chỉ snapshot trên AttemptAnswer, không join Question live. */
 type AttemptWithAnswers = Prisma.AttemptGetPayload<{
@@ -44,6 +55,7 @@ export class AttemptService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly topicService: CourseContentService,
+    private readonly lmsProfile: LmsProfileService = new LmsProfileService(),
   ) {}
 
   async getLobby(
@@ -60,6 +72,8 @@ export class AttemptService {
       where: { assignmentId, studentId },
       orderBy: { startedAt: 'desc' },
     });
+    const closeAt = assignmentCloseAt(item);
+    const closed = isAssignmentClosed(closeAt);
     return {
       assignmentId: item.id,
       classId,
@@ -67,14 +81,17 @@ export class AttemptService {
       title: item.lesson!.title,
       durationMinutes: item.durationMinutes as number,
       openAt: item.openAt,
+      closeAt,
+      closed,
       attempts: attempts.map((a) => ({
         id: a.id,
         status: a.status,
         startedAt: a.startedAt,
         submittedAt: a.submittedAt,
-        autoGradedScore: a.autoGradedScore,
-        autoGradedMax: a.autoGradedMax,
+        autoGradedScore: closed ? a.autoGradedScore : null,
+        autoGradedMax: closed ? a.autoGradedMax : null,
         hasUngradedEssay: a.hasUngradedEssay,
+        scoring: a.scoring,
       })),
     };
   }
@@ -97,22 +114,46 @@ export class AttemptService {
     if (existing) {
       return this.finalizeIfExpired(existing);
     }
+    // Lượt đang làm dở vẫn chạy hết giờ riêng; chỉ chặn lượt mới sau hạn.
+    if (isAssignmentClosed(assignmentCloseAt(item))) {
+      throw new ForbiddenException('Đã hết hạn làm bài.');
+    }
 
     const lessonId = item.lessonId;
     if (!lessonId) {
       throw new BadRequestException('Assignment has no lesson');
     }
-    const links = await this.prisma.questionLink.findMany({
+    const rawLinks = await this.prisma.questionLink.findMany({
       where: { lessonId, question: { deletedAt: null } },
       include: { question: { include: { difficultyLevel: true } } },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
     });
-    if (links.length === 0) {
+    if (rawLinks.length === 0) {
       throw new BadRequestException(
         'Đề chưa có câu hỏi, không thể bắt đầu làm bài.',
       );
     }
-    const pointsByIndex = splitTotalPoints(ATTEMPT_TOTAL_POINTS, links.length);
+    const scoring = this.currentScoring();
+    const isIt = scoring === AttemptScoring.absolute_it;
+    const examLinks = isIt ? orderExamLinks(rawLinks) : rawLinks;
+    if (isIt) {
+      assertExamForm(examLinks);
+    }
+    // Đảo câu: đề IT giữ khung Phần I → bắt buộc → TC1 → TC2, xáo trong nhóm.
+    const shuffle = item.shuffleQuestions;
+    const links = shuffle
+      ? shuffleWithinGroups(examLinks, (link) =>
+          isIt ? examGroupRank(link) : 0,
+        )
+      : examLinks;
+    const pointsByIndex =
+      scoring === AttemptScoring.absolute_it
+        ? links.map((link) =>
+            link.question.type === QuestionType.true_false_group
+              ? IT_TRUE_FALSE_POINTS
+              : IT_SINGLE_CHOICE_POINTS,
+          )
+        : splitTotalPoints(ATTEMPT_TOTAL_POINTS, links.length);
 
     const startedAt = new Date();
     try {
@@ -123,22 +164,34 @@ export class AttemptService {
           startedAt,
           durationMinutes: item.durationMinutes as number,
           status: AttemptStatus.in_progress,
+          scoring,
           answers: {
-            create: links.map((link, index) => ({
-              questionId: link.questionId,
-              order: link.order ?? index,
-              pointsPossible: pointsByIndex[index],
-              type: link.question.type,
-              content: link.question.content,
-              options:
-                link.question.options === null
-                  ? Prisma.JsonNull
-                  : (link.question.options as Prisma.InputJsonValue),
-              correctIndex: link.question.correctIndex,
-              explanation: link.question.explanation,
-              answerGuide: link.question.answerGuide,
-              difficultyLabel: link.question.difficultyLevel.name,
-            })),
+            create: links.map((link, index) => {
+              const shuffled = shuffle
+                ? shuffleQuestionOptions(link.question)
+                : null;
+              return {
+                questionId: link.questionId,
+                order: isIt || shuffle ? index : (link.order ?? index),
+                pointsPossible: pointsByIndex[index],
+                slot: link.slot,
+                tfAnswerKey: shuffled?.tfAnswerKey ?? link.question.tfAnswerKey,
+                type: link.question.type,
+                content: link.question.content,
+                options: shuffled
+                  ? shuffled.options
+                  : link.question.options === null
+                    ? Prisma.JsonNull
+                    : (link.question.options as Prisma.InputJsonValue),
+                correctIndex: shuffled
+                  ? shuffled.correctIndex
+                  : link.question.correctIndex,
+                optionOrder: shuffled?.optionOrder ?? [],
+                explanation: link.question.explanation,
+                answerGuide: link.question.answerGuide,
+                difficultyLabel: link.question.difficultyLevel.name,
+              };
+            }),
           },
         },
         include: this.attemptInclude(),
@@ -197,6 +250,9 @@ export class AttemptService {
                 : {}),
               ...(item.essayAnswer !== undefined
                 ? { essayAnswer: item.essayAnswer }
+                : {}),
+              ...(item.tfChoices !== undefined
+                ? { tfChoices: normalizeTrueFalseChoices(item.tfChoices) }
                 : {}),
               ...(item.markedForReview !== undefined
                 ? { markedForReview: item.markedForReview }
@@ -303,29 +359,13 @@ export class AttemptService {
     attempt: AttemptWithAnswers,
     status: AttemptStatus,
   ): Promise<boolean> {
-    let autoGradedScore = 0;
-    let autoGradedMax = 0;
-    let hasUngradedEssay = false;
-
-    const answerPatches = attempt.answers.map((ans) => {
-      if (ans.type === QuestionType.essay) {
-        hasUngradedEssay = true;
-        return {
-          id: ans.id,
-          data: {
-            isCorrect: null as boolean | null,
-            pointsAwarded: null as number | null,
-          },
-        };
-      }
-      const max = ans.pointsPossible;
-      autoGradedMax += max;
-      const isCorrect =
-        ans.choiceIndex != null && ans.choiceIndex === ans.correctIndex;
-      const pointsAwarded = isCorrect ? max : 0;
-      autoGradedScore += pointsAwarded;
-      return { id: ans.id, data: { isCorrect, pointsAwarded } };
-    });
+    const graded = gradeAnswers(attempt.answers, attempt.scoring);
+    const answerPatches = graded.patches.map(({ id, ...data }) => ({
+      id,
+      data,
+    }));
+    const { autoGradedScore, autoGradedMax, hasUngradedEssay, electiveVoided } =
+      graded;
 
     return this.prisma.$transaction(async (tx) => {
       const claimed = await tx.attempt.updateMany({
@@ -336,6 +376,7 @@ export class AttemptService {
           autoGradedScore,
           autoGradedMax,
           hasUngradedEssay,
+          electiveVoided,
         },
       });
       if (claimed.count === 0) return false;
@@ -529,6 +570,12 @@ export class AttemptService {
               10,
           ) / 10;
 
+    const latestAttempt = attempts[attempts.length - 1];
+    const latestScoring = latestAttempt?.scoring ?? this.currentScoring();
+    const latestScoreMax = latestAttempt
+      ? this.scoreMaxOf(latestAttempt)
+      : null;
+
     const questions = this.buildQuestionRates(
       item.lessonId,
       roster.map((r) => r.studentId),
@@ -545,6 +592,8 @@ export class AttemptService {
       submittedCount: students.filter((s) => s.attemptCount > 0).length,
       rosterCount: roster.length,
       averageScore,
+      scoring: latestScoring,
+      scoreMax: latestScoreMax,
       pendingEssayCount: students.filter((s) => s.status === 'pending_essay')
         .length,
       questions: await questions,
@@ -619,6 +668,21 @@ export class AttemptService {
         data: { hasUngradedEssay: false },
       });
     }
+  }
+
+  /** Tổng điểm tối đa: phần tự chấm (một nhóm tự chọn) + tự luận. */
+  private scoreMaxOf(attempt: {
+    scoring: AttemptScoring;
+    answers: Array<{
+      pointsPossible: number;
+      type: QuestionType;
+      slot: QuestionSlot;
+    }>;
+  }): number {
+    const essayMax = attempt.answers
+      .filter((a) => a.type === QuestionType.essay)
+      .reduce((sum, a) => sum + a.pointsPossible, 0);
+    return autoGradedMaxOf(attempt.answers, attempt.scoring) + essayMax;
   }
 
   /** Tổng điểm attempt = MCQ autoGradedScore + tổng pointsAwarded essay. */
@@ -781,6 +845,12 @@ export class AttemptService {
       });
   }
 
+  private currentScoring(): AttemptScoring {
+    return this.lmsProfile.config.scoring === 'absolute_it'
+      ? AttemptScoring.absolute_it
+      : AttemptScoring.equal_100;
+  }
+
   private async loadOwned(
     classId: string,
     attemptId: string,
@@ -818,6 +888,9 @@ export class AttemptService {
     reveal: boolean,
   ): AttemptDetailDto {
     const endsAt = this.endsAt(attempt);
+    // Đã nộp nhưng chưa tới hạn lần giao: không lộ điểm/đáp án.
+    const closeAt = assignmentCloseAt(attempt.assignment);
+    const resultsReleased = isAssignmentClosed(closeAt);
     const remainingMs = Math.max(0, endsAt.getTime() - Date.now());
     const questions: AttemptQuestionDto[] = attempt.answers.map((ans) => {
       const base: AttemptQuestionDto = {
@@ -825,14 +898,21 @@ export class AttemptService {
         order: ans.order,
         pointsPossible: ans.pointsPossible,
         type: ans.type,
+        slot: ans.slot,
         content: ans.content,
         options: Array.isArray(ans.options) ? (ans.options as string[]) : null,
         choiceIndex: ans.choiceIndex,
+        tfChoices:
+          ans.type === QuestionType.true_false_group
+            ? normalizeTrueFalseChoices(ans.tfChoices)
+            : null,
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };
-      if (reveal) {
+      if (reveal && resultsReleased) {
         base.correctIndex = ans.correctIndex;
+        base.tfAnswerKey =
+          ans.type === QuestionType.true_false_group ? ans.tfAnswerKey : null;
         base.isCorrect = ans.isCorrect;
         base.pointsAwarded = ans.pointsAwarded;
         base.explanation = ans.explanation;
@@ -841,10 +921,7 @@ export class AttemptService {
       return base;
     });
 
-    const scoreMax = attempt.answers.reduce(
-      (sum, ans) => sum + ans.pointsPossible,
-      0,
-    );
+    const scoreMax = this.scoreMaxOf(attempt);
 
     return {
       id: attempt.id,
@@ -857,10 +934,18 @@ export class AttemptService {
       endsAt,
       remainingMs,
       submittedAt: attempt.submittedAt,
-      autoGradedScore: attempt.autoGradedScore,
-      autoGradedMax: attempt.autoGradedMax,
+      autoGradedScore: resultsReleased ? attempt.autoGradedScore : null,
+      autoGradedMax: resultsReleased ? attempt.autoGradedMax : null,
       scoreMax,
       hasUngradedEssay: attempt.hasUngradedEssay,
+      scoring: attempt.scoring,
+      electiveVoided: resultsReleased ? attempt.electiveVoided : false,
+      electiveGroupNames: {
+        elective_1: attempt.assignment.lesson?.elective1Name ?? null,
+        elective_2: attempt.assignment.lesson?.elective2Name ?? null,
+      },
+      closeAt,
+      resultsReleased,
       questions,
     };
   }
