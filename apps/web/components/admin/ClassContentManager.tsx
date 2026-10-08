@@ -42,7 +42,7 @@ import Link from "next/link";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
+import MathRichTextEditorWithPreview from "@/components/ui/MathRichTextEditorWithPreview";
 import { CONTENT_LIMITS, isHttpUrl } from "@/dtos/content-limits";
 import {
   ResponsiveDialog,
@@ -860,7 +860,7 @@ function TheoryLessonInlineEditor({
           Nội dung lý thuyết (hỗ trợ LaTeX: $x^2$)
         </span>
         <div className="mt-1.5">
-          <MathRichTextEditor
+          <MathRichTextEditorWithPreview
             value={contentValue}
             onChange={setContent}
             ariaLabel="Nội dung lý thuyết"

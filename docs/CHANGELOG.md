@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Xem trước nội dung tiết lý thuyết:** ô soạn nội dung tiết lý thuyết (trang tiết học của khoá `TheoryLessonEditor` và dialog tiết lý thuyết trên lớp `ClassContentManager`) có tab **Soạn thảo / Xem trước**; preview render bằng `MathContent` (Markdown/HTML + KaTeX) đúng như học sinh thấy. Component dùng lại: `components/ui/MathRichTextEditorWithPreview.tsx`; thêm shadcn `components/ui/tabs.tsx` (`@radix-ui/react-tabs`).
 - **Hồ sơ môn IT — câu hỏi Tin học theo đề THPT (#178–#191):** API đọc `LMS_PROFILE` (`it` | `jp` | `eng`), web lấy qua `GET /public/app-config` (`useAppConfig`). Hồ sơ IT:
   - Loại câu `true_false_group` (4 nhận định a–d, đáp án `tfAnswerKey`); bỏ tự luận khỏi ngân hàng câu hỏi, nhập AI và seed.
   - Điểm tuyệt đối đơn vị 1/100 (`attempts.scoring = absolute_it`): trắc nghiệm 0,25đ; Đúng/Sai 1đ chấm bậc thang 0,1 / 0,25 / 0,5 / 1. Làm đúng hết đề 0525 (24 TN + 4 Đúng/Sai tính điểm) = 10,00.

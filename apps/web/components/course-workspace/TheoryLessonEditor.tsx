@@ -8,7 +8,7 @@ import * as classApi from "@/lib/apis/class.api";
 import * as questionApi from "@/lib/apis/question.api";
 import { courseKeys, questionKeys } from "@/lib/query-keys";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
-import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
+import MathRichTextEditorWithPreview from "@/components/ui/MathRichTextEditorWithPreview";
 import MathContent from "@/components/ui/MathContent";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CourseLesson } from "@/dtos/course-content.dto";
@@ -162,7 +162,7 @@ export function TheoryLessonEditor({
           Nội dung tiết lý thuyết (hỗ trợ LaTeX: $x^2$)
         </span>
         {canEdit ? (
-          <MathRichTextEditor
+          <MathRichTextEditorWithPreview
             value={content}
             onChange={setContent}
             ariaLabel="Nội dung tiết lý thuyết"
