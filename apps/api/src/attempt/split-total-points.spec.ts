@@ -1,15 +1,12 @@
 import { ATTEMPT_TOTAL_POINTS, splitTotalPoints } from './split-total-points';
 
 describe('splitTotalPoints', () => {
-  it.each([3, 6, 7])(
-    'N=%s: tổng đúng 100, không bị 99.99',
-    (n: number) => {
-      const parts = splitTotalPoints(ATTEMPT_TOTAL_POINTS, n);
-      expect(parts).toHaveLength(n);
-      expect(parts.reduce((sum, p) => sum + p, 0)).toBe(100);
-      expect(parts.every((p) => Number.isInteger(p))).toBe(true);
-    },
-  );
+  it.each([3, 6, 7])('N=%s: tổng đúng 100, không bị 99.99', (n: number) => {
+    const parts = splitTotalPoints(ATTEMPT_TOTAL_POINTS, n);
+    expect(parts).toHaveLength(n);
+    expect(parts.reduce((sum, p) => sum + p, 0)).toBe(100);
+    expect(parts.every((p) => Number.isInteger(p))).toBe(true);
+  });
 
   it('N=3 → 34, 33, 33', () => {
     expect(splitTotalPoints(100, 3)).toEqual([34, 33, 33]);

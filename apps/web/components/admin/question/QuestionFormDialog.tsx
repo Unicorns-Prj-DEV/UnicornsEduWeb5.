@@ -22,6 +22,10 @@ import type { CreateQuestionInput, QuestionFormInitial } from "@/dtos/question.d
 import QuestionFormFields, {
   type QuestionFormValue,
 } from "@/components/admin/question/QuestionFormFields";
+import {
+  questionFormToPayload,
+  questionToFormParts,
+} from "@/components/admin/question/question-form-payload";
 
 /**
  * Dialog soạn / sửa một câu hỏi trong ngân hàng. Dùng chung cho tab Câu hỏi
@@ -47,8 +51,7 @@ export default function QuestionFormDialog({
     difficultyLevelId: question?.difficultyLevelId || "",
     type: (question?.type ?? QuestionTypeDto.single_choice) as QuestionTypeDto,
     content: question?.content || "",
-    options: question?.options || ["", ""],
-    correctIndex: question?.correctIndex ?? 0,
+    ...questionToFormParts(question),
     explanation: question?.explanation || "",
     answerGuide: question?.answerGuide || "",
   };
@@ -79,18 +82,12 @@ export default function QuestionFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const isChoice = form.type === QuestionTypeDto.single_choice;
-    saveMutation.mutate({
-      courseId,
-      moduleId: form.moduleId,
-      difficultyLevelId: form.difficultyLevelId,
-      type: form.type,
-      content: form.content,
-      options: isChoice ? form.options : undefined,
-      correctIndex: isChoice ? form.correctIndex : undefined,
-      explanation: form.explanation || undefined,
-      answerGuide: form.answerGuide || undefined,
-    });
+    const result = questionFormToPayload(form);
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    saveMutation.mutate({ courseId, ...result.payload });
   };
 
   const { confirm, dialog } = useConfirmDialog();

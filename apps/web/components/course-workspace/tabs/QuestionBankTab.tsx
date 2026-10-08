@@ -1,5 +1,6 @@
 "use client";
 
+import { QUESTION_TYPE_LABELS, questionTypeLabel } from "@/dtos/question.dto";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
@@ -131,8 +132,10 @@ export function QuestionBankTab({
   ];
   const typeOptions = [
     { value: "", label: "Tất cả loại" },
-    { value: "single_choice", label: "Trắc nghiệm" },
-    { value: "essay", label: "Tự luận" },
+    ...Object.entries(QUESTION_TYPE_LABELS).map(([value, label]) => ({
+      value,
+      label,
+    })),
   ];
 
   if (isChaptersLoading) {
@@ -285,7 +288,7 @@ export function QuestionBankTab({
                 />
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
                   <Badge variant={q.type === "single_choice" ? "info" : "success"}>
-                    {q.type === "single_choice" ? "Trắc nghiệm" : "Tự luận"}
+                    {questionTypeLabel(q.type)}
                   </Badge>
                 </div>
               </li>
@@ -327,7 +330,7 @@ export function QuestionBankTab({
                     </TableCell>
                     <TableCell>
                       <Badge variant={q.type === "single_choice" ? "info" : "success"}>
-                        {q.type === "single_choice" ? "Trắc nghiệm" : "Tự luận"}
+                        {questionTypeLabel(q.type)}
                       </Badge>
                     </TableCell>
                     <TableCell

@@ -171,7 +171,8 @@ export class ClassContentController {
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
   @ApiOperation({
-    summary: 'Cập nhật lịch lần giao (openAt, durationMinutes) — không sửa đề',
+    summary:
+      'Cập nhật lần giao (openAt, durationMinutes, shuffleQuestions) — không sửa đề',
   })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiParam({ name: 'itemId', description: 'ID lần giao / class content item' })

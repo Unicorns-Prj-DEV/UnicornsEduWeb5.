@@ -8,12 +8,19 @@ const ALLOWED_FIELDS = new Set([
   "content",
   "options",
   "correctIndex",
+  "tfAnswerKey",
   "explanation",
   "answerGuide",
   "difficulty",
 ]);
 
 const MAX_AI_IMPORT_QUESTIONS = 50;
+
+/** Loại câu mặc định khi chưa biết hồ sơ môn (JP/ENG cũ). */
+export const DEFAULT_AI_QUESTION_TYPES: readonly QuestionTypeDto[] = [
+  QuestionTypeDto.single_choice,
+  QuestionTypeDto.essay,
+];
 
 export interface AiJsonValidateResult {
   items: ValidatedAiQuestion[];
@@ -23,6 +30,7 @@ export interface AiJsonValidateResult {
 export function validateAiJson(
   raw: string,
   difficultyNames: string[],
+  allowedTypes: readonly QuestionTypeDto[] = DEFAULT_AI_QUESTION_TYPES,
 ): AiJsonValidateResult {
   let parsed: unknown;
   try {
@@ -50,7 +58,10 @@ export function validateAiJson(
   }
 
   const items = (parsed as Record<string, unknown>[]).map((obj) =>
-    validateAiQuestionRecord(obj, difficultyNames, { checkUnknownFields: true }),
+    validateAiQuestionRecord(obj, difficultyNames, {
+      checkUnknownFields: true,
+      allowedTypes,
+    }),
   );
 
   return { items, parseError: null };
@@ -59,6 +70,7 @@ export function validateAiJson(
 export function revalidateAiQuestion(
   next: ValidatedAiQuestion,
   difficultyNames: string[],
+  allowedTypes: readonly QuestionTypeDto[] = DEFAULT_AI_QUESTION_TYPES,
 ): ValidatedAiQuestion {
   const record: Record<string, unknown> = {
     type: next.type,
@@ -67,11 +79,13 @@ export function revalidateAiQuestion(
   };
   if (next.options !== undefined) record.options = next.options;
   if (next.correctIndex !== undefined) record.correctIndex = next.correctIndex;
+  if (next.tfAnswerKey !== undefined) record.tfAnswerKey = next.tfAnswerKey;
   if (next.explanation !== undefined) record.explanation = next.explanation;
   if (next.answerGuide !== undefined) record.answerGuide = next.answerGuide;
 
   const validated = validateAiQuestionRecord(record, difficultyNames, {
     checkUnknownFields: false,
+    allowedTypes,
   });
 
   return {
@@ -164,7 +178,10 @@ export function importDisabledReason(input: {
 function validateAiQuestionRecord(
   obj: Record<string, unknown>,
   difficultyNames: string[],
-  options: { checkUnknownFields: boolean },
+  options: {
+    checkUnknownFields: boolean;
+    allowedTypes: readonly QuestionTypeDto[];
+  },
 ): ValidatedAiQuestion {
   const errors: string[] = [];
 
@@ -177,8 +194,10 @@ function validateAiQuestionRecord(
   }
 
   const type = obj.type;
-  if (type !== QuestionTypeDto.single_choice && type !== QuestionTypeDto.essay) {
-    errors.push('type phải là "single_choice" hoặc "essay"');
+  if (!options.allowedTypes.includes(type as QuestionTypeDto)) {
+    errors.push(
+      `type phải là ${options.allowedTypes.map((t) => `"${t}"`).join(" hoặc ")}`,
+    );
   }
 
   const content = obj.content;
@@ -229,6 +248,32 @@ function validateAiQuestionRecord(
     }
   }
 
+  if (type === QuestionTypeDto.true_false_group) {
+    const statements = obj.options;
+    if (!Array.isArray(statements) || statements.length !== 4) {
+      errors.push("options: câu Đúng/Sai cần đúng 4 nhận định a–d");
+    } else {
+      statements.forEach((st, j) => {
+        if (typeof st !== "string" || !st.trim()) {
+          errors.push(`options[${j}]: nhận định không được rỗng`);
+        }
+      });
+    }
+    const key = obj.tfAnswerKey;
+    if (
+      !Array.isArray(key) ||
+      key.length !== 4 ||
+      key.some((k) => typeof k !== "boolean")
+    ) {
+      errors.push("tfAnswerKey phải là mảng 4 giá trị true/false");
+    }
+    if (obj.correctIndex !== undefined) {
+      errors.push("Đúng/Sai không được có correctIndex");
+    }
+  } else if (obj.tfAnswerKey !== undefined) {
+    errors.push("Chỉ câu Đúng/Sai mới có tfAnswerKey");
+  }
+
   if (type === QuestionTypeDto.essay) {
     if (obj.options !== undefined) {
       errors.push("essay không được có options");
@@ -239,14 +284,16 @@ function validateAiQuestionRecord(
   }
 
   return {
-    type:
-      type === QuestionTypeDto.essay
-        ? QuestionTypeDto.essay
-        : QuestionTypeDto.single_choice,
+    type: Object.values(QuestionTypeDto).includes(type as QuestionTypeDto)
+      ? (type as QuestionTypeDto)
+      : QuestionTypeDto.single_choice,
     content: typeof content === "string" ? content : "",
     options: Array.isArray(obj.options) ? (obj.options as string[]) : undefined,
     correctIndex:
       typeof obj.correctIndex === "number" ? obj.correctIndex : undefined,
+    tfAnswerKey: Array.isArray(obj.tfAnswerKey)
+      ? (obj.tfAnswerKey as boolean[])
+      : undefined,
     explanation:
       typeof obj.explanation === "string" ? obj.explanation : undefined,
     answerGuide:

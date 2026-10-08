@@ -33,6 +33,7 @@ import {
   PRACTICE_MODULE_NOT_ADDED_MESSAGE,
   CourseContentSupportService,
 } from './course-content-support.service';
+import { normalizeTrueFalseChoices } from '../attempt/grading';
 import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
 import { groupClassContentByModule } from './class-content-groups';
 
@@ -240,6 +241,7 @@ export class ClassContentService extends CourseContentSupportService {
     classId: string;
     openAt?: Date | null;
     durationMinutes?: number | null;
+    shuffleQuestions?: boolean;
     hiddenAt?: Date | null;
     hiddenByStaffId?: string | null;
     lesson?: {
@@ -273,6 +275,7 @@ export class ClassContentService extends CourseContentSupportService {
       moduleTitle: lesson?.module?.title,
       openAt,
       durationMinutes,
+      shuffleQuestions: item.shuffleQuestions ?? true,
       isOpen: this.isPracticeAssignmentOpen(lessonKind, openAt),
       hiddenAt: item.hiddenAt ?? null,
       hiddenByStaffId: item.hiddenByStaffId ?? null,
@@ -417,6 +420,7 @@ export class ClassContentService extends CourseContentSupportService {
             sortOrder: nextSort,
             openAt: schedule.openAt,
             durationMinutes: schedule.durationMinutes,
+            shuffleQuestions: dto.shuffleQuestions ?? true,
           },
           include: {
             lesson: { include: { module: true } },
@@ -563,6 +567,7 @@ export class ClassContentService extends CourseContentSupportService {
         questionId: string;
         choiceIndex: number | null;
         essayAnswer: string | null;
+        tfChoices: unknown;
       }[]
     > =
       studentIds.length === 0 || quizQuestionCount === 0
@@ -578,6 +583,7 @@ export class ClassContentService extends CourseContentSupportService {
               questionId: true,
               choiceIndex: true,
               essayAnswer: true,
+              tfChoices: true,
             },
           });
 
@@ -588,8 +594,11 @@ export class ClassContentService extends CourseContentSupportService {
     );
     const answersByStudent = new Map<string, Set<string>>();
     for (const answer of answers) {
+      // Câu Đúng/Sai chỉ tính đã làm khi đủ cả 4 nhận định.
       const hasAnswer =
-        answer.choiceIndex != null || Boolean(answer.essayAnswer?.trim());
+        answer.choiceIndex != null ||
+        Boolean(answer.essayAnswer?.trim()) ||
+        normalizeTrueFalseChoices(answer.tfChoices).every((c) => c !== null);
       if (!hasAnswer) continue;
       const pairKey = `${answer.lessonId}:${answer.questionId}`;
       if (!requiredQuizPairs.has(pairKey)) continue;
@@ -780,6 +789,9 @@ export class ClassContentService extends CourseContentSupportService {
         data: {
           openAt: schedule.openAt,
           durationMinutes: schedule.durationMinutes,
+          ...(dto.shuffleQuestions !== undefined
+            ? { shuffleQuestions: dto.shuffleQuestions }
+            : {}),
         },
         include: {
           lesson: { include: { module: true } },

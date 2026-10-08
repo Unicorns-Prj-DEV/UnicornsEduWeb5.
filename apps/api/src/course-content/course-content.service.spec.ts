@@ -1557,6 +1557,10 @@ describe('CourseContentService — ClassContent methods', () => {
     // ─── getQuestionLinkSummary ───
 
     describe('getQuestionLinkSummary', () => {
+      beforeEach(() => {
+        mockPrisma.questionLink.findMany.mockResolvedValue([]);
+      });
+
       it('should return total questions and points', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
         mockPrisma.questionLink.aggregate.mockResolvedValue({
@@ -1570,6 +1574,21 @@ describe('CourseContentService — ClassContent methods', () => {
         expect(result.totalPoints).toBe(30);
       });
 
+      it('should warn when elective groups are unbalanced', async () => {
+        mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
+        mockPrisma.questionLink.aggregate.mockResolvedValue({
+          _count: { id: 1 },
+          _sum: { points: null },
+        });
+        mockPrisma.questionLink.findMany.mockResolvedValue([
+          { slot: 'elective_1', question: { type: 'true_false_group' } },
+        ]);
+
+        const result = await service.getQuestionLinkSummary('topic-practice-1');
+
+        expect(result.formWarning).toMatch('Tự chọn 1 và Tự chọn 2');
+      });
+
       it('should return 0 points when no questions linked', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
         mockPrisma.questionLink.aggregate.mockResolvedValue({
@@ -1581,6 +1600,7 @@ describe('CourseContentService — ClassContent methods', () => {
 
         expect(result.totalQuestions).toBe(0);
         expect(result.totalPoints).toBe(0);
+        expect(result.formWarning).toBeNull();
       });
     });
 

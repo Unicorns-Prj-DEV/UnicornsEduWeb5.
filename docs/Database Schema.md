@@ -418,12 +418,14 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `sort_order` (`INT`, default 0) — thứ tự hiển thị trong danh sách nội dung lớp.
 - `open_at` (`TIMESTAMPTZ`, nullable) — thời điểm mở bài của **lần giao**. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`. Khi `POST /class/:id/content` luyện tập **không** gửi `openAt`, backend ghi thời điểm tạo lần giao (đồng hồ server), không lấy giờ máy client.
 - `duration_minutes` (`INT`, nullable) — thời lượng làm bài (phút) của lần giao. 1–720. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`.
+- `shuffle_questions` (`BOOLEAN`, default `true`) — **Đảo câu**: mỗi lượt làm bắt đầu sau đó xáo thứ tự câu (hồ sơ IT: xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2, giữ thứ tự nhóm) và thứ tự phương án / nhận định. Câu có phương án nhắc vị trí (`isPositionDependent`: «ở trên», «Cả A và B», «ý a»…) giữ thứ tự phương án. Đổi cờ không ảnh hưởng lượt đã bắt đầu.
 - `hidden_at` (`TIMESTAMPTZ`, nullable, default null) — thời điểm ẩn mềm khỏi học sinh. Null = đang hiện.
 - `hidden_by_staff_id` (nullable FK → `staff_info.id`, `onDelete: SetNull`) — staff đã ẩn.
 - `hidden_reason` (`ClassContentHiddenReason`, nullable) — null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ chuyên đề (cả tiết lý thuyết lẫn **lần giao tiết thực hành** của chuyên đề; attempt giữ nguyên). Thêm lại chuyên đề chỉ hiện lại item `module_removed`, item `manual` vẫn ẩn. ADR `docs/adr/2026-10-05-class-module-order-and-removal.md`.
 - Unique constraint: `(class_id, lesson_id)` — mỗi tiết chỉ xuất hiện tối đa 1 lần trong nội dung của một lớp; cùng một tiết vẫn giao được cho nhiều lớp (mỗi lớp một hàng độc lập). Item đã ẩn vẫn chiếm unique — khôi phục, không thêm lại.
 - Migration: `20260910000000_add_class_content_items` — tạo bảng + backfill các topic (cũ) `class_id IS NOT NULL`.
 - Migration: `20260912000000_add_class_content_assignment_schedule` — thêm `open_at` + `duration_minutes`.
+- Migration: `20261008000000_assignment_shuffle` — thêm `class_content_items.shuffle_questions` (default true, kể cả lần giao cũ) + `attempt_answers.option_order`.
 - Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
 - Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
 - Migration: `20261002120000_add_class_modules` — lớp có tiết lý thuyết thêm lẻ (đang hiện) được thêm nguyên chuyên đề + tiết lý thuyết còn thiếu (item + dòng timeline); lớp không bật thứ tự timeline tuỳ chỉnh được sắp lại theo thời gian; item + dòng timeline của tiết riêng lớp bị ẩn.
@@ -474,6 +476,13 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `attempt_answers.feedback` (`TEXT`, nullable) — nhận xét của gia sư cho câu tự luận đó; chỉ có sau khi chấm. Ticket #63.
 - `attempt_answers.marked_for_review` (`BOOLEAN`, default `false`) — học sinh đánh dấu quay lại xem trước nộp trong lượt `in_progress`; autosave qua `PATCH .../answers`; không ảnh hưởng chấm điểm.
 - Chấm tự luận (#63): gia sư chấm từng câu qua `points_awarded` (0..`points_possible` snapshot 100/N, không đụng `auto_graded_score`/`auto_graded_max` vốn chỉ của MCQ) + `feedback`. `is_correct` giữ `null` cho tự luận (chấm theo thang điểm, không phải đúng/sai). Khi không còn câu tự luận `points_awarded IS NULL` trong lượt → set `has_ungraded_essay = false`. Hàng đợi chấm chỉ gồm câu tự luận chưa chấm của **lượt mới nhất** mỗi học sinh (`DISTINCT ON (student_id) ORDER BY started_at DESC`); lượt cũ tra cứu được nhưng không vào hàng đợi và bị từ chối chấm (404). N = 0 → `start` không tạo Attempt.
+- **Hồ sơ IT (`LMS_PROFILE=it`, migration `20261007000000_it_question_types`)** — ADR `docs/adr/2026-10-07-it-absolute-scoring-and-answer-key-regrade.md`:
+  - `attempts.scoring` (`AttemptScoring`, default `equal_100`): snapshot hồ sơ lúc start. `equal_100` = thang 100/N như trên; `absolute_it` = điểm tuyệt đối đơn vị 1/100 điểm: trắc nghiệm `points_possible = 25` (0,25đ), nhóm Đúng/Sai `points_possible = 100` (1đ, bậc thang 1 ý → 10, 2 → 25, 3 → 50, 4 → 100). Bài cũ giữ `equal_100`.
+  - `attempts.elective_voided` (`BOOLEAN`, default `false`): học sinh có ít nhất một nhận định được chọn ở **cả hai** nhóm tự chọn → mọi câu `elective_1`/`elective_2` chấm 0.
+  - `attempt_answers.slot` (`QuestionSlot`): snapshot vị trí câu lúc start (từ `question_links.slot`).
+  - `attempt_answers.tf_answer_key` (`BOOLEAN[]`): snapshot đáp án 4 nhận định; `tf_choices` (`JSONB`, `(boolean|null)[4]`): lựa chọn của học sinh.
+  - Sửa đáp án câu ở ngân hàng (`correct_index` / `tf_answer_key`) → cập nhật snapshot các `attempt_answers` của lượt đã nộp và chấm lại im lặng (`auto_graded_score`), không thông báo. Snapshot đã đảo đáp án được đổi sang thứ tự hiển thị qua `option_order` (`remapAnswerKey`); phương án đúng mới không có trong snapshot (thêm phương án sau khi lượt bắt đầu) → `correct_index = null` (không ai đúng).
+  - `attempt_answers.option_order` (`INT[]`, default `{}`): hoán vị lúc đảo đáp án — `option_order[i]` = chỉ số gốc của phương án hiển thị thứ i. Rỗng = không đảo. `options`, `correct_index`, `tf_answer_key`, `choice_index`, `tf_choices` trong snapshot đều theo **thứ tự hiển thị**, nên chấm điểm không cần biết hoán vị.
 - Migration: `20260913000000_add_attempts`, `20260914000000_add_attempt_answer_feedback` (thêm cột `feedback`), `20260918000000_attempt_answer_exam_snapshot` (snapshot đề + thang 100), `20260920000000_attempt_answer_marked_for_review` (cột `marked_for_review`). ADR `docs/adr/2026-09-07-attempt-exam-snapshot.md`.
 
 ### 4.4.1 `makeup_schedule_events`
@@ -624,6 +633,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `video_url` (`TEXT`, nullable) — chỉ tiết lý thuyết
   - `content` (`TEXT`, nullable) — chỉ tiết lý thuyết
   - `order` (`INTEGER`, default 0) — thứ tự trong chuyên đề (hoặc trong lớp, với tiết riêng lớp)
+  - `elective_1_name`, `elective_2_name` (`TEXT`, nullable) — tên hai nhóm tự chọn của tiết thực hành (hồ sơ IT, vd "Khoa học máy tính" / "Tin học ứng dụng"); sửa qua `PATCH` tiết học.
   - `archived_at` (`TIMESTAMPTZ`, nullable) — tiết đã lưu trữ (hiện chỉ tiết riêng lớp cũ). Tiết lưu trữ không đồng bộ theo chuyên đề, không giao/khôi phục vào lớp được.
   - `created_by`, `updated_by` (nullable FK → `users.id`)
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
@@ -634,7 +644,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.6c-c `lesson_quizzes` / `lesson_quiz_answers` (Bài tập ôn nhẹ)
 
 - `lesson_quizzes`: câu hỏi ngân hàng gắn vào một tiết lý thuyết. Unique `(lesson_id, question_id)`. FK `lesson_id` cascade; `question_id` restrict.
-- `lesson_quiz_answers`: trả lời ôn nhẹ theo `(lesson_id, question_id, student_id)`. Không sinh Attempt, không tính điểm.
+- `lesson_quiz_answers`: trả lời ôn nhẹ theo `(lesson_id, question_id, student_id)`. Không sinh Attempt, không tính điểm. Câu Đúng/Sai lưu lựa chọn ở `tf_choices` (`JSONB`, `(boolean|null)[4]`).
 - Đổi tên in-place từ `lecture_quizzes` / `lecture_quiz_answers` (`lecture_id` → `lesson_id`) ở `20260921000000_rename_three_level_content`.
 
 ### 4.6d `questions` (Ngân hàng câu hỏi)
@@ -645,9 +655,10 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `course_id` (FK → `courses.id`, cascade)
   - `module_id` (FK → `modules.id`, cascade)
   - `difficulty_level_id` (FK → `course_difficulty_levels.id`, restrict)
-  - `type` (`QuestionType`): `single_choice` | `essay`
-  - `content` (`TEXT`): nội dung câu hỏi (HTML từ TipTap)
-  - `options` (`JSONB`, nullable): mảng phương án (HTML hoặc LaTeX) — chỉ cho `single_choice`
+  - `type` (`QuestionType`): `single_choice` | `essay` | `true_false_group`. Hồ sơ IT không cho tạo `essay`.
+  - `content` (`TEXT`): nội dung câu hỏi (HTML từ TipTap; có thể chứa bảng, ảnh, `<pre><code class="language-*">`, `<div data-code-parallel>`). Web sanitize (DOMPurify) trước khi render.
+  - `options` (`JSONB`, nullable): `single_choice` — 2–6 phương án; `true_false_group` — đúng 4 nhận định a–d (HTML)
+  - `tf_answer_key` (`BOOLEAN[]`, default `{}`): đáp án 4 nhận định (true = Đúng), chỉ cho `true_false_group`
   - `correct_index` (`INT`, nullable): chỉ số 0-based của đáp án đúng — cần cho `single_choice`
   - `explanation` (`TEXT`, nullable): giải thích sau khi trả lời (HTML)
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
@@ -666,6 +677,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `question_id` (FK → `questions.id`, restrict)
   - `order` (`INT`, nullable): thứ tự câu trong tiết
   - `points` (`INT`, nullable): trọng số soạn đề (tuỳ chọn). **Không** dùng khi chấm Attempt — thang chấm = 100/N snapshot lúc start.
+  - `slot` (`QuestionSlot`, default `required`): vị trí câu trong đề — `required` (Bắt buộc) / `elective_1` / `elective_2` (Tự chọn). Chỉ câu `true_false_group` được đặt vào nhóm tự chọn.
 - Unique: `(lesson_id, question_id)`
 - Indexes: `(lesson_id)`, `(question_id)`
 - Table: `question_links` (via `@@map`)
@@ -893,7 +905,9 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
 - `ClassContentHiddenReason`: `manual`, `module_removed` — lý do ẩn mềm `class_content_items` (`20261005120000_class_module_order_and_hidden_reason`)
 - `ClassTimelineItemKind`: `session` | `class_survey` | `content_item` — loại mục trên timeline lớp (`class_timeline_items`)
-- `QuestionType`: `single_choice | essay` — phân loại câu hỏi trong ngân hàng câu hỏi
+- `QuestionType`: `single_choice | essay | true_false_group` — phân loại câu hỏi trong ngân hàng câu hỏi (`true_false_group`: nhóm 4 nhận định Đúng/Sai, hồ sơ IT)
+- `QuestionSlot`: `required | elective_1 | elective_2` — vị trí câu trong đề thực hành
+- `AttemptScoring`: `equal_100 | absolute_it` — thang điểm của Bài làm
 - `AttemptStatus`: `in_progress | submitted | timed_out` — trạng thái lượt làm bài
 
 ### Finance

@@ -1,5 +1,6 @@
 "use client";
 
+import { questionTypeLabel } from "@/dtos/question.dto";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -212,7 +213,7 @@ export function TheoryLessonEditor({
                   <span className="min-w-0 flex-1">
                     <MathContent content={q.content.slice(0, 100)} className="text-xs" />
                     <span className="ml-1 text-text-muted">
-                      ({q.type === "single_choice" ? "Trắc nghiệm" : "Tự luận"})
+                      ({questionTypeLabel(q.type)})
                     </span>
                   </span>
                 </label>

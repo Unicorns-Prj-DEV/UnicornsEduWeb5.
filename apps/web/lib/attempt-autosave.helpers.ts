@@ -1,4 +1,5 @@
 import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
+import { touchedElectiveGroups } from "@/lib/exam-layout";
 
 export type AttemptQuestionVisualStatus =
   | "unanswered"
@@ -7,6 +8,11 @@ export type AttemptQuestionVisualStatus =
 
 export function isAttemptQuestionUnanswered(q: AttemptQuestionDto): boolean {
   if (q.type === "single_choice") return q.choiceIndex == null;
+  // Câu Đúng/Sai chỉ tính đã làm khi đủ cả 4 nhận định.
+  if (q.type === "true_false_group") {
+    const choices = q.tfChoices ?? [];
+    return [0, 1, 2, 3].some((i) => typeof choices[i] !== "boolean");
+  }
   return !q.essayAnswer?.trim();
 }
 
@@ -18,12 +24,20 @@ export function getAttemptQuestionVisualStatus(
   return "answered";
 }
 
+/**
+ * Vị trí (1-based) các câu chưa làm. Đã chọn một nhóm tự chọn thì câu của nhóm
+ * kia không tính là "chưa làm" — học sinh chỉ được làm một nhóm.
+ */
 export function unansweredQuestionNumbers(
   questions: AttemptQuestionDto[],
 ): number[] {
-  return questions.flatMap((q, i) =>
-    isAttemptQuestionUnanswered(q) ? [i + 1] : [],
-  );
+  const touched = touchedElectiveGroups(questions);
+  return questions.flatMap((q, i) => {
+    if (q.slot && q.slot !== "required" && touched.size > 0 && !touched.has(q.slot)) {
+      return [];
+    }
+    return isAttemptQuestionUnanswered(q) ? [i + 1] : [];
+  });
 }
 
 export function markedForReviewQuestionNumbers(
@@ -33,7 +47,7 @@ export function markedForReviewQuestionNumbers(
 }
 
 export function answeredQuestionCount(questions: AttemptQuestionDto[]): number {
-  return questions.filter((q) => !isAttemptQuestionUnanswered(q)).length;
+  return questions.length - unansweredQuestionNumbers(questions).length;
 }
 
 export function answersSignature(questions: AttemptQuestionDto[]): string {
@@ -42,6 +56,7 @@ export function answersSignature(questions: AttemptQuestionDto[]): string {
       id: q.questionId,
       c: q.choiceIndex,
       e: q.essayAnswer ?? "",
+      t: q.tfChoices ?? null,
       m: q.markedForReview ?? false,
     })),
   );

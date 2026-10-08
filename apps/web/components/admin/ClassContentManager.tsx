@@ -58,6 +58,7 @@ import {
   fromOpenAtIso,
   toOpenAtIso,
 } from "./AssignmentScheduleFields";
+import { ShuffleQuestionsField } from "./ShuffleQuestionsField";
 import {
   isOpenAtPairComplete,
   isOpenAtPairPartial,
@@ -107,7 +108,9 @@ function SortableContentRow({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <Card className={`transition-colors hover:border-border-focus/50 ${item.hiddenAt ? "opacity-70" : ""}`}>
+      <Card
+        className={`transition-colors hover:border-border-focus/50 ${item.hiddenAt ? "opacity-70" : ""}`}
+      >
         <div className="flex items-center gap-3 p-3.5 sm:p-4">
           {canManage && (
             <button
@@ -260,7 +263,7 @@ export default function ClassContentManager({
   }, [autoOpenContentItemId, autoOpenToken, canManage, serverData]);
 
   const allItems = useMemo(
-    () => (localItems.length > 0 ? localItems : serverData ?? []),
+    () => (localItems.length > 0 ? localItems : (serverData ?? [])),
     [localItems, serverData],
   );
 
@@ -287,7 +290,9 @@ export default function ClassContentManager({
       classApi.deleteClassContentItem(classId, itemId),
     onSuccess: (newData) => {
       queryClient.setQueryData(["class-content", classId], newData);
-      void queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(classId) });
+      void queryClient.invalidateQueries({
+        queryKey: classTimelineKeys.list(classId),
+      });
       setLocalItems([]);
       setHasOrderChanged(false);
       toast.success("Đã ẩn khỏi học sinh");
@@ -303,7 +308,9 @@ export default function ClassContentManager({
       classApi.restoreClassContentItem(classId, itemId),
     onSuccess: (newData) => {
       queryClient.setQueryData(["class-content", classId], newData);
-      void queryClient.invalidateQueries({ queryKey: classTimelineKeys.list(classId) });
+      void queryClient.invalidateQueries({
+        queryKey: classTimelineKeys.list(classId),
+      });
       setLocalItems([]);
       setHasOrderChanged(false);
       toast.success("Đã khôi phục");
@@ -414,36 +421,36 @@ export default function ClassContentManager({
       )}
 
       {!addOnly && (
-      <div className="space-y-2.5">
-        {allItems.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-            Chưa có nội dung nào trong lớp học này.
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={allItems.map((t) => t.id)}
-              strategy={verticalListSortingStrategy}
+        <div className="space-y-2.5">
+          {allItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
+              Chưa có nội dung nào trong lớp học này.
+            </div>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              {allItems.map((item) => (
-                <SortableContentRow
-                  key={item.id}
-                  item={item}
-                  classId={classId}
-                  canManage={canManage}
-                  onHide={handleHide}
-                  onRestore={handleRestore}
-                  onEditSchedule={setScheduleItem}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
-        )}
-      </div>
+              <SortableContext
+                items={allItems.map((t) => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {allItems.map((item) => (
+                  <SortableContentRow
+                    key={item.id}
+                    item={item}
+                    classId={classId}
+                    canManage={canManage}
+                    onHide={handleHide}
+                    onRestore={handleRestore}
+                    onEditSchedule={setScheduleItem}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
       )}
 
       {addOpen && (
@@ -514,12 +521,11 @@ function AddContentDialog({
   const [durationMinutes, setDurationMinutes] = useState(
     defaults.durationMinutes,
   );
+  const [shuffleQuestions, setShuffleQuestions] = useState(true);
 
   const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
   const durationError =
-    parsedDuration == null
-      ? "Thời lượng phải từ 1 đến 720 phút."
-      : null;
+    parsedDuration == null ? "Thời lượng phải từ 1 đến 720 phút." : null;
   const openAtPartial = isOpenAtPairPartial(openDate, openTime);
   const canSubmitSchedule = parsedDuration != null && !openAtPartial;
 
@@ -534,6 +540,7 @@ function AddContentDialog({
           ? { openAt: toOpenAtIso(openDate, openTime) }
           : {}),
         durationMinutes: parsedDuration,
+        shuffleQuestions,
       });
     },
     onSuccess: () => {
@@ -597,6 +604,10 @@ function AddContentDialog({
                   Nhập cả ngày và giờ, hoặc để trống cả hai.
                 </p>
               ) : null}
+              <ShuffleQuestionsField
+                checked={shuffleQuestions}
+                onCheckedChange={setShuffleQuestions}
+              />
             </>
           ) : (
             <CourseLessonPicker
@@ -666,11 +677,12 @@ function EditScheduleDialog({
   const [durationMinutes, setDurationMinutes] = useState(
     String(item.durationMinutes ?? 60),
   );
+  const [shuffleQuestions, setShuffleQuestions] = useState(
+    item.shuffleQuestions,
+  );
   const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
   const durationError =
-    parsedDuration == null
-      ? "Thời lượng phải từ 1 đến 720 phút."
-      : null;
+    parsedDuration == null ? "Thời lượng phải từ 1 đến 720 phút." : null;
   const canSave =
     Boolean(openDate && openTime && parsedDuration != null) &&
     !isOpenAtPairPartial(openDate, openTime);
@@ -683,6 +695,7 @@ function EditScheduleDialog({
       return classApi.updateClassContentSchedule(classId, item.id, {
         openAt: toOpenAtIso(openDate, openTime),
         durationMinutes: parsedDuration,
+        shuffleQuestions,
       });
     },
     onSuccess: () => {
@@ -699,8 +712,12 @@ function EditScheduleDialog({
       <ResponsiveDialogBody className="flex flex-col p-4 sm:p-6">
         <div className="flex items-center justify-between gap-3 border-b border-border-default pb-4">
           <div>
-            <h2 className="text-lg font-bold text-text-primary">Đặt lần giao</h2>
-            <p className="text-xs text-text-muted mt-0.5 truncate">{item.title}</p>
+            <h2 className="text-lg font-bold text-text-primary">
+              Đặt lần giao
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5 truncate">
+              {item.title}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -710,7 +727,7 @@ function EditScheduleDialog({
             <X className="size-5" />
           </button>
         </div>
-        <div className="py-4">
+        <div className="space-y-4 py-4">
           <AssignmentScheduleFields
             openDate={openDate}
             openTime={openTime}
@@ -719,6 +736,11 @@ function EditScheduleDialog({
             onOpenDateChange={setOpenDate}
             onOpenTimeChange={setOpenTime}
             onDurationChange={setDurationMinutes}
+          />
+          <ShuffleQuestionsField
+            checked={shuffleQuestions}
+            onCheckedChange={setShuffleQuestions}
+            hint="Đổi chỉ áp cho lượt bắt đầu sau khi lưu."
           />
         </div>
         <div className="flex items-center justify-end gap-2 pt-4 border-t border-border-default">
@@ -882,7 +904,9 @@ function ViewContentDialog({
             <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
               {item.kindLabel}
             </p>
-            <h2 className="mt-1 text-lg font-bold text-text-primary">{item.title}</h2>
+            <h2 className="mt-1 text-lg font-bold text-text-primary">
+              {item.title}
+            </h2>
             <p className="mt-1 text-xs text-text-muted">
               {item.source === "course" ? "Từ khoá" : "Riêng lớp"}
               {item.moduleTitle ? ` · ${item.moduleTitle}` : ""}

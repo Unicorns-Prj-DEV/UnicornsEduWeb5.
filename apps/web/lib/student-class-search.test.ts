@@ -27,6 +27,7 @@ const item = (
   source: "course",
   openAt: null,
   durationMinutes: null,
+  shuffleQuestions: true,
   isOpen: true,
   hiddenAt: null,
   hiddenByStaffId: null,

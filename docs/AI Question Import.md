@@ -54,15 +54,19 @@ Prompt dựng sẵn có mục **CẤU TRÚC BẮT BUỘC** với ví dụ ĐÚNG
 
 | Trường | Bắt buộc | Áp dụng cho | Ràng buộc |
 |---|---|---|---|
-| `type` | có | mọi câu | `"single_choice"` hoặc `"essay"` |
+| `type` | có | mọi câu | loại câu được hồ sơ môn cho phép (`GET /public/app-config` → `questionTypes`): JP/ENG `"single_choice"` \| `"essay"`; IT `"single_choice"` \| `"true_false_group"` (không có tự luận) |
 | `content` | có | mọi câu | chuỗi không rỗng |
 | `options` | có | chỉ `single_choice` | mảng 2–6 **chuỗi** (không phải object `{text}`). API `POST/PATCH /questions` và `POST /questions/bulk` validate `@IsString({ each: true })`. Không tự đánh A/B/C/D. |
 | `correctIndex` | có | chỉ `single_choice` | số nguyên, đếm từ 0, `< options.length` |
-| `explanation` | không | `single_choice` | chuỗi |
+| `options` (Đúng/Sai) | có | chỉ `true_false_group` | đúng 4 chuỗi khác rỗng = 4 nhận định a–d |
+| `tfAnswerKey` | có | chỉ `true_false_group` | mảng đúng 4 boolean (`true` = Đúng). Loại khác gửi `tfAnswerKey` → lỗi |
+| `explanation` | không | `single_choice`, `true_false_group` | chuỗi |
 | `answerGuide` | không | chỉ `essay` | chuỗi, dùng làm barem cho gia sư chấm |
 | `difficulty` | có | mọi câu | khớp tuyệt đối một giá trị trong `difficulty_levels` của khoá |
 
 Trường lạ ngoài danh sách trên bị từ chối, không bị bỏ qua im lặng.
+
+Prompt dựng sẵn được sinh theo hồ sơ: chỉ liệt kê loại câu được phép, có ví dụ Đúng/Sai ở IT, và mục **CODE / BẢNG** hướng dẫn AI dùng `<pre><code class="language-python|cpp">`, code song song `<div data-code-parallel>` (2 khối Python | C++), `<table>` và `<img src="https://…">`. Ở bước soát, câu Đúng/Sai sửa được từng nhận định và bấm đổi Đúng/Sai.
 
 Công thức toán viết bằng LaTeX đặt giữa hai dấu `$`, khớp với extension `@tiptap/extension-mathematics` đang dùng ở editor.
 

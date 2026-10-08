@@ -31,6 +31,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import MathContent from "@/components/ui/MathContent";
 import { cn } from "@/lib/utils";
 import type { LessonQuizQuestion, LessonQuizAnswer } from "@/dtos/course-content.dto";
+import type { TrueFalseChoices } from "@/dtos/attempt.dto";
+import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
 import { studentClassLessonsHref } from "@/lib/course-content-routes";
@@ -299,6 +301,12 @@ function PracticeLessonRedirect({
 
 // ─── Lecture Quiz Section ─────────────────────────────────────
 
+type QuizDraftAnswer = {
+  choiceIndex?: number | null;
+  essayAnswer?: string | null;
+  tfChoices?: TrueFalseChoices | null;
+};
+
 function LessonQuizSection({
   classId,
   lessonId,
@@ -308,7 +316,7 @@ function LessonQuizSection({
 }) {
   const queryClient = useQueryClient();
   const [draftAnswers, setDraftAnswers] = useState<
-    Record<string, { choiceIndex?: number | null; essayAnswer?: string | null }>
+    Record<string, QuizDraftAnswer>
   >({});
 
   const { data: quizzes = [], isLoading: quizzesLoading } = useQuery({
@@ -329,6 +337,7 @@ function LessonQuizSection({
         questionId: q.questionId,
         choiceIndex: draftAnswers[q.questionId]?.choiceIndex ?? null,
         essayAnswer: draftAnswers[q.questionId]?.essayAnswer ?? null,
+        tfChoices: draftAnswers[q.questionId]?.tfChoices ?? null,
       }));
       if (
         answers.some(
@@ -430,8 +439,8 @@ function QuizQuestionInput({
 }: {
   quiz: LessonQuizQuestion;
   index: number;
-  value?: { choiceIndex?: number | null; essayAnswer?: string | null };
-  onChange: (val: { choiceIndex?: number | null; essayAnswer?: string | null }) => void;
+  value?: QuizDraftAnswer;
+  onChange: (val: QuizDraftAnswer) => void;
 }) {
   const isSingleChoice = quiz.question.type === "single_choice";
   const options: string[] = quiz.question.options ?? [];
@@ -443,7 +452,16 @@ function QuizQuestionInput({
         <MathContent content={quiz.question.content} className="inline [&>p:first-child]:inline" />
       </div>
 
-      {isSingleChoice ? (
+      {quiz.question.type === "true_false_group" ? (
+        <TrueFalseStatements
+          name={`quiz-${quiz.questionId}`}
+          statements={options}
+          choices={value?.tfChoices ?? null}
+          disabled={false}
+          reveal={false}
+          onChange={(tfChoices) => onChange({ tfChoices })}
+        />
+      ) : isSingleChoice ? (
         <div className="space-y-2">
           {options.map((opt, i) => (
             <label
@@ -501,9 +519,13 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
         Bạn đã nộp bài. Dưới đây là câu trả lời của bạn kèm đáp án đúng.
       </p>
       {answers.map((ans, idx) => {
-        const isCorrect =
-          ans.question.type === "single_choice" &&
-          ans.choiceIndex === ans.question.correctIndex;
+        const isTrueFalse = ans.question.type === "true_false_group";
+        const isCorrect = isTrueFalse
+          ? (ans.question.tfAnswerKey ?? []).every(
+              (k, i) => ans.tfChoices?.[i] === k,
+            )
+          : ans.question.type === "single_choice" &&
+            ans.choiceIndex === ans.question.correctIndex;
         const isEssay = ans.question.type === "essay";
 
         return (
@@ -526,7 +548,19 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
             {/* Student answer */}
             <div className="mb-2">
               <span className="text-xs font-semibold text-text-muted">Câu trả lời của bạn: </span>
-              {isEssay ? (
+              {isTrueFalse ? (
+                <div className="mt-2">
+                  <TrueFalseStatements
+                    name={`quiz-review-${ans.questionId}`}
+                    statements={ans.question.options ?? []}
+                    choices={ans.tfChoices ?? null}
+                    answerKey={ans.question.tfAnswerKey}
+                    disabled
+                    reveal
+                    onChange={() => {}}
+                  />
+                </div>
+              ) : isEssay ? (
                 <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
                   {ans.essayAnswer || "(chưa trả lời)"}
                 </p>
@@ -542,7 +576,7 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
             </div>
 
             {/* Correct answer (for single_choice) */}
-            {!isEssay && ans.question.correctIndex !== null && (
+            {!isEssay && !isTrueFalse && ans.question.correctIndex !== null && (
               <div className="mb-1">
                 <span className="text-xs font-semibold text-text-muted">Đáp án đúng: </span>
                 <span className="inline-flex flex-wrap items-baseline gap-1 text-sm font-medium text-success">

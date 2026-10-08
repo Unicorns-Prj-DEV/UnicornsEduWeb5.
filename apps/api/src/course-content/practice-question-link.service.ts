@@ -10,11 +10,48 @@ import {
   QuestionLinkResponseDto,
   QuestionLinkSummaryDto,
 } from 'src/dtos/course-content.dto';
-import { LessonKind } from 'generated/enums';
+import { LessonKind, QuestionSlot } from 'generated/enums';
+import { Prisma } from '../../generated/client';
+import { examFormError } from 'src/attempt/exam-form';
+import { loadLmsProfile } from 'src/lms-profile/lms-profile';
 import {
   ActionHistoryActor,
   CourseContentSupportService,
 } from './course-content-support.service';
+
+const LINK_INCLUDE = {
+  question: {
+    select: {
+      id: true,
+      courseId: true,
+      moduleId: true,
+      difficultyLevelId: true,
+      type: true,
+      content: true,
+      options: true,
+      correctIndex: true,
+      tfAnswerKey: true,
+      explanation: true,
+      answerGuide: true,
+    },
+  },
+} satisfies Prisma.QuestionLinkInclude;
+
+type LinkWithQuestion = Prisma.QuestionLinkGetPayload<{
+  include: typeof LINK_INCLUDE;
+}>;
+
+function toLinkResponse(link: LinkWithQuestion): QuestionLinkResponseDto {
+  return {
+    id: link.id,
+    lessonId: link.lessonId,
+    questionId: link.questionId,
+    order: link.order,
+    points: link.points,
+    slot: link.slot,
+    question: link.question,
+  };
+}
 
 @Injectable()
 export class PracticeQuestionLinkService extends CourseContentSupportService {
@@ -74,6 +111,17 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
     await this.assertCanManageCourseContent(actor, courseId);
   }
 
+  /** Chỉ hồ sơ có nhóm tự chọn (IT) mới đặt được vị trí khác Bắt buộc. */
+  private resolveSlot(slot: QuestionSlot | undefined): QuestionSlot {
+    if (!slot || slot === QuestionSlot.required) return QuestionSlot.required;
+    if (!loadLmsProfile(process.env).electiveGroups) {
+      throw new BadRequestException(
+        'Hồ sơ môn của hệ thống không có nhóm tự chọn.',
+      );
+    }
+    return slot;
+  }
+
   async getQuestionsByLessonId(
     lessonId: string,
     actor: ActionHistoryActor,
@@ -84,32 +132,10 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
     const links = await this.prisma.questionLink.findMany({
       where: { lessonId },
       orderBy: { order: 'asc' },
-      include: {
-        question: {
-          select: {
-            id: true,
-            courseId: true,
-            moduleId: true,
-            difficultyLevelId: true,
-            type: true,
-            content: true,
-            options: true,
-            correctIndex: true,
-            explanation: true,
-            answerGuide: true,
-          },
-        },
-      },
+      include: LINK_INCLUDE,
     });
 
-    return links.map((link) => ({
-      id: link.id,
-      lessonId: link.lessonId,
-      questionId: link.questionId,
-      order: link.order,
-      points: link.points,
-      question: link.question,
-    }));
+    return links.map((link) => toLinkResponse(link));
   }
 
   async addQuestionToLesson(
@@ -154,37 +180,16 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
         questionId: dto.questionId,
         order: dto.order ?? nextOrder,
         points: dto.points ?? null,
+        slot: this.resolveSlot(dto.slot),
       },
-      include: {
-        question: {
-          select: {
-            id: true,
-            courseId: true,
-            moduleId: true,
-            difficultyLevelId: true,
-            type: true,
-            content: true,
-            options: true,
-            correctIndex: true,
-            explanation: true,
-            answerGuide: true,
-          },
-        },
-      },
+      include: LINK_INCLUDE,
     });
 
     this.logger.log(
       `Question linked to topic: question ${dto.questionId} → topic ${lessonId} by ${actor.userEmail}`,
     );
 
-    return {
-      id: link.id,
-      lessonId: link.lessonId,
-      questionId: link.questionId,
-      order: link.order,
-      points: link.points,
-      question: link.question,
-    };
+    return toLinkResponse(link);
   }
 
   async updateQuestionLink(
@@ -208,35 +213,14 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
       data: {
         ...(dto.order !== undefined && { order: dto.order }),
         ...(dto.points !== undefined && { points: dto.points }),
+        ...(dto.slot !== undefined && { slot: this.resolveSlot(dto.slot) }),
       },
-      include: {
-        question: {
-          select: {
-            id: true,
-            courseId: true,
-            moduleId: true,
-            difficultyLevelId: true,
-            type: true,
-            content: true,
-            options: true,
-            correctIndex: true,
-            explanation: true,
-            answerGuide: true,
-          },
-        },
-      },
+      include: LINK_INCLUDE,
     });
 
     this.logger.log(`Question link updated: ${linkId} by ${actor.userEmail}`);
 
-    return {
-      id: updated.id,
-      lessonId: updated.lessonId,
-      questionId: updated.questionId,
-      order: updated.order,
-      points: updated.points,
-      question: updated.question,
-    };
+    return toLinkResponse(updated);
   }
 
   async removeQuestionFromLesson(
@@ -298,15 +282,22 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
   ): Promise<QuestionLinkSummaryDto> {
     await this.validatePracticeLesson(lessonId);
 
-    const result = await this.prisma.questionLink.aggregate({
-      where: { lessonId },
-      _count: { id: true },
-      _sum: { points: true },
-    });
+    const [result, links] = await Promise.all([
+      this.prisma.questionLink.aggregate({
+        where: { lessonId },
+        _count: { id: true },
+        _sum: { points: true },
+      }),
+      this.prisma.questionLink.findMany({
+        where: { lessonId },
+        select: { slot: true, question: { select: { type: true } } },
+      }),
+    ]);
 
     return {
       totalQuestions: result._count.id,
       totalPoints: result._sum.points ?? 0,
+      formWarning: examFormError(links),
     };
   }
 

@@ -78,21 +78,21 @@ model StaffFixedSalaryOverride {
 /// Khoản lương cứng phải trả, đóng băng tại lúc chốt tháng.
 /// Unique (staff_id, role_type, month): chạy lại không tạo thêm / không sửa khoản cũ.
 model StaffFixedSalaryPayable {
-  id                         String        @id @default(uuid())
-  staffId                    String        @map("staff_id")
-  roleType                   StaffRole     @map("role_type")
-  month                      String
-  status                     PaymentStatus @default(pending)
-  grossAmount                Int           @map("gross_amount")
-  operatingRatePercent       Decimal       @map("operating_rate_percent") @db.Decimal(5, 2)
-  taxRatePercent             Decimal       @map("tax_rate_percent") @db.Decimal(5, 2)
-  operatingDeductionAmount   Int           @map("operating_deduction_amount")
-  taxDeductionAmount         Int           @map("tax_deduction_amount")
-  netAmount                  Int           @map("net_amount")
-  note                       String?
-  createdAt                  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  staff                      StaffInfo     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  id                       String        @id @default(uuid())
+  staffId                  String        @map("staff_id")
+  roleType                 StaffRole     @map("role_type")
+  month                    String
+  status                   PaymentStatus @default(pending)
+  grossAmount              Int           @map("gross_amount")
+  operatingRatePercent     Decimal       @map("operating_rate_percent") @db.Decimal(5, 2)
+  taxRatePercent           Decimal       @map("tax_rate_percent") @db.Decimal(5, 2)
+  operatingDeductionAmount Int           @map("operating_deduction_amount")
+  taxDeductionAmount       Int           @map("tax_deduction_amount")
+  netAmount                Int           @map("net_amount")
+  note                     String?
+  createdAt                DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  staff                    StaffInfo     @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([staffId, roleType, month])
   @@index([staffId])

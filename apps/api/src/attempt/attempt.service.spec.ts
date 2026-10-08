@@ -20,7 +20,13 @@ jest.mock('../course-content/course-content.service', () => ({
 }));
 
 import { AttemptService } from './attempt.service';
-import { AttemptStatus, QuestionType } from 'generated/enums';
+import {
+  AttemptScoring,
+  AttemptStatus,
+  QuestionSlot,
+  QuestionType,
+} from 'generated/enums';
+import { lmsProfileConfig } from '../lms-profile/lms-profile';
 
 describe('AttemptService', () => {
   let service: AttemptService;
@@ -34,6 +40,11 @@ describe('AttemptService', () => {
     durationMinutes: 10,
     openAt: new Date(Date.now() - 1000),
     lesson: { id: 'topic-1', kind: 'practice', title: 'Đề A' },
+  };
+  /** Lần giao đã qua hạn (openAt + durationMinutes) → công bố kết quả. */
+  const pastAssignment = {
+    ...assignment,
+    openAt: new Date(Date.now() - 2 * 60 * 60_000),
   };
 
   function makeAttempt(over: Record<string, unknown> = {}) {
@@ -242,9 +253,9 @@ describe('AttemptService', () => {
     await service.start('cls-1', 'cci-1', 'stu-1');
     const createArg = prisma.attempt.create.mock.calls[0][0];
     const createdAnswers = createArg.data.answers.create;
-    expect(createdAnswers.map((a: { pointsPossible: number }) => a.pointsPossible)).toEqual(
-      [34, 33, 33],
-    );
+    expect(
+      createdAnswers.map((a: { pointsPossible: number }) => a.pointsPossible),
+    ).toEqual([34, 33, 33]);
     expect(
       createdAnswers.reduce(
         (sum: number, a: { pointsPossible: number }) => sum + a.pointsPossible,
@@ -266,6 +277,7 @@ describe('AttemptService', () => {
     const row = makeAttempt();
     prisma.attempt.findUnique.mockResolvedValue(row);
     const closed = makeAttempt({
+      assignment: pastAssignment,
       status: AttemptStatus.submitted,
       submittedAt: new Date(),
       autoGradedScore: 50,
@@ -293,16 +305,66 @@ describe('AttemptService', () => {
     );
     expect(result.questions[0].correctIndex).toBe(1);
     expect(result.scoreMax).toBe(100);
+    expect(result.resultsReleased).toBe(true);
+  });
+
+  it('submit trước hạn lần giao: ẩn điểm và đáp án', async () => {
+    const row = makeAttempt();
+    prisma.attempt.findUnique.mockResolvedValue(row);
+    prisma.attempt.findUniqueOrThrow.mockResolvedValue(
+      makeAttempt({
+        status: AttemptStatus.submitted,
+        submittedAt: new Date(),
+        autoGradedScore: 50,
+        autoGradedMax: 50,
+        electiveVoided: true,
+        answers: [
+          { ...row.answers[0], isCorrect: true, pointsAwarded: 50 },
+          row.answers[1],
+        ],
+      }),
+    );
+
+    const result = await service.submit('cls-1', 'att-1', 'stu-1');
+    expect(result.status).toBe(AttemptStatus.submitted);
+    expect(result.resultsReleased).toBe(false);
+    expect(result.closeAt).toEqual(
+      new Date(assignment.openAt.getTime() + 10 * 60_000),
+    );
+    expect(result.autoGradedScore).toBeNull();
+    expect(result.autoGradedMax).toBeNull();
+    expect(result.electiveVoided).toBe(false);
+    expect(result.questions[0].choiceIndex).toBe(1);
+    expect(result.questions[0].correctIndex).toBeUndefined();
+    expect(result.questions[0].isCorrect).toBeUndefined();
+    expect(result.questions[0].pointsAwarded).toBeUndefined();
+  });
+
+  it('start sau hạn lần giao: 403, không tạo lượt mới', async () => {
+    topicService.getPracticeAssignmentForStudent.mockResolvedValue(
+      pastAssignment,
+    );
+    prisma.attempt.findFirst.mockResolvedValue(null);
+    await expect(service.start('cls-1', 'cci-1', 'stu-1')).rejects.toThrow(
+      'Đã hết hạn làm bài.',
+    );
+    expect(prisma.attempt.create).not.toHaveBeenCalled();
+  });
+
+  it('start sau hạn vẫn trả lượt đang làm dở', async () => {
+    topicService.getPracticeAssignmentForStudent.mockResolvedValue(
+      pastAssignment,
+    );
+    prisma.attempt.findFirst.mockResolvedValue(makeAttempt());
+    const result = await service.start('cls-1', 'cci-1', 'stu-1');
+    expect(result.status).toBe(AttemptStatus.in_progress);
   });
 
   it('saveAnswers persists markedForReview and returns it in detail', async () => {
     const row = makeAttempt();
     prisma.attempt.findUnique.mockResolvedValue(row);
     const updated = makeAttempt({
-      answers: [
-        { ...row.answers[0], markedForReview: true },
-        row.answers[1],
-      ],
+      answers: [{ ...row.answers[0], markedForReview: true }, row.answers[1]],
     });
     prisma.attempt.findUnique
       .mockResolvedValueOnce(row)
@@ -358,6 +420,210 @@ describe('AttemptService', () => {
         }),
       }),
     );
+  });
+
+  describe('hồ sơ IT (absolute_it)', () => {
+    let itService: AttemptService;
+    const tfQuestion = (content: string) => ({
+      type: QuestionType.true_false_group,
+      content,
+      options: ['a', 'b', 'c', 'd'],
+      correctIndex: null,
+      tfAnswerKey: [true, false, true, false],
+      explanation: null,
+      answerGuide: null,
+      difficultyLevel: { name: 'TH' },
+    });
+    const scQuestion = {
+      type: QuestionType.single_choice,
+      content: 'MC?',
+      options: ['a', 'b', 'c', 'd'],
+      correctIndex: 0,
+      tfAnswerKey: [],
+      explanation: null,
+      answerGuide: null,
+      difficultyLevel: { name: 'NB' },
+    };
+
+    beforeEach(() => {
+      itService = new AttemptService(
+        prisma as never,
+        topicService as never,
+        { config: lmsProfileConfig('it'), isIt: true } as never,
+      );
+      prisma.attempt.findFirst.mockResolvedValue(null);
+      prisma.attempt.create.mockResolvedValue(makeAttempt());
+    });
+
+    it('start: 0,25đ trắc nghiệm / 1đ Đúng/Sai, sắp Phần I → bắt buộc → TC1 → TC2', async () => {
+      prisma.questionLink.findMany.mockResolvedValue([
+        {
+          questionId: 'e2',
+          order: 0,
+          points: null,
+          slot: QuestionSlot.elective_2,
+          question: tfQuestion('E2'),
+        },
+        {
+          questionId: 'r1',
+          order: 1,
+          points: null,
+          slot: QuestionSlot.required,
+          question: tfQuestion('R1'),
+        },
+        {
+          questionId: 'e1',
+          order: 2,
+          points: null,
+          slot: QuestionSlot.elective_1,
+          question: tfQuestion('E1'),
+        },
+        {
+          questionId: 'm1',
+          order: 3,
+          points: null,
+          slot: QuestionSlot.required,
+          question: scQuestion,
+        },
+      ]);
+
+      await itService.start('cls-1', 'cci-1', 'stu-1');
+      const createArg = prisma.attempt.create.mock.calls[0][0];
+      expect(createArg.data.scoring).toBe(AttemptScoring.absolute_it);
+      const answers = createArg.data.answers.create;
+      expect(answers.map((a: { questionId: string }) => a.questionId)).toEqual([
+        'm1',
+        'r1',
+        'e1',
+        'e2',
+      ]);
+      expect(
+        answers.map((a: { pointsPossible: number }) => a.pointsPossible),
+      ).toEqual([25, 100, 100, 100]);
+      expect(answers[2]).toMatchObject({
+        slot: QuestionSlot.elective_1,
+        tfAnswerKey: [true, false, true, false],
+      });
+    });
+
+    it('start có đảo câu: giữ khung nhóm, xáo trong nhóm, đáp án theo thứ tự hiển thị', async () => {
+      topicService.getPracticeAssignmentForStudent.mockResolvedValue({
+        ...assignment,
+        shuffleQuestions: true,
+      });
+      const mc = (id: string, correctIndex: number) => ({
+        questionId: id,
+        order: 0,
+        points: null,
+        slot: QuestionSlot.required,
+        question: {
+          ...scQuestion,
+          content: id,
+          options: ['A0', 'A1', 'A2', 'A3'],
+          correctIndex,
+        },
+      });
+      prisma.questionLink.findMany.mockResolvedValue([
+        {
+          questionId: 'e2',
+          order: 0,
+          points: null,
+          slot: QuestionSlot.elective_2,
+          question: tfQuestion('E2'),
+        },
+        mc('m1', 0),
+        {
+          questionId: 'r1',
+          order: 1,
+          points: null,
+          slot: QuestionSlot.required,
+          question: tfQuestion('R1'),
+        },
+        mc('m2', 1),
+        mc('m3', 2),
+        {
+          questionId: 'e1',
+          order: 2,
+          points: null,
+          slot: QuestionSlot.elective_1,
+          question: tfQuestion('E1'),
+        },
+      ]);
+
+      await itService.start('cls-1', 'cci-1', 'stu-1');
+      const answers = prisma.attempt.create.mock.calls[0][0].data.answers
+        .create as {
+        questionId: string;
+        order: number;
+        options: string[];
+        correctIndex: number | null;
+        tfAnswerKey: boolean[];
+        optionOrder: number[];
+      }[];
+      const ids = answers.map((a) => a.questionId);
+      expect(ids.slice(0, 3).sort()).toEqual(['m1', 'm2', 'm3']);
+      expect(ids.slice(3)).toEqual(['r1', 'e1', 'e2']);
+      expect(answers.map((a) => a.order)).toEqual([0, 1, 2, 3, 4, 5]);
+      const original = { m1: 0, m2: 1, m3: 2 } as Record<string, number>;
+      for (const a of answers) {
+        expect([...a.optionOrder].sort()).toEqual([0, 1, 2, 3]);
+        if (a.questionId.startsWith('m')) {
+          // Phương án đúng vẫn là phương án gốc, chỉ đổi vị trí.
+          expect(a.options[a.correctIndex as number]).toBe(
+            `A${original[a.questionId]}`,
+          );
+        } else {
+          expect(a.tfAnswerKey).toEqual(
+            a.optionOrder.map((i) => [true, false, true, false][i]),
+          );
+        }
+      }
+    });
+
+    it('start có đảo câu nhưng phương án nhắc vị trí → giữ thứ tự phương án', async () => {
+      topicService.getPracticeAssignmentForStudent.mockResolvedValue({
+        ...assignment,
+        shuffleQuestions: true,
+      });
+      prisma.questionLink.findMany.mockResolvedValue([
+        {
+          questionId: 'm1',
+          order: 0,
+          points: null,
+          slot: QuestionSlot.required,
+          question: {
+            ...scQuestion,
+            options: [
+              'Nhận dạng giọng nói',
+              'Dịch máy',
+              'Xe tự lái',
+              'Không có lĩnh vực nào ở trên',
+            ],
+            correctIndex: 3,
+          },
+        },
+      ]);
+      await itService.start('cls-1', 'cci-1', 'stu-1');
+      const [a] = prisma.attempt.create.mock.calls[0][0].data.answers.create;
+      expect(a.optionOrder).toEqual([]);
+      expect(a.correctIndex).toBe(3);
+    });
+
+    it('start chặn đề sai form (thiếu Tự chọn 2)', async () => {
+      prisma.questionLink.findMany.mockResolvedValue([
+        {
+          questionId: 'e1',
+          order: 0,
+          points: null,
+          slot: QuestionSlot.elective_1,
+          question: tfQuestion('E1'),
+        },
+      ]);
+      await expect(itService.start('cls-1', 'cci-1', 'stu-1')).rejects.toThrow(
+        'Đề sai form',
+      );
+      expect(prisma.attempt.create).not.toHaveBeenCalled();
+    });
   });
 
   it('sửa correctIndex sau start không đổi điểm lượt đó', async () => {
@@ -490,6 +756,36 @@ describe('AttemptService', () => {
       expect(await service.finalizeExpiredInProgress()).toBe(0);
       expect(prisma.attemptAnswer.update).not.toHaveBeenCalled();
     });
+  });
+
+  it('lobby trước hạn: ẩn điểm các lượt, closed = false', async () => {
+    prisma.attempt.findMany.mockResolvedValue([
+      makeAttempt({
+        status: AttemptStatus.submitted,
+        autoGradedScore: 50,
+        autoGradedMax: 50,
+      }),
+    ]);
+    const lobby = await service.getLobby('cls-1', 'cci-1', 'stu-1');
+    expect(lobby.closed).toBe(false);
+    expect(lobby.attempts[0].autoGradedScore).toBeNull();
+    expect(lobby.attempts[0].autoGradedMax).toBeNull();
+  });
+
+  it('lobby sau hạn: công bố điểm, closed = true', async () => {
+    topicService.getPracticeAssignmentForStudent.mockResolvedValue(
+      pastAssignment,
+    );
+    prisma.attempt.findMany.mockResolvedValue([
+      makeAttempt({
+        status: AttemptStatus.submitted,
+        autoGradedScore: 50,
+        autoGradedMax: 50,
+      }),
+    ]);
+    const lobby = await service.getLobby('cls-1', 'cci-1', 'stu-1');
+    expect(lobby.closed).toBe(true);
+    expect(lobby.attempts[0].autoGradedScore).toBe(50);
   });
 
   it('lobby delegates openAt/expiry to CourseContentService', async () => {

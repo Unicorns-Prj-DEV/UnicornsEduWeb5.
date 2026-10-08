@@ -1,9 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
+  ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -111,6 +114,28 @@ export class LessonUpdateDto {
   @IsString()
   @MaxLength(CONTENT_LIMITS.theoryContent)
   content?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Tên nhóm Tự chọn 1 (tiết thực hành IT), vd "Khoa học máy tính"',
+    nullable: true,
+    maxLength: 120,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  elective1Name?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Tên nhóm Tự chọn 2 (tiết thực hành IT), vd "Tin học ứng dụng"',
+    nullable: true,
+    maxLength: 120,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  elective2Name?: string | null;
 }
 
 export interface LessonResponseDto {
@@ -123,6 +148,9 @@ export interface LessonResponseDto {
   videoUrl: string | null;
   content: string | null;
   order: number;
+  /** Tên nhóm tự chọn (tiết thực hành IT). */
+  elective1Name?: string | null;
+  elective2Name?: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Date;
@@ -204,6 +232,15 @@ export class ClassContentCreateDto {
   @Min(PRACTICE_DURATION_MIN_MINUTES)
   @Max(PRACTICE_DURATION_MAX_MINUTES)
   durationMinutes?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Đảo câu: mỗi lượt làm xáo thứ tự câu (đề IT xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2) và thứ tự phương án, nhận định. Câu có phương án nhắc vị trí (vd «Cả A và B», «ở trên») giữ nguyên thứ tự phương án. Mặc định true khi tạo; chỉ áp cho lượt bắt đầu sau khi đổi.',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  shuffleQuestions?: boolean;
 }
 
 export class ClassContentScheduleUpdateDto {
@@ -223,6 +260,15 @@ export class ClassContentScheduleUpdateDto {
   @Min(PRACTICE_DURATION_MIN_MINUTES)
   @Max(PRACTICE_DURATION_MAX_MINUTES)
   durationMinutes: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Đảo câu: mỗi lượt làm xáo thứ tự câu (đề IT xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2) và thứ tự phương án, nhận định. Câu có phương án nhắc vị trí (vd «Cả A và B», «ở trên») giữ nguyên thứ tự phương án. Mặc định true khi tạo; chỉ áp cho lượt bắt đầu sau khi đổi.',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  shuffleQuestions?: boolean;
 }
 
 export interface ClassContentItemResponseDto {
@@ -238,6 +284,8 @@ export interface ClassContentItemResponseDto {
   moduleTitle?: string;
   openAt: Date | string | null;
   durationMinutes: number | null;
+  /** Đảo câu + đảo phương án mỗi lượt làm. */
+  shuffleQuestions: boolean;
   isOpen: boolean;
   hiddenAt: Date | string | null;
   hiddenByStaffId: string | null;
@@ -304,6 +352,15 @@ export class QuestionLinkCreateDto {
   @IsInt()
   @Min(0)
   points?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Vị trí câu trong đề (chỉ hồ sơ IT): required = Bắt buộc, elective_1/2 = Tự chọn 1/2',
+    enum: ['required', 'elective_1', 'elective_2'],
+  })
+  @IsOptional()
+  @IsIn(['required', 'elective_1', 'elective_2'])
+  slot?: 'required' | 'elective_1' | 'elective_2';
 }
 
 export class QuestionLinkUpdateDto {
@@ -321,6 +378,15 @@ export class QuestionLinkUpdateDto {
   @IsInt()
   @Min(0)
   points?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Vị trí câu trong đề (chỉ hồ sơ IT): required = Bắt buộc, elective_1/2 = Tự chọn 1/2',
+    enum: ['required', 'elective_1', 'elective_2'],
+  })
+  @IsOptional()
+  @IsIn(['required', 'elective_1', 'elective_2'])
+  slot?: 'required' | 'elective_1' | 'elective_2';
 }
 
 export class ReorderQuestionLinksDto {
@@ -339,6 +405,7 @@ export interface QuestionLinkResponseDto {
   questionId: string;
   order: number | null;
   points: number | null;
+  slot: 'required' | 'elective_1' | 'elective_2';
   question: {
     id: string;
     courseId: string;
@@ -347,6 +414,7 @@ export interface QuestionLinkResponseDto {
     type: string;
     content: string;
     options: unknown;
+    tfAnswerKey: boolean[];
   };
 }
 
@@ -382,6 +450,17 @@ export class LessonQuizAnswerDto {
   @IsString()
   @MaxLength(CONTENT_LIMITS.essayAnswer)
   essayAnswer?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Lựa chọn 4 nhận định a–d (câu Đúng/Sai): true = Đúng, false = Sai, null = chưa chọn',
+    nullable: true,
+    type: [Boolean],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  tfChoices?: (boolean | null)[] | null;
 }
 
 export interface LessonQuizResponseDto {
@@ -395,6 +474,7 @@ export interface LessonQuizResponseDto {
     content: string;
     options: string[] | null;
     correctIndex: number | null;
+    tfAnswerKey: boolean[];
     explanation: string | null;
     answerGuide: string | null;
   };
@@ -403,6 +483,8 @@ export interface LessonQuizResponseDto {
 export interface QuestionLinkSummaryDto {
   totalQuestions: number;
   totalPoints: number;
+  /** Lý do đề sai form nhóm tự chọn (IT), null khi hợp lệ. Đề sai form bị chặn lúc bắt đầu làm bài. */
+  formWarning: string | null;
 }
 
 export interface LessonQuizAnswerResponseDto {
@@ -412,6 +494,7 @@ export interface LessonQuizAnswerResponseDto {
   studentId: string;
   choiceIndex: number | null;
   essayAnswer: string | null;
+  tfChoices: (boolean | null)[] | null;
   createdAt: Date;
   updatedAt: Date;
 }
