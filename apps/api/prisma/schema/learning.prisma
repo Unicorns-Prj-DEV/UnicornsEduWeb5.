@@ -577,19 +577,38 @@ model LessonQuizAnswer {
 /// Audio làm tư liệu (hồ sơ JP), lưu ở bucket private `question-audio`, đọc qua
 /// signed URL. Bất biến: thay audio = tạo bản mới, bản cũ giữ cho snapshot bài làm.
 model AudioAsset {
-  id              String           @id @default(uuid())
-  courseId        String           @map("course_id")
-  storagePath     String           @map("storage_path")
-  mimeType        String           @map("mime_type")
-  sizeBytes       Int              @map("size_bytes")
-  originalName    String           @map("original_name")
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id              String             @id @default(uuid())
+  courseId        String             @map("course_id")
+  storagePath     String             @map("storage_path")
+  mimeType        String             @map("mime_type")
+  sizeBytes       Int                @map("size_bytes")
+  originalName    String             @map("original_name")
+  /// Giới hạn nghe trong lượt làm: null = không giới hạn, 1 hoặc 2 lần.
+  maxPlays        Int?               @map("max_plays")
+  /// false = học sinh không tua được (vẫn tạm dừng) trong lượt làm.
+  allowSeek       Boolean            @default(true) @map("allow_seek")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  course          Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
   questions       Question[]
   sharedMaterials SharedMaterial[]
+  attemptPlays    AttemptAudioPlay[]
 
   @@index([courseId])
   @@map("audio_assets")
+}
+
+/// Số lần học sinh đã bấm phát một audio giới hạn trong một lượt làm (đếm ở server).
+model AttemptAudioPlay {
+  id        String     @id @default(uuid())
+  attemptId String     @map("attempt_id")
+  audioId   String     @map("audio_id")
+  playCount Int        @default(0) @map("play_count")
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  attempt   Attempt    @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  audio     AudioAsset @relation(fields: [audioId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, audioId])
+  @@map("attempt_audio_plays")
 }
 
 /// Tư liệu dùng chung (hồ sơ JP): đoạn văn/ảnh nhiều câu cùng dựa vào. Thuộc ngân
@@ -753,9 +772,10 @@ model Attempt {
   createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  assignment ClassContentItem @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
-  student    StudentInfo      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment ClassContentItem   @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  student    StudentInfo        @relation(fields: [studentId], references: [id], onDelete: Cascade)
   answers    AttemptAnswer[]
+  audioPlays AttemptAudioPlay[]
 
   @@index([assignmentId, studentId])
   @@index([studentId])

@@ -48,6 +48,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `class_modules` (chuyên đề lớp đã thêm — nguồn đồng bộ tiết lý thuyết vào lớp)
 - `shared_materials` (Tư liệu dùng chung — hồ sơ JP; nhiều câu cùng gắn)
 - `audio_assets` (Audio tư liệu — hồ sơ JP; file trong bucket private `question-audio`)
+- `attempt_audio_plays` (số lần đã nghe từng audio trong một lượt làm — Giới hạn nghe)
 - `lesson_quizzes` (liên kết câu hỏi từ ngân hàng vào bài tập ôn nhẹ của tiết lý thuyết)
 - `lesson_quiz_answers` (trả lời bài tập ôn nhẹ — không sinh Attempt, không tính điểm)
 - `class_theory_lesson_views` (lượt mở trang tiết lý thuyết của học sinh trong phạm vi lớp)
@@ -484,7 +485,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `attempt_answers.slot` (`QuestionSlot`): snapshot vị trí câu lúc start (từ `question_links.slot`).
   - `attempt_answers.essay_input_size` (`EssayInputSize?`): snapshot kiểu ô tự luận lúc start (`null` = ô dài).
   - `attempt_answers.shared_material_id` (`UUID?`, không FK) + `shared_material_content` (`TEXT?`): snapshot Tư liệu dùng chung lúc start (JP). Các câu cùng tư liệu đứng liền nhau trong `order`; Đảo câu xáo cả khối. Sửa tư liệu không đổi bài đã bắt đầu.
-  - `attempt_answers.audio_id` + `shared_material_audio_id` (`UUID?`, không FK): snapshot audio của câu và của tư liệu lúc start (JP). URL ký mới mỗi lần tải bài.
+  - `attempt_answers.audio_id` + `shared_material_audio_id` (`UUID?`, không FK): snapshot audio của câu và của tư liệu lúc start (JP). URL ký mới mỗi lần tải bài; audio có Giới hạn nghe thì lượt đang làm không nhận URL sẵn (xin qua endpoint phát, xem `attempt_audio_plays`).
   - `attempt_answers.tf_label_style` (`TrueFalseLabelStyle?`): snapshot kiểu nhãn Câu Đúng/Sai lúc start (`null` = ○/×). Câu `true_false` lưu lựa chọn ở `tf_choices[0]`.
   - `attempt_answers.blank_answer_key` (`JSONB?`, `string[][]`): snapshot đáp án hợp lệ từng ô của câu `fill_blank` lúc start; `blank_answers` (`JSONB?`, `(string|null)[]`): chữ học sinh gõ vào từng ô. Chấm từng ô: điểm = `round(points_possible × số ô đúng / số ô)`, `is_correct` = đúng mọi ô. Sửa đáp án ô ở ngân hàng → chấm lại như `correct_index`/`tf_answer_key`, nhưng chỉ cập nhật snapshot có **cùng số ô** (thêm/bớt ô sau khi lượt bắt đầu không chấm lại).
   - Câu `ordering` (sắp xếp): `options` = thẻ **đã xáo** (luôn xáo lúc start, kể cả khi tắt Đảo câu; không bao giờ trùng thứ tự đúng trừ khi mọi thẻ cùng chữ), `option_order[i]` = vị trí gốc của thẻ hiển thị thứ i → thứ tự đúng = thẻ xếp theo `option_order`. `order_answer` (`TEXT[]`, mặc định `{}`): chữ thẻ theo thứ tự học sinh xếp (so theo chữ nên thẻ trùng chữ đổi chỗ vẫn đúng). Chấm cả chuỗi: khớp toàn bộ = đủ điểm, ngược lại 0; đã làm = dùng hết thẻ. Sửa thẻ ở ngân hàng → tính lại `option_order` cho snapshot cùng bộ thẻ (khác bộ thẻ thì bỏ qua) rồi chấm lại.
@@ -695,7 +696,15 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - **Bất biến:** thay audio = tải asset mới và đổi `audio_id`; file cũ giữ lại để bài làm đã bắt đầu (snapshot `audio_id`) vẫn nghe được.
 - Gắn vào: `questions.audio_id` (audio nhúng của câu) và `shared_materials.audio_id` (audio dùng chung) — tối đa một mỗi nơi, phải cùng khoá.
 - Học sinh chỉ nhận signed URL ngắn hạn (6 giờ) qua endpoint đã kiểm quyền xem câu; không lộ `storage_path`.
-- Index `(course_id)`. Migration `20261009060000_audio_asset`.
+- **Giới hạn nghe** (cấu hình duy nhất sửa được trên asset, `PATCH /audio-assets/:id/limits`): `max_plays` (`INT?`, `null` = không giới hạn, cho phép 1 hoặc 2), `allow_seek` (`BOOLEAN`, default `true`). Đọc live — đổi giới hạn áp luôn cho lượt đang làm. Không áp khi xem lại sau nộp và ôn nhẹ.
+- Index `(course_id)`. Migration `20261009060000_audio_asset`; giới hạn nghe: `20261009070000_audio_play_limit`.
+
+### 4.6d-ap `attempt_audio_plays` (Lần nghe trong lượt làm — hồ sơ JP)
+
+- Fields: `id` (UUID), `attempt_id` (→ `attempts.id`, `ON DELETE CASCADE`), `audio_id` (→ `audio_assets.id`, `ON DELETE CASCADE`), `play_count` (`INT`, default 0), `updated_at`.
+- Unique `(attempt_id, audio_id)`. Chỉ ghi cho audio có `max_plays`.
+- Bấm phát = tạo hàng nếu chưa có (`skipDuplicates`) rồi `UPDATE ... SET play_count = play_count + 1 WHERE play_count < max_plays` — nguyên tử, hai tab bấm cùng lúc không vượt giới hạn; 0 hàng cập nhật = hết lượt (`409`). Tải lại trang không hồi lượt.
+- Migration `20261009070000_audio_play_limit`.
 
 ### 4.6e `question_links` (Liên kết câu hỏi — tiết luyện tập)
 

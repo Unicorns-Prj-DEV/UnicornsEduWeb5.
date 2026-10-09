@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -18,6 +19,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CourseContentService } from 'src/course-content/course-content.service';
 import type {
   AssignmentLobbyDto,
+  AttemptAudioPlayDto,
   AttemptDetailDto,
   AttemptQuestionDto,
   EssayGradingQueueDto,
@@ -54,6 +56,7 @@ import {
 } from './shuffle';
 import { assignmentCloseAt, isAssignmentClosed } from './assignment-window';
 import { resolveAudioRefs } from 'src/question/audio-asset.service';
+import { attemptAudioView } from './audio-play';
 
 /** Include chấm/đọc bài: chỉ snapshot trên AttemptAnswer, không join Question live. */
 type AttemptWithAnswers = Prisma.AttemptGetPayload<{
@@ -275,6 +278,51 @@ export class AttemptService {
   ): Promise<AttemptDetailDto> {
     const attempt = await this.loadOwned(classId, attemptId, studentId);
     return this.finalizeIfExpired(attempt);
+  }
+
+  /**
+   * Học sinh bấm phát audio trong lượt đang làm. Audio có giới hạn: trừ một lượt
+   * nguyên tử ở DB (tải lại trang không hồi lượt), hết lượt → 409.
+   */
+  async playAudio(
+    classId: string,
+    attemptId: string,
+    studentId: string,
+    audioId: string,
+  ): Promise<AttemptAudioPlayDto> {
+    const attempt = await this.loadOwned(classId, attemptId, studentId);
+    if (
+      attempt.status !== AttemptStatus.in_progress ||
+      this.isExpired(attempt)
+    ) {
+      throw new ConflictException('Lượt làm đã kết thúc.');
+    }
+    const inSnapshot = attempt.answers.some(
+      (a) => a.audioId === audioId || a.sharedMaterialAudioId === audioId,
+    );
+    const ref = inSnapshot
+      ? (await resolveAudioRefs(this.prisma, [audioId])).get(audioId)
+      : undefined;
+    if (!ref) throw new NotFoundException('Audio không thuộc lượt làm này.');
+    if (ref.maxPlays === null) {
+      return { url: ref.url, maxPlays: null, playsUsed: 0 };
+    }
+    await this.prisma.attemptAudioPlay.createMany({
+      data: [{ attemptId, audioId }],
+      skipDuplicates: true,
+    });
+    const { count } = await this.prisma.attemptAudioPlay.updateMany({
+      where: { attemptId, audioId, playCount: { lt: ref.maxPlays } },
+      data: { playCount: { increment: 1 } },
+    });
+    if (count === 0) {
+      throw new ConflictException('Đã hết lượt nghe audio này.');
+    }
+    const { playCount } = await this.prisma.attemptAudioPlay.findUniqueOrThrow({
+      where: { attemptId_audioId: { attemptId, audioId } },
+      select: { playCount: true },
+    });
+    return { url: ref.url, maxPlays: ref.maxPlays, playsUsed: playCount };
   }
 
   async saveAnswers(
@@ -957,8 +1005,30 @@ export class AttemptService {
       this.prisma,
       attempt.answers.flatMap((a) => [a.audioId, a.sharedMaterialAudioId]),
     );
-    const audioUrlOf = (id: string | null) =>
-      id ? (audio.get(id)?.url ?? null) : null;
+    const limited = [...audio.values()].some((a) => a.maxPlays !== null);
+    const plays = limited
+      ? await this.prisma.attemptAudioPlay.findMany({
+          where: { attemptId: attempt.id },
+          select: { audioId: true, playCount: true },
+        })
+      : [];
+    const playsOf = new Map(plays.map((p) => [p.audioId, p.playCount]));
+    const inProgress = attempt.status === AttemptStatus.in_progress;
+    const audioOf = (id: string | null) => {
+      const ref = id ? audio.get(id) : undefined;
+      return ref
+        ? attemptAudioView(
+            {
+              id: ref.id,
+              url: ref.url,
+              maxPlays: ref.maxPlays,
+              allowSeek: ref.allowSeek,
+            },
+            playsOf.get(ref.id) ?? 0,
+            inProgress,
+          )
+        : null;
+    };
     const endsAt = this.endsAt(attempt);
     // Đã nộp nhưng chưa tới hạn lần giao: không lộ điểm/đáp án.
     const closeAt = assignmentCloseAt(attempt.assignment);
@@ -985,10 +1055,10 @@ export class AttemptService {
             ? {
                 id: ans.sharedMaterialId,
                 content: ans.sharedMaterialContent,
-                audioUrl: audioUrlOf(ans.sharedMaterialAudioId),
+                audio: audioOf(ans.sharedMaterialAudioId),
               }
             : null,
-        audioUrl: audioUrlOf(ans.audioId),
+        audio: audioOf(ans.audioId),
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };

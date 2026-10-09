@@ -41,6 +41,7 @@ import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import EssayAnswerInput from "@/components/student/EssayAnswerInput";
 import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
+import { openAudio } from "@/lib/attempt-audio";
 import { materialHeaders } from "@/lib/exam-layout";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
@@ -343,7 +344,7 @@ function LessonQuizSection({
   });
   const quizMaterials = materialHeaders(
     quizzes,
-    (q) => q.question.sharedMaterial,
+    (q) => withOpenAudio(q.question.sharedMaterial),
   );
   const quizGapNumbers = new Map(
     quizzes.map((q, i) => [q.questionId, i + 1]),
@@ -572,10 +573,26 @@ function QuizQuestionInput({
 
 // ─── Quiz Review (after submission) ──────────────────────────
 
+/** Ôn nhẹ: audio tư liệu không giới hạn lượt nghe. */
+function withOpenAudio(
+  material:
+    | { id: string; content: string; audioUrl?: string | null }
+    | null
+    | undefined,
+) {
+  return material
+    ? {
+        id: material.id,
+        content: material.content,
+        audio: openAudio(material.audioUrl),
+      }
+    : material;
+}
+
 function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
   const reviewMaterials = materialHeaders(
     answers,
-    (a) => a.question.sharedMaterial,
+    (a) => withOpenAudio(a.question.sharedMaterial),
   );
   const reviewGapNumbers = new Map(
     answers.map((a, i) => [a.questionId, i + 1]),

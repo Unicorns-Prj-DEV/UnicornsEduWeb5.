@@ -3,6 +3,9 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -14,6 +17,7 @@ import {
   ApiConsumes,
   ApiCookieAuth,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -25,7 +29,7 @@ import {
   type JwtPayload,
 } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UploadAudioDto } from '../dtos/audio-asset.dto';
+import { UpdateAudioLimitsDto, UploadAudioDto } from '../dtos/audio-asset.dto';
 import { AudioAssetService, type AudioUploadFile } from './audio-asset.service';
 import { AUDIO_MAX_BYTES, isAllowedAudioMime } from './audio-rules';
 
@@ -86,6 +90,27 @@ export class AudioAssetController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.service.upload(body.courseId, file, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
+  }
+
+  @Patch(':id/limits')
+  @ApiOperation({
+    summary: 'Đặt giới hạn nghe của audio (JP)',
+    description:
+      'Số lần nghe trong lượt làm (null / 1 / 2) và cho tua hay không. Áp cho cả lượt đang làm; ôn nhẹ và xem lại sau nộp không giới hạn.',
+  })
+  @ApiParam({ name: 'id', description: 'Audio ID' })
+  @ApiBody({ type: UpdateAudioLimitsDto })
+  @ApiResponse({ status: 200, description: 'Audio sau khi cập nhật.' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy audio.' })
+  updateLimits(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateAudioLimitsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.updateLimits(id, body, {
       userId: user.id,
       roleType: user.roleType,
     });

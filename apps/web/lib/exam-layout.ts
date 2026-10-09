@@ -1,4 +1,5 @@
 import type {
+  AttemptAudioView,
   AttemptQuestionDto,
   AttemptScoringDto,
   QuestionSlotDto,
@@ -185,8 +186,8 @@ export function itExamBreakdown(questions: OrderableQuestion[]): ItExamBreakdown
 export interface MaterialHeader {
   /** HTML tư liệu (bản chụp lúc start). */
   content: string;
-  /** Audio của tư liệu (signed URL); vắng = tư liệu không có audio. */
-  audioUrl?: string | null;
+  /** Audio của tư liệu; vắng/null = tư liệu không có audio. */
+  audio?: AttemptAudioView | null;
   /** Dải số câu (đánh số liên tục từ 1) dựa vào tư liệu: "Câu 2–4". */
   firstNumber: number;
   lastNumber: number;
@@ -201,7 +202,7 @@ export function materialHeaders<Q>(
   materialOf: (
     q: Q,
   ) =>
-    | { id: string; content: string; audioUrl?: string | null }
+    | { id: string; content: string; audio?: AttemptAudioView | null }
     | null
     | undefined,
 ): (MaterialHeader | null)[] {
@@ -218,7 +219,7 @@ export function materialHeaders<Q>(
     }
     return {
       content: material.content,
-      ...(material.audioUrl !== undefined && { audioUrl: material.audioUrl }),
+      ...(material.audio !== undefined && { audio: material.audio }),
       firstNumber: i + 1,
       lastNumber: last + 1,
     };

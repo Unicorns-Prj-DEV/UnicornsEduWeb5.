@@ -5,14 +5,32 @@ import { useMutation } from "@tanstack/react-query";
 import { Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import QuestionAudio from "@/components/student/QuestionAudio";
-import { AUDIO_ACCEPT, type AudioRef } from "@/dtos/audio-asset.dto";
-import { uploadAudio } from "@/lib/apis/audio-asset.api";
+import { Switch } from "@/components/ui/switch";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import {
+  AUDIO_ACCEPT,
+  AUDIO_MAX_PLAYS_OPTIONS,
+  type AudioRef,
+  type UpdateAudioLimitsPayload,
+} from "@/dtos/audio-asset.dto";
+import { updateAudioLimits, uploadAudio } from "@/lib/apis/audio-asset.api";
 import { audioFileError } from "@/lib/audio-file";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
+
+const UNLIMITED = "unlimited";
+const PLAYS_OPTIONS = [
+  { value: UNLIMITED, label: "Không giới hạn" },
+  ...AUDIO_MAX_PLAYS_OPTIONS.map((n) => ({
+    value: String(n),
+    label: `${n} lần`,
+  })),
+];
 
 /**
  * Chọn audio cho câu / tư liệu dùng chung (JP). Tải lên ngay khi chọn file;
  * giá trị form chỉ là tham chiếu — lưu câu/tư liệu mới gắn audio vào.
+ * Giới hạn nghe nằm trên audio, đổi là lưu ngay (không chờ lưu câu); thay
+ * audio thì audio mới giữ giới hạn cũ.
  */
 export default function AudioUploadField({
   courseId,
@@ -28,8 +46,22 @@ export default function AudioUploadField({
   hint?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const limitsOf = (audio: AudioRef | null): UpdateAudioLimitsPayload => ({
+    maxPlays: audio?.maxPlays ?? null,
+    allowSeek: audio?.allowSeek ?? true,
+  });
   const upload = useMutation({
-    mutationFn: (file: File) => uploadAudio(courseId, file),
+    mutationFn: async (file: File) => {
+      const uploaded = await uploadAudio(courseId, file);
+      const limits = limitsOf(value);
+      const isDefault = limits.maxPlays === null && limits.allowSeek;
+      return isDefault
+        ? uploaded
+        : {
+            ...(await updateAudioLimits(uploaded.id, limits)),
+            url: uploaded.url,
+          };
+    },
     onSuccess: (audio) => {
       onChange(audio);
       toast.success("Đã tải audio lên.");
@@ -37,6 +69,37 @@ export default function AudioUploadField({
     onError: (error) =>
       toast.error(getMutationErrorMessage(error, "Không thể tải audio lên.")),
   });
+
+  const limits = useMutation({
+    mutationFn: ({
+      current,
+      payload,
+    }: {
+      current: AudioRef;
+      payload: UpdateAudioLimitsPayload;
+    }) =>
+      updateAudioLimits(current.id, payload).then((audio) => ({
+        ...current,
+        ...audio,
+        url: current.url,
+      })),
+    onSuccess: (audio) => {
+      onChange(audio);
+      toast.success("Đã lưu giới hạn nghe.");
+    },
+    onError: (error) =>
+      toast.error(
+        getMutationErrorMessage(error, "Không lưu được giới hạn nghe."),
+      ),
+  });
+  const saveLimits = (patch: Partial<UpdateAudioLimitsPayload>) => {
+    if (value) {
+      limits.mutate({
+        current: value,
+        payload: { ...limitsOf(value), ...patch },
+      });
+    }
+  };
 
   const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,6 +134,34 @@ export default function AudioUploadField({
               <X className="size-4" aria-hidden />
               Gỡ audio
             </button>
+          </div>
+          <div className="grid gap-2 border-t border-border-default pt-2 sm:grid-cols-2 sm:items-center">
+            <div className="space-y-1 text-xs text-text-muted">
+              <span>Số lần nghe khi làm bài</span>
+              <UpgradedSelect
+                value={
+                  value.maxPlays == null ? UNLIMITED : String(value.maxPlays)
+                }
+                onValueChange={(v) =>
+                  saveLimits({ maxPlays: v === UNLIMITED ? null : Number(v) })
+                }
+                options={PLAYS_OPTIONS}
+                disabled={limits.isPending || upload.isPending}
+                ariaLabel="Số lần nghe khi làm bài"
+              />
+            </div>
+            <label className="flex min-h-11 items-center justify-between gap-2 text-sm text-text-secondary sm:justify-start">
+              <span>Cho tua khi làm bài</span>
+              <Switch
+                checked={value.allowSeek ?? true}
+                onCheckedChange={(allowSeek) => saveLimits({ allowSeek })}
+                disabled={limits.isPending || upload.isPending}
+                aria-label="Cho tua khi làm bài"
+              />
+            </label>
+            <p className="text-xs text-text-muted sm:col-span-2">
+              Xem lại sau khi nộp và ôn nhẹ luôn nghe tự do.
+            </p>
           </div>
         </div>
       ) : null}

@@ -1,11 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserRole } from 'generated/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import type { LmsProfileConfig } from '../lms-profile/lms-profile';
 import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import { CourseAccessService } from '../class/course-access.service';
-import type { AudioRefDto } from '../dtos/audio-asset.dto';
+import type {
+  AudioRefDto,
+  UpdateAudioLimitsDto,
+} from '../dtos/audio-asset.dto';
 import { QUESTION_AUDIO_STORAGE_BUCKET } from '../storage/media-buckets';
 import {
   tryGetSupabaseAdminClient,
@@ -52,7 +59,13 @@ export async function resolveAudioRefs(
   if (unique.length === 0) return new Map();
   const rows = await prisma.audioAsset.findMany({
     where: { id: { in: unique } },
-    select: { id: true, storagePath: true, originalName: true },
+    select: {
+      id: true,
+      storagePath: true,
+      originalName: true,
+      maxPlays: true,
+      allowSeek: true,
+    },
   });
   const urls = await signAudioPaths(rows.map((r) => r.storagePath));
   return new Map(
@@ -62,6 +75,8 @@ export async function resolveAudioRefs(
         id: r.id,
         originalName: r.originalName,
         url: urls.get(r.storagePath) ?? null,
+        maxPlays: r.maxPlays,
+        allowSeek: r.allowSeek,
       },
     ]),
   );
@@ -129,18 +144,8 @@ export class AudioAssetService {
     if (!this.lmsProfile.config.questionAudio) {
       throw new BadRequestException('Hồ sơ môn này không dùng audio.');
     }
-    if (!actor.userId) {
-      throw new BadRequestException('Missing actor for audio upload');
-    }
     await this.courseAccess.assertCourseExists(courseId);
-    const courseActor = await this.courseAccess.resolveActor(
-      actor.userId,
-      actor.roleType ?? UserRole.staff,
-    );
-    await this.courseAccess.assertCanWriteCourseQuestions(
-      courseActor,
-      courseId,
-    );
+    await this.assertWriteAccess(actor, courseId);
     const error = audioFileError(file);
     if (error || !file) throw new BadRequestException(error);
 
@@ -163,9 +168,48 @@ export class AudioAssetService {
         originalName: decodeOriginalName(file.originalname),
       },
     });
-    const refs = await resolveAudioRefs(this.prisma, [row.id]);
-    return (
-      refs.get(row.id) ?? { id, originalName: row.originalName, url: null }
+    return this.refOf(row.id);
+  }
+
+  /** Giới hạn nghe; áp ngay cho lượt đang làm (lần giao không ghi đè). */
+  async updateLimits(
+    id: string,
+    dto: UpdateAudioLimitsDto,
+    actor: AudioActor,
+  ): Promise<AudioRefDto> {
+    const audio = await this.prisma.audioAsset.findUnique({
+      where: { id },
+      select: { courseId: true },
+    });
+    if (!audio) throw new NotFoundException('Không tìm thấy audio.');
+    await this.assertWriteAccess(actor, audio.courseId);
+    await this.prisma.audioAsset.update({
+      where: { id },
+      data: { maxPlays: dto.maxPlays, allowSeek: dto.allowSeek },
+    });
+    return this.refOf(id);
+  }
+
+  private async refOf(id: string): Promise<AudioRefDto> {
+    const ref = (await resolveAudioRefs(this.prisma, [id])).get(id);
+    if (!ref) throw new NotFoundException('Không tìm thấy audio.');
+    return ref;
+  }
+
+  private async assertWriteAccess(
+    actor: AudioActor,
+    courseId: string,
+  ): Promise<void> {
+    if (!actor.userId) {
+      throw new BadRequestException('Missing actor for audio write');
+    }
+    const courseActor = await this.courseAccess.resolveActor(
+      actor.userId,
+      actor.roleType ?? UserRole.staff,
+    );
+    await this.courseAccess.assertCanWriteCourseQuestions(
+      courseActor,
+      courseId,
     );
   }
 }

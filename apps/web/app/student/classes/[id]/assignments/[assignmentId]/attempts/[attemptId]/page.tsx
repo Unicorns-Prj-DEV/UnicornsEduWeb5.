@@ -8,6 +8,7 @@ import { ChevronLeft, Send } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAttempt,
+  playAttemptAudio,
   saveAttemptAnswers,
   submitAttempt,
 } from "@/lib/apis/attempt.api";
@@ -25,6 +26,7 @@ import {
   isElectiveConflict,
   materialHeaders,
 } from "@/lib/exam-layout";
+import { AttemptAudioProvider } from "@/components/student/AttemptAudio";
 import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import {
@@ -136,6 +138,11 @@ export default function StudentAttemptPage() {
     },
     onError: () => toast.error("Không nộp được bài. Thử lại."),
   });
+
+  const playAudio = useCallback(
+    (audioId: string) => playAttemptAudio(classId, attemptId, audioId),
+    [classId, attemptId],
+  );
 
   const handleExpire = useCallback(() => {
     if (autoSubmitted.current) return;
@@ -267,37 +274,39 @@ export default function StudentAttemptPage() {
   };
 
   return (
-    <StudentAttemptInProgress
-      closed={closed}
-      viewMode={viewMode}
-      dataTitle={data.title}
-      dataStatus={data.status}
-      attempt={data}
-      endsAt={data.endsAt}
-      questions={questions}
-      lobbyHref={lobbyHref}
-      hasUnsaved={hasUnsaved}
-      lastSavedAt={lastSavedAt}
-      unanswered={unanswered}
-      markedForReview={markedForReview}
-      answeredCount={answeredCount}
-      savePending={saveMutation.isPending}
-      saveQueued={saveQueued}
-      saveError={saveMutation.isError}
-      submitPending={submitMutation.isPending}
-      onExpire={handleExpire}
-      onChangeQuestion={updateQuestion}
-      onRetrySave={() => retrySave(questions)}
-      onRequestSubmit={async () => {
-        const ok = await flushSaveBeforeReview();
-        if (!ok) return;
-        setViewMode("review");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }}
-      onBackToTaking={() => setViewMode("taking")}
-      onConfirmSubmit={() => submitMutation.mutate()}
-      onGoLobby={() => router.push(lobbyHref)}
-    />
+    <AttemptAudioProvider play={playAudio}>
+      <StudentAttemptInProgress
+        closed={closed}
+        viewMode={viewMode}
+        dataTitle={data.title}
+        dataStatus={data.status}
+        attempt={data}
+        endsAt={data.endsAt}
+        questions={questions}
+        lobbyHref={lobbyHref}
+        hasUnsaved={hasUnsaved}
+        lastSavedAt={lastSavedAt}
+        unanswered={unanswered}
+        markedForReview={markedForReview}
+        answeredCount={answeredCount}
+        savePending={saveMutation.isPending}
+        saveQueued={saveQueued}
+        saveError={saveMutation.isError}
+        submitPending={submitMutation.isPending}
+        onExpire={handleExpire}
+        onChangeQuestion={updateQuestion}
+        onRetrySave={() => retrySave(questions)}
+        onRequestSubmit={async () => {
+          const ok = await flushSaveBeforeReview();
+          if (!ok) return;
+          setViewMode("review");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onBackToTaking={() => setViewMode("taking")}
+        onConfirmSubmit={() => submitMutation.mutate()}
+        onGoLobby={() => router.push(lobbyHref)}
+      />
+    </AttemptAudioProvider>
   );
 }
 

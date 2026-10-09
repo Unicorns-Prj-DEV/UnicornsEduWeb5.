@@ -55,15 +55,36 @@ export interface AttemptQuestionDto {
   sharedMaterial?: {
     id: string;
     content: string;
-    /** Audio của tư liệu (signed URL ngắn hạn). */
-    audioUrl?: string | null;
+    /** Audio của tư liệu; null = không có. */
+    audio?: AttemptAudioView | null;
   } | null;
-  /** Audio nhúng của câu (signed URL ngắn hạn). */
-  audioUrl?: string | null;
+  /** Audio nhúng của câu; null = không có. */
+  audio?: AttemptAudioView | null;
   isCorrect?: boolean | null;
   pointsAwarded?: number | null;
   explanation?: string | null;
   answerGuide?: string | null;
+}
+
+/**
+ * Audio trong lượt làm. Đang làm + có giới hạn lượt nghe: `url` = null, xin URL
+ * qua `playAttemptAudio` (mỗi lần xin trừ một lượt). Đã nộp: URL thẳng, không
+ * giới hạn, được tua.
+ */
+export interface AttemptAudioView {
+  id: string;
+  url: string | null;
+  /** null = không giới hạn. */
+  maxPlays: number | null;
+  allowSeek: boolean;
+  playsUsed: number;
+}
+
+/** Kết quả bấm phát audio giới hạn. */
+export interface AttemptAudioPlayDto {
+  url: string | null;
+  maxPlays: number | null;
+  playsUsed: number;
 }
 
 export interface AttemptDetailDto {

@@ -153,4 +153,33 @@ export class StudentAttemptController {
       await this.studentId(user.id),
     );
   }
+
+  @Post('attempts/:attemptId/audio/:audioId/play')
+  @ApiOperation({
+    summary: 'Phát audio trong lượt làm',
+    description:
+      'Trả signed URL của audio. Audio có giới hạn lượt nghe: mỗi lần gọi trừ một lượt (nguyên tử, tải lại trang không hồi lượt). Chỉ khi lượt đang làm và còn giờ.',
+  })
+  @ApiParam({ name: 'classId', description: 'Class ID' })
+  @ApiParam({ name: 'attemptId', description: 'Attempt ID' })
+  @ApiParam({ name: 'audioId', description: 'Audio asset ID' })
+  @ApiResponse({ status: 201, description: '{ url, maxPlays, playsUsed }.' })
+  @ApiResponse({ status: 404, description: 'Audio không thuộc lượt làm.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Hết lượt nghe hoặc lượt làm đã kết thúc.',
+  })
+  async playAudio(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+    @Param('attemptId', ParseUUIDPipe) attemptId: string,
+    @Param('audioId', ParseUUIDPipe) audioId: string,
+  ) {
+    return this.attemptService.playAudio(
+      classId,
+      attemptId,
+      await this.studentId(user.id),
+      audioId,
+    );
+  }
 }

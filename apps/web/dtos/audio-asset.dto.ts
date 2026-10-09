@@ -4,6 +4,18 @@ export interface AudioRef {
   originalName: string;
   /** null = storage lỗi; vắng khi lấy từ danh sách câu của đề (không ký URL). */
   url?: string | null;
+  /** Giới hạn lượt nghe trong một lượt làm; null = không giới hạn. */
+  maxPlays?: number | null;
+  /** false = học sinh không tua được khi đang làm bài. */
+  allowSeek?: boolean;
+}
+
+/** Khớp API `AUDIO_MAX_PLAYS_OPTIONS`. */
+export const AUDIO_MAX_PLAYS_OPTIONS = [1, 2] as const;
+
+export interface UpdateAudioLimitsPayload {
+  maxPlays: number | null;
+  allowSeek: boolean;
 }
 
 /** Khớp API `AUDIO_MAX_BYTES`. */

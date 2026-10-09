@@ -24,4 +24,4 @@
 ## Consequences
 
 - File không còn được tham chiếu vẫn nằm trong bucket (chấp nhận; dọn rác nếu cần sẽ là job riêng, kiểm cả snapshot).
-- #201 thêm giới hạn lượt nghe trên từng asset; URL của audio bị giới hạn sẽ cấp qua endpoint phát (đếm lượt) thay vì trả sẵn trong bài làm.
+- #201 thêm giới hạn lượt nghe trên từng asset (`max_plays`, `allow_seek` — ngoại lệ duy nhất của tính bất biến: chỉ cấu hình phát, không đổi file; đọc live nên áp cả lượt đang làm). URL của audio bị giới hạn cấp qua `POST .../attempts/:attemptId/audio/:audioId/play` (đếm lượt trong `attempt_audio_plays`) thay vì trả sẵn trong bài làm. Signed URL vẫn dùng được tới khi hết hạn — giới hạn chặn ở mức giao diện + cấp URL, không chặn người tự lưu link.

@@ -164,6 +164,27 @@ export class SaveAttemptAnswersDto {
   answers: SaveAttemptAnswerItemDto[];
 }
 
+/**
+ * Audio trong lượt làm. Đang làm + có giới hạn lượt nghe: `url` = null, xin URL
+ * qua `POST .../audio/:audioId/play` (mỗi lần xin trừ một lượt). Đã nộp: URL
+ * thẳng, không giới hạn, được tua.
+ */
+export interface AttemptAudioView {
+  id: string;
+  url: string | null;
+  /** null = không giới hạn. */
+  maxPlays: number | null;
+  allowSeek: boolean;
+  playsUsed: number;
+}
+
+/** Kết quả bấm phát audio giới hạn. */
+export interface AttemptAudioPlayDto {
+  url: string | null;
+  maxPlays: number | null;
+  playsUsed: number;
+}
+
 export interface AttemptQuestionDto {
   questionId: string;
   order: number;
@@ -207,11 +228,11 @@ export interface AttemptQuestionDto {
   sharedMaterial: {
     id: string;
     content: string;
-    /** Audio của tư liệu (signed URL ngắn hạn); null = không có. */
-    audioUrl: string | null;
+    /** Audio của tư liệu; null = không có. */
+    audio: AttemptAudioView | null;
   } | null;
-  /** Audio nhúng của câu (signed URL ngắn hạn); null = không có. */
-  audioUrl: string | null;
+  /** Audio nhúng của câu; null = không có. */
+  audio: AttemptAudioView | null;
   essayAnswer: string | null;
   markedForReview: boolean;
   correctIndex?: number | null;

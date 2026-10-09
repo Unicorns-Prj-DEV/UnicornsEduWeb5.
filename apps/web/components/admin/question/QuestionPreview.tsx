@@ -3,6 +3,7 @@
 import StudentAttemptQuestion from "@/components/student/StudentAttemptQuestion";
 import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
 import { QuestionTypeDto, countBlanks } from "@/dtos/question.dto";
+import { openAudio } from "@/lib/attempt-audio";
 import { resizeBlankKey } from "@/lib/fill-blank";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
 import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
@@ -83,7 +84,7 @@ export default function QuestionPreview({
           )
         : null,
     markedForReview: false,
-    audioUrl: value.audio?.url,
+    audio: openAudio(value.audio?.url),
     correctIndex: isChoice ? value.correctIndex : null,
     isCorrect: null,
     explanation: optionalHtml(value.explanation),
@@ -99,7 +100,7 @@ export default function QuestionPreview({
         <SharedMaterialPanel
           header={{
             content: sharedMaterialContent,
-            audioUrl: sharedMaterialAudioUrl,
+            audio: openAudio(sharedMaterialAudioUrl),
             firstNumber: 1,
             lastNumber: 1,
           }}

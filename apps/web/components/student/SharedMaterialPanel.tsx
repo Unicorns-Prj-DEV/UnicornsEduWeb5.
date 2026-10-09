@@ -11,7 +11,7 @@ import MathContent from "@/components/ui/MathContent";
 import { cn } from "@/lib/utils";
 import type { MaterialHeader } from "@/lib/exam-layout";
 import { numberMaterialGaps } from "@/lib/material-gaps";
-import QuestionAudio from "./QuestionAudio";
+import AttemptAudio from "./AttemptAudio";
 
 const NO_NUMBERS: ReadonlyMap<string, number> = new Map();
 
@@ -51,8 +51,8 @@ export default function SharedMaterialPanel({
         />
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-3 px-3 pb-3 sm:px-4 sm:pb-4">
-        {header.audioUrl ? (
-          <QuestionAudio url={header.audioUrl} label="Audio tư liệu" />
+        {header.audio ? (
+          <AttemptAudio audio={header.audio} label="Audio tư liệu" />
         ) : null}
         <MathContent
           content={numberMaterialGaps(header.content, gapNumbers)}
