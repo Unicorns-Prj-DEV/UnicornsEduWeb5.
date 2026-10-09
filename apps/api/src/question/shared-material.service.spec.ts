@@ -17,7 +17,21 @@ describe('SharedMaterialService — chuyên đề của bộ', () => {
       updateMany: jest.fn(),
       count: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
+      aggregate: jest.fn(),
+    },
+    questionLink: {
+      deleteMany: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+      create: jest.fn(),
+    },
+    lessonQuiz: {
+      deleteMany: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+      create: jest.fn(),
     },
     module: { findUnique: jest.fn() },
     $transaction: jest.fn(),
@@ -160,6 +174,99 @@ describe('SharedMaterialService — chuyên đề của bộ', () => {
         service.reorderQuestions('s1', ['q1'], actor),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.question.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('chuyển câu vào / ra bộ', () => {
+    beforeEach(() => {
+      prisma.sharedMaterial.findUnique.mockResolvedValue({
+        id: 's1',
+        courseId: 'c1',
+        moduleId: 'm1',
+        content: '<p>Đoạn</p>',
+        audioId: null,
+      });
+      prisma.question.aggregate.mockResolvedValue({
+        _max: { setPosition: 2 },
+      });
+      prisma.questionLink.findMany.mockResolvedValue([]);
+      prisma.lessonQuiz.findMany.mockResolvedValue([]);
+    });
+
+    it('câu lẻ vào bộ: gỡ mọi link lẻ, nhận chuyên đề bộ, đứng cuối bộ, vào các tiết dùng bộ', async () => {
+      prisma.question.findUnique.mockResolvedValue({
+        id: 'q9',
+        courseId: 'c1',
+        moduleId: 'm7',
+        sharedMaterialId: null,
+        deletedAt: null,
+      });
+      prisma.questionLink.findMany.mockResolvedValue([
+        { lessonId: 'L1', order: 4 },
+      ]);
+      await service.moveQuestionIn('s1', 'q9', actor);
+      expect(prisma.questionLink.deleteMany).toHaveBeenCalledWith({
+        where: { questionId: 'q9' },
+      });
+      expect(prisma.lessonQuiz.deleteMany).toHaveBeenCalledWith({
+        where: { questionId: 'q9' },
+      });
+      expect(prisma.question.update).toHaveBeenCalledWith({
+        where: { id: 'q9' },
+        data: { sharedMaterialId: 's1', setPosition: 3, moduleId: 'm1' },
+      });
+      expect(prisma.questionLink.create).toHaveBeenCalledWith({
+        data: { lessonId: 'L1', questionId: 'q9', order: 5, points: null },
+      });
+    });
+
+    it('câu đang thuộc bộ khác → từ chối, không đụng link', async () => {
+      prisma.question.findUnique.mockResolvedValue({
+        id: 'q9',
+        courseId: 'c1',
+        moduleId: 'm1',
+        sharedMaterialId: 's2',
+        deletedAt: null,
+      });
+      await expect(service.moveQuestionIn('s1', 'q9', actor)).rejects.toThrow(
+        'Câu đang thuộc bộ khác — đưa ra khỏi bộ đó trước.',
+      );
+      expect(prisma.questionLink.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('câu ra khỏi bộ: biến mất khỏi mọi tiết / bài ôn, thành câu lẻ', async () => {
+      prisma.question.findUnique.mockResolvedValue({
+        id: 'q2',
+        courseId: 'c1',
+        moduleId: 'm1',
+        sharedMaterialId: 's1',
+        deletedAt: null,
+      });
+      await service.moveQuestionOut('s1', 'q2', actor);
+      expect(prisma.questionLink.deleteMany).toHaveBeenCalledWith({
+        where: { questionId: 'q2' },
+      });
+      expect(prisma.lessonQuiz.deleteMany).toHaveBeenCalledWith({
+        where: { questionId: 'q2' },
+      });
+      expect(prisma.question.update).toHaveBeenCalledWith({
+        where: { id: 'q2' },
+        data: { sharedMaterialId: null, setPosition: null },
+      });
+      expect(prisma.questionLink.create).not.toHaveBeenCalled();
+    });
+
+    it('câu không thuộc bộ này → 404 khi đưa ra', async () => {
+      prisma.question.findUnique.mockResolvedValue({
+        id: 'q2',
+        courseId: 'c1',
+        moduleId: 'm1',
+        sharedMaterialId: null,
+        deletedAt: null,
+      });
+      await expect(service.moveQuestionOut('s1', 'q2', actor)).rejects.toThrow(
+        'Câu không thuộc bộ này.',
+      );
     });
   });
 });

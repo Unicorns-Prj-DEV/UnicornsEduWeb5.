@@ -51,6 +51,32 @@ export async function getSharedMaterialUsage(
   return response.data;
 }
 
+/** Số tiết / bài ôn đang chứa một câu — cảnh báo khi chuyển câu vào / ra bộ. */
+export async function getQuestionLessonUsage(
+  questionId: string,
+): Promise<SharedMaterialUsage> {
+  const response = await api.get<SharedMaterialUsage>(
+    `/shared-materials/questions/${questionId}/usage`,
+  );
+  return response.data;
+}
+
+/** Câu lẻ vào bộ: gỡ link lẻ, vào mọi tiết / bài ôn dùng bộ. */
+export async function moveQuestionIntoSet(
+  id: string,
+  questionId: string,
+): Promise<void> {
+  await api.post(`/shared-materials/${id}/questions/${questionId}`);
+}
+
+/** Câu ra khỏi bộ: biến mất khỏi các tiết / bài ôn dùng bộ. */
+export async function moveQuestionOutOfSet(
+  id: string,
+  questionId: string,
+): Promise<void> {
+  await api.delete(`/shared-materials/${id}/questions/${questionId}`);
+}
+
 export async function deleteSharedMaterial(id: string): Promise<void> {
   await api.delete(`/shared-materials/${id}`);
 }

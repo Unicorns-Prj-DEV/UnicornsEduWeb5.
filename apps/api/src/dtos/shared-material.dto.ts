@@ -28,12 +28,17 @@ export interface SharedMaterialResponseDto {
   updatedAt: Date;
 }
 
-/** Tiết đang dùng một Bộ câu hỏi — để cảnh báo trước khi sửa bộ. */
+/**
+ * Tiết đang dùng một Bộ câu hỏi (hoặc một câu) — để cảnh báo trước khi sửa bộ,
+ * chuyển câu vào / ra bộ.
+ */
 export interface SharedMaterialUsageDto {
-  /** Số tiết thực hành đang chứa bộ. */
+  /** Số tiết thực hành đang chứa bộ / câu. */
   lessonCount: number;
   /** Trong đó, số tiết đã giao cho ít nhất một lớp. */
   assignedLessonCount: number;
+  /** Số tiết lý thuyết có bài ôn nhẹ chứa bộ / câu. */
+  quizLessonCount: number;
 }
 
 export class SharedMaterialFilterDto {

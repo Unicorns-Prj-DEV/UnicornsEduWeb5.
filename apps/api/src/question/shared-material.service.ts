@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from 'generated/enums';
+import type { Prisma } from 'generated/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { LmsProfileConfig } from '../lms-profile/lms-profile';
 import { ActionHistoryService } from '../action-history/action-history.service';
@@ -17,6 +18,7 @@ import {
   UpdateSharedMaterialDto,
 } from '../dtos/shared-material.dto';
 import { assertAudioAttachable, withAudioRefs } from './audio-asset.service';
+import { linkQuestionToSetLessons } from './set-lesson-sync';
 
 type MaterialActor = {
   userId?: string;
@@ -204,15 +206,34 @@ export class SharedMaterialService {
     return withAudio;
   }
 
-  /** Tiết thực hành đang dùng bộ (tiết đi theo bộ → sửa bộ là sửa các tiết này). */
+  /** Tiết thực hành / bài ôn đang dùng bộ (tiết đi theo bộ → sửa bộ là sửa các tiết này). */
   async usage(id: string): Promise<SharedMaterialUsageDto> {
     this.assertEnabled();
     await this.findOrThrow(id);
-    const links = await this.prisma.questionLink.findMany({
-      where: { question: { sharedMaterialId: id, deletedAt: null } },
-      distinct: ['lessonId'],
-      select: { lessonId: true },
-    });
+    return this.lessonUsage({ sharedMaterialId: id, deletedAt: null });
+  }
+
+  /** Tiết thực hành / bài ôn đang chứa một câu — cảnh báo khi chuyển câu vào / ra bộ. */
+  async questionUsage(questionId: string): Promise<SharedMaterialUsageDto> {
+    this.assertEnabled();
+    return this.lessonUsage({ id: questionId });
+  }
+
+  private async lessonUsage(
+    question: Prisma.QuestionWhereInput,
+  ): Promise<SharedMaterialUsageDto> {
+    const [links, quizzes] = await Promise.all([
+      this.prisma.questionLink.findMany({
+        where: { question },
+        distinct: ['lessonId'],
+        select: { lessonId: true },
+      }),
+      this.prisma.lessonQuiz.findMany({
+        where: { question },
+        distinct: ['lessonId'],
+        select: { lessonId: true },
+      }),
+    ]);
     const lessonIds = links.map((l) => l.lessonId);
     const assigned = lessonIds.length
       ? await this.prisma.classContentItem.findMany({
@@ -224,6 +245,7 @@ export class SharedMaterialService {
     return {
       lessonCount: lessonIds.length,
       assignedLessonCount: assigned.length,
+      quizLessonCount: quizzes.length,
     };
   }
 
@@ -260,6 +282,96 @@ export class SharedMaterialService {
           data: { setPosition },
         });
       }
+    });
+  }
+
+  /**
+   * Câu lẻ vào bộ (ADR 2026-10-09-question-set): gỡ mọi link lẻ của câu trong
+   * tiết thực hành / bài ôn, câu nhận chuyên đề của bộ, đứng cuối bộ và vào mọi
+   * tiết / bài ôn đang dùng bộ.
+   */
+  async moveQuestionIn(
+    id: string,
+    questionId: string,
+    actor: MaterialActor,
+  ): Promise<void> {
+    this.assertEnabled();
+    const set = await this.findOrThrow(id);
+    await this.assertWriteAccess(actor, set.courseId);
+    const question = await this.prisma.question.findUnique({
+      where: { id: questionId },
+    });
+    if (!question || question.deletedAt) {
+      throw new NotFoundException('Không tìm thấy câu hỏi.');
+    }
+    if (question.courseId !== set.courseId) {
+      throw new BadRequestException('Câu phải cùng khoá với bộ.');
+    }
+    if (question.sharedMaterialId) {
+      throw new BadRequestException(
+        question.sharedMaterialId === id
+          ? 'Câu đã ở trong bộ này.'
+          : 'Câu đang thuộc bộ khác — đưa ra khỏi bộ đó trước.',
+      );
+    }
+    const { _max } = await this.prisma.question.aggregate({
+      where: { sharedMaterialId: id, deletedAt: null },
+      _max: { setPosition: true },
+    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.questionLink.deleteMany({ where: { questionId } });
+      await tx.lessonQuiz.deleteMany({ where: { questionId } });
+      const row = await tx.question.update({
+        where: { id: questionId },
+        data: {
+          sharedMaterialId: id,
+          setPosition: (_max.setPosition ?? -1) + 1,
+          moduleId: set.moduleId,
+        },
+      });
+      await linkQuestionToSetLessons(tx, questionId, id);
+      await this.actionHistory.recordUpdate(tx, {
+        entityType: 'question',
+        entityId: questionId,
+        actor,
+        beforeValue: question,
+        afterValue: row,
+      });
+    });
+  }
+
+  /**
+   * Câu ra khỏi bộ: biến mất khỏi mọi tiết / bài ôn đang dùng bộ, thành câu lẻ
+   * chưa vào tiết nào. Lượt đã bắt đầu đọc snapshot nên không đổi.
+   */
+  async moveQuestionOut(
+    id: string,
+    questionId: string,
+    actor: MaterialActor,
+  ): Promise<void> {
+    this.assertEnabled();
+    const set = await this.findOrThrow(id);
+    await this.assertWriteAccess(actor, set.courseId);
+    const question = await this.prisma.question.findUnique({
+      where: { id: questionId },
+    });
+    if (!question || question.deletedAt || question.sharedMaterialId !== id) {
+      throw new NotFoundException('Câu không thuộc bộ này.');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.questionLink.deleteMany({ where: { questionId } });
+      await tx.lessonQuiz.deleteMany({ where: { questionId } });
+      const row = await tx.question.update({
+        where: { id: questionId },
+        data: { sharedMaterialId: null, setPosition: null },
+      });
+      await this.actionHistory.recordUpdate(tx, {
+        entityType: 'question',
+        entityId: questionId,
+        actor,
+        beforeValue: question,
+        afterValue: row,
+      });
     });
   }
 

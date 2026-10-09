@@ -23,6 +23,8 @@ export interface SharedMaterialUsage {
   lessonCount: number;
   /** Số tiết trong đó đã giao cho lớp. */
   assignedLessonCount: number;
+  /** Số tiết lý thuyết có bài ôn nhẹ chứa bộ / câu. */
+  quizLessonCount: number;
 }
 
 export interface CreateSharedMaterialInput {
