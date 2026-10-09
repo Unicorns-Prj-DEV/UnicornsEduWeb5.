@@ -25,9 +25,10 @@ import {
   buildExamLayout,
   isElectiveConflict,
   materialHeaders,
+  materialSegments,
 } from "@/lib/exam-layout";
 import { AttemptAudioProvider } from "@/components/student/AttemptAudio";
-import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
+import MaterialBlock from "@/components/student/MaterialBlock";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import {
   answeredQuestionCount,
@@ -38,6 +39,8 @@ import {
 } from "@/lib/attempt-autosave.helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { useStickyBottom } from "@/hooks/use-sticky-bottom";
 import StudentAttemptTimer from "@/components/student/StudentAttemptTimer";
 import StudentAttemptQuestion from "@/components/student/StudentAttemptQuestion";
 import StudentAttemptQuestionGrid from "@/components/student/StudentAttemptQuestionGrid";
@@ -415,6 +418,13 @@ function StudentAttemptInProgress({
   );
   const electiveConflict = !closed && isElectiveConflict(questions);
   const isIt = attempt.scoring === "absolute_it";
+  // Mobile: timer + lưới câu dính đầu trang → audio của bộ dính ngay dưới lưới.
+  // Desktop: hai thanh đó ở cột phải → audio dính sát mép trên như timer.
+  const gridRef = useRef<HTMLElement>(null);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const gridBottom = useStickyBottom(gridRef, !closed && !isDesktop);
+  const materialAudioTop =
+    gridBottom === null ? "0px" : `calc(${gridBottom}px + 0.5rem)`;
 
   return (
     <div className="space-y-4 pb-28">
@@ -449,6 +459,7 @@ function StudentAttemptInProgress({
               questions={questions}
               labels={layout.map((v) => v.shortLabel)}
               className="sticky top-[3.75rem] lg:static"
+              ref={gridRef}
             />
           </aside>
         )}
@@ -543,37 +554,52 @@ function StudentAttemptInProgress({
           )}
 
           <div className="space-y-3">
-            {layout.map((view, idx) => (
-              <div key={view.question.questionId} className="space-y-3">
-                {view.partHeader ? (
-                  <h2 className="pt-2 text-base font-bold tracking-wide text-text-primary">
-                    {view.partHeader}
-                  </h2>
-                ) : null}
-                {view.groupHeader ? (
-                  <h3 className="text-sm font-semibold text-primary">
-                    {view.groupHeader}
-                  </h3>
-                ) : null}
-                {materials[idx] ? (
-                  <SharedMaterialPanel
-                    header={materials[idx]}
-                    gapNumbers={gapNumbers}
+            {materialSegments(materials).map(({ header, indices }) => {
+              const first = layout[indices[0]];
+              const questionsOf = indices.map((idx) => {
+                const view = layout[idx];
+                return (
+                  <StudentAttemptQuestion
+                    key={view.question.questionId}
+                    question={view.question}
+                    index={idx}
+                    number={view.number}
+                    scoring={attempt.scoring}
+                    disabled={questionsDisabled}
+                    reveal={closed && attempt.resultsReleased}
+                    onChange={(val) =>
+                      onChangeQuestion(view.question.questionId, val)
+                    }
                   />
-                ) : null}
-                <StudentAttemptQuestion
-                  question={view.question}
-                  index={idx}
-                  number={view.number}
-                  scoring={attempt.scoring}
-                  disabled={questionsDisabled}
-                  reveal={closed && attempt.resultsReleased}
-                  onChange={(val) =>
-                    onChangeQuestion(view.question.questionId, val)
-                  }
-                />
-              </div>
-            ))}
+                );
+              });
+              return (
+                <div key={first.question.questionId} className="space-y-3">
+                  {first.partHeader ? (
+                    <h2 className="pt-2 text-base font-bold tracking-wide text-text-primary">
+                      {first.partHeader}
+                    </h2>
+                  ) : null}
+                  {first.groupHeader ? (
+                    <h3 className="text-sm font-semibold text-primary">
+                      {first.groupHeader}
+                    </h3>
+                  ) : null}
+                  {header ? (
+                    <MaterialBlock
+                      header={header}
+                      gapNumbers={gapNumbers}
+                      stickyTop={materialAudioTop}
+                      className="space-y-3"
+                    >
+                      {questionsOf}
+                    </MaterialBlock>
+                  ) : (
+                    questionsOf
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {!closed && !isReview && (

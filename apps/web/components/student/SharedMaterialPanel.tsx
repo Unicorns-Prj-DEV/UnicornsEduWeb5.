@@ -19,13 +19,16 @@ const NO_NUMBERS: ReadonlyMap<string, number> = new Map();
  * Tư liệu dùng chung hiện một lần trước câu đầu của khối. Mở sẵn; thu gọn được
  * để đỡ cuộn trên điện thoại. Vị trí trống hiện số câu theo `gapNumbers`
  * (questionId → số câu trong lượt làm); câu vắng hiện ô không số.
+ * `showAudio` false khi audio do nơi khác hiện (`MaterialBlock` cho dính).
  */
 export default function SharedMaterialPanel({
   header,
   gapNumbers = NO_NUMBERS,
+  showAudio = true,
 }: {
   header: MaterialHeader;
   gapNumbers?: ReadonlyMap<string, number>;
+  showAudio?: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const range =
@@ -51,7 +54,7 @@ export default function SharedMaterialPanel({
         />
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-3 px-3 pb-3 sm:px-4 sm:pb-4">
-        {header.audio ? (
+        {showAudio && header.audio ? (
           <AttemptAudio audio={header.audio} label="Audio tư liệu" />
         ) : null}
         <MathContent

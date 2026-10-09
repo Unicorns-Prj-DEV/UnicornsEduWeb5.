@@ -42,8 +42,9 @@ import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import EssayAnswerInput from "@/components/student/EssayAnswerInput";
 import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
+import MaterialBlock from "@/components/student/MaterialBlock";
 import { openAudio } from "@/lib/attempt-audio";
-import { materialHeaders } from "@/lib/exam-layout";
+import { materialHeaders, materialSegments } from "@/lib/exam-layout";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
 import { studentClassLessonsHref } from "@/lib/course-content-routes";
@@ -418,27 +419,40 @@ function LessonQuizSection({
             <QuizReview answers={savedAnswers} />
           ) : (
             <div className="space-y-4">
-              {quizzes.map((quiz, idx) => (
-                <Fragment key={quiz.questionId}>
-                  {quizMaterials[idx] && (
-                    <SharedMaterialPanel
-                      header={quizMaterials[idx]}
-                      gapNumbers={quizGapNumbers}
+              {materialSegments(quizMaterials).map(({ header, indices }) => {
+                const inputs = indices.map((idx) => {
+                  const quiz = quizzes[idx];
+                  return (
+                    <QuizQuestionInput
+                      key={quiz.questionId}
+                      quiz={quiz}
+                      index={idx}
+                      value={draftAnswers[quiz.questionId]}
+                      onChange={(val) =>
+                        setDraftAnswers((prev) => ({
+                          ...prev,
+                          [quiz.questionId]: val,
+                        }))
+                      }
                     />
-                  )}
-                  <QuizQuestionInput
-                    quiz={quiz}
-                    index={idx}
-                    value={draftAnswers[quiz.questionId]}
-                    onChange={(val) =>
-                      setDraftAnswers((prev) => ({
-                        ...prev,
-                        [quiz.questionId]: val,
-                      }))
-                    }
-                  />
-                </Fragment>
-              ))}
+                  );
+                });
+                const key = quizzes[indices[0]].questionId;
+                // -1rem: dính sát dưới navbar (xem ghi chú ở student layout).
+                return header ? (
+                  <MaterialBlock
+                    key={key}
+                    header={header}
+                    gapNumbers={quizGapNumbers}
+                    stickyTop="-1rem"
+                    className="space-y-4"
+                  >
+                    {inputs}
+                  </MaterialBlock>
+                ) : (
+                  <Fragment key={key}>{inputs}</Fragment>
+                );
+              })}
               <div className="flex justify-end pt-2">
                 <button
                   type="button"

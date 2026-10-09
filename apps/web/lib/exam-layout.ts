@@ -246,3 +246,31 @@ export function materialHeaders<Q>(
     };
   });
 }
+
+export interface MaterialSegment {
+  /** Tư liệu của khối; null = một câu lẻ. */
+  header: MaterialHeader | null;
+  /** Chỉ số (trong danh sách câu) các câu của đoạn, liền nhau. */
+  indices: number[];
+}
+
+/**
+ * Chia danh sách câu thành đoạn theo `materialHeaders`: mỗi bộ là một đoạn gồm
+ * mọi câu của khối, câu lẻ là đoạn riêng — để khối bộ bọc chung một phần tử
+ * (trình phát audio của bộ dính trong phạm vi khối).
+ */
+export function materialSegments(
+  headers: (MaterialHeader | null)[],
+): MaterialSegment[] {
+  const segments: MaterialSegment[] = [];
+  let i = 0;
+  while (i < headers.length) {
+    const header = headers[i];
+    const end = header ? header.lastNumber - 1 : i;
+    const indices: number[] = [];
+    for (let k = i; k <= end; k += 1) indices.push(k);
+    segments.push({ header, indices });
+    i = end + 1;
+  }
+  return segments;
+}
