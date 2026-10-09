@@ -681,7 +681,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 ### 4.6d-sm `shared_materials` (Tư liệu dùng chung — hồ sơ JP)
 
-- Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `title` (≤ 200, để chọn/lọc), `content` (`TEXT`, HTML TipTap), `created_at`, `updated_at`.
+- Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `title` (≤ 200, để chọn/lọc), `content` (`TEXT`, HTML TipTap; có thể chứa **vị trí trống** `[[#<questionId>]]` nối tới câu gắn tư liệu — web đổi thành số câu trong lượt làm `（27）`, câu vắng/đã gỡ hiện `（　　）`), `created_at`, `updated_at`.
 - Quan hệ: `questions.shared_material_id` (1-N). Xoá bị chặn (`409`) khi còn câu chưa xoá đang gắn; câu đã soft-delete được tháo gắn trước khi xoá.
 - Index `(course_id)`. Migration `20261009050000_shared_material`. ADR `docs/adr/2026-10-09-shared-material.md`.
 

@@ -10,15 +10,21 @@ import {
 import MathContent from "@/components/ui/MathContent";
 import { cn } from "@/lib/utils";
 import type { MaterialHeader } from "@/lib/exam-layout";
+import { numberMaterialGaps } from "@/lib/material-gaps";
+
+const NO_NUMBERS: ReadonlyMap<string, number> = new Map();
 
 /**
  * Tư liệu dùng chung hiện một lần trước câu đầu của khối. Mở sẵn; thu gọn được
- * để đỡ cuộn trên điện thoại.
+ * để đỡ cuộn trên điện thoại. Vị trí trống hiện số câu theo `gapNumbers`
+ * (questionId → số câu trong lượt làm); câu vắng hiện ô không số.
  */
 export default function SharedMaterialPanel({
   header,
+  gapNumbers = NO_NUMBERS,
 }: {
   header: MaterialHeader;
+  gapNumbers?: ReadonlyMap<string, number>;
 }) {
   const [open, setOpen] = useState(true);
   const range =
@@ -45,7 +51,7 @@ export default function SharedMaterialPanel({
       </CollapsibleTrigger>
       <CollapsibleContent className="px-3 pb-3 sm:px-4 sm:pb-4">
         <MathContent
-          content={header.content}
+          content={numberMaterialGaps(header.content, gapNumbers)}
           className="max-w-none text-base text-text-primary sm:text-sm [&_img]:h-auto [&_img]:max-w-full"
         />
       </CollapsibleContent>

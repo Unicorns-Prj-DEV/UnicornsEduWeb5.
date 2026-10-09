@@ -344,6 +344,9 @@ function LessonQuizSection({
     quizzes,
     (q) => q.question.sharedMaterial,
   );
+  const quizGapNumbers = new Map(
+    quizzes.map((q, i) => [q.questionId, i + 1]),
+  );
 
   const submitMutation = useMutation({
     mutationFn: () => {
@@ -415,7 +418,10 @@ function LessonQuizSection({
               {quizzes.map((quiz, idx) => (
                 <Fragment key={quiz.questionId}>
                   {quizMaterials[idx] && (
-                    <SharedMaterialPanel header={quizMaterials[idx]} />
+                    <SharedMaterialPanel
+                      header={quizMaterials[idx]}
+                      gapNumbers={quizGapNumbers}
+                    />
                   )}
                   <QuizQuestionInput
                     quiz={quiz}
@@ -565,6 +571,9 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
     answers,
     (a) => a.question.sharedMaterial,
   );
+  const reviewGapNumbers = new Map(
+    answers.map((a, i) => [a.questionId, i + 1]),
+  );
   return (
     <div className="space-y-4">
       <p className="text-xs text-text-muted mb-2">
@@ -592,7 +601,10 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
         return (
           <Fragment key={ans.questionId}>
           {reviewMaterials[idx] && (
-            <SharedMaterialPanel header={reviewMaterials[idx]} />
+            <SharedMaterialPanel
+              header={reviewMaterials[idx]}
+              gapNumbers={reviewGapNumbers}
+            />
           )}
           <div
             className={cn(

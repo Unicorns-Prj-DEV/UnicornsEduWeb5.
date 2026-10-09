@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import * as questionApi from "@/lib/apis/question.api";
 import * as sharedMaterialApi from "@/lib/apis/shared-material.api";
-import { sharedMaterialKeys } from "@/lib/query-keys";
+import { questionKeys, sharedMaterialKeys } from "@/lib/query-keys";
+import { appendInlineText } from "@/lib/fill-blank";
+import { materialGapIds, materialGapMarker } from "@/lib/material-gaps";
+import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import {
   ResponsiveActionFooter,
   ResponsiveDialog,
@@ -20,7 +24,13 @@ import {
   type SharedMaterial,
 } from "@/dtos/shared-material.dto";
 
-/** Soạn / sửa một Tư liệu dùng chung (đoạn văn, ảnh). */
+/** Chữ đầu của đề câu (bỏ thẻ HTML) để người soạn nhận ra câu. */
+function questionExcerpt(content: string): string {
+  const text = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return text.length > 60 ? `${text.slice(0, 60)}…` : text || "(câu không có chữ)";
+}
+
+/** Soạn / sửa một Tư liệu dùng chung (đoạn văn, ảnh, vị trí trống). */
 export default function SharedMaterialFormDialog({
   courseId,
   material,
@@ -36,6 +46,17 @@ export default function SharedMaterialFormDialog({
     content: material?.content ?? "",
   };
   const [form, setForm] = useState(initial);
+  const [gapQuestionId, setGapQuestionId] = useState("");
+
+  // Chỉ câu đang gắn tư liệu này mới nối được vị trí trống.
+  const attachedFilter = { courseId, sharedMaterialId: material?.id };
+  const { data: attached = [], isPending: attachedPending } = useQuery({
+    queryKey: questionKeys.list(attachedFilter),
+    queryFn: () => questionApi.getQuestions(attachedFilter, 0, 100),
+    enabled: Boolean(material),
+  });
+  const attachedById = new Map(attached.map((q) => [q.id, q]));
+  const gapIds = materialGapIds(form.content);
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -118,6 +139,72 @@ export default function SharedMaterialFormDialog({
                 placeholder="Dán đoạn văn hoặc chèn ảnh..."
                 minHeight="min-h-[200px]"
               />
+            </div>
+            <div className="space-y-2 rounded-lg border border-border-default p-3">
+              <span className="block text-xs font-medium text-text-muted">
+                Vị trí trống (đoạn văn điền số câu)
+              </span>
+              {material && attached.length > 0 ? (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="min-w-0 flex-1">
+                    <UpgradedSelect
+                      searchable
+                      value={gapQuestionId}
+                      onValueChange={setGapQuestionId}
+                      options={attached.map((q) => ({
+                        value: q.id,
+                        label: questionExcerpt(q.content),
+                      }))}
+                      placeholder="Chọn câu nối tới vị trí trống"
+                      ariaLabel="Câu nối tới vị trí trống"
+                      noResultsLabel="Không tìm thấy câu."
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!gapQuestionId}
+                    onClick={() => {
+                      setForm((prev) => ({
+                        ...prev,
+                        content: appendInlineText(
+                          prev.content,
+                          materialGapMarker(gapQuestionId),
+                        ),
+                      }));
+                      setGapQuestionId("");
+                    }}
+                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-border-default px-3 text-sm text-primary hover:border-primary/50 disabled:opacity-50 sm:min-h-10"
+                  >
+                    Chèn vị trí trống
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-text-muted">
+                  Lưu tư liệu và gắn câu vào trước, rồi mở lại để chèn vị trí
+                  trống.
+                </p>
+              )}
+              <p className="text-xs text-text-muted">
+                Dấu <code>[[#…]]</code> chèn vào cuối nội dung — cắt/dán tới đúng
+                chỗ. Học sinh thấy số câu trong lượt làm, vd （27）.
+              </p>
+              {gapIds.length > 0 && !(material && attachedPending) ? (
+                <ol className="space-y-1 text-xs">
+                  {gapIds.map((id) => {
+                    const q = attachedById.get(id);
+                    return (
+                      <li
+                        key={id}
+                        className={q ? "text-text-secondary" : "text-warning"}
+                      >
+                        {q
+                          ? `Nối tới: ${questionExcerpt(q.content)}`
+                          : "Nối tới câu không còn gắn tư liệu này — học sinh thấy ô không số. Xoá dấu hoặc gắn lại câu."}
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : null}
             </div>
             {material && material.questionCount > 0 ? (
               <p className="text-xs text-text-muted">

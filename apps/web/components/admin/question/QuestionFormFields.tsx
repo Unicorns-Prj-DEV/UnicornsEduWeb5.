@@ -11,6 +11,7 @@ import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker
 import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
 import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
 import { appendBlankMarker } from "@/lib/fill-blank";
+import { materialGapIds } from "@/lib/material-gaps";
 import {
   ESSAY_INPUT_SIZE_LABELS,
   type EssayInputSizeDto,
@@ -101,11 +102,14 @@ export default function QuestionFormFields({
   value,
   onChange,
   courseSlot,
+  questionId,
 }: {
   courseId: string;
   value: QuestionFormValue;
   onChange: (patch: Partial<QuestionFormValue>) => void;
   courseSlot?: ReactNode;
+  /** Câu đang sửa (chưa có khi tạo mới) — để nhận ra vị trí trống nối tới câu. */
+  questionId?: string;
 }) {
   const viewIdPrefix = useId();
   const viewPanelId = `${viewIdPrefix}-panel`;
@@ -146,6 +150,14 @@ export default function QuestionFormFields({
   const selectedMaterial = materials.find(
     (m) => m.id === value.sharedMaterialId,
   );
+  // Tư liệu khác (thường là tư liệu vừa gỡ) còn vị trí trống nối tới câu này.
+  const orphanGapMaterial = questionId
+    ? materials.find(
+        (m) =>
+          m.id !== value.sharedMaterialId &&
+          materialGapIds(m.content).includes(questionId),
+      )
+    : undefined;
 
   const chapterOptions = modules.map((ch) => ({
     value: ch.id,
@@ -199,6 +211,7 @@ export default function QuestionFormFields({
           <QuestionPreview
             value={value}
             sharedMaterialContent={selectedMaterial?.content}
+            questionId={questionId}
           />
         ) : (
           <div className="space-y-4">
@@ -262,6 +275,13 @@ export default function QuestionFormFields({
                   Câu cùng tư liệu luôn đứng liền nhau trong đề. Tạo tư liệu ở
                   “Tư liệu dùng chung” của ngân hàng câu hỏi.
                 </p>
+                {orphanGapMaterial ? (
+                  <p className="mt-1 text-xs text-warning">
+                    Tư liệu “{orphanGapMaterial.title}” có vị trí trống nối tới
+                    câu này. Không gắn câu vào tư liệu đó thì vị trí trống hiện
+                    không số — sửa tư liệu để gỡ.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

@@ -1,12 +1,17 @@
 import { BLANK_MARKER } from "@/dtos/question.dto";
 
-/** Nối thêm một ô `[[___]]` vào cuối đề (trong đoạn cuối nếu đề là HTML). */
-export function appendBlankMarker(html: string): string {
+/** Nối thêm `text` vào cuối nội dung (trong đoạn cuối nếu là HTML). */
+export function appendInlineText(html: string, text: string): string {
   const trimmed = html.trimEnd();
   if (trimmed.endsWith("</p>")) {
-    return `${trimmed.slice(0, -"</p>".length)} ${BLANK_MARKER}</p>`;
+    return `${trimmed.slice(0, -"</p>".length)} ${text}</p>`;
   }
-  return trimmed ? `${trimmed} ${BLANK_MARKER}` : `<p>${BLANK_MARKER}</p>`;
+  return trimmed ? `${trimmed} ${text}` : `<p>${text}</p>`;
+}
+
+/** Nối thêm một ô `[[___]]` vào cuối đề (trong đoạn cuối nếu đề là HTML). */
+export function appendBlankMarker(html: string): string {
+  return appendInlineText(html, BLANK_MARKER);
 }
 
 /**

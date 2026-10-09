@@ -126,6 +126,7 @@ export default function QuestionFormDialog({
         <ResponsiveDialogBody className="space-y-4">
           <QuestionFormFields
             courseId={courseId}
+            questionId={question?.id}
             value={form}
             onChange={patchForm}
             courseSlot={

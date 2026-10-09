@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/ResponsiveDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import MathContent from "@/components/ui/MathContent";
+import { numberMaterialGaps } from "@/lib/material-gaps";
 import { Skeleton } from "@/components/ui/skeleton";
 import SharedMaterialFormDialog from "@/components/admin/question-bank/SharedMaterialFormDialog";
 import type { SharedMaterial } from "@/dtos/shared-material.dto";
@@ -95,7 +96,7 @@ export default function SharedMaterialsDialog({
                       {m.title}
                     </p>
                     <MathContent
-                      content={m.content}
+                      content={numberMaterialGaps(m.content, new Map())}
                       className="mt-1 line-clamp-2 text-xs text-text-secondary"
                     />
                     <p className="mt-1 text-xs text-text-muted">

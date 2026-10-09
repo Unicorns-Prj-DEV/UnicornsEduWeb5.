@@ -401,6 +401,9 @@ function StudentAttemptInProgress({
   );
   const labelOf = (n: number) => layout[n - 1]?.shortLabel ?? String(n);
   const materials = materialHeaders(questions, (q) => q.sharedMaterial);
+  const gapNumbers = new Map(
+    layout.map((view) => [view.question.questionId, view.number]),
+  );
   const electiveConflict = !closed && isElectiveConflict(questions);
   const isIt = attempt.scoring === "absolute_it";
 
@@ -544,7 +547,10 @@ function StudentAttemptInProgress({
                   </h3>
                 ) : null}
                 {materials[idx] ? (
-                  <SharedMaterialPanel header={materials[idx]} />
+                  <SharedMaterialPanel
+                    header={materials[idx]}
+                    gapNumbers={gapNumbers}
+                  />
                 ) : null}
                 <StudentAttemptQuestion
                   question={view.question}
