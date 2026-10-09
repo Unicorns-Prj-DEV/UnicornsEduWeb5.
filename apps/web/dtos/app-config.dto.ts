@@ -19,4 +19,6 @@ export interface AppConfig {
   questionSkills: boolean;
   /** Chia 100 theo trọng số câu-trong-tiết (JP); `points` trên link là trọng số. */
   questionWeights: boolean;
+  /** Câu tự luận chọn được kiểu ô ngắn/dài (JP). */
+  essayInputSizes: boolean;
 }

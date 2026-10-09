@@ -584,6 +584,8 @@ model Question {
   answerGuide       String? // for essay type – optional guide text (HTML)
   /// Kỹ năng (chỉ hồ sơ JP, chọn nhiều). Câu cũ được phép rỗng.
   skills            QuestionSkill[] @default([])
+  /// Kiểu ô nhập câu tự luận (hồ sơ JP). null = ô dài (câu cũ). Không ảnh hưởng chấm.
+  essayInputSize    EssayInputSize? @map("essay_input_size")
   deletedAt         DateTime?       @map("deleted_at")
   createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -623,6 +625,12 @@ model QuestionLink {
 }
 
 /// Kỹ năng câu hỏi hồ sơ JP (CONTEXT.md — Kỹ năng). Chỉ phân loại, không quyết định cách trả lời.
+/// Kiểu ô nhập câu tự luận: ngắn (một dòng, tự xuống dòng) / dài (nhiều dòng).
+enum EssayInputSize {
+  short
+  long
+}
+
 enum QuestionSkill {
   kanji
   vocabulary
@@ -689,39 +697,41 @@ model Attempt {
 
 /// Câu trả lời trong một Attempt. Snapshot toàn bộ đề lúc `start`; chấm không đọc `Question` live.
 model AttemptAnswer {
-  id              String       @id @default(uuid())
-  attemptId       String       @map("attempt_id")
-  questionId      String       @map("question_id")
-  order           Int          @default(0)
+  id              String          @id @default(uuid())
+  attemptId       String          @map("attempt_id")
+  questionId      String          @map("question_id")
+  order           Int             @default(0)
   /// `equal_100`: 100/N (Hamilton). `absolute_it`: 25 (trắc nghiệm) / 100 (Đúng/Sai), đơn vị 1/100 điểm.
-  pointsPossible  Int          @map("points_possible")
+  pointsPossible  Int             @map("points_possible")
   /// Snapshot vị trí câu (Bắt buộc / Tự chọn 1 / Tự chọn 2).
-  slot            QuestionSlot @default(required)
+  slot            QuestionSlot    @default(required)
   /// Snapshot loại câu lúc start.
   type            QuestionType
-  content         String       @db.Text
+  content         String          @db.Text
   options         Json?
-  correctIndex    Int?         @map("correct_index")
+  correctIndex    Int?            @map("correct_index")
   /// Đảo đáp án: `optionOrder[i]` = chỉ số gốc của phương án hiển thị thứ i. Rỗng = không đảo.
   /// `options`/`correctIndex`/`tfAnswerKey`/`choiceIndex`/`tfChoices` đều theo thứ tự hiển thị.
-  optionOrder     Int[]        @default([]) @map("option_order")
-  explanation     String?      @db.Text
-  answerGuide     String?      @map("answer_guide") @db.Text
-  difficultyLabel String       @map("difficulty_label")
+  optionOrder     Int[]           @default([]) @map("option_order")
+  explanation     String?         @db.Text
+  answerGuide     String?         @map("answer_guide") @db.Text
+  /// Snapshot kiểu ô tự luận lúc start (null = ô dài).
+  essayInputSize  EssayInputSize? @map("essay_input_size")
+  difficultyLabel String          @map("difficulty_label")
   /// Snapshot đáp án nhóm câu Đúng/Sai — được cập nhật khi sửa đáp án (chấm lại).
-  tfAnswerKey     Boolean[]    @default([]) @map("tf_answer_key")
-  choiceIndex     Int?         @map("choice_index")
+  tfAnswerKey     Boolean[]       @default([]) @map("tf_answer_key")
+  choiceIndex     Int?            @map("choice_index")
   /// Lựa chọn 4 nhận định: `(boolean | null)[4]`.
-  tfChoices       Json?        @map("tf_choices")
-  essayAnswer     String?      @map("essay_answer") @db.Text
+  tfChoices       Json?           @map("tf_choices")
+  essayAnswer     String?         @map("essay_answer") @db.Text
   /// Học sinh đánh dấu quay lại xem trước nộp — không ảnh hưởng chấm điểm.
-  markedForReview Boolean      @default(false) @map("marked_for_review")
-  isCorrect       Boolean?     @map("is_correct")
-  pointsAwarded   Int?         @map("points_awarded")
+  markedForReview Boolean         @default(false) @map("marked_for_review")
+  isCorrect       Boolean?        @map("is_correct")
+  pointsAwarded   Int?            @map("points_awarded")
   /// Nhận xét của gia sư cho câu tự luận này — chỉ có khi đã chấm.
-  feedback        String?      @db.Text
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  feedback        String?         @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id], onDelete: Restrict)

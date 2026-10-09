@@ -1,4 +1,8 @@
-import { QuestionSkillDto, QuestionTypeDto } from "@/dtos/question.dto";
+import {
+  type EssayInputSizeDto,
+  QuestionSkillDto,
+  QuestionTypeDto,
+} from "@/dtos/question.dto";
 import { assertNever } from "@/lib/assert-never";
 import type { QuestionFormInitial } from "@/dtos/question.dto";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
@@ -14,6 +18,7 @@ export type QuestionFormPayload = {
   explanation?: string;
   answerGuide?: string;
   skills?: QuestionSkillDto[];
+  essayInputSize?: EssayInputSizeDto;
 };
 
 function isBlankHtml(html: string): boolean {
@@ -32,7 +37,10 @@ function isBlankHtml(html: string): boolean {
  */
 export function questionFormToPayload(
   form: QuestionFormValue,
-  { requireSkills = false }: { requireSkills?: boolean } = {},
+  {
+    requireSkills = false,
+    essayInputSizes = false,
+  }: { requireSkills?: boolean; essayInputSizes?: boolean } = {},
 ): PayloadResult {
   if (!form.moduleId || !form.difficultyLevelId || isBlankHtml(form.content)) {
     return { error: "Điền chuyên đề, mức khó và nội dung câu hỏi" };
@@ -64,6 +72,7 @@ export function questionFormToPayload(
           answerGuide: isBlankHtml(form.answerGuide)
             ? undefined
             : form.answerGuide.trim(),
+          ...(essayInputSizes && { essayInputSize: form.essayInputSize }),
         },
       };
     default:

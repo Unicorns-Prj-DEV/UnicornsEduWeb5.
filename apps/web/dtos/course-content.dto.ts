@@ -80,6 +80,7 @@ export interface QuestionLinkQuestion {
   tfAnswerKey: boolean[];
   explanation: string | null;
   answerGuide: string | null;
+  essayInputSize?: "short" | "long" | null;
 }
 
 export interface QuestionLink {
@@ -128,6 +129,8 @@ export interface LessonQuizQuestion {
     tfAnswerKey?: boolean[];
     explanation: string | null;
     answerGuide: string | null;
+    /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
+    essayInputSize?: "short" | "long" | null;
   };
 }
 
@@ -150,6 +153,8 @@ export interface LessonQuizAnswer {
     tfAnswerKey?: boolean[];
     explanation: string | null;
     answerGuide: string | null;
+    /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
+    essayInputSize?: "short" | "long" | null;
   };
 }
 

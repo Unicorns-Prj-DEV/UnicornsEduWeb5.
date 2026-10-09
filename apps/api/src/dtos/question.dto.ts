@@ -33,6 +33,12 @@ export enum QuestionSkillDto {
   writing = 'writing',
 }
 
+/** Kiểu ô nhập câu tự luận (chỉ hồ sơ JP). */
+export enum EssayInputSizeDto {
+  short = 'short',
+  long = 'long',
+}
+
 // --- Response DTOs ----------------------------------------------------------
 
 export interface QuestionResponseDto {
@@ -50,6 +56,8 @@ export interface QuestionResponseDto {
   answerGuide: string | null;
   /** Kỹ năng (JP); rỗng với hồ sơ khác hoặc câu JP cũ. */
   skills: QuestionSkillDto[];
+  /** Kiểu ô tự luận (JP); null = ô dài (câu cũ / hồ sơ khác). */
+  essayInputSize: EssayInputSizeDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -152,6 +160,16 @@ export class CreateQuestionDto {
   @IsIn(Object.values(QuestionSkillDto), { each: true })
   @ArrayMaxSize(7)
   skills?: QuestionSkillDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Kiểu ô nhập câu tự luận (chỉ hồ sơ JP): short = một dòng, long = nhiều dòng. null = ô dài. Chỉ đổi giao diện làm bài.',
+    enum: EssayInputSizeDto,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsIn(Object.values(EssayInputSizeDto))
+  essayInputSize?: EssayInputSizeDto | null;
 }
 
 /** DTO for updating a question – all fields optional */
@@ -214,6 +232,16 @@ export class UpdateQuestionDto {
   @IsIn(Object.values(QuestionSkillDto), { each: true })
   @ArrayMaxSize(7)
   skills?: QuestionSkillDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Kiểu ô nhập câu tự luận (chỉ hồ sơ JP): short = một dòng, long = nhiều dòng. null = ô dài. Chỉ đổi giao diện làm bài.',
+    enum: EssayInputSizeDto,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsIn(Object.values(EssayInputSizeDto))
+  essayInputSize?: EssayInputSizeDto | null;
 }
 
 // --- Bulk import DTOs -------------------------------------------------------

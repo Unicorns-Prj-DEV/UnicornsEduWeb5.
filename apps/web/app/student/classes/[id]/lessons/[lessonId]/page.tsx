@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import type { LessonQuizQuestion, LessonQuizAnswer } from "@/dtos/course-content.dto";
 import type { TrueFalseChoices } from "@/dtos/attempt.dto";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
+import EssayAnswerInput from "@/components/student/EssayAnswerInput";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
 import { studentClassLessonsHref } from "@/lib/course-content-routes";
@@ -488,16 +489,12 @@ function QuizQuestionInput({
           ))}
         </div>
       ) : (
-        <textarea
-          value={value?.essayAnswer ?? ""}
-          onChange={(e) => onChange({ essayAnswer: e.target.value })}
-          aria-label="Nhập câu trả lời"
-          placeholder="Nhập câu trả lời..."
+        <EssayAnswerInput
+          value={value?.essayAnswer}
+          size={quiz.question.essayInputSize}
           rows={4}
-          aria-invalid={
-            (value?.essayAnswer?.length ?? 0) > CONTENT_LIMITS.essayAnswer
-          }
-          className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="rounded-lg"
+          onChange={(essayAnswer) => onChange({ essayAnswer })}
         />
       )}
       {!isSingleChoice &&

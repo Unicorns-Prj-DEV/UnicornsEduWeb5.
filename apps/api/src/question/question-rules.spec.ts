@@ -85,6 +85,34 @@ describe('questionShapeError', () => {
   });
 });
 
+describe('kiểu ô tự luận (essayInputSize)', () => {
+  const ENG = lmsProfileConfig('eng');
+  it.each(['short', 'long'] as const)('JP nhận tự luận ô %s', (size) => {
+    expect(
+      questionShapeError({ type: 'essay', essayInputSize: size }, JP),
+    ).toBeNull();
+  });
+  it('ENG từ chối kiểu ô', () => {
+    expect(
+      questionShapeError({ type: 'essay', essayInputSize: 'short' }, ENG),
+    ).toBe('Hồ sơ ENG không có kiểu ô tự luận.');
+    expect(questionShapeError({ type: 'essay' }, ENG)).toBeNull();
+  });
+  it('câu không phải tự luận không có kiểu ô', () => {
+    expect(
+      questionShapeError(
+        {
+          type: 'single_choice',
+          options: opts(4),
+          correctIndex: 0,
+          essayInputSize: 'long',
+        },
+        JP,
+      ),
+    ).toBe('Chỉ câu tự luận có kiểu ô nhập.');
+  });
+});
+
 describe('questionSkillsError', () => {
   const ENG = lmsProfileConfig('eng');
   it('JP: tạo / sửa phải có ít nhất một kỹ năng', () => {

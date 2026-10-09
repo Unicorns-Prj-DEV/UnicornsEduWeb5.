@@ -26,6 +26,14 @@ export const QUESTION_SKILL_LABELS: Record<QuestionSkillDto, string> = {
   [QuestionSkillDto.writing]: "Viết câu",
 };
 
+/** Kiểu ô nhập câu tự luận (JP). null = ô dài (câu cũ / hồ sơ khác). */
+export type EssayInputSizeDto = "short" | "long";
+
+export const ESSAY_INPUT_SIZE_LABELS: Record<EssayInputSizeDto, string> = {
+  short: "Ô ngắn (một dòng)",
+  long: "Ô dài (nhiều dòng)",
+};
+
 /** Nhãn nhận định của câu Đúng/Sai. */
 export const TRUE_FALSE_STATEMENT_LABELS = ["a", "b", "c", "d"] as const;
 
@@ -44,6 +52,8 @@ export interface Question {
   answerGuide: string | null;
   /** Kỹ năng (JP); rỗng với hồ sơ khác hoặc câu JP cũ. */
   skills: QuestionSkillDto[];
+  /** Kiểu ô tự luận (JP); null = ô dài. */
+  essayInputSize: EssayInputSizeDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,7 +76,7 @@ export type QuestionFormInitial = Pick<
   | "explanation"
   | "answerGuide"
 > &
-  Partial<Pick<Question, "skills">>;
+  Partial<Pick<Question, "skills" | "essayInputSize">>;
 
 export interface CreateQuestionInput {
   courseId: string;
@@ -80,6 +90,7 @@ export interface CreateQuestionInput {
   explanation?: string;
   answerGuide?: string;
   skills?: QuestionSkillDto[];
+  essayInputSize?: EssayInputSizeDto | null;
 }
 
 export type UpdateQuestionInput = Partial<

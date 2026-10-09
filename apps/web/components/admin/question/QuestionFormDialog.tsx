@@ -57,6 +57,8 @@ export default function QuestionFormDialog({
     explanation: question?.explanation || "",
     answerGuide: question?.answerGuide || "",
     skills: question?.skills ?? [],
+    // Câu cũ (null) giữ ô dài như trước; câu mới mặc định ô ngắn.
+    essayInputSize: question ? (question.essayInputSize ?? "long") : "short",
   };
   const [form, setForm] = useState<QuestionFormValue>(initialValue);
   const patchForm = (patch: Partial<QuestionFormValue>) =>
@@ -87,6 +89,7 @@ export default function QuestionFormDialog({
     e.preventDefault();
     const result = questionFormToPayload(form, {
       requireSkills: appConfig?.questionSkills,
+      essayInputSizes: appConfig?.essayInputSizes,
     });
     if ("error" in result) {
       toast.error(result.error);

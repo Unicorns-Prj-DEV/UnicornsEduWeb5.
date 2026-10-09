@@ -200,6 +200,7 @@ export class AttemptService {
                 optionOrder: shuffled?.optionOrder ?? [],
                 explanation: link.question.explanation,
                 answerGuide: link.question.answerGuide,
+                essayInputSize: link.question.essayInputSize,
                 difficultyLabel: link.question.difficultyLevel.name,
               };
             }),
@@ -912,6 +913,7 @@ export class AttemptService {
         slot: ans.slot,
         content: ans.content,
         options: Array.isArray(ans.options) ? (ans.options as string[]) : null,
+        essayInputSize: ans.essayInputSize,
         choiceIndex: ans.choiceIndex,
         tfChoices:
           ans.type === QuestionType.true_false_group

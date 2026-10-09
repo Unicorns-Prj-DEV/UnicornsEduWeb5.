@@ -34,6 +34,7 @@ const LINK_INCLUDE = {
       tfAnswerKey: true,
       explanation: true,
       answerGuide: true,
+      essayInputSize: true,
     },
   },
 } satisfies Prisma.QuestionLinkInclude;

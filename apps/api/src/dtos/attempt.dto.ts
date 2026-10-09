@@ -139,6 +139,8 @@ export interface AttemptQuestionDto {
   content: string;
   /** single_choice: phương án; true_false_group: 4 nhận định a–d. */
   options: string[] | null;
+  /** Kiểu ô tự luận (snapshot): short = một dòng, long/null = nhiều dòng. */
+  essayInputSize: 'short' | 'long' | null;
   choiceIndex: number | null;
   /** Lựa chọn 4 nhận định (Đúng/Sai/trống); null với loại khác. */
   tfChoices: (boolean | null)[] | null;

@@ -480,6 +480,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `attempts.scoring` (`AttemptScoring`, default `equal_100`): snapshot hồ sơ lúc start. `equal_100` = thang 100/N như trên; `absolute_it` = điểm tuyệt đối đơn vị 1/100 điểm: trắc nghiệm `points_possible = 25` (0,25đ), nhóm Đúng/Sai `points_possible = 100` (1đ, bậc thang 1 ý → 10, 2 → 25, 3 → 50, 4 → 100). Bài cũ giữ `equal_100`.
   - `attempts.elective_voided` (`BOOLEAN`, default `false`): học sinh có ít nhất một nhận định được chọn ở **cả hai** nhóm tự chọn → mọi câu `elective_1`/`elective_2` chấm 0.
   - `attempt_answers.slot` (`QuestionSlot`): snapshot vị trí câu lúc start (từ `question_links.slot`).
+  - `attempt_answers.essay_input_size` (`EssayInputSize?`): snapshot kiểu ô tự luận lúc start (`null` = ô dài).
   - `attempt_answers.tf_answer_key` (`BOOLEAN[]`): snapshot đáp án 4 nhận định; `tf_choices` (`JSONB`, `(boolean|null)[4]`): lựa chọn của học sinh.
   - Sửa đáp án câu ở ngân hàng (`correct_index` / `tf_answer_key`) → cập nhật snapshot các `attempt_answers` của lượt đã nộp và chấm lại im lặng (`auto_graded_score`), không thông báo. Snapshot đã đảo đáp án được đổi sang thứ tự hiển thị qua `option_order` (`remapAnswerKey`); phương án đúng mới không có trong snapshot (thêm phương án sau khi lượt bắt đầu) → `correct_index = null` (không ai đúng).
   - `attempt_answers.option_order` (`INT[]`, default `{}`): hoán vị lúc đảo đáp án — `option_order[i]` = chỉ số gốc của phương án hiển thị thứ i. Rỗng = không đảo. `options`, `correct_index`, `tf_answer_key`, `choice_index`, `tf_choices` trong snapshot đều theo **thứ tự hiển thị**, nên chấm điểm không cần biết hoán vị.
@@ -663,6 +664,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `explanation` (`TEXT`, nullable): giải thích sau khi trả lời (HTML)
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
   - `skills` (`QuestionSkill[]`, default `{}`): Kỹ năng — chỉ hồ sơ JP, chọn nhiều: `kanji` | `vocabulary` | `grammar` | `reading` | `listening` | `conversation` | `writing`. JP bắt buộc ≥1 khi tạo/sửa (câu cũ rỗng chỉ bị đòi khi sửa; nhập hàng loạt chưa bắt buộc); IT/ENG luôn rỗng.
+  - `essay_input_size` (`EssayInputSize?`: `short` | `long`): kiểu ô nhập câu tự luận — chỉ hồ sơ JP, chỉ câu `essay`. `null` = ô dài (câu cũ, hồ sơ khác); form JP mặc định `short` cho câu mới. Chỉ đổi giao diện làm bài/ôn nhẹ (ô ngắn một dòng, tự xuống dòng), không giới hạn độ dài, không ảnh hưởng chấm.
   - `deleted_at` (`TIMESTAMPTZ`, nullable): soft-delete timestamp
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
 - Indexes: `(course_id)`, `(module_id)`, `(difficulty_level_id)`

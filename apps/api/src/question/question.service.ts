@@ -119,6 +119,10 @@ export class QuestionService {
             ? dto.correctIndex
             : existing.correctIndex,
         tfAnswerKey: dto.tfAnswerKey ?? existing.tfAnswerKey,
+        essayInputSize:
+          dto.essayInputSize !== undefined
+            ? dto.essayInputSize
+            : existing.essayInputSize,
       },
       this.lmsProfile.config,
     );

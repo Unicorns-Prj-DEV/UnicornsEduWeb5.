@@ -11,6 +11,8 @@ export interface QuestionShape {
   options?: unknown;
   correctIndex?: number | null;
   tfAnswerKey?: boolean[] | null;
+  /** Kiểu ô nhập của câu tự luận (JP). null = ô dài như câu cũ. */
+  essayInputSize?: 'short' | 'long' | null;
 }
 
 const TYPE_LABEL: Record<LmsQuestionType, string> = {
@@ -32,6 +34,9 @@ export function questionShapeError(
   const options = Array.isArray(shape.options) ? shape.options : null;
   const hasKey = (shape.tfAnswerKey?.length ?? 0) > 0;
   const type = shape.type as LmsQuestionType;
+  if (shape.essayInputSize != null && type !== 'essay') {
+    return 'Chỉ câu tự luận có kiểu ô nhập.';
+  }
   switch (type) {
     case 'single_choice': {
       const { min, max } = profile.optionCount;
@@ -61,6 +66,9 @@ export function questionShapeError(
     case 'essay':
       if (options?.length) return 'Câu tự luận không có phương án.';
       if (hasKey) return 'Câu tự luận không có đáp án Đúng/Sai.';
+      if (shape.essayInputSize != null && !profile.essayInputSizes) {
+        return `Hồ sơ ${profile.profile.toUpperCase()} không có kiểu ô tự luận.`;
+      }
       return null;
     default:
       return assertNever(type, 'question type');

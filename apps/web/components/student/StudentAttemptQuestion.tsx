@@ -11,6 +11,7 @@ import type {
 import { formatScoreValue } from "@/lib/attempt-score";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
+import EssayAnswerInput from "@/components/student/EssayAnswerInput";
 import { assertNever } from "@/lib/assert-never";
 
 export default function StudentAttemptQuestion({
@@ -222,17 +223,12 @@ function AnswerArea({
       );
     case "essay":
       return (
-        <textarea
-          value={question.essayAnswer ?? ""}
+        <EssayAnswerInput
+          value={question.essayAnswer}
+          size={question.essayInputSize}
           disabled={disabled}
-          onChange={(e) => onChange({ essayAnswer: e.target.value })}
-          aria-label="Nhập câu trả lời"
-          placeholder="Nhập câu trả lời..."
-          rows={5}
-          aria-invalid={
-            (question.essayAnswer?.length ?? 0) > CONTENT_LIMITS.essayAnswer
-          }
-          className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="rounded-xl"
+          onChange={(essayAnswer) => onChange({ essayAnswer })}
         />
       );
     default:

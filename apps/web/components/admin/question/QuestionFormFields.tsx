@@ -9,6 +9,8 @@ import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
 import {
+  ESSAY_INPUT_SIZE_LABELS,
+  type EssayInputSizeDto,
   QUESTION_TYPE_LABELS,
   QuestionSkillDto,
   QuestionTypeDto,
@@ -36,6 +38,8 @@ export type QuestionFormValue = {
   answerGuide: string;
   /** Kỹ năng (chỉ hồ sơ JP). */
   skills: QuestionSkillDto[];
+  /** Kiểu ô nhập câu tự luận (chỉ hồ sơ JP). Câu mới mặc định ngắn. */
+  essayInputSize: EssayInputSizeDto;
 };
 
 export const emptyQuestionFormValue: QuestionFormValue = {
@@ -50,7 +54,12 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   explanation: "",
   answerGuide: "",
   skills: [],
+  essayInputSize: "short",
 };
+
+const ESSAY_INPUT_SIZE_OPTIONS = (
+  Object.keys(ESSAY_INPUT_SIZE_LABELS) as EssayInputSizeDto[]
+).map((size) => ({ value: size, label: ESSAY_INPUT_SIZE_LABELS[size] }));
 
 const FORM_VIEWS = ["edit", "preview"] as const;
 type FormView = (typeof FORM_VIEWS)[number];
@@ -300,6 +309,27 @@ export default function QuestionFormFields({
                 minHeight="min-h-[80px]"
               />
             </div>
+
+            {value.type === QuestionTypeDto.essay &&
+            appConfig?.essayInputSizes ? (
+              <div>
+                <span className="mb-1 block text-xs font-medium text-text-muted">
+                  Kiểu ô trả lời
+                </span>
+                <UpgradedSelect
+                  value={value.essayInputSize}
+                  onValueChange={(v) =>
+                    onChange({ essayInputSize: v as EssayInputSizeDto })
+                  }
+                  options={ESSAY_INPUT_SIZE_OPTIONS}
+                  ariaLabel="Kiểu ô trả lời"
+                />
+                <p className="mt-1 text-xs text-text-muted">
+                  Chỉ đổi giao diện làm bài, không giới hạn độ dài và không ảnh
+                  hưởng chấm.
+                </p>
+              </div>
+            ) : null}
 
             {value.type === QuestionTypeDto.essay && (
               <div>

@@ -417,6 +417,7 @@ export interface QuestionLinkResponseDto {
     content: string;
     options: unknown;
     tfAnswerKey: boolean[];
+    essayInputSize: 'short' | 'long' | null;
   };
 }
 
@@ -479,6 +480,8 @@ export interface LessonQuizResponseDto {
     tfAnswerKey: boolean[];
     explanation: string | null;
     answerGuide: string | null;
+    /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
+    essayInputSize: 'short' | 'long' | null;
   };
 }
 

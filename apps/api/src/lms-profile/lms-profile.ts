@@ -35,6 +35,8 @@ export interface LmsProfileConfig {
    * mặc định 1) thay vì chia đều. Chỉ có nghĩa với `equal_100`.
    */
   questionWeights: boolean;
+  /** Câu tự luận chọn được kiểu ô nhập ngắn/dài (chỉ đổi giao diện làm bài). */
+  essayInputSizes: boolean;
 }
 
 const OPTION_COUNT = { min: 2, max: 6, default: 4 };
@@ -48,6 +50,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     electiveGroups: true,
     questionSkills: false,
     questionWeights: false,
+    essayInputSizes: false,
   },
   jp: {
     profile: 'jp',
@@ -57,6 +60,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     electiveGroups: false,
     questionSkills: true,
     questionWeights: true,
+    essayInputSizes: true,
   },
   eng: {
     profile: 'eng',
@@ -66,6 +70,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     electiveGroups: false,
     questionSkills: false,
     questionWeights: false,
+    essayInputSizes: false,
   },
 };
 

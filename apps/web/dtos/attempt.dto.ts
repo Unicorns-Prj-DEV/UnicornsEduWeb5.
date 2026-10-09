@@ -21,6 +21,8 @@ export interface AttemptQuestionDto {
   slot: QuestionSlotDto;
   content: string;
   options: string[] | null;
+  /** Kiểu ô tự luận (snapshot): short = một dòng, long/null = nhiều dòng. */
+  essayInputSize?: "short" | "long" | null;
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices: TrueFalseChoices | null;

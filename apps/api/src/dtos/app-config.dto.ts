@@ -51,4 +51,9 @@ export class AppConfigResponseDto implements LmsProfileConfig {
       'Chia 100 theo trọng số câu-trong-tiết (`points`, mặc định 1) thay vì chia đều (JP)',
   })
   questionWeights!: boolean;
+
+  @ApiProperty({
+    description: 'Câu tự luận chọn được kiểu ô ngắn/dài (JP)',
+  })
+  essayInputSizes!: boolean;
 }
