@@ -42,6 +42,12 @@ describe("contentApiPaths (Axios endpoints)", () => {
     expect(contentApiPaths.lessonQuiz("l1", "q1")).toBe(
       "/lessons/l1/quizzes/q1",
     );
+    expect(contentApiPaths.lessonQuizSets("l1")).toBe(
+      "/lessons/l1/quizzes/sets",
+    );
+    expect(contentApiPaths.lessonQuizSet("l1", "s1")).toBe(
+      "/lessons/l1/quizzes/sets/s1",
+    );
     expect(contentApiPaths.studentClassLesson("cl1", "l1")).toBe(
       "/users/me/student-classes/cl1/lessons/l1",
     );

@@ -154,6 +154,16 @@ export class CourseContentService extends CourseContentSupportService {
     return this.quizzes.unlinkQuizQuestion(...args);
   }
 
+  addSetToQuiz(...args: Parameters<LessonQuizService['addSetToQuiz']>) {
+    return this.quizzes.addSetToQuiz(...args);
+  }
+
+  removeSetFromQuiz(
+    ...args: Parameters<LessonQuizService['removeSetFromQuiz']>
+  ) {
+    return this.quizzes.removeSetFromQuiz(...args);
+  }
+
   getLessonQuizzes(...args: Parameters<LessonQuizService['getLessonQuizzes']>) {
     return this.quizzes.getLessonQuizzes(...args);
   }

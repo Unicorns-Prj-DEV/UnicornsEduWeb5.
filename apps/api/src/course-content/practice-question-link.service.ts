@@ -16,6 +16,7 @@ import { examFormError } from 'src/attempt/exam-form';
 import { parseBlankAnswerKey } from 'src/attempt/fill-blank';
 import { questionWeight } from 'src/attempt/split-total-points';
 import { loadLmsProfile } from 'src/lms-profile/lms-profile';
+import { setQuestionIdsForLesson } from 'src/question/set-lesson-sync';
 import {
   ActionHistoryActor,
   CourseContentSupportService,
@@ -343,24 +344,11 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
     const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
 
-    const set = await this.prisma.sharedMaterial.findUnique({
-      where: { id: sharedMaterialId },
-      select: { id: true, courseId: true },
-    });
-    if (!set) throw new NotFoundException('Không tìm thấy bộ câu hỏi.');
-    if (set.courseId !== courseId) {
-      throw new BadRequestException(
-        'Bộ câu hỏi phải thuộc cùng khoá với tiết.',
-      );
-    }
-    const questions = await this.prisma.question.findMany({
-      where: { sharedMaterialId, deletedAt: null },
-      orderBy: [{ setPosition: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true },
-    });
-    if (questions.length === 0) {
-      throw new BadRequestException('Bộ chưa có câu.');
-    }
+    const questionIds = await setQuestionIdsForLesson(
+      this.prisma,
+      sharedMaterialId,
+      courseId,
+    );
     const already = await this.prisma.questionLink.count({
       where: { lessonId, question: { sharedMaterialId } },
     });
@@ -372,9 +360,9 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
     });
     const start = (_max.order ?? -1) + 1;
     await this.prisma.questionLink.createMany({
-      data: questions.map((q, i) => ({
+      data: questionIds.map((questionId, i) => ({
         lessonId,
-        questionId: q.id,
+        questionId,
         order: start + i,
         points: null,
       })),

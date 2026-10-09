@@ -54,6 +54,12 @@ export const contentApiPaths = {
   lessonQuiz: (lessonId: string, questionId: string) =>
     `/lessons/${enc(lessonId)}/quizzes/${enc(questionId)}`,
 
+  lessonQuizSets: (lessonId: string) =>
+    `/lessons/${enc(lessonId)}/quizzes/sets`,
+
+  lessonQuizSet: (lessonId: string, setId: string) =>
+    `/lessons/${enc(lessonId)}/quizzes/sets/${enc(setId)}`,
+
   studentClassLesson: (classId: string, lessonId: string) =>
     `/users/me/student-classes/${enc(classId)}/lessons/${enc(lessonId)}`,
 

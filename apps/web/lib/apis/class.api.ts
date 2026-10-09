@@ -1100,6 +1100,23 @@ export async function unlinkQuizQuestion(
   await api.delete(contentApiPaths.lessonQuiz(lessonId, questionId));
 }
 
+/** Thêm nguyên Bộ câu hỏi vào bài ôn nhẹ. */
+export async function addLessonQuizSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.post(contentApiPaths.lessonQuizSets(lessonId), {
+    sharedMaterialId,
+  });
+}
+
+export async function removeLessonQuizSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.delete(contentApiPaths.lessonQuizSet(lessonId, sharedMaterialId));
+}
+
 export async function getExamLibrary(
   courseId: string,
   params?: ExamLibraryFilters,

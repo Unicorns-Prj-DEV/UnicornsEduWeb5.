@@ -84,9 +84,12 @@ export async function invalidateQuestionScopedQueries(
       }),
       // Số câu / số tiết của mỗi Bộ câu hỏi đổi theo câu.
       queryClient.invalidateQueries({ queryKey: sharedMaterialKeys.all }),
-      // Câu thêm / xoá trong bộ đi theo vào các tiết đang dùng bộ.
+      // Câu thêm / xoá trong bộ đi theo vào các tiết / bài ôn đang dùng bộ.
       queryClient.invalidateQueries({
         queryKey: practiceLessonQuestionKeys.all,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: [...courseKeys.all, "lesson-quizzes"],
       }),
     ]);
     return;

@@ -268,7 +268,7 @@ export class QuestionService {
     const usage = await this.prisma.questionLink.findMany({
       where: { questionId: id },
     });
-    // Câu của bộ: tiết đi theo bộ nên câu chỉ biến khỏi tiết (lượt cũ giữ snapshot).
+    // Câu của bộ: tiết / bài ôn đi theo bộ nên câu chỉ biến khỏi tiết (lượt cũ giữ snapshot).
     // Câu lẻ đang nằm trong tiết thì phải gỡ khỏi tiết trước.
     if (usage.length && !q.sharedMaterialId) {
       const lessonIds = usage.map((u) => u.lessonId);
@@ -281,6 +281,9 @@ export class QuestionService {
     return this.prisma.$transaction(async (tx) => {
       if (usage.length) {
         await tx.questionLink.deleteMany({ where: { questionId: id } });
+      }
+      if (q.sharedMaterialId) {
+        await tx.lessonQuiz.deleteMany({ where: { questionId: id } });
       }
       const updated = await tx.question.update({
         where: { id },

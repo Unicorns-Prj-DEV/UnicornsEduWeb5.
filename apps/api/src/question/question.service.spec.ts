@@ -36,6 +36,12 @@ describe('QuestionService', () => {
       updateMany: jest.fn(),
       deleteMany: jest.fn(),
     },
+    lessonQuiz: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+      updateMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     module: {
       findUnique: jest.fn(),
     },
@@ -589,6 +595,7 @@ describe('QuestionService', () => {
         _max: { setPosition: 2 },
       });
       mockPrisma.questionLink.findMany.mockResolvedValue([]);
+      mockPrisma.lessonQuiz.findMany.mockResolvedValue([]);
     });
 
     it('câu mới vào bộ xếp cuối bộ', async () => {
@@ -624,6 +631,24 @@ describe('QuestionService', () => {
       expect(mockPrisma).not.toHaveProperty('attemptAnswer');
     });
 
+    it('câu mới vào bộ vào luôn mọi bài ôn đang dùng bộ, ngay sau câu cuối của bộ', async () => {
+      mockPrisma.question.create.mockResolvedValue({ id: 'q9' });
+      mockPrisma.lessonQuiz.findMany.mockResolvedValue([
+        { lessonId: 'l1', order: 0 },
+        { lessonId: 'l1', order: 1 },
+      ]);
+
+      await service.create({ ...dto, sharedMaterialId: 'set1' }, actor);
+
+      expect(mockPrisma.lessonQuiz.updateMany).toHaveBeenCalledWith({
+        where: { lessonId: 'l1', order: { gt: 1 } },
+        data: { order: { increment: 1 } },
+      });
+      expect(mockPrisma.lessonQuiz.create).toHaveBeenCalledWith({
+        data: { lessonId: 'l1', questionId: 'q9', order: 2 },
+      });
+    });
+
     it('câu lẻ mới không vào tiết nào', async () => {
       mockPrisma.question.create.mockResolvedValue({ id: 'q9' });
       await service.create(dto, actor);
@@ -643,6 +668,17 @@ describe('QuestionService', () => {
         where: { questionId: 'q1' },
       });
       expect(mockPrisma.question.update).toHaveBeenCalled();
+    });
+
+    it('xoá câu của bộ thì câu biến khỏi mọi bài ôn dùng bộ', async () => {
+      mockPrisma.question.findUnique.mockResolvedValue(inSet);
+      mockPrisma.question.update.mockResolvedValue(inSet);
+
+      await service.delete('q1', actor);
+
+      expect(mockPrisma.lessonQuiz.deleteMany).toHaveBeenCalledWith({
+        where: { questionId: 'q1' },
+      });
     });
 
     it('câu khác chuyên đề với bộ bị từ chối', async () => {

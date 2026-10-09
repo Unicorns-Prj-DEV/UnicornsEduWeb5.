@@ -1974,6 +1974,116 @@ describe('CourseContentService — ClassContent methods', () => {
       });
     });
 
+    describe('Bộ câu hỏi trong ôn nhẹ', () => {
+      beforeEach(() => {
+        mockPrisma.lesson.findUnique.mockResolvedValue(mockLecture);
+        mockPrisma.lessonQuiz.createMany = jest.fn();
+        mockPrisma.lessonQuiz.deleteMany = jest.fn();
+        mockPrisma.lessonQuiz.count = jest.fn().mockResolvedValue(0);
+        mockPrisma.sharedMaterial = { findUnique: jest.fn() };
+      });
+
+      it('từ chối gắn lẻ câu thuộc bộ', async () => {
+        mockPrisma.question.findMany.mockResolvedValue([
+          { id: 'q-a', sharedMaterialId: 'set-1' },
+        ]);
+
+        await expect(
+          quizService.linkQuizQuestions('lecture-1', ['q-a'], adminActor),
+        ).rejects.toThrow('Câu thuộc bộ — thêm cả bộ vào bài ôn.');
+        expect(mockPrisma.lessonQuiz.create).not.toHaveBeenCalled();
+      });
+
+      it('từ chối gỡ lẻ câu thuộc bộ', async () => {
+        mockPrisma.lessonQuiz.findUnique.mockResolvedValue({
+          ...mockQuizLink,
+          question: { sharedMaterialId: 'set-1' },
+        });
+
+        await expect(
+          quizService.unlinkQuizQuestion('lecture-1', 'q-1', adminActor),
+        ).rejects.toThrow('Câu thuộc bộ — gỡ cả bộ khỏi bài ôn.');
+        expect(mockPrisma.lessonQuiz.delete).not.toHaveBeenCalled();
+      });
+
+      it('thêm bộ = mọi câu của bộ theo thứ tự bộ, nối cuối bài ôn', async () => {
+        mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+          id: 'set-1',
+          courseId: 'course-1',
+        });
+        mockPrisma.question.findMany.mockResolvedValue([
+          { id: 'q-a' },
+          { id: 'q-b' },
+        ]);
+        mockPrisma.lessonQuiz.aggregate.mockResolvedValue({
+          _max: { order: 2 },
+        });
+
+        await quizService.addSetToQuiz('lecture-1', 'set-1', adminActor);
+
+        expect(mockPrisma.question.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { sharedMaterialId: 'set-1', deletedAt: null },
+            orderBy: [{ setPosition: 'asc' }, { createdAt: 'asc' }],
+          }),
+        );
+        expect(mockPrisma.lessonQuiz.createMany).toHaveBeenCalledWith({
+          data: [
+            { lessonId: 'lecture-1', questionId: 'q-a', order: 3 },
+            { lessonId: 'lecture-1', questionId: 'q-b', order: 4 },
+          ],
+        });
+        expect(mockActionHistory.recordCreate).toHaveBeenCalledTimes(1);
+      });
+
+      it('từ chối thêm bộ đã có trong bài ôn', async () => {
+        mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+          id: 'set-1',
+          courseId: 'course-1',
+        });
+        mockPrisma.question.findMany.mockResolvedValue([{ id: 'q-a' }]);
+        mockPrisma.lessonQuiz.count.mockResolvedValue(1);
+
+        await expect(
+          quizService.addSetToQuiz('lecture-1', 'set-1', adminActor),
+        ).rejects.toThrow('Bộ đã có trong bài ôn.');
+        expect(mockPrisma.lessonQuiz.createMany).not.toHaveBeenCalled();
+      });
+
+      it('từ chối bộ khác khoá', async () => {
+        mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+          id: 'set-1',
+          courseId: 'course-other',
+        });
+
+        await expect(
+          quizService.addSetToQuiz('lecture-1', 'set-1', adminActor),
+        ).rejects.toThrow('Bộ câu hỏi phải thuộc cùng khoá với tiết.');
+      });
+
+      it('gỡ bộ = gỡ mọi câu của bộ khỏi bài ôn', async () => {
+        mockPrisma.lessonQuiz.deleteMany.mockResolvedValue({ count: 2 });
+
+        await quizService.removeSetFromQuiz('lecture-1', 'set-1', adminActor);
+
+        expect(mockPrisma.lessonQuiz.deleteMany).toHaveBeenCalledWith({
+          where: {
+            lessonId: 'lecture-1',
+            question: { sharedMaterialId: 'set-1' },
+          },
+        });
+        expect(mockActionHistory.recordDelete).toHaveBeenCalledTimes(1);
+      });
+
+      it('gỡ bộ không có trong bài ôn → 404', async () => {
+        mockPrisma.lessonQuiz.deleteMany.mockResolvedValue({ count: 0 });
+
+        await expect(
+          quizService.removeSetFromQuiz('lecture-1', 'set-1', adminActor),
+        ).rejects.toThrow(NotFoundException);
+      });
+    });
+
     describe('submitQuizAnswers', () => {
       it('should upsert answers and return them with correctIndex for review', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(mockLecture);

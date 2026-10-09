@@ -15,6 +15,7 @@ import {
 import { orderQuizAnswers } from './quiz-review-order';
 import { normalizeTrueFalseChoices } from '../attempt/grading';
 import { resolveAudioRefs } from '../question/audio-asset.service';
+import { setQuestionIdsForLesson } from '../question/set-lesson-sync';
 import {
   ActionHistoryActor,
   CourseContentSupportService,
@@ -83,12 +84,16 @@ export class LessonQuizService extends CourseContentSupportService {
           courseId: lesson.courseId,
           deletedAt: null,
         },
-        select: { id: true },
+        select: { id: true, sharedMaterialId: true },
       });
       if (questions.length !== questionIds.length) {
         throw new BadRequestException(
           'Một số câu hỏi không thuộc khoá học này',
         );
+      }
+      // Bộ câu hỏi vào bài ôn theo cả bộ (ADR 2026-10-09-question-set).
+      if (questions.some((q) => q.sharedMaterialId)) {
+        throw new BadRequestException('Câu thuộc bộ — thêm cả bộ vào bài ôn.');
       }
     }
 
@@ -133,9 +138,13 @@ export class LessonQuizService extends CourseContentSupportService {
 
     const link = await this.prisma.lessonQuiz.findUnique({
       where: { lessonId_questionId: { lessonId, questionId } },
+      include: { question: { select: { sharedMaterialId: true } } },
     });
     if (!link) {
       throw new NotFoundException('Câu hỏi chưa được gắn vào tiết học này');
+    }
+    if (link.question.sharedMaterialId) {
+      throw new BadRequestException('Câu thuộc bộ — gỡ cả bộ khỏi bài ôn.');
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -153,6 +162,78 @@ export class LessonQuizService extends CourseContentSupportService {
 
     this.logger.log(
       `Quiz question ${questionId} unlinked from lesson ${lessonId} by ${actor.userEmail}`,
+    );
+  }
+
+  /** Thêm nguyên Bộ câu hỏi vào bài ôn: mọi câu theo thứ tự bộ, nối cuối. */
+  async addSetToQuiz(
+    lessonId: string,
+    sharedMaterialId: string,
+    actor: ActionHistoryActor,
+  ): Promise<void> {
+    const lesson = await this.loadTheoryLesson(lessonId);
+    await this.assertCanManageOwnedAcademicContent(actor, lesson);
+
+    const questionIds = await setQuestionIdsForLesson(
+      this.prisma,
+      sharedMaterialId,
+      lesson.courseId,
+    );
+    const already = await this.prisma.lessonQuiz.count({
+      where: { lessonId, question: { sharedMaterialId } },
+    });
+    if (already > 0) throw new BadRequestException('Bộ đã có trong bài ôn.');
+
+    const { _max } = await this.prisma.lessonQuiz.aggregate({
+      where: { lessonId },
+      _max: { order: true },
+    });
+    const start = (_max.order ?? -1) + 1;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.lessonQuiz.createMany({
+        data: questionIds.map((questionId, i) => ({
+          lessonId,
+          questionId,
+          order: start + i,
+        })),
+      });
+      await this.actionHistory.recordCreate(tx, {
+        entityType: 'lesson_quiz',
+        entityId: lessonId,
+        actor,
+        afterValue: { lessonId, sharedMaterialId, questionIds },
+      });
+    });
+    this.logger.log(
+      `Question set ${sharedMaterialId} linked to quiz of lesson ${lessonId} by ${actor.userEmail}`,
+    );
+  }
+
+  /** Gỡ cả Bộ câu hỏi khỏi bài ôn. */
+  async removeSetFromQuiz(
+    lessonId: string,
+    sharedMaterialId: string,
+    actor: ActionHistoryActor,
+  ): Promise<void> {
+    const lesson = await this.loadTheoryLesson(lessonId);
+    await this.assertCanManageOwnedAcademicContent(actor, lesson);
+
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.lessonQuiz.deleteMany({
+        where: { lessonId, question: { sharedMaterialId } },
+      });
+      if (count === 0) {
+        throw new NotFoundException('Bộ không có trong bài ôn.');
+      }
+      await this.actionHistory.recordDelete(tx, {
+        entityType: 'lesson_quiz',
+        entityId: lessonId,
+        actor,
+        beforeValue: { lessonId, sharedMaterialId },
+      });
+    });
+    this.logger.log(
+      `Question set ${sharedMaterialId} unlinked from quiz of lesson ${lessonId} by ${actor.userEmail}`,
     );
   }
 
