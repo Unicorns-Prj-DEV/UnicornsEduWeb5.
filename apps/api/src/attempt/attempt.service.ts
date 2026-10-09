@@ -28,7 +28,12 @@ import type {
   PracticeStatsStudentRowDto,
   SaveAttemptAnswerItemDto,
 } from 'src/dtos/attempt.dto';
-import { ATTEMPT_TOTAL_POINTS, splitTotalPoints } from './split-total-points';
+import {
+  ATTEMPT_TOTAL_POINTS,
+  questionWeight,
+  splitTotalPoints,
+  splitTotalPointsByWeight,
+} from './split-total-points';
 import {
   IT_SINGLE_CHOICE_POINTS,
   IT_TRUE_FALSE_POINTS,
@@ -153,7 +158,13 @@ export class AttemptService {
               ? IT_TRUE_FALSE_POINTS
               : IT_SINGLE_CHOICE_POINTS,
           )
-        : splitTotalPoints(ATTEMPT_TOTAL_POINTS, links.length);
+        : this.lmsProfile.config.questionWeights
+          ? // JP: chia 100 theo trọng số câu-trong-tiết, chốt vào snapshot.
+            splitTotalPointsByWeight(
+              ATTEMPT_TOTAL_POINTS,
+              links.map((link) => questionWeight(link.points)),
+            )
+          : splitTotalPoints(ATTEMPT_TOTAL_POINTS, links.length);
 
     const startedAt = new Date();
     try {

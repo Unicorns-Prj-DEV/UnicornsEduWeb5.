@@ -202,7 +202,12 @@ describe('AttemptService', () => {
     expect(prisma.attempt.create).not.toHaveBeenCalled();
   });
 
-  it('start chia 100/N (bỏ points tay trên link) và snapshot đề', async () => {
+  it('start ENG chia 100/N (bỏ trọng số trên link) và snapshot đề', async () => {
+    const engService = new AttemptService(
+      prisma as never,
+      topicService as never,
+      { config: lmsProfileConfig('eng'), isIt: false } as never,
+    );
     prisma.attempt.findFirst.mockResolvedValue(null);
     prisma.questionLink.findMany.mockResolvedValue([
       {
@@ -250,7 +255,7 @@ describe('AttemptService', () => {
     ]);
     prisma.attempt.create.mockResolvedValue(makeAttempt());
 
-    await service.start('cls-1', 'cci-1', 'stu-1');
+    await engService.start('cls-1', 'cci-1', 'stu-1');
     const createArg = prisma.attempt.create.mock.calls[0][0];
     const createdAnswers = createArg.data.answers.create;
     expect(
@@ -271,6 +276,41 @@ describe('AttemptService', () => {
       type: QuestionType.essay,
       answerGuide: 'barem',
     });
+  });
+
+  it('start JP chia 100 theo trọng số câu-trong-tiết (null = 1)', async () => {
+    prisma.attempt.findFirst.mockResolvedValue(null);
+    const link = (
+      questionId: string,
+      order: number,
+      points: number | null,
+    ) => ({
+      questionId,
+      order,
+      points,
+      question: {
+        type: QuestionType.single_choice,
+        content: `${questionId}?`,
+        options: ['a', 'b'],
+        correctIndex: 0,
+        explanation: null,
+        answerGuide: null,
+        difficultyLevel: { name: 'NB' },
+      },
+    });
+    prisma.questionLink.findMany.mockResolvedValue([
+      link('q1', 0, null),
+      link('q2', 1, 2),
+      link('q3', 2, 1),
+    ]);
+    prisma.attempt.create.mockResolvedValue(makeAttempt());
+
+    await service.start('cls-1', 'cci-1', 'stu-1');
+    const createdAnswers =
+      prisma.attempt.create.mock.calls[0][0].data.answers.create;
+    expect(
+      createdAnswers.map((a: { pointsPossible: number }) => a.pointsPossible),
+    ).toEqual([25, 50, 25]);
   });
 
   it('submit grades MCQ and leaves essay ungraded without cancelling', async () => {

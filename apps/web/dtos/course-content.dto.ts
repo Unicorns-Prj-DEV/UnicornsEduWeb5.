@@ -95,6 +95,8 @@ export interface QuestionLink {
 export interface QuestionLinkSummary {
   totalQuestions: number;
   totalPoints: number;
+  /** Tổng trọng số (null tính là 1) — hồ sơ JP. */
+  totalWeight: number;
   /** Lý do đề sai form nhóm tự chọn (IT); null khi hợp lệ. */
   formWarning: string | null;
 }

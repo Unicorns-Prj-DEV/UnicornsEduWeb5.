@@ -345,7 +345,8 @@ export class QuestionLinkCreateDto {
   order?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Điểm của câu hỏi',
+    description:
+      'Điểm của câu hỏi. Hồ sơ JP: trọng số câu-trong-tiết (≥ 1, null = 1), đề chia 100 theo trọng số lúc bắt đầu làm bài',
     nullable: true,
   })
   @IsOptional()
@@ -371,7 +372,8 @@ export class QuestionLinkUpdateDto {
   order?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Điểm của câu hỏi',
+    description:
+      'Điểm của câu hỏi. Hồ sơ JP: trọng số câu-trong-tiết (≥ 1, null = 1), đề chia 100 theo trọng số lúc bắt đầu làm bài',
     nullable: true,
   })
   @IsOptional()
@@ -483,6 +485,8 @@ export interface LessonQuizResponseDto {
 export interface QuestionLinkSummaryDto {
   totalQuestions: number;
   totalPoints: number;
+  /** Tổng trọng số (null tính là 1) — hồ sơ JP chia 100 theo trọng số. */
+  totalWeight: number;
   /** Lý do đề sai form nhóm tự chọn (IT), null khi hợp lệ. Đề sai form bị chặn lúc bắt đầu làm bài. */
   formWarning: string | null;
 }

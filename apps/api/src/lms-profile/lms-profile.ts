@@ -30,6 +30,11 @@ export interface LmsProfileConfig {
   electiveGroups: boolean;
   /** Câu hỏi có gắn Kỹ năng (bắt buộc khi tạo/sửa) hay không. */
   questionSkills: boolean;
+  /**
+   * Thang 100 chia theo trọng số câu-trong-tiết (`question_links.points`,
+   * mặc định 1) thay vì chia đều. Chỉ có nghĩa với `equal_100`.
+   */
+  questionWeights: boolean;
 }
 
 const OPTION_COUNT = { min: 2, max: 6, default: 4 };
@@ -42,6 +47,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     scoring: 'absolute_it',
     electiveGroups: true,
     questionSkills: false,
+    questionWeights: false,
   },
   jp: {
     profile: 'jp',
@@ -50,6 +56,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     scoring: 'equal_100',
     electiveGroups: false,
     questionSkills: true,
+    questionWeights: true,
   },
   eng: {
     profile: 'eng',
@@ -58,6 +65,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     scoring: 'equal_100',
     electiveGroups: false,
     questionSkills: false,
+    questionWeights: false,
   },
 };
 

@@ -45,4 +45,10 @@ export class AppConfigResponseDto implements LmsProfileConfig {
     description: 'Câu hỏi có gắn Kỹ năng (JP) — bắt buộc khi tạo/sửa',
   })
   questionSkills!: boolean;
+
+  @ApiProperty({
+    description:
+      'Chia 100 theo trọng số câu-trong-tiết (`points`, mặc định 1) thay vì chia đều (JP)',
+  })
+  questionWeights!: boolean;
 }

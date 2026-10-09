@@ -174,7 +174,7 @@ export class PracticeLessonQuestionController {
   )
   @ApiOperation({ summary: 'Tổng quan câu hỏi và điểm' })
   @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
-  @ApiResponse({ status: 200, description: 'Tổng số câu hỏi và tổng điểm.' })
+  @ApiResponse({ status: 200, description: 'Tổng số câu hỏi, tổng điểm, tổng trọng số (JP).' })
   async getSummary(@Param('lessonId') lessonId: string) {
     return this.topicService.getQuestionLinkSummary(lessonId);
   }

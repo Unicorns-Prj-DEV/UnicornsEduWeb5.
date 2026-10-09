@@ -1432,6 +1432,21 @@ describe('CourseContentService — ClassContent methods', () => {
         expect(result.order).toBe(3);
       });
 
+      it('hồ sơ JP từ chối trọng số 0', async () => {
+        mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
+        mockPrisma.questionLink.findUnique.mockResolvedValue(mockLink);
+
+        await expect(
+          service.updateQuestionLink(
+            'topic-practice-1',
+            'link-1',
+            { points: 0 },
+            adminActor,
+          ),
+        ).rejects.toThrow('Trọng số câu phải ≥ 1.');
+        expect(mockPrisma.questionLink.update).not.toHaveBeenCalled();
+      });
+
       it('should throw if link not found', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
         mockPrisma.questionLink.findUnique.mockResolvedValue(null);
@@ -1574,6 +1589,23 @@ describe('CourseContentService — ClassContent methods', () => {
         expect(result.totalPoints).toBe(30);
       });
 
+      it('tổng trọng số tính null là 1', async () => {
+        mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
+        mockPrisma.questionLink.aggregate.mockResolvedValue({
+          _count: { id: 3 },
+          _sum: { points: 5 },
+        });
+        mockPrisma.questionLink.findMany.mockResolvedValue([
+          { slot: 'required', points: null, question: { type: 'essay' } },
+          { slot: 'required', points: 2, question: { type: 'essay' } },
+          { slot: 'required', points: 3, question: { type: 'essay' } },
+        ]);
+
+        const result = await service.getQuestionLinkSummary('topic-practice-1');
+
+        expect(result.totalWeight).toBe(6);
+      });
+
       it('should warn when elective groups are unbalanced', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
         mockPrisma.questionLink.aggregate.mockResolvedValue({
@@ -1600,6 +1632,7 @@ describe('CourseContentService — ClassContent methods', () => {
 
         expect(result.totalQuestions).toBe(0);
         expect(result.totalPoints).toBe(0);
+        expect(result.totalWeight).toBe(0);
         expect(result.formWarning).toBeNull();
       });
     });

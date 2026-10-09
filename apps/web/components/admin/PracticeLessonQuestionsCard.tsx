@@ -176,6 +176,7 @@ export function PracticeLessonQuestionsCard({
   const { data: appConfig } = useAppConfig();
   const hasElectives = appConfig?.electiveGroups ?? false;
   const isAbsolute = appConfig?.scoring === "absolute_it";
+  const weighted = appConfig?.questionWeights ?? false;
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("full");
   const { confirm, dialog } = useConfirmDialog();
@@ -260,7 +261,11 @@ export function PracticeLessonQuestionsCard({
           </h3>
           <p className="mt-0.5 text-xs text-text-secondary">
             {summary?.totalQuestions ?? links.length} câu hỏi
-            {isAbsolute || !summary ? "" : ` · Tổng điểm: ${summary.totalPoints}`}
+            {isAbsolute || !summary
+              ? ""
+              : weighted
+                ? ` · Tổng trọng số: ${summary.totalWeight}`
+                : ` · Tổng điểm: ${summary.totalPoints}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -365,6 +370,7 @@ export function PracticeLessonQuestionsCard({
                   assigned={assigned}
                   hasElectives={hasElectives}
                   isAbsolute={isAbsolute}
+                  weighted={weighted}
                   compact={viewMode === "compact"}
                   canMoveUp={
                     !reorder.isPending &&

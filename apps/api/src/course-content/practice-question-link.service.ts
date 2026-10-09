@@ -13,6 +13,7 @@ import {
 import { LessonKind, QuestionSlot } from 'generated/enums';
 import { Prisma } from '../../generated/client';
 import { examFormError } from 'src/attempt/exam-form';
+import { questionWeight } from 'src/attempt/split-total-points';
 import { loadLmsProfile } from 'src/lms-profile/lms-profile';
 import {
   ActionHistoryActor,
@@ -122,6 +123,13 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
     return slot;
   }
 
+  /** Hồ sơ có trọng số (JP): trọng số 0 làm câu mất điểm — bắt buộc ≥ 1 hoặc để trống. */
+  private assertPoints(points: number | null | undefined): void {
+    if (points === 0 && loadLmsProfile(process.env).questionWeights) {
+      throw new BadRequestException('Trọng số câu phải ≥ 1.');
+    }
+  }
+
   async getQuestionsByLessonId(
     lessonId: string,
     actor: ActionHistoryActor,
@@ -145,6 +153,7 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
   ): Promise<QuestionLinkResponseDto> {
     const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
+    this.assertPoints(dto.points);
 
     // Validate question exists and belongs to same course
     const question = await this.prisma.question.findUnique({
@@ -207,6 +216,7 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
     if (!link || link.lessonId !== lessonId) {
       throw new NotFoundException('Question link not found');
     }
+    this.assertPoints(dto.points);
 
     const updated = await this.prisma.questionLink.update({
       where: { id: linkId },
@@ -290,13 +300,21 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
       }),
       this.prisma.questionLink.findMany({
         where: { lessonId },
-        select: { slot: true, question: { select: { type: true } } },
+        select: {
+          slot: true,
+          points: true,
+          question: { select: { type: true } },
+        },
       }),
     ]);
 
     return {
       totalQuestions: result._count.id,
       totalPoints: result._sum.points ?? 0,
+      totalWeight: links.reduce(
+        (sum, link) => sum + questionWeight(link.points),
+        0,
+      ),
       formWarning: examFormError(links),
     };
   }

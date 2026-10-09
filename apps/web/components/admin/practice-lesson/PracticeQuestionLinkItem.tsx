@@ -67,6 +67,7 @@ export function PracticeQuestionLinkItem({
   assigned,
   hasElectives,
   isAbsolute,
+  weighted,
   compact,
   canMoveUp,
   canMoveDown,
@@ -84,6 +85,8 @@ export function PracticeQuestionLinkItem({
   hasElectives: boolean;
   /** Điểm tuyệt đối (IT): điểm theo loại câu, không sửa điểm từng câu. */
   isAbsolute: boolean;
+  /** Hồ sơ JP: `points` là trọng số (≥ 1, trống = 1), đề chia 100 theo trọng số. */
+  weighted: boolean;
   /** Chế độ xem gọn: cắt ngắn đề bài, ẩn phương án/lời giải. */
   compact: boolean;
   canMoveUp: boolean;
@@ -115,12 +118,19 @@ export function PracticeQuestionLinkItem({
 
   const savePoints = async () => {
     const points = pointsDraft === "" ? null : parseInt(pointsDraft, 10);
-    if (points !== null && (isNaN(points) || points < 0)) {
-      toast.error("Điểm phải là số nguyên >= 0");
+    const minPoints = weighted ? 1 : 0;
+    if (points !== null && (isNaN(points) || points < minPoints)) {
+      toast.error(
+        weighted
+          ? "Trọng số phải là số nguyên >= 1"
+          : "Điểm phải là số nguyên >= 0",
+      );
       return;
     }
     const ok = await confirmIfAssigned(
-      "Thay đổi điểm sẽ ảnh hưởng đến lần giao đang chạy. Tiếp tục?",
+      weighted
+        ? "Trọng số mới chỉ áp cho bài làm bắt đầu sau khi lưu; bài đã bắt đầu giữ điểm cũ. Tiếp tục?"
+        : "Thay đổi điểm sẽ ảnh hưởng đến lần giao đang chạy. Tiếp tục?",
     );
     if (!ok) return;
     setEditingPoints(false);
@@ -338,7 +348,7 @@ export function PracticeQuestionLinkItem({
               <span className="inline-flex items-center gap-1">
                 <input
                   type="number"
-                  min={0}
+                  min={weighted ? 1 : 0}
                   value={pointsDraft}
                   onChange={(e) => setPointsDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -346,8 +356,8 @@ export function PracticeQuestionLinkItem({
                     if (e.key === "Escape") setEditingPoints(false);
                   }}
                   className="w-16 rounded border border-border-default bg-bg-surface px-1.5 py-0.5 text-xs text-text-primary focus:border-border-focus focus:outline-none"
-                  aria-label="Điểm của câu hỏi"
-                  placeholder="điểm"
+                  aria-label={weighted ? "Trọng số của câu" : "Điểm của câu hỏi"}
+                  placeholder={weighted ? "1" : "điểm"}
                 />
                 <button
                   type="button"
@@ -374,7 +384,11 @@ export function PracticeQuestionLinkItem({
                 }}
                 className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[11px] font-medium text-text-secondary hover:bg-primary/10 hover:text-primary disabled:pointer-events-none"
               >
-                {link.points != null ? `${link.points} điểm` : "Chưa đặt điểm"}
+                {weighted
+                  ? `Trọng số ${link.points ?? 1}`
+                  : link.points != null
+                    ? `${link.points} điểm`
+                    : "Chưa đặt điểm"}
               </button>
             )}
           </div>

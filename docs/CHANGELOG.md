@@ -24,6 +24,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 ### Added
 
 - **Hồ sơ JP — Kỹ năng câu hỏi (#196):** câu hỏi JP có `skills` (Kanji · Từ vựng · Ngữ pháp · Đọc hiểu · Nghe hiểu · Hội thoại · Viết câu, chọn nhiều), bắt buộc khi tạo/sửa; câu cũ chưa có kỹ năng vẫn dùng bình thường. Ngân hàng câu hỏi lọc theo kỹ năng. IT/ENG không thấy và không gửi được kỹ năng.
+- **Hồ sơ JP — Trọng số câu-trong-tiết (#197):** gia sư đặt trọng số (≥ 1, trống = 1) cho từng câu trong màn xếp đề, có hiện tổng trọng số; bài làm JP chia 100 theo trọng số lúc bắt đầu (Hamilton, tổng luôn 100). Tiết cũ không đặt trọng số giữ điểm như chia đều; sửa trọng số chỉ áp cho bài bắt đầu sau. ADR `docs/adr/2026-10-09-jp-weighted-scoring.md`.
 
 - **Xem trước nội dung tiết lý thuyết:** ô soạn nội dung tiết lý thuyết (trang tiết học của khoá `TheoryLessonEditor` và dialog tiết lý thuyết trên lớp `ClassContentManager`) có tab **Soạn thảo / Xem trước**; preview render bằng `MathContent` (Markdown/HTML + KaTeX) đúng như học sinh thấy. Component dùng lại: `components/ui/MathRichTextEditorWithPreview.tsx`; thêm shadcn `components/ui/tabs.tsx` (`@radix-ui/react-tabs`).
 - **Hồ sơ môn IT — câu hỏi Tin học theo đề THPT (#178–#191):** API đọc `LMS_PROFILE` (`it` | `jp` | `eng`), web lấy qua `GET /public/app-config` (`useAppConfig`). Hồ sơ IT:

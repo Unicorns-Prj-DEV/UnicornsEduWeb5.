@@ -127,6 +127,8 @@ Thuật ngữ: `CONTEXT.md` (Kỹ năng, Câu Đúng/Sai, Câu điền vào ô t
 
 | Method | Path | Ghi chú |
 | --- | --- | --- |
-| `GET` | `/public/app-config` | Thêm `questionSkills: boolean` (JP `true`). |
+| `GET` | `/public/app-config` | Thêm `questionSkills`, `questionWeights: boolean` (JP `true`). |
 | `POST/PATCH` | `/questions`, `POST /questions/bulk` | `skills: QuestionSkill[]` (`kanji` \| `vocabulary` \| `grammar` \| `reading` \| `listening` \| `conversation` \| `writing`). JP: tạo/sửa phải có ≥1 kỹ năng, không trùng (sửa câu cũ chưa có kỹ năng mà không gửi `skills` → `400`); bulk chỉ kiểm tra khi có gửi. IT/ENG gửi `skills` khác rỗng → `400`. |
 | `GET` | `/questions` | Lọc thêm `skill=<QuestionSkill>` (câu có kỹ năng đó), kết hợp với bộ lọc sẵn có. |
+| `POST/PATCH` | `/lessons/:lessonId/questions[/:linkId]` (liên kết câu vào tiết) | JP: `points` là **trọng số** câu-trong-tiết (null = 1); `points: 0` → `400` *Trọng số câu phải ≥ 1.* Lúc bắt đầu làm bài, `pointsPossible` = chia 100 theo trọng số (Hamilton). Sửa trọng số không chấm lại bài đã bắt đầu. ADR `2026-10-09-jp-weighted-scoring`. |
+| `GET` | `/lessons/:lessonId/questions/summary` | Thêm `totalWeight` (tổng trọng số, null tính 1). |

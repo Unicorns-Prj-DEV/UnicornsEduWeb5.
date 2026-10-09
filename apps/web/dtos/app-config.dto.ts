@@ -17,4 +17,6 @@ export interface AppConfig {
   electiveGroups: boolean;
   /** Câu hỏi có gắn Kỹ năng (JP) — bắt buộc khi tạo/sửa. */
   questionSkills: boolean;
+  /** Chia 100 theo trọng số câu-trong-tiết (JP); `points` trên link là trọng số. */
+  questionWeights: boolean;
 }
