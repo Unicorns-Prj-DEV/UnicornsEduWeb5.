@@ -16,6 +16,26 @@ export const IT_TRUE_FALSE_POINTS = 100;
 /** Bậc thang Đúng/Sai theo số nhận định đúng (index = số nhận định đúng). */
 export const TRUE_FALSE_TIERS = [0, 10, 25, 50, 100] as const;
 
+/**
+ * Điểm câu lúc start bài làm `absolute_it`. Loại câu ngoài hồ sơ IT không lên
+ * đề IT — giữ thang trắc nghiệm như trước; thêm loại câu mới thì tsc buộc
+ * chọn thang ở đây.
+ */
+export function itQuestionPoints(type: QuestionType): number {
+  switch (type) {
+    case QuestionType.true_false_group:
+      return IT_TRUE_FALSE_POINTS;
+    case QuestionType.single_choice:
+    case QuestionType.essay:
+    case QuestionType.true_false:
+    case QuestionType.fill_blank:
+    case QuestionType.ordering:
+      return IT_SINGLE_CHOICE_POINTS;
+    default:
+      return assertNever(type, 'question type');
+  }
+}
+
 export type TrueFalseChoice = boolean | null;
 
 function stringArray(raw: unknown): string[] {

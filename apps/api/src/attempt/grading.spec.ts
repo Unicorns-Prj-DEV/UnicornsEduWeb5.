@@ -6,6 +6,7 @@ import {
   gradeTrueFalse,
   isAnswered,
   isElectiveVoided,
+  itQuestionPoints,
   normalizeTrueFalseChoices,
   tfChoicesOf,
 } from './grading';
@@ -367,5 +368,23 @@ describe('Câu sắp xếp', () => {
     expect(isAnswered({ ...base, orderAnswer: ['本', 'の', 'の', '机'] })).toBe(
       true,
     );
+  });
+});
+
+describe('itQuestionPoints', () => {
+  it('IT: trắc nghiệm 0,25đ, nhóm Đúng/Sai 1đ (đơn vị 1/100)', () => {
+    expect(itQuestionPoints(QuestionType.single_choice)).toBe(25);
+    expect(itQuestionPoints(QuestionType.true_false_group)).toBe(100);
+  });
+
+  it('loại câu ngoài hồ sơ IT giữ thang trắc nghiệm như trước', () => {
+    for (const type of [
+      QuestionType.essay,
+      QuestionType.true_false,
+      QuestionType.fill_blank,
+      QuestionType.ordering,
+    ]) {
+      expect(itQuestionPoints(type)).toBe(25);
+    }
   });
 });

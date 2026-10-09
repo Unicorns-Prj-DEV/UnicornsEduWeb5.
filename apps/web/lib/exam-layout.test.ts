@@ -4,6 +4,7 @@ import {
   buildExamLayout,
   isElectiveConflict,
   itExamBreakdown,
+  itExamPart,
   orderExamQuestions,
   materialHeaders,
 } from "./exam-layout";
@@ -143,5 +144,18 @@ describe("materialHeaders — Tư liệu dùng chung", () => {
     expect(materialHeaders([of(R)], (q) => q.sharedMaterial)).toEqual([
       { content: "<p>読解</p>", firstNumber: 1, lastNumber: 1 },
     ]);
+  });
+});
+
+describe("itExamPart", () => {
+  it("nhóm Đúng/Sai vào Phần II, trắc nghiệm vào Phần I", () => {
+    expect(itExamPart("true_false_group")).toBe("II");
+    expect(itExamPart("single_choice")).toBe("I");
+  });
+
+  it("loại câu ngoài hồ sơ IT giữ ở Phần I như trước", () => {
+    for (const type of ["essay", "true_false", "fill_blank", "ordering"] as const) {
+      expect(itExamPart(type)).toBe("I");
+    }
   });
 });

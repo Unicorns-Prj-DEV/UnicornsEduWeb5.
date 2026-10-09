@@ -5,6 +5,7 @@ import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
 import { QuestionTypeDto, countBlanks } from "@/dtos/question.dto";
 import { openAudio } from "@/lib/attempt-audio";
 import { resizeBlankKey } from "@/lib/fill-blank";
+import { assertNever } from "@/lib/assert-never";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
 import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
 
@@ -18,6 +19,57 @@ function isBlankHtml(html: string): boolean {
 
 function optionalHtml(html: string): string | null {
   return isBlankHtml(html) ? null : html;
+}
+
+type AnswerFields = Pick<
+  AttemptQuestionDto,
+  | "options"
+  | "tfAnswerKey"
+  | "tfLabelStyle"
+  | "blankCount"
+  | "blankAnswerKey"
+  | "orderingKey"
+  | "correctIndex"
+>;
+
+const NO_ANSWER_FIELDS: AnswerFields = {
+  options: null,
+  tfAnswerKey: undefined,
+  tfLabelStyle: null,
+  blankCount: null,
+  blankAnswerKey: null,
+  orderingKey: null,
+  correctIndex: null,
+};
+
+/** Lựa chọn + đáp án của câu theo loại, như học sinh nhận khi xem lại. */
+function previewAnswerFields(value: QuestionFormValue): Partial<AnswerFields> {
+  switch (value.type) {
+    case QuestionTypeDto.single_choice:
+      return { options: value.options, correctIndex: value.correctIndex };
+    case QuestionTypeDto.true_false_group:
+      return { options: value.statements, tfAnswerKey: value.tfAnswerKey };
+    case QuestionTypeDto.true_false:
+      return {
+        tfAnswerKey: value.tfAnswerKey.slice(0, 1),
+        tfLabelStyle: value.tfLabelStyle,
+      };
+    case QuestionTypeDto.fill_blank: {
+      const blankCount = countBlanks(value.content);
+      return {
+        blankCount,
+        blankAnswerKey: resizeBlankKey(value.blankAnswerKey, blankCount).map(
+          (answers) => answers.map((a) => a.trim()).filter(Boolean),
+        ),
+      };
+    }
+    case QuestionTypeDto.ordering:
+      return { options: value.options, orderingKey: value.options };
+    case QuestionTypeDto.essay:
+      return {};
+    default:
+      return assertNever(value.type, "question type");
+  }
 }
 
 /**
@@ -45,12 +97,6 @@ export default function QuestionPreview({
     );
   }
 
-  const isChoice = value.type === QuestionTypeDto.single_choice;
-  const isTrueFalse = value.type === QuestionTypeDto.true_false_group;
-  const isSingleTf = value.type === QuestionTypeDto.true_false;
-  const isFillBlank = value.type === QuestionTypeDto.fill_blank;
-  const isOrdering = value.type === QuestionTypeDto.ordering;
-  const blankCount = isFillBlank ? countBlanks(value.content) : null;
   const question: AttemptQuestionDto = {
     questionId: "preview",
     order: 0,
@@ -58,34 +104,15 @@ export default function QuestionPreview({
     type: value.type,
     slot: "required",
     content: value.content,
-    options:
-      isChoice || isOrdering
-        ? value.options
-        : isTrueFalse
-          ? value.statements
-          : null,
+    ...NO_ANSWER_FIELDS,
+    ...previewAnswerFields(value),
     choiceIndex: null,
     essayAnswer: null,
     tfChoices: null,
-    tfAnswerKey: isTrueFalse
-      ? value.tfAnswerKey
-      : isSingleTf
-        ? value.tfAnswerKey.slice(0, 1)
-        : undefined,
-    tfLabelStyle: isSingleTf ? value.tfLabelStyle : null,
-    blankCount,
     blankAnswers: null,
     orderAnswer: null,
-    orderingKey: isOrdering ? value.options : null,
-    blankAnswerKey:
-      blankCount != null
-        ? resizeBlankKey(value.blankAnswerKey, blankCount).map((answers) =>
-            answers.map((a) => a.trim()).filter(Boolean),
-          )
-        : null,
     markedForReview: false,
     audio: openAudio(value.audio?.url),
-    correctIndex: isChoice ? value.correctIndex : null,
     isCorrect: null,
     explanation: optionalHtml(value.explanation),
     answerGuide: optionalHtml(value.answerGuide),

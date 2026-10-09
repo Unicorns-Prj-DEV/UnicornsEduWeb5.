@@ -5,6 +5,8 @@ import type {
   QuestionSlotDto,
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
+import type { QuestionTypeValue } from "@/dtos/question.dto";
+import { assertNever } from "@/lib/assert-never";
 
 /**
  * Bố cục đề theo form tốt nghiệp THPT Tin (CONTEXT.md — Phần của đề, Nhóm tự chọn).
@@ -57,15 +59,15 @@ export function buildExamLayout<Q extends LayoutQuestion>(
     }));
   }
 
-  const hasPart2 = questions.some((q) => q.type === "true_false_group");
+  const hasPart2 = questions.some((q) => itExamPart(q.type) === "II");
   let part1 = 0;
   let required2 = 0;
   const electiveCount: Record<string, number> = { elective_1: 0, elective_2: 0 };
   const seen = new Set<string>();
 
   return questions.map((question) => {
-    const isPart2 = question.type === "true_false_group";
-    const partKey = isPart2 ? "II" : "I";
+    const partKey = itExamPart(question.type);
+    const isPart2 = partKey === "II";
     const partHeader =
       !seen.has(partKey) && (hasPart2 || isPart2)
         ? `PHẦN ${partKey}`
@@ -137,8 +139,27 @@ export function isElectiveConflict(
 
 type OrderableQuestion = Pick<AttemptQuestionDto, "type" | "slot">;
 
+/**
+ * Phần của đề IT theo loại câu. Loại câu ngoài hồ sơ IT không lên đề IT — xếp
+ * Phần I như trước; thêm loại câu mới thì tsc buộc chọn phần ở đây.
+ */
+export function itExamPart(type: QuestionTypeValue): "I" | "II" {
+  switch (type) {
+    case "true_false_group":
+      return "II";
+    case "single_choice":
+    case "essay":
+    case "true_false":
+    case "fill_blank":
+    case "ordering":
+      return "I";
+    default:
+      return assertNever(type, "question type");
+  }
+}
+
 function examRank(q: OrderableQuestion): number {
-  if (q.type !== "true_false_group") return 0;
+  if (itExamPart(q.type) === "I") return 0;
   if (q.slot === "elective_1") return 2;
   if (q.slot === "elective_2") return 3;
   return 1;
@@ -171,7 +192,7 @@ export interface ItExamBreakdown {
 export function itExamBreakdown(questions: OrderableQuestion[]): ItExamBreakdown {
   const count = { part1: 0, required2: 0, elective1: 0, elective2: 0 };
   for (const q of questions) {
-    if (q.type !== "true_false_group") count.part1 += 1;
+    if (itExamPart(q.type) === "I") count.part1 += 1;
     else if (q.slot === "elective_1") count.elective1 += 1;
     else if (q.slot === "elective_2") count.elective2 += 1;
     else count.required2 += 1;

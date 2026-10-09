@@ -1,4 +1,7 @@
-import type { TrueFalseLabelStyleDto } from "@/dtos/question.dto";
+import type {
+  QuestionTypeValue,
+  TrueFalseLabelStyleDto,
+} from "@/dtos/question.dto";
 export type AttemptStatusDto = "in_progress" | "submitted" | "timed_out";
 
 /** Thang điểm của Bài làm: `equal_100` = 100/N (JP/ENG), `absolute_it` = điểm tuyệt đối 0,25 / 1 (IT). */
@@ -21,13 +24,7 @@ export interface AttemptQuestionDto {
    * (trắc nghiệm 25, Đúng/Sai 100).
    */
   pointsPossible: number;
-  type:
-    | "single_choice"
-    | "essay"
-    | "true_false_group"
-    | "true_false"
-    | "fill_blank"
-    | "ordering";
+  type: QuestionTypeValue;
   slot: QuestionSlotDto;
   content: string;
   /** Câu sắp xếp: thẻ đã xáo (thứ tự hiển thị của lượt). */

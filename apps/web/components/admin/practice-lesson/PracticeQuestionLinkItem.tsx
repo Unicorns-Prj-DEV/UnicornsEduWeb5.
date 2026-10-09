@@ -14,6 +14,7 @@ import { QuestionSlotSelect } from "@/components/admin/ElectiveGroupSettings";
 import type { QuestionLink } from "@/dtos/course-content.dto";
 import type { QuestionSlotDto } from "@/dtos/attempt.dto";
 import { numberBlanks } from "@/lib/fill-blank";
+import { itExamPart } from "@/lib/exam-layout";
 import {
   QuestionTypeDto,
   TRUE_FALSE_STATEMENT_LABELS,
@@ -204,7 +205,9 @@ export function PracticeQuestionLinkItem({
           {questionTypeLabel(question.type)}
         </Badge>
         {isAbsolute ? (
-          <Badge variant="outline">{isTrueFalse ? "1 điểm" : "0,25 điểm"}</Badge>
+          <Badge variant="outline">
+            {itExamPart(question.type) === "II" ? "1 điểm" : "0,25 điểm"}
+          </Badge>
         ) : null}
         {question.sharedMaterial ? (
           <Badge variant="outline" className="min-w-0 truncate">

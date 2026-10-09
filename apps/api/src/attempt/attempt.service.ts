@@ -37,10 +37,9 @@ import {
   splitTotalPointsByWeight,
 } from './split-total-points';
 import {
-  IT_SINGLE_CHOICE_POINTS,
-  IT_TRUE_FALSE_POINTS,
   autoGradedMaxOf,
   gradeAnswers,
+  itQuestionPoints,
   normalizeTrueFalseChoices,
   tfChoicesOf,
 } from './grading';
@@ -173,11 +172,7 @@ export class AttemptService {
         : groupByMaterial(examLinks, materialOf);
     const pointsByIndex =
       scoring === AttemptScoring.absolute_it
-        ? links.map((link) =>
-            link.question.type === QuestionType.true_false_group
-              ? IT_TRUE_FALSE_POINTS
-              : IT_SINGLE_CHOICE_POINTS,
-          )
+        ? links.map((link) => itQuestionPoints(link.question.type))
         : this.lmsProfile.config.questionWeights
           ? // JP: chia 100 theo trọng số câu-trong-tiết, chốt vào snapshot.
             splitTotalPointsByWeight(

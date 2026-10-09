@@ -33,6 +33,9 @@ export function countBlanks(content: string): number {
 }
 
 /** Kiểu nhãn Câu Đúng/Sai (JP), chọn theo từng câu. null = ○/×. */
+/** Giá trị chuỗi của `QuestionTypeDto` — dùng cho DTO nhận `type` dạng chuỗi từ API. */
+export type QuestionTypeValue = `${QuestionTypeDto}`;
+
 export type TrueFalseLabelStyleDto = "maru_batsu" | "dung_sai" | "true_false";
 
 export const DEFAULT_TRUE_FALSE_LABEL_STYLE: TrueFalseLabelStyleDto = "maru_batsu";

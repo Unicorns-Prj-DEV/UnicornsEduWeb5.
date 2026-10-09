@@ -1,6 +1,7 @@
 import type { AudioRef } from "./audio-asset.dto";
 import type {
   QuestionTypeDto,
+  QuestionTypeValue,
   TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
 import type {
@@ -138,7 +139,7 @@ export interface LessonQuizQuestion {
   order: number;
   question: {
     id: string;
-    type: string;
+    type: QuestionTypeValue;
     content: string;
     options: string[] | null;
     correctIndex: number | null;
@@ -178,7 +179,7 @@ export interface LessonQuizAnswer {
   updatedAt: string;
   question: {
     id: string;
-    type: string;
+    type: QuestionTypeValue;
     content: string;
     options: string[] | null;
     correctIndex: number | null;
