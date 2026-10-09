@@ -11,7 +11,7 @@ import { ActionHistoryService } from '../action-history/action-history.service';
 import { CourseAccessService } from '../class/course-access.service';
 import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import { regradeQuestionAnswerKey } from '../attempt/regrade';
-import { assertQuestionShape } from './question-rules';
+import { assertQuestionShape, assertQuestionSkills } from './question-rules';
 import {
   CreateQuestionDto,
   UpdateQuestionDto,
@@ -59,6 +59,7 @@ export class QuestionService {
     if (filter.difficultyLevelId)
       where.difficultyLevelId = filter.difficultyLevelId;
     if (filter.type) where.type = filter.type;
+    if (filter.skill) where.skills = { has: filter.skill };
     if (filter.search) {
       where.content = { contains: filter.search, mode: 'insensitive' };
     }
@@ -80,6 +81,7 @@ export class QuestionService {
   async create(dto: CreateQuestionDto, actor: QuestionActor) {
     await this.assertWriteAccess(actor, dto.courseId);
     assertQuestionShape(dto, this.lmsProfile.config);
+    assertQuestionSkills(dto.skills ?? [], this.lmsProfile.config);
 
     // Cross-course validation
     await this.assertModuleBelongsToCourse(dto.moduleId, dto.courseId);
@@ -120,6 +122,8 @@ export class QuestionService {
       },
       this.lmsProfile.config,
     );
+    // Câu JP cũ chưa có kỹ năng: sửa là phải chọn.
+    assertQuestionSkills(dto.skills ?? existing.skills, this.lmsProfile.config);
 
     const answerKeyChange: {
       correctIndex?: number | null;
@@ -195,6 +199,14 @@ export class QuestionService {
     // Validate each item
     for (const [i, item] of dto.questions.entries()) {
       assertQuestionShape(item, this.lmsProfile.config, `Câu ${i + 1}: `);
+      // Nhập hàng loạt (AI import) chưa sinh kỹ năng: chỉ kiểm tra khi có gửi.
+      if (item.skills?.length) {
+        assertQuestionSkills(
+          item.skills,
+          this.lmsProfile.config,
+          `Câu ${i + 1}: `,
+        );
+      }
       if (!item.content || !item.content.trim()) {
         throw new BadRequestException(`Question ${i + 1}: content is required`);
       }
@@ -219,6 +231,7 @@ export class QuestionService {
             tfAnswerKey: item.tfAnswerKey ?? [],
             explanation: item.explanation ?? undefined,
             answerGuide: item.answerGuide ?? undefined,
+            skills: item.skills ?? [],
           },
         });
         await this.actionHistory.recordCreate(tx, {

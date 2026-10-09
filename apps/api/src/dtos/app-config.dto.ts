@@ -40,4 +40,9 @@ export class AppConfigResponseDto implements LmsProfileConfig {
 
   @ApiProperty({ description: 'Tiết thực hành có nhóm tự chọn hay không' })
   electiveGroups!: boolean;
+
+  @ApiProperty({
+    description: 'Câu hỏi có gắn Kỹ năng (JP) — bắt buộc khi tạo/sửa',
+  })
+  questionSkills!: boolean;
 }

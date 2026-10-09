@@ -662,6 +662,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `correct_index` (`INT`, nullable): chỉ số 0-based của đáp án đúng — cần cho `single_choice`
   - `explanation` (`TEXT`, nullable): giải thích sau khi trả lời (HTML)
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
+  - `skills` (`QuestionSkill[]`, default `{}`): Kỹ năng — chỉ hồ sơ JP, chọn nhiều: `kanji` | `vocabulary` | `grammar` | `reading` | `listening` | `conversation` | `writing`. JP bắt buộc ≥1 khi tạo/sửa (câu cũ rỗng chỉ bị đòi khi sửa; nhập hàng loạt chưa bắt buộc); IT/ENG luôn rỗng.
   - `deleted_at` (`TIMESTAMPTZ`, nullable): soft-delete timestamp
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
 - Indexes: `(course_id)`, `(module_id)`, `(difficulty_level_id)`

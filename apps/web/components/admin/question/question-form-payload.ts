@@ -1,4 +1,4 @@
-import { QuestionTypeDto } from "@/dtos/question.dto";
+import { QuestionSkillDto, QuestionTypeDto } from "@/dtos/question.dto";
 import { assertNever } from "@/lib/assert-never";
 import type { QuestionFormInitial } from "@/dtos/question.dto";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
@@ -13,6 +13,7 @@ export type QuestionFormPayload = {
   tfAnswerKey?: boolean[];
   explanation?: string;
   answerGuide?: string;
+  skills?: QuestionSkillDto[];
 };
 
 function isBlankHtml(html: string): boolean {
@@ -29,9 +30,16 @@ function isBlankHtml(html: string): boolean {
  * Kiểm tra + chuyển giá trị form soạn câu thành payload API. Mỗi loại câu chỉ
  * gửi trường của loại đó (API từ chối trộn: trắc nghiệm có `tfAnswerKey`…).
  */
-export function questionFormToPayload(form: QuestionFormValue): PayloadResult {
+export function questionFormToPayload(
+  form: QuestionFormValue,
+  { requireSkills = false }: { requireSkills?: boolean } = {},
+): PayloadResult {
   if (!form.moduleId || !form.difficultyLevelId || isBlankHtml(form.content)) {
     return { error: "Điền chuyên đề, mức khó và nội dung câu hỏi" };
+  }
+  // Hồ sơ JP: bắt buộc ≥1 kỹ năng (câu cũ chưa có thì bị đòi lúc sửa).
+  if (requireSkills && form.skills.length === 0) {
+    return { error: "Chọn ít nhất một kỹ năng" };
   }
   const base = {
     moduleId: form.moduleId,
@@ -41,6 +49,7 @@ export function questionFormToPayload(form: QuestionFormValue): PayloadResult {
     explanation: isBlankHtml(form.explanation)
       ? undefined
       : form.explanation.trim(),
+    ...(requireSkills && { skills: [...form.skills] }),
   };
 
   switch (form.type) {
@@ -64,7 +73,12 @@ export function questionFormToPayload(form: QuestionFormValue): PayloadResult {
 
 type PayloadBase = Pick<
   QuestionFormPayload,
-  "moduleId" | "difficultyLevelId" | "type" | "content" | "explanation"
+  | "moduleId"
+  | "difficultyLevelId"
+  | "type"
+  | "content"
+  | "explanation"
+  | "skills"
 >;
 type PayloadResult = { payload: QuestionFormPayload } | { error: string };
 

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ActionHistoryService } from 'src/action-history/action-history.service';
 import { QuestionService } from './question.service';
-import { QuestionTypeDto } from 'src/dtos/question.dto';
+import { QuestionSkillDto, QuestionTypeDto } from 'src/dtos/question.dto';
 
 /** Typed wrapper around expect.objectContaining to avoid no-unsafe-assignment */
 function contains<T>(obj: T): T {
@@ -134,7 +134,18 @@ describe('QuestionService', () => {
       moduleId: 'ch1',
       difficultyLevelId: 'd1',
       content: '<p>Test?</p>',
+      skills: [QuestionSkillDto.vocabulary],
     };
+
+    it('JP: rejects create without any skill', async () => {
+      await expect(
+        service.create(
+          { ...baseDto, skills: [], type: QuestionTypeDto.essay },
+          actor,
+        ),
+      ).rejects.toThrow('Câu hỏi phải chọn ít nhất một kỹ năng.');
+      expect(mockPrisma.question.create).not.toHaveBeenCalled();
+    });
 
     it('creates a single_choice question', async () => {
       const dto = {
@@ -266,6 +277,7 @@ describe('QuestionService', () => {
         type: QuestionTypeDto.single_choice,
         options: ['A', 'B'],
         correctIndex: 0,
+        skills: [QuestionSkillDto.grammar],
         deletedAt: null,
       };
       mockPrisma.question.findUnique.mockResolvedValue(existing);
@@ -277,6 +289,30 @@ describe('QuestionService', () => {
       await service.update('q1', { content: 'updated' }, actor);
       expect(mockPrisma.question.update).toHaveBeenCalled();
       expect(mockActionHistory.recordUpdate).toHaveBeenCalled();
+    });
+
+    it('JP: old question without skills must pick one when edited', async () => {
+      const existing = {
+        id: 'q1',
+        type: QuestionTypeDto.essay,
+        options: null,
+        correctIndex: null,
+        tfAnswerKey: [],
+        skills: [],
+        deletedAt: null,
+      };
+      mockPrisma.question.findUnique.mockResolvedValue(existing);
+      mockPrisma.question.update.mockResolvedValue(existing);
+
+      await expect(
+        service.update('q1', { content: 'updated' }, actor),
+      ).rejects.toThrow('Câu hỏi phải chọn ít nhất một kỹ năng.');
+      await service.update(
+        'q1',
+        { content: 'updated', skills: [QuestionSkillDto.reading] },
+        actor,
+      );
+      expect(mockPrisma.question.update).toHaveBeenCalledTimes(1);
     });
 
     it('throws NotFoundException for missing question', async () => {

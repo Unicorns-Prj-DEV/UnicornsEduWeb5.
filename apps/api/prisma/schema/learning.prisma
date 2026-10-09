@@ -40,24 +40,24 @@ model ClassTimelineItem {
 }
 
 model ClassContentItem {
-  id              String                    @id @default(uuid())
-  classId         String                    @map("class_id")
-  kind            ClassContentItemKind      @default(lesson) @map("kind")
-  lessonId        String?                   @map("lesson_id")
-  sortOrder       Int                       @default(0) @map("sort_order")
+  id               String                    @id @default(uuid())
+  classId          String                    @map("class_id")
+  kind             ClassContentItemKind      @default(lesson) @map("kind")
+  lessonId         String?                   @map("lesson_id")
+  sortOrder        Int                       @default(0) @map("sort_order")
   /// Thời điểm mở bài của lần giao (riêng lớp). Null với tiết lý thuyết.
-  openAt          DateTime?                 @map("open_at") @db.Timestamptz(6)
+  openAt           DateTime?                 @map("open_at") @db.Timestamptz(6)
   /// Thời lượng làm bài (phút) của lần giao. Null với tiết lý thuyết.
-  durationMinutes Int?                      @map("duration_minutes")
+  durationMinutes  Int?                      @map("duration_minutes")
   /// Đảo câu: mỗi lượt làm xáo thứ tự câu (đề IT xáo trong từng nhóm) và thứ tự phương án/nhận định.
-  shuffleQuestions Boolean                  @default(true) @map("shuffle_questions")
+  shuffleQuestions Boolean                   @default(true) @map("shuffle_questions")
   /// Null = hiện với học sinh. Có giá trị = ẩn mềm; không xoá Attempt.
-  hiddenAt        DateTime?                 @map("hidden_at") @db.Timestamptz(6)
-  hiddenByStaffId String?                   @map("hidden_by_staff_id")
+  hiddenAt         DateTime?                 @map("hidden_at") @db.Timestamptz(6)
+  hiddenByStaffId  String?                   @map("hidden_by_staff_id")
   /// Null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ chuyên đề.
-  hiddenReason    ClassContentHiddenReason? @map("hidden_reason")
-  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  hiddenReason     ClassContentHiddenReason? @map("hidden_reason")
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   class             Class                   @relation(fields: [classId], references: [id], onDelete: Cascade)
   lesson            Lesson?                 @relation(fields: [lessonId], references: [id], onDelete: Restrict)
@@ -570,21 +570,23 @@ model LessonQuizAnswer {
 
 /// Ngân hàng câu hỏi – mỗi câu thuộc một Module (chuyên đề) và một DifficultyLevel của course
 model Question {
-  id                String       @id @default(uuid())
-  courseId          String       @map("course_id")
-  moduleId          String       @map("module_id")
-  difficultyLevelId String       @map("difficulty_level_id")
-  type              QuestionType @default(single_choice)
+  id                String          @id @default(uuid())
+  courseId          String          @map("course_id")
+  moduleId          String          @map("module_id")
+  difficultyLevelId String          @map("difficulty_level_id")
+  type              QuestionType    @default(single_choice)
   content           String // HTML from TipTap
   options           Json? // single_choice: 2–6 phương án; true_false_group: 4 nhận định a–d (HTML)
   correctIndex      Int? // zero‑based index into options – required for single_choice
   /// Đáp án 4 nhận định của nhóm câu Đúng/Sai (true = Đúng). Rỗng với loại khác.
-  tfAnswerKey       Boolean[]    @default([]) @map("tf_answer_key")
+  tfAnswerKey       Boolean[]       @default([]) @map("tf_answer_key")
   explanation       String? // optional explanation for answer (HTML)
   answerGuide       String? // for essay type – optional guide text (HTML)
-  deletedAt         DateTime?    @map("deleted_at")
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Kỹ năng (chỉ hồ sơ JP, chọn nhiều). Câu cũ được phép rỗng.
+  skills            QuestionSkill[] @default([])
+  deletedAt         DateTime?       @map("deleted_at")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course          Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
   module          Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
@@ -618,6 +620,17 @@ model QuestionLink {
   @@index([lessonId])
   @@index([questionId])
   @@map("question_links")
+}
+
+/// Kỹ năng câu hỏi hồ sơ JP (CONTEXT.md — Kỹ năng). Chỉ phân loại, không quyết định cách trả lời.
+enum QuestionSkill {
+  kanji
+  vocabulary
+  grammar
+  reading
+  listening
+  conversation
+  writing
 }
 
 enum QuestionType {

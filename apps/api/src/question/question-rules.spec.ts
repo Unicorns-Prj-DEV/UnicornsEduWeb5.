@@ -1,5 +1,5 @@
 import { lmsProfileConfig } from '../lms-profile/lms-profile';
-import { questionShapeError } from './question-rules';
+import { questionShapeError, questionSkillsError } from './question-rules';
 
 const IT = lmsProfileConfig('it');
 const JP = lmsProfileConfig('jp');
@@ -82,5 +82,26 @@ describe('questionShapeError', () => {
         IT,
       ),
     ).toMatch('correctIndex');
+  });
+});
+
+describe('questionSkillsError', () => {
+  const ENG = lmsProfileConfig('eng');
+  it('JP: tạo / sửa phải có ít nhất một kỹ năng', () => {
+    expect(questionSkillsError([], JP)).toBe(
+      'Câu hỏi phải chọn ít nhất một kỹ năng.',
+    );
+    expect(questionSkillsError(['kanji', 'grammar'], JP)).toBeNull();
+  });
+  it('JP: kỹ năng trùng bị từ chối', () => {
+    expect(questionSkillsError(['kanji', 'kanji'], JP)).toBe(
+      'Kỹ năng bị chọn trùng.',
+    );
+  });
+  it('IT / ENG không có kỹ năng', () => {
+    expect(questionSkillsError([], IT)).toBeNull();
+    expect(questionSkillsError(['reading'], ENG)).toBe(
+      'Hồ sơ ENG không có kỹ năng câu hỏi.',
+    );
   });
 });

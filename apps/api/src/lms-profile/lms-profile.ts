@@ -10,12 +10,26 @@ export type LmsScoring = 'equal_100' | 'absolute_it';
 
 export type LmsQuestionType = 'single_choice' | 'essay' | 'true_false_group';
 
+/** Kỹ năng câu hỏi (chỉ JP), thứ tự hiển thị cố định. */
+export const QUESTION_SKILLS = [
+  'kanji',
+  'vocabulary',
+  'grammar',
+  'reading',
+  'listening',
+  'conversation',
+  'writing',
+] as const;
+export type QuestionSkillValue = (typeof QUESTION_SKILLS)[number];
+
 export interface LmsProfileConfig {
   profile: LmsProfile;
   questionTypes: LmsQuestionType[];
   optionCount: { min: number; max: number; default: number };
   scoring: LmsScoring;
   electiveGroups: boolean;
+  /** Câu hỏi có gắn Kỹ năng (bắt buộc khi tạo/sửa) hay không. */
+  questionSkills: boolean;
 }
 
 const OPTION_COUNT = { min: 2, max: 6, default: 4 };
@@ -27,6 +41,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     optionCount: OPTION_COUNT,
     scoring: 'absolute_it',
     electiveGroups: true,
+    questionSkills: false,
   },
   jp: {
     profile: 'jp',
@@ -34,6 +49,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     optionCount: OPTION_COUNT,
     scoring: 'equal_100',
     electiveGroups: false,
+    questionSkills: true,
   },
   eng: {
     profile: 'eng',
@@ -41,6 +57,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     optionCount: OPTION_COUNT,
     scoring: 'equal_100',
     electiveGroups: false,
+    questionSkills: false,
   },
 };
 

@@ -7,8 +7,10 @@ import ClassTabList from "@/components/class-timeline/ClassTabList";
 import QuestionPreview from "@/components/admin/question/QuestionPreview";
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
 import {
   QUESTION_TYPE_LABELS,
+  QuestionSkillDto,
   QuestionTypeDto,
   TRUE_FALSE_STATEMENT_LABELS,
 } from "@/dtos/question.dto";
@@ -32,6 +34,8 @@ export type QuestionFormValue = {
   tfAnswerKey: boolean[];
   explanation: string;
   answerGuide: string;
+  /** Kỹ năng (chỉ hồ sơ JP). */
+  skills: QuestionSkillDto[];
 };
 
 export const emptyQuestionFormValue: QuestionFormValue = {
@@ -45,6 +49,7 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   tfAnswerKey: [true, true, true, true],
   explanation: "",
   answerGuide: "",
+  skills: [],
 };
 
 const FORM_VIEWS = ["edit", "preview"] as const;
@@ -184,6 +189,13 @@ export default function QuestionFormFields({
                 />
               </div>
             </div>
+
+            {appConfig?.questionSkills ? (
+              <QuestionSkillPicker
+                value={value.skills}
+                onChange={(skills) => onChange({ skills })}
+              />
+            ) : null}
 
             <div>
               <span className="mb-1 block text-xs font-medium text-text-muted">

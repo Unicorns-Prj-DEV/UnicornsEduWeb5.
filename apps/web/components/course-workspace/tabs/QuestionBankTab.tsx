@@ -1,6 +1,11 @@
 "use client";
 
-import { QUESTION_TYPE_LABELS, questionTypeLabel } from "@/dtos/question.dto";
+import {
+  QUESTION_SKILL_LABELS,
+  QUESTION_TYPE_LABELS,
+  questionTypeLabel,
+} from "@/dtos/question.dto";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
@@ -23,7 +28,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import type { Question, QuestionFilter } from "@/dtos/question.dto";
-import { QuestionTypeDto } from "@/dtos/question.dto";
+import { QuestionSkillDto, QuestionTypeDto } from "@/dtos/question.dto";
 import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import AiImportModal from "@/components/admin/question-bank/AiImportModal";
@@ -49,6 +54,9 @@ export function QuestionBankTab({
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [chapterFilter, setChapterFilter] = useState<string>("");
   const [difficultyFilter, setDifficultyFilter] = useState<string>("");
+  const [skillFilter, setSkillFilter] = useState<string>("");
+  const { data: appConfig } = useAppConfig();
+  const showSkills = appConfig?.questionSkills ?? false;
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showAiImport, setShowAiImport] = useState(false);
@@ -62,7 +70,7 @@ export function QuestionBankTab({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, typeFilter, chapterFilter, difficultyFilter]);
+  }, [debouncedSearch, typeFilter, chapterFilter, difficultyFilter, skillFilter]);
 
   const filter: QuestionFilter = {
     courseId,
@@ -70,6 +78,7 @@ export function QuestionBankTab({
     type: (typeFilter as QuestionTypeDto) || undefined,
     moduleId: chapterFilter || undefined,
     difficultyLevelId: difficultyFilter || undefined,
+    skill: showSkills ? (skillFilter as QuestionSkillDto) || undefined : undefined,
   };
   const skip = (page - 1) * PAGE_SIZE;
 
@@ -133,6 +142,13 @@ export function QuestionBankTab({
   const typeOptions = [
     { value: "", label: "Tất cả loại" },
     ...Object.entries(QUESTION_TYPE_LABELS).map(([value, label]) => ({
+      value,
+      label,
+    })),
+  ];
+  const skillOptions = [
+    { value: "", label: "Tất cả kỹ năng" },
+    ...Object.entries(QUESTION_SKILL_LABELS).map(([value, label]) => ({
       value,
       label,
     })),
@@ -231,6 +247,15 @@ export function QuestionBankTab({
             placeholder="Loại câu hỏi"
             ariaLabel="Lọc theo loại"
           />
+          {showSkills ? (
+            <UpgradedSelect
+              value={skillFilter}
+              onValueChange={setSkillFilter}
+              options={skillOptions}
+              placeholder="Kỹ năng"
+              ariaLabel="Lọc theo kỹ năng"
+            />
+          ) : null}
         </div>
       </div>
 
@@ -290,6 +315,7 @@ export function QuestionBankTab({
                   <Badge variant={q.type === "single_choice" ? "info" : "success"}>
                     {questionTypeLabel(q.type)}
                   </Badge>
+                  <QuestionSkillBadges skills={q.skills} />
                 </div>
               </li>
             ))}
@@ -300,7 +326,7 @@ export function QuestionBankTab({
               <TableHeader>
                 <TableRow>
                   <TableHead>Nội dung</TableHead>
-                  <TableHead className="w-28">Loại</TableHead>
+                  <TableHead className="w-40">Loại</TableHead>
                   <TableHead className="w-12">
                     <span className="sr-only">Xoá</span>
                   </TableHead>
@@ -329,9 +355,12 @@ export function QuestionBankTab({
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge variant={q.type === "single_choice" ? "info" : "success"}>
-                        {questionTypeLabel(q.type)}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant={q.type === "single_choice" ? "info" : "success"}>
+                          {questionTypeLabel(q.type)}
+                        </Badge>
+                        <QuestionSkillBadges skills={q.skills} />
+                      </div>
                     </TableCell>
                     <TableCell
                       className="text-right"
@@ -423,5 +452,18 @@ export function QuestionBankTab({
         />
       ) : null}
     </div>
+  );
+}
+
+function QuestionSkillBadges({ skills }: { skills?: QuestionSkillDto[] }) {
+  if (!skills?.length) return null;
+  return (
+    <>
+      {skills.map((skill) => (
+        <Badge key={skill} variant="secondary">
+          {QUESTION_SKILL_LABELS[skill]}
+        </Badge>
+      ))}
+    </>
   );
 }

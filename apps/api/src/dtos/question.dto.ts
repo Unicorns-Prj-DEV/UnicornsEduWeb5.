@@ -22,6 +22,17 @@ export enum QuestionTypeDto {
   true_false_group = 'true_false_group',
 }
 
+/** Kỹ năng câu hỏi (chỉ hồ sơ JP). */
+export enum QuestionSkillDto {
+  kanji = 'kanji',
+  vocabulary = 'vocabulary',
+  grammar = 'grammar',
+  reading = 'reading',
+  listening = 'listening',
+  conversation = 'conversation',
+  writing = 'writing',
+}
+
 // --- Response DTOs ----------------------------------------------------------
 
 export interface QuestionResponseDto {
@@ -37,6 +48,8 @@ export interface QuestionResponseDto {
   tfAnswerKey: boolean[];
   explanation: string | null;
   answerGuide: string | null;
+  /** Kỹ năng (JP); rỗng với hồ sơ khác hoặc câu JP cũ. */
+  skills: QuestionSkillDto[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -127,6 +140,18 @@ export class CreateQuestionDto {
   @IsOptional()
   @IsString()
   answerGuide?: string;
+  @ApiPropertyOptional({
+    description:
+      'Kỹ năng (chỉ hồ sơ JP, chọn nhiều). JP bắt buộc ≥1 khi tạo/sửa; IT/ENG không được gửi.',
+    enum: QuestionSkillDto,
+    isArray: true,
+    example: ['vocabulary', 'reading'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsIn(Object.values(QuestionSkillDto), { each: true })
+  @ArrayMaxSize(7)
+  skills?: QuestionSkillDto[];
 }
 
 /** DTO for updating a question – all fields optional */
@@ -177,6 +202,18 @@ export class UpdateQuestionDto {
   @IsOptional()
   @IsString()
   answerGuide?: string;
+  @ApiPropertyOptional({
+    description:
+      'Kỹ năng (chỉ hồ sơ JP, chọn nhiều). JP bắt buộc ≥1 khi tạo/sửa; IT/ENG không được gửi.',
+    enum: QuestionSkillDto,
+    isArray: true,
+    example: ['vocabulary', 'reading'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsIn(Object.values(QuestionSkillDto), { each: true })
+  @ArrayMaxSize(7)
+  skills?: QuestionSkillDto[];
 }
 
 // --- Bulk import DTOs -------------------------------------------------------
@@ -238,6 +275,18 @@ export class BulkCreateQuestionItemDto {
   })
   @IsUUID()
   difficultyLevelId: string;
+  @ApiPropertyOptional({
+    description:
+      'Kỹ năng (chỉ hồ sơ JP, chọn nhiều). JP bắt buộc ≥1 khi tạo/sửa; IT/ENG không được gửi.',
+    enum: QuestionSkillDto,
+    isArray: true,
+    example: ['vocabulary', 'reading'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsIn(Object.values(QuestionSkillDto), { each: true })
+  @ArrayMaxSize(7)
+  skills?: QuestionSkillDto[];
 }
 
 export class BulkCreateQuestionDto {
@@ -292,4 +341,12 @@ export class QuestionFilterDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Lọc câu có kỹ năng này (JP)',
+    enum: QuestionSkillDto,
+  })
+  @IsOptional()
+  @IsIn(Object.values(QuestionSkillDto))
+  skill?: QuestionSkillDto;
 }

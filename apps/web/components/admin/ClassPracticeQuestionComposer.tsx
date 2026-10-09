@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 import * as questionApi from "@/lib/apis/question.api";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
 import { questionKeys } from "@/lib/query-keys";
@@ -321,12 +322,15 @@ function AuthorForm({
   courseId: string;
   onAdd: (payload: QuestionFormPayload) => void;
 }) {
+  const { data: appConfig } = useAppConfig();
   const [form, setForm] = useState<QuestionFormValue>(emptyQuestionFormValue);
   const patchForm = (patch: Partial<QuestionFormValue>) =>
     setForm((prev) => ({ ...prev, ...patch }));
 
   const submit = () => {
-    const result = questionFormToPayload(form);
+    const result = questionFormToPayload(form, {
+      requireSkills: appConfig?.questionSkills,
+    });
     if ("error" in result) {
       toast.error(result.error);
       return;

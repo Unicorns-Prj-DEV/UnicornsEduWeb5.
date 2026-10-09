@@ -19,6 +19,7 @@ export async function getQuestions(
   if (filter.difficultyLevelId)
     params.set("difficultyLevelId", filter.difficultyLevelId);
   if (filter.type) params.set("type", filter.type);
+  if (filter.skill) params.set("skill", filter.skill);
   if (filter.search) params.set("search", filter.search);
   params.set("skip", String(skip));
   params.set("take", String(take));

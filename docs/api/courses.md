@@ -120,3 +120,13 @@ ADR `docs/adr/2026-10-07-instance-subject-profile.md`, `docs/adr/2026-10-07-it-a
 | `POST` | ôn nhẹ `/users/me/student-classes/:classId/lessons/:lessonId/quizzes` | Câu Đúng/Sai gửi `tfChoices`; review trả `tfAnswerKey`. |
 
 Chấm `absolute_it`: trắc nghiệm đúng = 25; Đúng/Sai theo số ý đúng 1 → 10, 2 → 25, 3 → 50, 4 → 100. Có nhận định được chọn ở cả hai nhóm tự chọn → `electiveVoided = true`, mọi câu tự chọn 0 điểm.
+
+## Hồ sơ môn JP (`LMS_PROFILE=jp`) — câu hỏi tiếng Nhật (#193–#203)
+
+Thuật ngữ: `CONTEXT.md` (Kỹ năng, Câu Đúng/Sai, Câu điền vào ô trống, Câu sắp xếp, Tư liệu dùng chung, Giới hạn nghe…).
+
+| Method | Path | Ghi chú |
+| --- | --- | --- |
+| `GET` | `/public/app-config` | Thêm `questionSkills: boolean` (JP `true`). |
+| `POST/PATCH` | `/questions`, `POST /questions/bulk` | `skills: QuestionSkill[]` (`kanji` \| `vocabulary` \| `grammar` \| `reading` \| `listening` \| `conversation` \| `writing`). JP: tạo/sửa phải có ≥1 kỹ năng, không trùng (sửa câu cũ chưa có kỹ năng mà không gửi `skills` → `400`); bulk chỉ kiểm tra khi có gửi. IT/ENG gửi `skills` khác rỗng → `400`. |
+| `GET` | `/questions` | Lọc thêm `skill=<QuestionSkill>` (câu có kỹ năng đó), kết hợp với bộ lọc sẵn có. |

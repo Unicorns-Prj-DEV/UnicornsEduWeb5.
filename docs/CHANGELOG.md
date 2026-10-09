@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Hồ sơ JP — Kỹ năng câu hỏi (#196):** câu hỏi JP có `skills` (Kanji · Từ vựng · Ngữ pháp · Đọc hiểu · Nghe hiểu · Hội thoại · Viết câu, chọn nhiều), bắt buộc khi tạo/sửa; câu cũ chưa có kỹ năng vẫn dùng bình thường. Ngân hàng câu hỏi lọc theo kỹ năng. IT/ENG không thấy và không gửi được kỹ năng.
+
 - **Xem trước nội dung tiết lý thuyết:** ô soạn nội dung tiết lý thuyết (trang tiết học của khoá `TheoryLessonEditor` và dialog tiết lý thuyết trên lớp `ClassContentManager`) có tab **Soạn thảo / Xem trước**; preview render bằng `MathContent` (Markdown/HTML + KaTeX) đúng như học sinh thấy. Component dùng lại: `components/ui/MathRichTextEditorWithPreview.tsx`; thêm shadcn `components/ui/tabs.tsx` (`@radix-ui/react-tabs`).
 - **Hồ sơ môn IT — câu hỏi Tin học theo đề THPT (#178–#191):** API đọc `LMS_PROFILE` (`it` | `jp` | `eng`), web lấy qua `GET /public/app-config` (`useAppConfig`). Hồ sơ IT:
   - Loại câu `true_false_group` (4 nhận định a–d, đáp án `tfAnswerKey`); bỏ tự luận khỏi ngân hàng câu hỏi, nhập AI và seed.

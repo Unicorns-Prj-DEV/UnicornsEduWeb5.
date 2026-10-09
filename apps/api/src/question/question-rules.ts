@@ -67,6 +67,33 @@ export function questionShapeError(
   }
 }
 
+/**
+ * Kỹ năng theo hồ sơ: JP bắt buộc ≥1 khi tạo/sửa (câu cũ rỗng chỉ bị đòi khi
+ * sửa), hồ sơ khác không có kỹ năng.
+ */
+export function questionSkillsError(
+  skills: readonly string[],
+  profile: LmsProfileConfig,
+): string | null {
+  if (!profile.questionSkills) {
+    return skills.length
+      ? `Hồ sơ ${profile.profile.toUpperCase()} không có kỹ năng câu hỏi.`
+      : null;
+  }
+  if (!skills.length) return 'Câu hỏi phải chọn ít nhất một kỹ năng.';
+  if (new Set(skills).size !== skills.length) return 'Kỹ năng bị chọn trùng.';
+  return null;
+}
+
+export function assertQuestionSkills(
+  skills: readonly string[],
+  profile: LmsProfileConfig,
+  prefix = '',
+): void {
+  const error = questionSkillsError(skills, profile);
+  if (error) throw new BadRequestException(`${prefix}${error}`);
+}
+
 export function assertQuestionShape(
   shape: QuestionShape,
   profile: LmsProfileConfig,

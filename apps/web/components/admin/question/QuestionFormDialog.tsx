@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import * as questionApi from "@/lib/apis/question.api";
 import * as classApi from "@/lib/apis/class.api";
 import { courseKeys } from "@/lib/query-keys";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { invalidateQuestionScopedQueries } from "@/lib/query-invalidation";
 import {
   ResponsiveActionFooter,
@@ -46,6 +47,7 @@ export default function QuestionFormDialog({
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { data: appConfig } = useAppConfig();
   const initialValue: QuestionFormValue = {
     moduleId: question?.moduleId || "",
     difficultyLevelId: question?.difficultyLevelId || "",
@@ -54,6 +56,7 @@ export default function QuestionFormDialog({
     ...questionToFormParts(question),
     explanation: question?.explanation || "",
     answerGuide: question?.answerGuide || "",
+    skills: question?.skills ?? [],
   };
   const [form, setForm] = useState<QuestionFormValue>(initialValue);
   const patchForm = (patch: Partial<QuestionFormValue>) =>
@@ -82,7 +85,9 @@ export default function QuestionFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const result = questionFormToPayload(form);
+    const result = questionFormToPayload(form, {
+      requireSkills: appConfig?.questionSkills,
+    });
     if ("error" in result) {
       toast.error(result.error);
       return;

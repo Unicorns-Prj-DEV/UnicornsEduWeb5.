@@ -5,6 +5,27 @@ export enum QuestionTypeDto {
   true_false_group = "true_false_group",
 }
 
+/** Kỹ năng câu hỏi (chỉ hồ sơ JP), thứ tự hiển thị cố định. */
+export enum QuestionSkillDto {
+  kanji = "kanji",
+  vocabulary = "vocabulary",
+  grammar = "grammar",
+  reading = "reading",
+  listening = "listening",
+  conversation = "conversation",
+  writing = "writing",
+}
+
+export const QUESTION_SKILL_LABELS: Record<QuestionSkillDto, string> = {
+  [QuestionSkillDto.kanji]: "Kanji",
+  [QuestionSkillDto.vocabulary]: "Từ vựng",
+  [QuestionSkillDto.grammar]: "Ngữ pháp",
+  [QuestionSkillDto.reading]: "Đọc hiểu",
+  [QuestionSkillDto.listening]: "Nghe hiểu",
+  [QuestionSkillDto.conversation]: "Hội thoại",
+  [QuestionSkillDto.writing]: "Viết câu",
+};
+
 /** Nhãn nhận định của câu Đúng/Sai. */
 export const TRUE_FALSE_STATEMENT_LABELS = ["a", "b", "c", "d"] as const;
 
@@ -21,6 +42,8 @@ export interface Question {
   tfAnswerKey: boolean[];
   explanation: string | null;
   answerGuide: string | null;
+  /** Kỹ năng (JP); rỗng với hồ sơ khác hoặc câu JP cũ. */
+  skills: QuestionSkillDto[];
   createdAt: string;
   updatedAt: string;
 }
@@ -42,7 +65,8 @@ export type QuestionFormInitial = Pick<
   | "tfAnswerKey"
   | "explanation"
   | "answerGuide"
->;
+> &
+  Partial<Pick<Question, "skills">>;
 
 export interface CreateQuestionInput {
   courseId: string;
@@ -55,6 +79,7 @@ export interface CreateQuestionInput {
   tfAnswerKey?: boolean[];
   explanation?: string;
   answerGuide?: string;
+  skills?: QuestionSkillDto[];
 }
 
 export type UpdateQuestionInput = Partial<
@@ -66,6 +91,7 @@ export interface QuestionFilter {
   moduleId?: string;
   difficultyLevelId?: string;
   type?: QuestionTypeDto;
+  skill?: QuestionSkillDto;
   search?: string;
 }
 

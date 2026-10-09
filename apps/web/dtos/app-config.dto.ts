@@ -15,4 +15,6 @@ export interface AppConfig {
   optionCount: { min: number; max: number; default: number };
   scoring: LmsScoring;
   electiveGroups: boolean;
+  /** Câu hỏi có gắn Kỹ năng (JP) — bắt buộc khi tạo/sửa. */
+  questionSkills: boolean;
 }
