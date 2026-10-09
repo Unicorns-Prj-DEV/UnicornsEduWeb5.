@@ -33,6 +33,9 @@ import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import AiImportModal from "@/components/admin/question-bank/AiImportModal";
 import SharedMaterialsDialog from "@/components/admin/question-bank/SharedMaterialsDialog";
+import SharedMaterialFormDialog from "@/components/admin/question-bank/SharedMaterialFormDialog";
+import QuestionSetCard from "@/components/admin/question-bank/QuestionSetCard";
+import type { SharedMaterial } from "@/dtos/shared-material.dto";
 import { useSharedMaterials } from "@/lib/hooks/useSharedMaterials";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { resolveQuestionBankEmptyModuleCopy } from "@/lib/question-bank-empty-module";
@@ -60,10 +63,10 @@ export function QuestionBankTab({
   const { data: appConfig } = useAppConfig();
   const showSkills = appConfig?.questionSkills ?? false;
   const showMaterials = appConfig?.sharedMaterials ?? false;
-  const [materialFilter, setMaterialFilter] = useState<string>("");
   const [showMaterialsDialog, setShowMaterialsDialog] = useState(false);
+  // Form Bộ câu hỏi: null = đóng, "new" = tạo bộ.
+  const [setForm, setSetForm] = useState<SharedMaterial | "new" | null>(null);
   const { data: materials = [] } = useSharedMaterials(courseId, showMaterials);
-  const materialTitleById = new Map(materials.map((m) => [m.id, m.title]));
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showAiImport, setShowAiImport] = useState(false);
@@ -83,7 +86,6 @@ export function QuestionBankTab({
     chapterFilter,
     difficultyFilter,
     skillFilter,
-    materialFilter,
   ]);
 
   const filter: QuestionFilter = {
@@ -93,7 +95,8 @@ export function QuestionBankTab({
     moduleId: chapterFilter || undefined,
     difficultyLevelId: difficultyFilter || undefined,
     skill: showSkills ? (skillFilter as QuestionSkillDto) || undefined : undefined,
-    sharedMaterialId: showMaterials ? materialFilter || undefined : undefined,
+    // JP: bộ hiện dạng thẻ riêng, danh sách dưới chỉ còn câu lẻ.
+    standalone: showMaterials ? "true" : undefined,
   };
   const skip = (page - 1) * PAGE_SIZE;
 
@@ -168,10 +171,17 @@ export function QuestionBankTab({
       label,
     })),
   ];
-  const materialOptions = [
-    { value: "", label: "Tất cả tư liệu" },
-    ...materials.map((m) => ({ value: m.id, label: m.title })),
-  ];
+  const moduleTitleById = new Map(modules.map((m) => [m.id, m.title]));
+  const searchText = debouncedSearch.toLowerCase();
+  const visibleSets = showMaterials
+    ? materials.filter(
+        (m) =>
+          (!chapterFilter || m.moduleId === chapterFilter) &&
+          (!searchText ||
+            m.title.toLowerCase().includes(searchText) ||
+            m.content.toLowerCase().includes(searchText)),
+      )
+    : [];
 
   if (isChaptersLoading) {
     return (
@@ -233,6 +243,15 @@ export function QuestionBankTab({
                 >
                   Nhập từ AI
                 </button>
+                {showMaterials ? (
+                  <button
+                    type="button"
+                    onClick={() => setSetForm("new")}
+                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-primary/40 bg-bg-surface px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5 sm:min-h-10 sm:flex-none sm:w-auto"
+                  >
+                    + Thêm bộ câu hỏi
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={openCreate}
@@ -288,19 +307,30 @@ export function QuestionBankTab({
               ariaLabel="Lọc theo kỹ năng"
             />
           ) : null}
-          {showMaterials ? (
-            <UpgradedSelect
-              value={materialFilter}
-              onValueChange={setMaterialFilter}
-              searchable
-              options={materialOptions}
-              placeholder="Tư liệu"
-              ariaLabel="Lọc theo tư liệu dùng chung"
-              noResultsLabel="Không tìm thấy tư liệu phù hợp."
-            />
-          ) : null}
         </div>
       </div>
+
+      {page === 1 && visibleSets.length > 0 ? (
+        <section aria-label="Bộ câu hỏi" className="space-y-2">
+          <h3 className="text-sm font-semibold text-text-secondary">
+            Bộ câu hỏi ({visibleSets.length})
+          </h3>
+          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {visibleSets.map((set) => (
+              <QuestionSetCard
+                key={set.id}
+                courseId={courseId}
+                set={set}
+                moduleTitle={moduleTitleById.get(set.moduleId)}
+                onOpen={() => setSetForm(set)}
+              />
+            ))}
+          </ul>
+          <h3 className="pt-2 text-sm font-semibold text-text-secondary">
+            Câu lẻ
+          </h3>
+        </section>
+      ) : null}
 
       {isLoading ? (
         <div
@@ -316,7 +346,7 @@ export function QuestionBankTab({
         </div>
       ) : questions.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border-default p-6 text-center text-sm text-text-muted">
-          Chưa có câu hỏi nào.
+          {showMaterials ? "Chưa có câu lẻ nào." : "Chưa có câu hỏi nào."}
         </p>
       ) : (
         <>
@@ -359,9 +389,6 @@ export function QuestionBankTab({
                     {questionTypeLabel(q.type)}
                   </Badge>
                   <QuestionSkillBadges skills={q.skills} />
-                  <MaterialBadge
-                    title={materialTitleById.get(q.sharedMaterialId ?? "")}
-                  />
                 </div>
               </li>
             ))}
@@ -406,9 +433,6 @@ export function QuestionBankTab({
                           {questionTypeLabel(q.type)}
                         </Badge>
                         <QuestionSkillBadges skills={q.skills} />
-                        <MaterialBadge
-                          title={materialTitleById.get(q.sharedMaterialId ?? "")}
-                        />
                       </div>
                     </TableCell>
                     <TableCell
@@ -501,6 +525,14 @@ export function QuestionBankTab({
         />
       ) : null}
 
+      {setForm ? (
+        <SharedMaterialFormDialog
+          courseId={courseId}
+          material={setForm === "new" ? null : setForm}
+          onClose={() => setSetForm(null)}
+        />
+      ) : null}
+
       {showMaterialsDialog ? (
         <SharedMaterialsDialog
           courseId={courseId}
@@ -510,11 +542,6 @@ export function QuestionBankTab({
       ) : null}
     </div>
   );
-}
-
-function MaterialBadge({ title }: { title?: string }) {
-  if (!title) return null;
-  return <Badge variant="outline">Tư liệu: {title}</Badge>;
 }
 
 function QuestionSkillBadges({ skills }: { skills?: QuestionSkillDto[] }) {

@@ -508,8 +508,19 @@ export class QuestionFilterDto {
   @IsIn(Object.values(QuestionSkillDto))
   skill?: QuestionSkillDto;
 
-  @ApiPropertyOptional({ description: 'Lọc câu gắn Tư liệu dùng chung này (JP)' })
+  @ApiPropertyOptional({
+    description:
+      'Lọc câu trong Bộ câu hỏi này (JP) — kết quả xếp theo thứ tự bộ.',
+  })
   @IsOptional()
   @IsUUID()
   sharedMaterialId?: string;
+
+  @ApiPropertyOptional({
+    description: "'true' = chỉ câu lẻ (không thuộc bộ nào) — ngân hàng JP hiện bộ dạng thẻ riêng.",
+    enum: ['true'],
+  })
+  @IsOptional()
+  @IsIn(['true'])
+  standalone?: 'true';
 }

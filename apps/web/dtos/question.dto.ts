@@ -180,7 +180,10 @@ export interface QuestionFilter {
   type?: QuestionTypeDto;
   skill?: QuestionSkillDto;
   search?: string;
+  /** Câu trong bộ này — xếp theo thứ tự bộ. */
   sharedMaterialId?: string;
+  /** "true" = chỉ câu lẻ (ngân hàng JP hiện bộ dạng thẻ riêng). */
+  standalone?: "true";
 }
 
 // --- AI Import types -------------------------------------------------------

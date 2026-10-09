@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import type { AudioRefDto } from './audio-asset.dto';
 
 export const SHARED_MATERIAL_TITLE_MAX = 200;
@@ -47,9 +54,11 @@ export class CreateSharedMaterialDto {
   @MaxLength(SHARED_MATERIAL_TITLE_MAX)
   title: string;
 
-  @ApiProperty({ description: 'Nội dung tư liệu (HTML từ TipTap: đoạn văn, ảnh)' })
+  @ApiProperty({
+    description:
+      'Phần đầu bộ (HTML từ TipTap: đoạn văn, ảnh). Rỗng được nếu có audio — phần đầu bộ cần ít nhất một trong văn bản / ảnh / audio, thiếu cả ba → 400.',
+  })
   @IsString()
-  @IsNotEmpty()
   content: string;
 
   @ApiPropertyOptional({
@@ -60,6 +69,17 @@ export class CreateSharedMaterialDto {
   @IsOptional()
   @IsUUID()
   audioId?: string | null;
+}
+
+export class ReorderSetQuestionsDto {
+  @ApiProperty({
+    description:
+      'Mọi câu (chưa xoá) của bộ, mỗi câu một lần, theo thứ tự mới của bộ.',
+    type: [String],
+  })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  questionIds: string[];
 }
 
 export class UpdateSharedMaterialDto {
@@ -79,11 +99,10 @@ export class UpdateSharedMaterialDto {
 
   @ApiPropertyOptional({
     description:
-      'Nội dung (HTML). Bài làm đã bắt đầu giữ bản chụp lúc start, không đổi theo.',
+      'Phần đầu bộ (HTML). Sau khi sửa vẫn phải còn văn bản / ảnh / audio. Bài làm đã bắt đầu giữ bản chụp lúc start, không đổi theo.',
   })
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   content?: string;
 
   @ApiPropertyOptional({

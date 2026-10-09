@@ -67,6 +67,7 @@ export class QuestionService {
     if (filter.skill) where.skills = { has: filter.skill };
     if (filter.sharedMaterialId)
       where.sharedMaterialId = filter.sharedMaterialId;
+    else if (filter.standalone === 'true') where.sharedMaterialId = null;
     if (filter.search) {
       where.content = { contains: filter.search, mode: 'insensitive' };
     }
@@ -75,7 +76,10 @@ export class QuestionService {
       where,
       skip,
       take,
-      orderBy: { createdAt: 'desc' },
+      // Câu của một bộ xếp theo thứ tự bộ; còn lại mới nhất trước.
+      orderBy: filter.sharedMaterialId
+        ? [{ setPosition: 'asc' }, { createdAt: 'asc' }]
+        : { createdAt: 'desc' },
     });
     return withAudioRefs(this.prisma, rows);
   }

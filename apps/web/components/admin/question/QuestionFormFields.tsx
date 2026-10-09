@@ -241,10 +241,16 @@ export default function QuestionFormFields({
                   onValueChange={(v) => onChange({ moduleId: v })}
                   options={chapterOptions}
                   placeholder="Gõ để tìm hoặc tạo chuyên đề"
-                  disabled={!courseId}
+                  // Câu trong bộ theo chuyên đề của bộ — đổi ở form bộ.
+                  disabled={!courseId || Boolean(value.sharedMaterialId)}
                   ariaLabel="Chuyên đề"
                   {...chapterCreate}
                 />
+                {value.sharedMaterialId ? (
+                  <p className="mt-1 text-xs text-text-muted">
+                    Theo chuyên đề của bộ.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <span className="mb-1 block text-xs font-medium text-text-muted">

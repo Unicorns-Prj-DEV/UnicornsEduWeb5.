@@ -32,6 +32,14 @@ export async function updateSharedMaterial(
   return response.data;
 }
 
+/** Sắp lại thứ tự câu trong bộ — gửi đủ mọi câu của bộ theo thứ tự mới. */
+export async function reorderSetQuestions(
+  id: string,
+  questionIds: string[],
+): Promise<void> {
+  await api.put(`/shared-materials/${id}/question-order`, { questionIds });
+}
+
 export async function deleteSharedMaterial(id: string): Promise<void> {
   await api.delete(`/shared-materials/${id}`);
 }

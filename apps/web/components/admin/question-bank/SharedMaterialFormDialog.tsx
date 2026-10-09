@@ -21,6 +21,10 @@ import {
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
 import AudioUploadField from "@/components/admin/question/AudioUploadField";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
+import { invalidateQuestionScopedQueries } from "@/lib/query-invalidation";
+import { getMutationErrorMessage } from "@/lib/mutation-feedback";
+import SetQuestionList from "./SetQuestionList";
+import { questionExcerpt } from "./question-excerpt";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import type { AudioRef } from "@/dtos/audio-asset.dto";
 import {
@@ -28,13 +32,34 @@ import {
   type SharedMaterial,
 } from "@/dtos/shared-material.dto";
 
-/** Chữ đầu của đề câu (bỏ thẻ HTML) để người soạn nhận ra câu. */
-function questionExcerpt(content: string): string {
-  const text = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  return text.length > 60 ? `${text.slice(0, 60)}…` : text || "(câu không có chữ)";
+type SetHeaderForm = {
+  moduleId: string;
+  title: string;
+  content: string;
+  audio: AudioRef | null;
+};
+
+const headerFormOf = (material: SharedMaterial | null): SetHeaderForm => ({
+  moduleId: material?.moduleId ?? "",
+  title: material?.title ?? "",
+  content: material?.content ?? "",
+  audio: material?.audio ?? null,
+});
+
+/** Phần đầu bộ cần ít nhất một trong: văn bản, ảnh, audio (khớp luật API). */
+function hasSetHeader(form: SetHeaderForm): boolean {
+  const text = form.content
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+  return Boolean(text) || /<img\b/i.test(form.content) || Boolean(form.audio);
 }
 
-/** Soạn / sửa một Tư liệu dùng chung (đoạn văn, ảnh, vị trí trống). */
+/**
+ * Soạn / sửa một Bộ câu hỏi trong một form: phần đầu bộ (văn bản, ảnh, audio
+ * upload mới, vị trí trống), chuyên đề của bộ và các câu trong bộ. Tạo xong
+ * form ở lại để thêm câu.
+ */
 export default function SharedMaterialFormDialog({
   courseId,
   material,
@@ -48,26 +73,18 @@ export default function SharedMaterialFormDialog({
   const { data: appConfig } = useAppConfig();
   const audioEnabled = appConfig?.questionAudio ?? false;
   const { data: modules = [] } = useCourseModules(courseId);
-  const initial: {
-    moduleId: string;
-    title: string;
-    content: string;
-    audio: AudioRef | null;
-  } = {
-    moduleId: material?.moduleId ?? "",
-    title: material?.title ?? "",
-    content: material?.content ?? "",
-    audio: material?.audio ?? null,
-  };
+  // Bộ đang sửa: bộ truyền vào, hoặc bộ vừa tạo trong form này.
+  const [saved, setSaved] = useState(material);
+  const [initial, setInitial] = useState(() => headerFormOf(material));
   const [form, setForm] = useState(initial);
   const [gapQuestionId, setGapQuestionId] = useState("");
 
-  // Chỉ câu đang gắn tư liệu này mới nối được vị trí trống.
-  const attachedFilter = { courseId, sharedMaterialId: material?.id };
+  // Câu của bộ theo thứ tự bộ — danh sách câu + nối vị trí trống.
+  const attachedFilter = { courseId, sharedMaterialId: saved?.id };
   const { data: attached = [], isPending: attachedPending } = useQuery({
     queryKey: questionKeys.list(attachedFilter),
-    queryFn: () => questionApi.getQuestions(attachedFilter, 0, 100),
-    enabled: Boolean(material),
+    queryFn: () => questionApi.getQuestions(attachedFilter, 0, 200),
+    enabled: Boolean(saved),
   });
   const attachedById = new Map(attached.map((q) => [q.id, q]));
   const gapIds = materialGapIds(form.content);
@@ -80,18 +97,30 @@ export default function SharedMaterialFormDialog({
         content: form.content,
         ...(audioEnabled && { audioId: form.audio?.id ?? null }),
       };
-      return material
-        ? sharedMaterialApi.updateSharedMaterial(material.id, payload)
+      return saved
+        ? sharedMaterialApi.updateSharedMaterial(saved.id, payload)
         : sharedMaterialApi.createSharedMaterial({ courseId, ...payload });
     },
-    onSuccess: async () => {
-      toast.success(material ? "Đã cập nhật tư liệu." : "Đã tạo tư liệu.");
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({
         queryKey: sharedMaterialKeys.course(courseId),
       });
-      onClose();
+      if (saved) {
+        toast.success("Đã cập nhật bộ câu hỏi.");
+        if (result.moduleId !== saved.moduleId) {
+          await invalidateQuestionScopedQueries(queryClient, courseId);
+        }
+        onClose();
+        return;
+      }
+      toast.success("Đã tạo bộ — thêm câu vào bộ.");
+      setSaved(result);
+      const next = headerFormOf(result);
+      setInitial(next);
+      setForm(next);
     },
-    onError: () => toast.error("Không thể lưu tư liệu."),
+    onError: (error) =>
+      toast.error(getMutationErrorMessage(error, "Không thể lưu bộ câu hỏi.")),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -101,14 +130,11 @@ export default function SharedMaterialFormDialog({
       return;
     }
     if (!form.title.trim()) {
-      toast.error("Nhập tên tư liệu.");
+      toast.error("Nhập tên bộ.");
       return;
     }
-    if (
-      !form.content.replace(/<[^>]*>/g, "").trim() &&
-      !/<img/i.test(form.content)
-    ) {
-      toast.error("Tư liệu chưa có nội dung.");
+    if (!hasSetHeader(form)) {
+      toast.error("Phần đầu bộ cần có văn bản, ảnh hoặc audio.");
       return;
     }
     saveMutation.mutate();
@@ -132,7 +158,7 @@ export default function SharedMaterialFormDialog({
             id="shared-material-form-title"
             className="text-lg font-bold text-text-primary"
           >
-            {material ? "Sửa tư liệu" : "Thêm tư liệu dùng chung"}
+            {saved ? "Sửa bộ câu hỏi" : "Thêm bộ câu hỏi"}
           </h2>
         </div>
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
@@ -164,7 +190,7 @@ export default function SharedMaterialFormDialog({
                 placeholder="Chọn chuyên đề"
                 ariaLabel="Chuyên đề của bộ"
               />
-              {material && form.moduleId !== material.moduleId ? (
+              {saved && form.moduleId !== saved.moduleId ? (
                 <p className="mt-1 text-xs text-warning">
                   Mọi câu trong bộ chuyển sang chuyên đề mới.
                 </p>
@@ -172,14 +198,14 @@ export default function SharedMaterialFormDialog({
             </div>
             <div>
               <span className="mb-1 block text-xs font-medium text-text-muted">
-                Nội dung (đoạn văn, ảnh)
+                Phần đầu bộ (đoạn văn, ảnh) — cần ít nhất văn bản, ảnh hoặc audio
               </span>
               <MathRichTextEditor
                 value={form.content}
                 onChange={(next) =>
                   setForm((prev) => ({ ...prev, content: next }))
                 }
-                ariaLabel="Nội dung tư liệu"
+                ariaLabel="Phần đầu bộ"
                 placeholder="Dán đoạn văn hoặc chèn ảnh..."
                 minHeight="min-h-[200px]"
               />
@@ -189,14 +215,14 @@ export default function SharedMaterialFormDialog({
                 courseId={courseId}
                 value={form.audio}
                 onChange={(audio) => setForm((prev) => ({ ...prev, audio }))}
-                label="Audio dùng chung (bài nghe cho cả nhóm câu)"
+                label="Audio của bộ (bài nghe cho cả bộ)"
               />
             ) : null}
             <div className="space-y-2 rounded-lg border border-border-default p-3">
               <span className="block text-xs font-medium text-text-muted">
                 Vị trí trống (đoạn văn điền số câu)
               </span>
-              {material && attached.length > 0 ? (
+              {saved && attached.length > 0 ? (
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <div className="min-w-0 flex-1">
                     <UpgradedSelect
@@ -232,15 +258,14 @@ export default function SharedMaterialFormDialog({
                 </div>
               ) : (
                 <p className="text-xs text-text-muted">
-                  Lưu tư liệu và gắn câu vào trước, rồi mở lại để chèn vị trí
-                  trống.
+                  Thêm câu vào bộ trước rồi chèn vị trí trống.
                 </p>
               )}
               <p className="text-xs text-text-muted">
                 Dấu <code>[[#…]]</code> chèn vào cuối nội dung — cắt/dán tới đúng
                 chỗ. Học sinh thấy số câu trong lượt làm, vd （27）.
               </p>
-              {gapIds.length > 0 && !(material && attachedPending) ? (
+              {gapIds.length > 0 && !(saved && attachedPending) ? (
                 <ol className="space-y-1 text-xs">
                   {gapIds.map((id) => {
                     const q = attachedById.get(id);
@@ -251,17 +276,28 @@ export default function SharedMaterialFormDialog({
                       >
                         {q
                           ? `Nối tới: ${questionExcerpt(q.content)}`
-                          : "Nối tới câu không còn gắn tư liệu này — học sinh thấy ô không số. Xoá dấu hoặc gắn lại câu."}
+                          : "Nối tới câu không còn trong bộ — học sinh thấy ô không số. Xoá dấu hoặc thêm lại câu."}
                       </li>
                     );
                   })}
                 </ol>
               ) : null}
             </div>
-            {material && material.questionCount > 0 ? (
+            {saved ? (
+              <SetQuestionList
+                courseId={courseId}
+                set={saved}
+                questions={attached}
+                loading={attachedPending}
+              />
+            ) : (
               <p className="text-xs text-text-muted">
-                Đang có {material.questionCount} câu dùng tư liệu này. Bài làm
-                đã bắt đầu giữ nội dung cũ.
+                Lưu phần đầu bộ rồi thêm câu vào bộ ngay trong form này.
+              </p>
+            )}
+            {saved ? (
+              <p className="text-xs text-text-muted">
+                Bài làm đã bắt đầu giữ nội dung cũ của bộ.
               </p>
             ) : null}
           </ResponsiveDialogBody>
@@ -271,14 +307,18 @@ export default function SharedMaterialFormDialog({
               onClick={() => void requestClose()}
               className="rounded-md border border-border-default px-4 py-2 text-sm text-text-secondary hover:bg-bg-secondary/40"
             >
-              Huỷ
+              {saved && !isDirty ? "Đóng" : "Huỷ"}
             </button>
             <button
               type="submit"
               disabled={saveMutation.isPending}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 disabled:opacity-50"
             >
-              {saveMutation.isPending ? "Đang lưu..." : "Lưu"}
+              {saveMutation.isPending
+                ? "Đang lưu..."
+                : saved
+                  ? "Lưu"
+                  : "Tạo bộ"}
             </button>
           </ResponsiveActionFooter>
         </form>

@@ -112,6 +112,7 @@ export class SharedMaterialService {
     this.assertEnabled();
     await this.courseAccess.assertCourseExists(dto.courseId);
     await this.assertWriteAccess(actor, dto.courseId);
+    assertSetHeader(dto.content, dto.audioId ?? null);
     await this.assertModuleInCourse(dto.moduleId, dto.courseId);
     await assertAudioAttachable(
       this.prisma,
@@ -151,6 +152,10 @@ export class SharedMaterialService {
     this.assertEnabled();
     const existing = await this.findOrThrow(id);
     await this.assertWriteAccess(actor, existing.courseId);
+    assertSetHeader(
+      dto.content ?? existing.content,
+      dto.audioId !== undefined ? dto.audioId : existing.audioId,
+    );
     const movedTo =
       dto.moduleId !== undefined && dto.moduleId !== existing.moduleId
         ? dto.moduleId
@@ -198,6 +203,42 @@ export class SharedMaterialService {
     return withAudio;
   }
 
+  /**
+   * Sắp lại thứ tự câu trong bộ: `questionIds` phải đúng là mọi câu (chưa xoá)
+   * của bộ, mỗi câu một lần; vị trí = thứ tự trong danh sách.
+   */
+  async reorderQuestions(
+    id: string,
+    questionIds: string[],
+    actor: MaterialActor,
+  ): Promise<void> {
+    this.assertEnabled();
+    const existing = await this.findOrThrow(id);
+    await this.assertWriteAccess(actor, existing.courseId);
+    const members = await this.prisma.question.findMany({
+      where: { sharedMaterialId: id, deletedAt: null },
+      select: { id: true },
+    });
+    const memberIds = new Set(members.map((q) => q.id));
+    const sameSet =
+      questionIds.length === memberIds.size &&
+      new Set(questionIds).size === questionIds.length &&
+      questionIds.every((qid) => memberIds.has(qid));
+    if (!sameSet) {
+      throw new BadRequestException(
+        'Danh sách câu không khớp các câu trong bộ — tải lại rồi thử lại.',
+      );
+    }
+    await this.prisma.$transaction(async (tx) => {
+      for (const [setPosition, qid] of questionIds.entries()) {
+        await tx.question.update({
+          where: { id: qid },
+          data: { setPosition },
+        });
+      }
+    });
+  }
+
   /** Còn câu (chưa xoá) gắn vào → 409. Câu đã xoá mềm được tháo khỏi tư liệu. */
   async delete(id: string, actor: MaterialActor) {
     this.assertEnabled();
@@ -223,6 +264,19 @@ export class SharedMaterialService {
       });
       return deleted;
     });
+  }
+}
+
+/** Phần đầu bộ phải có ít nhất một trong: văn bản, ảnh, audio. */
+function assertSetHeader(content: string, audioId: string | null): void {
+  const text = content
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+  if (!text && !/<img\b/i.test(content) && !audioId) {
+    throw new BadRequestException(
+      'Phần đầu bộ cần có văn bản, ảnh hoặc audio.',
+    );
   }
 }
 

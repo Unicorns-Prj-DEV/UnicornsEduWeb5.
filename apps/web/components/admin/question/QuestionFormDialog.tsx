@@ -38,18 +38,21 @@ import {
 export default function QuestionFormDialog({
   question,
   courseId,
+  set,
   onClose,
   onSaved,
 }: {
   question: QuestionFormInitial | null;
   courseId: string;
+  /** Thêm câu mới vào Bộ câu hỏi này: câu nhận chuyên đề của bộ. */
+  set?: { id: string; moduleId: string };
   onClose: () => void;
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
   const { data: appConfig } = useAppConfig();
   const initialValue: QuestionFormValue = {
-    moduleId: question?.moduleId || "",
+    moduleId: question?.moduleId || set?.moduleId || "",
     difficultyLevelId: question?.difficultyLevelId || "",
     type: (question?.type ?? QuestionTypeDto.single_choice) as QuestionTypeDto,
     content: question?.content || "",
@@ -59,7 +62,7 @@ export default function QuestionFormDialog({
     skills: question?.skills ?? [],
     // Câu cũ (null) giữ ô dài như trước; câu mới mặc định ô ngắn.
     essayInputSize: question ? (question.essayInputSize ?? "long") : "short",
-    sharedMaterialId: question?.sharedMaterialId ?? "",
+    sharedMaterialId: question?.sharedMaterialId ?? set?.id ?? "",
     audio: question?.audio ?? null,
   };
   const [form, setForm] = useState<QuestionFormValue>(initialValue);

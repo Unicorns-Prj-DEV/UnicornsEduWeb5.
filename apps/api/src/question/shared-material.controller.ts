@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import {
@@ -30,6 +31,7 @@ import {
 import { Roles } from '../auth/decorators/roles.decorator';
 import {
   CreateSharedMaterialDto,
+  ReorderSetQuestionsDto,
   SharedMaterialFilterDto,
   UpdateSharedMaterialDto,
 } from '../dtos/shared-material.dto';
@@ -90,6 +92,31 @@ export class SharedMaterialController {
     @Body() dto: UpdateSharedMaterialDto,
   ) {
     return this.service.update(id, dto, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Put(':id/question-order')
+  @ApiOperation({
+    summary: 'Sắp lại thứ tự câu trong Bộ câu hỏi',
+    description:
+      'Gửi đủ mọi câu (chưa xoá) của bộ theo thứ tự mới. Làm bài / ôn nhẹ xếp câu trong khối theo thứ tự này.',
+  })
+  @ApiParam({ name: 'id', description: 'Shared material (bộ) ID' })
+  @ApiBody({ type: ReorderSetQuestionsDto })
+  @ApiOkResponse({ description: 'Đã lưu thứ tự.' })
+  @ApiBadRequestResponse({
+    description: 'Danh sách không khớp đúng các câu của bộ',
+  })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy bộ' })
+  reorderQuestions(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReorderSetQuestionsDto,
+  ) {
+    return this.service.reorderQuestions(id, dto.questionIds, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
