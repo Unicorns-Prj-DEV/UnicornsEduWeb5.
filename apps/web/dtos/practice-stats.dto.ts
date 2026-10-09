@@ -9,7 +9,7 @@ export type PracticeStatsStudentStatus =
 export interface PracticeStatsQuestionRateDto {
   questionId: string;
   order: number;
-  type: "single_choice" | "essay" | "true_false_group" | "true_false" | "fill_blank";
+  type: "single_choice" | "essay" | "true_false_group" | "true_false" | "fill_blank" | "ordering";
   correctCount: number;
   sampleCount: number;
   /** 0..1, chỉ trên lượt tốt nhất đã chấm xong. */

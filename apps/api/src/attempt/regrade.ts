@@ -2,7 +2,7 @@ import { Prisma } from '../../generated/client';
 import { AttemptStatus, QuestionType } from 'generated/enums';
 import { parseBlankAnswerKey } from './fill-blank';
 import { gradeAnswers } from './grading';
-import { remapAnswerKey } from './shuffle';
+import { remapAnswerKey, reorderForKey } from './shuffle';
 
 /**
  * Chấm lại khi sửa đáp án đúng (ADR 2026-10-07-it-absolute-scoring-and-answer-key-regrade):
@@ -18,9 +18,11 @@ export async function regradeQuestionAnswerKey(
     correctIndex?: number | null;
     tfAnswerKey?: boolean[];
     blankAnswerKey?: string[][];
+    /** Câu sắp xếp: thẻ theo thứ tự đúng mới. */
+    orderingKey?: string[];
   },
 ): Promise<number> {
-  const { blankAnswerKey, ...optionKey } = key;
+  const { blankAnswerKey, orderingKey, ...optionKey } = key;
   const data: Prisma.AttemptAnswerUpdateManyMutationInput = {};
   if (optionKey.correctIndex !== undefined) {
     data.correctIndex = optionKey.correctIndex;
@@ -28,7 +30,13 @@ export async function regradeQuestionAnswerKey(
   if (optionKey.tfAnswerKey !== undefined) {
     data.tfAnswerKey = optionKey.tfAnswerKey;
   }
-  if (Object.keys(data).length === 0 && blankAnswerKey === undefined) return 0;
+  if (
+    Object.keys(data).length === 0 &&
+    blankAnswerKey === undefined &&
+    orderingKey === undefined
+  ) {
+    return 0;
+  }
 
   if (Object.keys(data).length > 0) {
     // Snapshot không đảo: ghi thẳng. Snapshot đã đảo: đổi đáp án sang thứ tự hiển thị của lượt đó.
@@ -63,6 +71,25 @@ export async function regradeQuestionAnswerKey(
       await tx.attemptAnswer.update({
         where: { id: row.id },
         data: { blankAnswerKey },
+      });
+    }
+  }
+
+  if (orderingKey !== undefined) {
+    // Thẻ hiển thị giữ nguyên; chỉ đổi hoán vị về thứ tự đúng mới. Bộ thẻ khác → bỏ qua.
+    const rows = await tx.attemptAnswer.findMany({
+      where: { questionId, type: QuestionType.ordering },
+      select: { id: true, options: true, optionOrder: true },
+    });
+    for (const row of rows) {
+      const cards = Array.isArray(row.options)
+        ? row.options.filter((x): x is string => typeof x === 'string')
+        : [];
+      const optionOrder = reorderForKey(cards, orderingKey);
+      if (optionOrder === null) continue;
+      await tx.attemptAnswer.update({
+        where: { id: row.id },
+        data: { optionOrder },
       });
     }
   }

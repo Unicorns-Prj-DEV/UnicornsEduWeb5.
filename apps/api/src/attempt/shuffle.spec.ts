@@ -2,6 +2,10 @@ import { AttemptScoring, QuestionSlot, QuestionType } from 'generated/enums';
 import { gradeAnswers } from './grading';
 import {
   isPositionDependent,
+  orderingKeyOf,
+  reorderForKey,
+  seededRng,
+  shuffleOrderingCards,
   remapAnswerKey,
   shuffleQuestionOptions,
   shuffledIndices,
@@ -274,5 +278,68 @@ describe('đảo không đổi điểm (so với đề gốc)', () => {
     expect(
       remapAnswerKey([2, 0, 3, 1], { correctIndex: 4 }).correctIndex,
     ).toBeNull();
+  });
+});
+
+describe('shuffleOrderingCards', () => {
+  it('xáo thẻ, optionOrder trỏ về vị trí gốc', () => {
+    const cards = ['私は', '毎日', '学校へ', '行きます'];
+    for (let seed = 0; seed < 20; seed++) {
+      const r = shuffleOrderingCards(cards);
+      expect(r.optionOrder.map((i) => cards[i])).toEqual(r.options);
+      expect([...r.optionOrder].sort()).toEqual([0, 1, 2, 3]);
+      // Không bao giờ hiện đúng thứ tự đáp án.
+      expect(r.options).not.toEqual(cards);
+    }
+  });
+
+  it('rng trả hoán vị đơn vị vẫn bị đổi', () => {
+    // rng() = 0.999… → Fisher–Yates giữ nguyên thứ tự.
+    const r = shuffleOrderingCards(['a', 'b', 'c'], () => 0.9999);
+    expect(r.options).not.toEqual(['a', 'b', 'c']);
+  });
+
+  it('mọi thẻ cùng chữ thì không thể khác, trả nguyên', () => {
+    const r = shuffleOrderingCards(['の', 'の'], () => 0.9999);
+    expect(r.options).toEqual(['の', 'の']);
+  });
+});
+
+describe('orderingKeyOf / reorderForKey', () => {
+  it('lấy lại thứ tự đúng từ snapshot đã xáo', () => {
+    expect(orderingKeyOf(['c', 'a', 'b'], [2, 0, 1])).toEqual(['a', 'b', 'c']);
+  });
+  it('đổi thứ tự đúng, cùng bộ thẻ → optionOrder mới; khác bộ thẻ → null', () => {
+    const order = reorderForKey(['c', 'a', 'b'], ['b', 'c', 'a']);
+    expect(order).toEqual([1, 2, 0]);
+    expect(orderingKeyOf(['c', 'a', 'b'], order!)).toEqual(['b', 'c', 'a']);
+    expect(reorderForKey(['c', 'a', 'b'], ['a', 'b', 'x'])).toBeNull();
+    expect(reorderForKey(['c', 'a', 'b'], ['a', 'b'])).toBeNull();
+  });
+  it('thẻ trùng chữ ghép được', () => {
+    const order = reorderForKey(['の', '本', 'の'], ['の', 'の', '本']);
+    expect(orderingKeyOf(['の', '本', 'の'], order!)).toEqual([
+      'の',
+      'の',
+      '本',
+    ]);
+  });
+});
+
+describe('seededRng', () => {
+  it('cùng seed cho cùng dãy, giá trị trong [0, 1)', () => {
+    const a = seededRng('student-1:question-1');
+    const b = seededRng('student-1:question-1');
+    const xs = Array.from({ length: 20 }, () => a());
+    expect(Array.from({ length: 20 }, () => b())).toEqual(xs);
+    expect(xs.every((x) => x >= 0 && x < 1)).toBe(true);
+  });
+
+  it('seed khác cho dãy khác', () => {
+    const a = seededRng('student-1:question-1');
+    const b = seededRng('student-2:question-1');
+    expect(Array.from({ length: 5 }, () => a())).not.toEqual(
+      Array.from({ length: 5 }, () => b()),
+    );
   });
 });

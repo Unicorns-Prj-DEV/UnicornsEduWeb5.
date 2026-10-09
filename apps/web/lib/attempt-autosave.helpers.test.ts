@@ -25,6 +25,7 @@ function q(
     tfChoices: partial.tfChoices ?? null,
     blankCount: partial.blankCount ?? null,
     blankAnswers: partial.blankAnswers ?? null,
+    orderAnswer: partial.orderAnswer ?? null,
   };
 }
 
@@ -79,6 +80,25 @@ describe("Câu điền vào ô trống", () => {
     const a = q({ type: "fill_blank", blankCount: 1, blankAnswers: ["a"] });
     const b = q({ type: "fill_blank", blankCount: 1, blankAnswers: ["b"] });
     expect(answersSignature([a])).not.toBe(answersSignature([b]));
+  });
+});
+
+describe("Câu sắp xếp", () => {
+  const cards = ["本", "の", "机", "の"];
+  const ord = (orderAnswer: string[] | null) =>
+    q({ type: "ordering", options: cards, orderAnswer });
+
+  it("chỉ tính đã làm khi đã dùng hết thẻ", () => {
+    expect(isAttemptQuestionUnanswered(ord(["の", "本", "の", "机"]))).toBe(false);
+    expect(isAttemptQuestionUnanswered(ord(["の", "本"]))).toBe(true);
+    expect(isAttemptQuestionUnanswered(ord([]))).toBe(true);
+    expect(isAttemptQuestionUnanswered(ord(null))).toBe(true);
+  });
+
+  it("đổi thứ tự thẻ làm đổi chữ ký tự lưu", () => {
+    expect(answersSignature([ord(["の", "本", "の", "机"])])).not.toBe(
+      answersSignature([ord(["本", "の", "の", "机"])]),
+    );
   });
 });
 

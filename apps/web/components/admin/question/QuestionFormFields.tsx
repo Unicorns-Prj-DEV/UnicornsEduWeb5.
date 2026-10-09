@@ -8,6 +8,7 @@ import QuestionPreview from "@/components/admin/question/QuestionPreview";
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
+import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
 import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
 import { appendBlankMarker } from "@/lib/fill-blank";
 import {
@@ -317,6 +318,13 @@ export default function QuestionFormFields({
 
             {value.type === QuestionTypeDto.true_false && (
               <TrueFalseSingleFields value={value} onChange={onChange} />
+            )}
+
+            {value.type === QuestionTypeDto.ordering && (
+              <OrderingCardFields
+                cards={value.options}
+                onChange={(options) => onChange({ options })}
+              />
             )}
 
             {value.type === QuestionTypeDto.fill_blank && (

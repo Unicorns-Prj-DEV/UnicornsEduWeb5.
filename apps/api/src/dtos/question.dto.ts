@@ -48,6 +48,8 @@ export enum QuestionTypeDto {
   true_false = 'true_false',
   /** Câu điền vào ô trống (JP): ô `[[___]]` trong `content`, đáp án hợp lệ `blankAnswerKey`. */
   fill_blank = 'fill_blank',
+  /** Câu sắp xếp (JP): thẻ trong `options` theo thứ tự đúng; học sinh nhận thẻ đã xáo. */
+  ordering = 'ordering',
 }
 
 /** Kiểu nhãn Câu Đúng/Sai (JP): ○/× (mặc định), Đúng/Sai, True/False. */

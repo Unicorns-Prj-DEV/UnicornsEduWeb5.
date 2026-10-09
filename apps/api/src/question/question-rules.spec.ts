@@ -140,18 +140,25 @@ describe('Câu điền vào ô trống (fill_blank)', () => {
     ).toBeNull();
   });
   it('IT và ENG từ chối', () => {
-    expect(questionShapeError(ok, IT)).toMatch('Hồ sơ IT không hỗ trợ câu điền vào ô trống');
-    expect(questionShapeError(ok, ENG)).toMatch('Hồ sơ ENG không hỗ trợ câu điền vào ô trống');
+    expect(questionShapeError(ok, IT)).toMatch(
+      'Hồ sơ IT không hỗ trợ câu điền vào ô trống',
+    );
+    expect(questionShapeError(ok, ENG)).toMatch(
+      'Hồ sơ ENG không hỗ trợ câu điền vào ô trống',
+    );
   });
   it('đề phải có ít nhất một ô trống', () => {
     expect(
-      questionShapeError({ ...ok, content: 'không có ô', blankAnswerKey: [] }, JP),
+      questionShapeError(
+        { ...ok, content: 'không có ô', blankAnswerKey: [] },
+        JP,
+      ),
     ).toBe('Câu điền vào ô trống phải có ít nhất một ô [[___]] trong đề.');
   });
   it('số ô trong đề phải khớp số danh sách đáp án', () => {
-    expect(
-      questionShapeError({ ...ok, blankAnswerKey: [['九時']] }, JP),
-    ).toBe('Đề có 2 ô trống nhưng có đáp án cho 1 ô.');
+    expect(questionShapeError({ ...ok, blankAnswerKey: [['九時']] }, JP)).toBe(
+      'Đề có 2 ô trống nhưng có đáp án cho 1 ô.',
+    );
   });
   it('mỗi ô có ít nhất một đáp án hợp lệ không rỗng', () => {
     expect(
@@ -219,6 +226,44 @@ describe('questionSkillsError', () => {
     expect(questionSkillsError([], IT)).toBeNull();
     expect(questionSkillsError(['reading'], ENG)).toBe(
       'Hồ sơ ENG không có kỹ năng câu hỏi.',
+    );
+  });
+});
+
+describe('Câu sắp xếp (ordering)', () => {
+  const ENG = lmsProfileConfig('eng');
+  const ok = { type: 'ordering', options: ['私は', '学校へ', '行きます'] };
+  it('JP nhận thẻ theo thứ tự đúng; IT/ENG từ chối', () => {
+    expect(questionShapeError(ok, JP)).toBeNull();
+    expect(questionShapeError(ok, IT)).toMatch(
+      'Hồ sơ IT không hỗ trợ câu sắp xếp',
+    );
+    expect(questionShapeError(ok, ENG)).toMatch(
+      'Hồ sơ ENG không hỗ trợ câu sắp xếp',
+    );
+  });
+  it('cần ít nhất 2 thẻ, thẻ không rỗng', () => {
+    expect(questionShapeError({ ...ok, options: ['私は'] }, JP)).toBe(
+      'Câu sắp xếp phải có 2–12 thẻ.',
+    );
+    expect(questionShapeError({ ...ok, options: opts(13) }, JP)).toBe(
+      'Câu sắp xếp phải có 2–12 thẻ.',
+    );
+    expect(questionShapeError({ ...ok, options: ['私は', ' '] }, JP)).toBe(
+      'Thẻ 2 không được để trống.',
+    );
+  });
+  it('thẻ trùng chữ vẫn hợp lệ', () => {
+    expect(
+      questionShapeError({ ...ok, options: ['の', 'の', '本'] }, JP),
+    ).toBeNull();
+  });
+  it('không có đáp án đúng riêng hay Đúng/Sai', () => {
+    expect(questionShapeError({ ...ok, correctIndex: 0 }, JP)).toBe(
+      'Câu sắp xếp không dùng correctIndex.',
+    );
+    expect(questionShapeError({ ...ok, tfAnswerKey: [true] }, JP)).toBe(
+      'Câu sắp xếp không có đáp án Đúng/Sai.',
     );
   });
 });

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { LessonKind, QuestionType } from 'generated/enums';
 import { parseBlankAnswerKey } from '../attempt/fill-blank';
+import { seededRng, shuffleOrderingCards } from '../attempt/shuffle';
 import { normalizeTrueFalseChoices } from '../attempt/grading';
 import {
   ActionHistoryActor,
@@ -144,7 +145,7 @@ export class LessonQuizService extends CourseContentSupportService {
     });
   }
 
-  async getLessonQuizzesForStudent(lessonId: string) {
+  async getLessonQuizzesForStudent(lessonId: string, studentId: string) {
     await this.loadTheoryLesson(lessonId);
 
     const quizzes = await this.prisma.lessonQuiz.findMany({
@@ -167,11 +168,21 @@ export class LessonQuizService extends CourseContentSupportService {
       },
     });
 
-    // Học sinh chỉ biết số ô trống, không thấy đáp án hợp lệ.
+    // Học sinh chỉ biết số ô trống, không thấy đáp án hợp lệ. Thẻ câu sắp xếp
+    // xáo theo seed học sinh + câu: tải lại không đổi thứ tự, không lộ đáp án.
     return quizzes.map((q) => ({
       ...q,
       question: {
         ...q.question,
+        options:
+          q.question.type === QuestionType.ordering
+            ? shuffleOrderingCards(
+                Array.isArray(q.question.options)
+                  ? (q.question.options as string[])
+                  : [],
+                seededRng(`${studentId}:${q.question.id}`),
+              ).options
+            : q.question.options,
         correctIndex: null,
         tfAnswerKey: [],
         blankAnswerKey: null,
@@ -192,6 +203,7 @@ export class LessonQuizService extends CourseContentSupportService {
       essayAnswer?: string | null;
       tfChoices?: unknown;
       blankAnswers?: (string | null)[] | null;
+      orderAnswer?: string[] | null;
     }[],
   ) {
     await this.loadTheoryLesson(lessonId);
@@ -235,6 +247,7 @@ export class LessonQuizService extends CourseContentSupportService {
                 typeof b === 'string' ? b : null,
               ),
             }),
+            ...(a.orderAnswer != null && { orderAnswer: a.orderAnswer }),
           },
           update: {
             choiceIndex: a.choiceIndex ?? null,
@@ -247,6 +260,7 @@ export class LessonQuizService extends CourseContentSupportService {
                 typeof b === 'string' ? b : null,
               ),
             }),
+            ...(a.orderAnswer != null && { orderAnswer: a.orderAnswer }),
           },
         }),
       ),

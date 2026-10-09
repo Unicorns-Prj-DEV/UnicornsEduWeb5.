@@ -483,6 +483,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `attempt_answers.essay_input_size` (`EssayInputSize?`): snapshot kiểu ô tự luận lúc start (`null` = ô dài).
   - `attempt_answers.tf_label_style` (`TrueFalseLabelStyle?`): snapshot kiểu nhãn Câu Đúng/Sai lúc start (`null` = ○/×). Câu `true_false` lưu lựa chọn ở `tf_choices[0]`.
   - `attempt_answers.blank_answer_key` (`JSONB?`, `string[][]`): snapshot đáp án hợp lệ từng ô của câu `fill_blank` lúc start; `blank_answers` (`JSONB?`, `(string|null)[]`): chữ học sinh gõ vào từng ô. Chấm từng ô: điểm = `round(points_possible × số ô đúng / số ô)`, `is_correct` = đúng mọi ô. Sửa đáp án ô ở ngân hàng → chấm lại như `correct_index`/`tf_answer_key`, nhưng chỉ cập nhật snapshot có **cùng số ô** (thêm/bớt ô sau khi lượt bắt đầu không chấm lại).
+  - Câu `ordering` (sắp xếp): `options` = thẻ **đã xáo** (luôn xáo lúc start, kể cả khi tắt Đảo câu; không bao giờ trùng thứ tự đúng trừ khi mọi thẻ cùng chữ), `option_order[i]` = vị trí gốc của thẻ hiển thị thứ i → thứ tự đúng = thẻ xếp theo `option_order`. `order_answer` (`TEXT[]`, mặc định `{}`): chữ thẻ theo thứ tự học sinh xếp (so theo chữ nên thẻ trùng chữ đổi chỗ vẫn đúng). Chấm cả chuỗi: khớp toàn bộ = đủ điểm, ngược lại 0; đã làm = dùng hết thẻ. Sửa thẻ ở ngân hàng → tính lại `option_order` cho snapshot cùng bộ thẻ (khác bộ thẻ thì bỏ qua) rồi chấm lại.
   - `attempt_answers.tf_answer_key` (`BOOLEAN[]`): snapshot đáp án 4 nhận định; `tf_choices` (`JSONB`, `(boolean|null)[4]`): lựa chọn của học sinh.
   - Sửa đáp án câu ở ngân hàng (`correct_index` / `tf_answer_key`) → cập nhật snapshot các `attempt_answers` của lượt đã nộp và chấm lại im lặng (`auto_graded_score`), không thông báo. Snapshot đã đảo đáp án được đổi sang thứ tự hiển thị qua `option_order` (`remapAnswerKey`); phương án đúng mới không có trong snapshot (thêm phương án sau khi lượt bắt đầu) → `correct_index = null` (không ai đúng).
   - `attempt_answers.option_order` (`INT[]`, default `{}`): hoán vị lúc đảo đáp án — `option_order[i]` = chỉ số gốc của phương án hiển thị thứ i. Rỗng = không đảo. `options`, `correct_index`, `tf_answer_key`, `choice_index`, `tf_choices` trong snapshot đều theo **thứ tự hiển thị**, nên chấm điểm không cần biết hoán vị.
@@ -647,7 +648,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.6c-c `lesson_quizzes` / `lesson_quiz_answers` (Bài tập ôn nhẹ)
 
 - `lesson_quizzes`: câu hỏi ngân hàng gắn vào một tiết lý thuyết. Unique `(lesson_id, question_id)`. FK `lesson_id` cascade; `question_id` restrict.
-- `lesson_quiz_answers`: trả lời ôn nhẹ theo `(lesson_id, question_id, student_id)`. Không sinh Attempt, không tính điểm. Câu Đúng/Sai lưu lựa chọn ở `tf_choices` (`JSONB`, `(boolean|null)[4]`). Câu điền vào ô trống lưu chữ gõ ở `blank_answers` (`JSONB?`, `(string|null)[]`).
+- `lesson_quiz_answers`: trả lời ôn nhẹ theo `(lesson_id, question_id, student_id)`. Không sinh Attempt, không tính điểm. Câu Đúng/Sai lưu lựa chọn ở `tf_choices` (`JSONB`, `(boolean|null)[4]`). Câu điền vào ô trống lưu chữ gõ ở `blank_answers` (`JSONB?`, `(string|null)[]`). Câu sắp xếp lưu chữ thẻ theo thứ tự xếp ở `order_answer` (`TEXT[]`, mặc định `{}`).
 - Đổi tên in-place từ `lecture_quizzes` / `lecture_quiz_answers` (`lecture_id` → `lesson_id`) ở `20260921000000_rename_three_level_content`.
 
 ### 4.6d `questions` (Ngân hàng câu hỏi)
@@ -658,7 +659,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `course_id` (FK → `courses.id`, cascade)
   - `module_id` (FK → `modules.id`, cascade)
   - `difficulty_level_id` (FK → `course_difficulty_levels.id`, restrict)
-  - `type` (`QuestionType`): `single_choice` | `essay` | `true_false_group` | `true_false` | `fill_blank`. Hồ sơ IT không cho tạo `essay`; `true_false` (Câu Đúng/Sai một nhận định) và `fill_blank` (Câu điền vào ô trống) chỉ hồ sơ JP.
+  - `type` (`QuestionType`): `single_choice` | `essay` | `true_false_group` | `true_false` | `fill_blank` | `ordering`. Hồ sơ IT không cho tạo `essay`; `true_false` (Câu Đúng/Sai một nhận định), `fill_blank` (Câu điền vào ô trống) và `ordering` (Câu sắp xếp: 2–12 thẻ không rỗng trong `options` theo **đúng thứ tự**, thẻ trùng chữ hợp lệ; không `correct_index`/`tf_answer_key`) chỉ hồ sơ JP.
   - `content` (`TEXT`): nội dung câu hỏi (HTML từ TipTap; có thể chứa bảng, ảnh, `<pre><code class="language-*">`, `<div data-code-parallel>`). Web sanitize (DOMPurify) trước khi render.
   - `options` (`JSONB`, nullable): `single_choice` — 2–6 phương án; `true_false_group` — đúng 4 nhận định a–d (HTML)
   - `tf_answer_key` (`BOOLEAN[]`, default `{}`): đáp án 4 nhận định (true = Đúng) cho `true_false_group`; đúng 1 phần tử cho `true_false` (nhận định nằm ở `content`, không có `options`)
@@ -912,7 +913,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
 - `ClassContentHiddenReason`: `manual`, `module_removed` — lý do ẩn mềm `class_content_items` (`20261005120000_class_module_order_and_hidden_reason`)
 - `ClassTimelineItemKind`: `session` | `class_survey` | `content_item` — loại mục trên timeline lớp (`class_timeline_items`)
-- `QuestionType`: `single_choice | essay | true_false_group | true_false | fill_blank` — phân loại câu hỏi trong ngân hàng câu hỏi (`true_false_group`: nhóm 4 nhận định Đúng/Sai, hồ sơ IT; `true_false`: Câu Đúng/Sai một nhận định, hồ sơ JP; `fill_blank`: Câu điền vào ô trống, hồ sơ JP)
+- `QuestionType`: `single_choice | essay | true_false_group | true_false | fill_blank | ordering` — phân loại câu hỏi trong ngân hàng câu hỏi (`true_false_group`: nhóm 4 nhận định Đúng/Sai, hồ sơ IT; `true_false`: Câu Đúng/Sai một nhận định, hồ sơ JP; `fill_blank`: Câu điền vào ô trống, hồ sơ JP; `ordering`: Câu sắp xếp, hồ sơ JP)
 - `TrueFalseLabelStyle`: `maru_batsu | dung_sai | true_false` — kiểu nhãn Câu Đúng/Sai (JP)
 - `QuestionSlot`: `required | elective_1 | elective_2` — vị trí câu trong đề thực hành
 - `AttemptScoring`: `equal_100 | absolute_it` — thang điểm của Bài làm

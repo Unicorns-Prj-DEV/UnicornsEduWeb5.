@@ -7,6 +7,25 @@ import { assertNever } from 'src/common/assert-never';
  */
 export type Rng = () => number;
 
+/**
+ * Rng tất định theo chuỗi seed (băm FNV-1a → mulberry32). Dùng khi không có
+ * snapshot để giữ thứ tự xáo ổn định giữa các lần tải (vd thẻ câu sắp xếp ở ôn nhẹ).
+ */
+export function seededRng(seed: string): Rng {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 0x01000193);
+  }
+  let state = h >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /** Fisher–Yates: hoán vị ngẫu nhiên đều của `0..n-1`. */
 export function shuffledIndices(n: number, rng: Rng = Math.random): number[] {
   const order = Array.from({ length: n }, (_, i) => i);
@@ -124,6 +143,8 @@ export function shuffleQuestionOptions(
     case QuestionType.true_false:
     // Câu điền vào ô trống: ô theo thứ tự trong đề, không có phương án.
     case QuestionType.fill_blank:
+    // Câu sắp xếp: thẻ luôn bị xáo riêng (`shuffleOrderingCards`), kể cả khi tắt Đảo câu.
+    case QuestionType.ordering:
       return null;
     case QuestionType.single_choice:
     case QuestionType.true_false_group:
@@ -151,4 +172,61 @@ export function shuffleQuestionOptions(
     correctIndex: key.correctIndex ?? null,
     tfAnswerKey: key.tfAnswerKey ?? [],
   };
+}
+
+const sameSequence = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * Xáo thẻ câu sắp xếp. Luôn xáo (kể cả khi tắt Đảo câu) và không bao giờ hiện
+ * đúng thứ tự đáp án — trừ khi mọi thẻ cùng chữ. `optionOrder[i]` = vị trí
+ * gốc (thứ tự đúng) của thẻ hiển thị thứ i.
+ */
+export function shuffleOrderingCards(
+  cards: string[],
+  rng: Rng = Math.random,
+): { options: string[]; optionOrder: number[] } {
+  let optionOrder = shuffledIndices(cards.length, rng);
+  let options = optionOrder.map((i) => cards[i]);
+  if (sameSequence(options, cards) && new Set(cards).size > 1) {
+    // Xoay một bước tới khi khác chữ: luôn dừng vì có ≥2 chữ khác nhau.
+    do {
+      optionOrder = [...optionOrder.slice(1), optionOrder[0]];
+      options = optionOrder.map((i) => cards[i]);
+    } while (sameSequence(options, cards));
+  }
+  return { options, optionOrder };
+}
+
+/** Thứ tự đúng (chữ thẻ) từ snapshot đã xáo. */
+export function orderingKeyOf(
+  options: string[],
+  optionOrder: number[],
+): string[] {
+  if (optionOrder.length !== options.length) return [...options];
+  const key: string[] = new Array<string>(options.length);
+  optionOrder.forEach((orig, display) => {
+    key[orig] = options[display];
+  });
+  return key;
+}
+
+/**
+ * `optionOrder` mới để snapshot (thẻ hiển thị `options`) có thứ tự đúng `key`.
+ * `null` khi bộ thẻ khác (thêm/bớt/sửa chữ thẻ) — bài cũ không chấm lại.
+ */
+export function reorderForKey(
+  options: string[],
+  key: string[],
+): number[] | null {
+  if (options.length !== key.length) return null;
+  const used = new Array<boolean>(key.length).fill(false);
+  const order: number[] = [];
+  for (const card of options) {
+    const k = key.findIndex((text, i) => !used[i] && text === card);
+    if (k < 0) return null;
+    used[k] = true;
+    order.push(k);
+  }
+  return order;
 }

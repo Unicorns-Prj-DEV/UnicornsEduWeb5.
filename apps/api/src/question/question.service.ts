@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole } from 'generated/enums';
+import { QuestionType, UserRole } from 'generated/enums';
 import { Prisma } from '../../generated/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActionHistoryService } from '../action-history/action-history.service';
@@ -139,6 +139,7 @@ export class QuestionService {
       correctIndex?: number | null;
       tfAnswerKey?: boolean[];
       blankAnswerKey?: string[][];
+      orderingKey?: string[];
     } = {};
     if (
       dto.correctIndex !== undefined &&
@@ -160,6 +161,15 @@ export class QuestionService {
     ) {
       // Đổi đáp án hợp lệ của ô → chấm lại (regrade bỏ qua snapshot khác số ô).
       answerKeyChange.blankAnswerKey = dto.blankAnswerKey;
+    }
+
+    if (
+      existing.type === QuestionType.ordering &&
+      dto.options !== undefined &&
+      JSON.stringify(dto.options) !== JSON.stringify(existing.options)
+    ) {
+      // Thẻ của câu sắp xếp chính là đáp án → chấm lại (regrade bỏ qua snapshot khác bộ thẻ).
+      answerKeyChange.orderingKey = dto.options;
     }
 
     const before = existing;

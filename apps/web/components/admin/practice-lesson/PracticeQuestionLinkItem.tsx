@@ -352,6 +352,16 @@ export function PracticeQuestionLinkItem({
           </p>
         ) : null}
 
+        {question.type === QuestionTypeDto.ordering &&
+        (question.options?.length ?? 0) > 0 ? (
+          <p className="mt-1.5 text-xs text-text-muted">
+            Thứ tự đúng:{" "}
+            <span className="font-semibold text-success">
+              {(question.options ?? []).join(" → ")}
+            </span>
+          </p>
+        ) : null}
+
         {question.type === QuestionTypeDto.fill_blank &&
         question.blankAnswerKey?.length ? (
           <ol className="mt-1.5 space-y-0.5 text-xs text-text-muted">

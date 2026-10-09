@@ -136,6 +136,19 @@ export class SaveAttemptAnswerItemDto {
   blankAnswers?: (string | null)[] | null;
 
   @ApiPropertyOptional({
+    nullable: true,
+    type: [String],
+    description:
+      'Câu sắp xếp (JP): chữ thẻ theo thứ tự học sinh xếp; [] = chưa xếp.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  orderAnswer?: string[] | null;
+
+  @ApiPropertyOptional({
     description: 'Học sinh đánh dấu quay lại xem trước nộp',
   })
   @IsOptional()
@@ -161,11 +174,12 @@ export interface AttemptQuestionDto {
     | 'essay'
     | 'true_false_group'
     | 'true_false'
-    | 'fill_blank';
+    | 'fill_blank'
+    | 'ordering';
   /** Vị trí câu: Bắt buộc / Tự chọn 1 / Tự chọn 2. */
   slot: QuestionSlotDto;
   content: string;
-  /** single_choice: phương án; true_false_group: 4 nhận định a–d. */
+  /** single_choice: phương án; true_false_group: 4 nhận định a–d; ordering: thẻ đã xáo. */
   options: string[] | null;
   /** Kiểu ô tự luận (snapshot): short = một dòng, long/null = nhiều dòng. */
   essayInputSize: 'short' | 'long' | null;
@@ -182,6 +196,10 @@ export interface AttemptQuestionDto {
   blankAnswers: (string | null)[] | null;
   /** Đáp án hợp lệ từng ô — chỉ khi đã nộp. */
   blankAnswerKey?: string[][] | null;
+  /** Câu sắp xếp: chữ thẻ theo thứ tự học sinh xếp; null với loại khác. */
+  orderAnswer: string[] | null;
+  /** Câu sắp xếp: thứ tự đúng — chỉ khi đã nộp. */
+  orderingKey?: string[] | null;
   essayAnswer: string | null;
   markedForReview: boolean;
   correctIndex?: number | null;
@@ -263,7 +281,8 @@ export interface PracticeStatsQuestionRateDto {
     | 'essay'
     | 'true_false_group'
     | 'true_false'
-    | 'fill_blank';
+    | 'fill_blank'
+    | 'ordering';
   correctCount: number;
   /** Số học sinh có lượt tốt nhất đã chấm xong chứa câu này. */
   sampleCount: number;

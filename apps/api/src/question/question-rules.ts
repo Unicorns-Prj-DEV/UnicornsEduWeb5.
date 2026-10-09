@@ -33,7 +33,12 @@ const TYPE_LABEL: Record<LmsQuestionType, string> = {
   true_false_group: 'Đúng/Sai (nhóm 4 nhận định)',
   true_false: 'Đúng/Sai',
   fill_blank: 'điền vào ô trống',
+  ordering: 'sắp xếp',
 };
+
+/** Số thẻ của câu sắp xếp. */
+export const ORDERING_MIN_CARDS = 2;
+export const ORDERING_MAX_CARDS = 12;
 
 export function questionShapeError(
   shape: QuestionShape,
@@ -101,6 +106,25 @@ export function questionShapeError(
         return 'Câu điền vào ô trống không dùng correctIndex.';
       }
       return blankAnswerKeyError(shape.content ?? '', shape.blankAnswerKey);
+    case 'ordering': {
+      // Thẻ nằm ở `options` theo đúng thứ tự; thẻ trùng chữ hợp lệ.
+      if (
+        !options ||
+        options.length < ORDERING_MIN_CARDS ||
+        options.length > ORDERING_MAX_CARDS
+      ) {
+        return `Câu sắp xếp phải có ${ORDERING_MIN_CARDS}–${ORDERING_MAX_CARDS} thẻ.`;
+      }
+      const blank = options.findIndex(
+        (o) => typeof o !== 'string' || o.trim() === '',
+      );
+      if (blank >= 0) return `Thẻ ${blank + 1} không được để trống.`;
+      if (shape.correctIndex !== undefined && shape.correctIndex !== null) {
+        return 'Câu sắp xếp không dùng correctIndex.';
+      }
+      if (hasKey) return 'Câu sắp xếp không có đáp án Đúng/Sai.';
+      return null;
+    }
     case 'essay':
       if (options?.length) return 'Câu tự luận không có phương án.';
       if (hasKey) return 'Câu tự luận không có đáp án Đúng/Sai.';

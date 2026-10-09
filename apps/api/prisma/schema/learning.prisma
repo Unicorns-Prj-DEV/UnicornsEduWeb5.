@@ -554,6 +554,8 @@ model LessonQuizAnswer {
   tfChoices    Json?    @map("tf_choices")
   /// Chữ học sinh gõ vào từng ô trống: `(string | null)[]`.
   blankAnswers Json?    @map("blank_answers")
+  /// Câu sắp xếp: chữ trên thẻ theo thứ tự học sinh xếp. Rỗng = chưa xếp.
+  orderAnswer  String[] @default([]) @map("order_answer")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -655,6 +657,8 @@ enum QuestionType {
   true_false
   /// Câu điền vào ô trống (JP): ô `[[___]]` trong `content`, đáp án hợp lệ `blankAnswerKey`.
   fill_blank
+  /// Câu sắp xếp (JP): thẻ ở `options` theo thứ tự đúng; snapshot luôn xáo.
+  ordering
 }
 
 /// Kiểu nhãn Câu Đúng/Sai (JP), chọn theo từng câu. null = ○/×.
@@ -746,6 +750,8 @@ model AttemptAnswer {
   blankAnswerKey  Json?                @map("blank_answer_key")
   /// Chữ học sinh gõ vào từng ô trống: `(string | null)[]`.
   blankAnswers    Json?                @map("blank_answers")
+  /// Câu sắp xếp: chữ trên thẻ theo thứ tự học sinh xếp (so theo chữ). Rỗng = chưa xếp.
+  orderAnswer     String[]             @default([]) @map("order_answer")
   essayAnswer     String?              @map("essay_answer") @db.Text
   /// Học sinh đánh dấu quay lại xem trước nộp — không ảnh hưởng chấm điểm.
   markedForReview Boolean              @default(false) @map("marked_for_review")

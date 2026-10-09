@@ -44,7 +44,12 @@ import {
 } from './grading';
 import { blankFieldsOf, parseBlankAnswerKey } from './fill-blank';
 import { assertExamForm, examGroupRank, orderExamLinks } from './exam-form';
-import { shuffleQuestionOptions, shuffleWithinGroups } from './shuffle';
+import {
+  orderingKeyOf,
+  shuffleOrderingCards,
+  shuffleQuestionOptions,
+  shuffleWithinGroups,
+} from './shuffle';
 import { assignmentCloseAt, isAssignmentClosed } from './assignment-window';
 
 /** Include chấm/đọc bài: chỉ snapshot trên AttemptAnswer, không join Question live. */
@@ -180,9 +185,21 @@ export class AttemptService {
           scoring,
           answers: {
             create: links.map((link, index) => {
-              const shuffled = shuffle
-                ? shuffleQuestionOptions(link.question)
-                : null;
+              // Câu sắp xếp luôn xáo thẻ (kể cả khi tắt Đảo câu) — không thì lộ đáp án.
+              const shuffled =
+                link.question.type === QuestionType.ordering
+                  ? {
+                      ...shuffleOrderingCards(
+                        Array.isArray(link.question.options)
+                          ? (link.question.options as string[])
+                          : [],
+                      ),
+                      correctIndex: null,
+                      tfAnswerKey: [],
+                    }
+                  : shuffle
+                    ? shuffleQuestionOptions(link.question)
+                    : null;
               return {
                 questionId: link.questionId,
                 order: isIt || shuffle ? index : (link.order ?? index),
@@ -282,6 +299,9 @@ export class AttemptService {
                             typeof a === 'string' ? a : null,
                           ),
                   }
+                : {}),
+              ...(item.orderAnswer !== undefined
+                ? { orderAnswer: item.orderAnswer ?? [] }
                 : {}),
               ...(item.markedForReview !== undefined
                 ? { markedForReview: item.markedForReview }
@@ -935,6 +955,8 @@ export class AttemptService {
         tfChoices: tfChoicesOf(ans.type, ans.tfChoices),
         tfLabelStyle: ans.tfLabelStyle,
         ...blankFieldsOf(ans.type, ans.blankAnswerKey, ans.blankAnswers),
+        orderAnswer:
+          ans.type === QuestionType.ordering ? ans.orderAnswer : null,
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };
@@ -948,6 +970,10 @@ export class AttemptService {
         base.blankAnswerKey =
           ans.type === QuestionType.fill_blank
             ? parseBlankAnswerKey(ans.blankAnswerKey)
+            : null;
+        base.orderingKey =
+          ans.type === QuestionType.ordering
+            ? orderingKeyOf(base.options ?? [], ans.optionOrder)
             : null;
         base.isCorrect = ans.isCorrect;
         base.pointsAwarded = ans.pointsAwarded;

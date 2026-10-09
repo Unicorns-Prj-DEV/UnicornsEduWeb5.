@@ -10,7 +10,16 @@ export enum QuestionTypeDto {
    * từng ô ở `blankAnswerKey`.
    */
   fill_blank = "fill_blank",
+  /**
+   * Câu sắp xếp (chỉ hồ sơ JP): thẻ nằm ở `options` theo đúng thứ tự; học sinh
+   * nhận thẻ đã xáo.
+   */
+  ordering = "ordering",
 }
+
+/** Số thẻ của câu sắp xếp (khớp API). */
+export const ORDERING_MIN_CARDS = 2;
+export const ORDERING_MAX_CARDS = 12;
 
 /** Dấu ô trống trong đề câu điền vào ô trống. Thứ tự xuất hiện = số ô. */
 export const BLANK_MARKER = "[[___]]";
@@ -208,6 +217,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionTypeDto, string> = {
   [QuestionTypeDto.true_false]: "Đúng/Sai",
   [QuestionTypeDto.essay]: "Tự luận",
   [QuestionTypeDto.fill_blank]: "Điền vào ô trống",
+  [QuestionTypeDto.ordering]: "Sắp xếp",
 };
 
 export function questionTypeLabel(type: QuestionTypeDto | string): string {

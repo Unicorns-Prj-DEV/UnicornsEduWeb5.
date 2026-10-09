@@ -86,6 +86,7 @@ export default function StudentAttemptPage() {
           essayAnswer: q.essayAnswer,
           tfChoices: q.tfChoices,
           blankAnswers: q.blankAnswers,
+          orderAnswer: q.orderAnswer,
           markedForReview: q.markedForReview ?? false,
         })),
       }),
@@ -109,6 +110,7 @@ export default function StudentAttemptPage() {
             essayAnswer: q.essayAnswer,
             tfChoices: q.tfChoices,
             blankAnswers: q.blankAnswers,
+            orderAnswer: q.orderAnswer,
             markedForReview: q.markedForReview ?? false,
           })),
         });
@@ -222,6 +224,7 @@ export default function StudentAttemptPage() {
       essayAnswer?: string | null;
       tfChoices?: TrueFalseChoices | null;
       blankAnswers?: BlankAnswers | null;
+      orderAnswer?: string[] | null;
       markedForReview?: boolean;
     },
   ) => {
@@ -355,6 +358,7 @@ function StudentAttemptInProgress({
       essayAnswer?: string | null;
       tfChoices?: TrueFalseChoices | null;
       blankAnswers?: BlankAnswers | null;
+      orderAnswer?: string[] | null;
       markedForReview?: boolean;
     },
   ) => void;

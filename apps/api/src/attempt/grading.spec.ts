@@ -276,12 +276,18 @@ describe('Câu điền vào ô trống', () => {
   }
 
   it('câu 3 ô đúng 2 ô được 2/3 điểm câu', () => {
-    const r = gradeAnswers([fb(['から', 'まで', '大学'])], AttemptScoring.equal_100);
+    const r = gradeAnswers(
+      [fb(['から', 'まで', '大学'])],
+      AttemptScoring.equal_100,
+    );
     expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 20 });
   });
 
   it('đủ ô đúng (theo luật chuẩn hoá, khai nhiều đáp án) là đúng cả câu', () => {
-    const r = gradeAnswers([fb([' から　', 'まで', 'がっこう'])], AttemptScoring.equal_100);
+    const r = gradeAnswers(
+      [fb([' から　', 'まで', 'がっこう'])],
+      AttemptScoring.equal_100,
+    );
     expect(r.patches[0]).toMatchObject({ isCorrect: true, pointsAwarded: 30 });
   });
 
@@ -291,9 +297,75 @@ describe('Câu điền vào ô trống', () => {
   });
 
   it('chỉ tính đã làm khi điền đủ mọi ô', () => {
-    const base = { type: QuestionType.fill_blank, choiceIndex: null, essayAnswer: null, tfChoices: null, blankAnswerKey: KEY3 };
-    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', null] })).toBe(false);
-    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', '　'] })).toBe(false);
-    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', 'x'] })).toBe(true);
+    const base = {
+      type: QuestionType.fill_blank,
+      choiceIndex: null,
+      essayAnswer: null,
+      tfChoices: null,
+      blankAnswerKey: KEY3,
+    };
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', null] })).toBe(
+      false,
+    );
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', '　'] })).toBe(
+      false,
+    );
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', 'x'] })).toBe(
+      true,
+    );
+  });
+});
+
+describe('Câu sắp xếp', () => {
+  // Thứ tự đúng: の・本・の・机 ; hiển thị [本, の, 机, の] = gốc [1, 0, 3, 2].
+  function ord(orderAnswer: string[]) {
+    return {
+      id: 'o',
+      type: QuestionType.ordering,
+      slot: QuestionSlot.required,
+      pointsPossible: 50,
+      choiceIndex: null,
+      correctIndex: null,
+      tfChoices: null,
+      tfAnswerKey: [],
+      options: ['本', 'の', '机', 'の'],
+      optionOrder: [1, 0, 3, 2],
+      orderAnswer,
+    };
+  }
+
+  it('khớp toàn bộ chuỗi thẻ thì đủ điểm', () => {
+    const r = gradeAnswers(
+      [ord(['の', '本', 'の', '机'])],
+      AttemptScoring.equal_100,
+    );
+    expect(r.patches[0]).toMatchObject({ isCorrect: true, pointsAwarded: 50 });
+  });
+
+  it('sai một vị trí là 0, không chấm từng phần', () => {
+    const r = gradeAnswers(
+      [ord(['本', 'の', 'の', '机'])],
+      AttemptScoring.equal_100,
+    );
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 0 });
+  });
+
+  it('chưa dùng hết thẻ là 0 và chưa trả lời', () => {
+    const r = gradeAnswers([ord(['の', '本', 'の'])], AttemptScoring.equal_100);
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 0 });
+    const base = {
+      type: QuestionType.ordering,
+      choiceIndex: null,
+      essayAnswer: null,
+      tfChoices: null,
+      options: ['本', 'の', '机', 'の'],
+    };
+    expect(isAnswered({ ...base, orderAnswer: ['の', '本', 'の'] })).toBe(
+      false,
+    );
+    expect(isAnswered({ ...base, orderAnswer: [] })).toBe(false);
+    expect(isAnswered({ ...base, orderAnswer: ['本', 'の', 'の', '机'] })).toBe(
+      true,
+    );
   });
 });

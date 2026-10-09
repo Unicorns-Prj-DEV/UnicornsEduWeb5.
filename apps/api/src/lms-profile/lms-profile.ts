@@ -13,7 +13,8 @@ export type LmsQuestionType =
   | 'essay'
   | 'true_false_group'
   | 'true_false'
-  | 'fill_blank';
+  | 'fill_blank'
+  | 'ordering';
 
 /** Kỹ năng câu hỏi (chỉ JP), thứ tự hiển thị cố định. */
 export const QUESTION_SKILLS = [
@@ -59,7 +60,13 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
   },
   jp: {
     profile: 'jp',
-    questionTypes: ['single_choice', 'essay', 'true_false', 'fill_blank'],
+    questionTypes: [
+      'single_choice',
+      'essay',
+      'true_false',
+      'fill_blank',
+      'ordering',
+    ],
     optionCount: OPTION_COUNT,
     scoring: 'equal_100',
     electiveGroups: false,
@@ -90,7 +97,9 @@ export function loadLmsProfile(
   if (!raw || !(LMS_PROFILES as readonly string[]).includes(raw)) {
     throw new Error(
       `LMS_PROFILE phải là một trong ${LMS_PROFILES.join(' | ')} (nhận: ${
-        env.LMS_PROFILE === undefined ? 'không đặt' : JSON.stringify(env.LMS_PROFILE)
+        env.LMS_PROFILE === undefined
+          ? 'không đặt'
+          : JSON.stringify(env.LMS_PROFILE)
       }).`,
     );
   }

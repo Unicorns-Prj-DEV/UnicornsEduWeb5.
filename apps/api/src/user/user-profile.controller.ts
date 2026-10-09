@@ -1177,7 +1177,7 @@ export class UserProfileController {
       lessonId,
       studentId,
     );
-    return this.contentService.getLessonQuizzesForStudent(lessonId);
+    return this.contentService.getLessonQuizzesForStudent(lessonId, studentId);
   }
 
   @Post('student-classes/:classId/lessons/:lessonId/quizzes/answers')

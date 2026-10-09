@@ -5,6 +5,8 @@ import {
   type TrueFalseLabelStyleDto,
   DEFAULT_TRUE_FALSE_LABEL_STYLE,
   countBlanks,
+  ORDERING_MAX_CARDS,
+  ORDERING_MIN_CARDS,
 } from "@/dtos/question.dto";
 import { resizeBlankKey } from "@/lib/fill-blank";
 import { assertNever } from "@/lib/assert-never";
@@ -82,6 +84,8 @@ export function questionFormToPayload(
       };
     case QuestionTypeDto.fill_blank:
       return fillBlankPayload(base, form);
+    case QuestionTypeDto.ordering:
+      return orderingPayload(base, form);
     case QuestionTypeDto.essay:
       return {
         payload: {
@@ -158,6 +162,24 @@ function fillBlankPayload(
     return { error: `Ô ${missing + 1} cần ít nhất một đáp án` };
   }
   return { payload: { ...base, blankAnswerKey } };
+}
+
+function orderingPayload(
+  base: PayloadBase,
+  form: QuestionFormValue,
+): PayloadResult {
+  // Giữ khoảng trắng trong thẻ (vd 「の 」) — chỉ chặn thẻ rỗng.
+  const blank = form.options.findIndex((c) => !c.trim());
+  if (blank >= 0) return { error: `Thẻ ${blank + 1} không được để trống` };
+  if (
+    form.options.length < ORDERING_MIN_CARDS ||
+    form.options.length > ORDERING_MAX_CARDS
+  ) {
+    return {
+      error: `Câu sắp xếp cần ${ORDERING_MIN_CARDS}–${ORDERING_MAX_CARDS} thẻ`,
+    };
+  }
+  return { payload: { ...base, options: [...form.options] } };
 }
 
 /** Phần form phụ thuộc loại câu, dựng từ câu có sẵn (sửa) hoặc mặc định (tạo). */

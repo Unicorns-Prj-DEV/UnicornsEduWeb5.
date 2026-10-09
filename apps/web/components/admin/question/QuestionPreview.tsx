@@ -35,6 +35,7 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
   const isTrueFalse = value.type === QuestionTypeDto.true_false_group;
   const isSingleTf = value.type === QuestionTypeDto.true_false;
   const isFillBlank = value.type === QuestionTypeDto.fill_blank;
+  const isOrdering = value.type === QuestionTypeDto.ordering;
   const blankCount = isFillBlank ? countBlanks(value.content) : null;
   const question: AttemptQuestionDto = {
     questionId: "preview",
@@ -43,7 +44,12 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
     type: value.type,
     slot: "required",
     content: value.content,
-    options: isChoice ? value.options : isTrueFalse ? value.statements : null,
+    options:
+      isChoice || isOrdering
+        ? value.options
+        : isTrueFalse
+          ? value.statements
+          : null,
     choiceIndex: null,
     essayAnswer: null,
     tfChoices: null,
@@ -55,6 +61,8 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
     tfLabelStyle: isSingleTf ? value.tfLabelStyle : null,
     blankCount,
     blankAnswers: null,
+    orderAnswer: null,
+    orderingKey: isOrdering ? value.options : null,
     blankAnswerKey:
       blankCount != null
         ? resizeBlankKey(value.blankAnswerKey, blankCount).map((answers) =>

@@ -570,7 +570,12 @@ export class ClassContentService extends CourseContentSupportService {
         essayAnswer: string | null;
         tfChoices: unknown;
         blankAnswers: unknown;
-        question: { type: QuestionType; blankAnswerKey: unknown };
+        orderAnswer: string[];
+        question: {
+          type: QuestionType;
+          blankAnswerKey: unknown;
+          options: unknown;
+        };
       }[]
     > =
       studentIds.length === 0 || quizQuestionCount === 0
@@ -588,7 +593,10 @@ export class ClassContentService extends CourseContentSupportService {
               essayAnswer: true,
               tfChoices: true,
               blankAnswers: true,
-              question: { select: { type: true, blankAnswerKey: true } },
+              orderAnswer: true,
+              question: {
+                select: { type: true, blankAnswerKey: true, options: true },
+              },
             },
           });
 
@@ -604,6 +612,7 @@ export class ClassContentService extends CourseContentSupportService {
           ...answer,
           type: answer.question.type,
           blankAnswerKey: answer.question.blankAnswerKey,
+          options: answer.question.options,
         })
       ) {
         continue;

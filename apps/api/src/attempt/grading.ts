@@ -1,6 +1,7 @@
 import { AttemptScoring, QuestionSlot, QuestionType } from 'generated/enums';
 import { assertNever } from 'src/common/assert-never';
 import { allBlanksFilled, gradeFillBlank } from './fill-blank';
+import { orderingKeyOf } from './shuffle';
 
 /**
  * Chấm Bài làm — hàm thuần, dùng chung cho nộp bài / hết giờ và chấm lại khi
@@ -17,6 +18,12 @@ export const TRUE_FALSE_TIERS = [0, 10, 25, 50, 100] as const;
 
 export type TrueFalseChoice = boolean | null;
 
+function stringArray(raw: unknown): string[] {
+  return Array.isArray(raw)
+    ? raw.filter((x): x is string => typeof x === 'string')
+    : [];
+}
+
 export interface GradableAnswer {
   id: string;
   type: QuestionType;
@@ -29,6 +36,10 @@ export interface GradableAnswer {
   /** Câu điền vào ô trống: đáp án hợp lệ từng ô (snapshot) và chữ học sinh gõ. */
   blankAnswerKey?: unknown;
   blankAnswers?: unknown;
+  /** Câu sắp xếp: thẻ hiển thị (snapshot đã xáo), hoán vị về gốc, chữ thẻ học sinh xếp. */
+  options?: unknown;
+  optionOrder?: number[];
+  orderAnswer?: string[];
 }
 
 export interface AnswerGradePatch {
@@ -114,6 +125,7 @@ export function tfChoicesOf(
     case QuestionType.single_choice:
     case QuestionType.essay:
     case QuestionType.fill_blank:
+    case QuestionType.ordering:
       return null;
     default:
       return assertNever(type, 'question type');
@@ -128,6 +140,8 @@ export function isAnswered(ans: {
   tfChoices: unknown;
   blankAnswerKey?: unknown;
   blankAnswers?: unknown;
+  options?: unknown;
+  orderAnswer?: string[];
 }): boolean {
   switch (ans.type) {
     case QuestionType.single_choice:
@@ -142,6 +156,13 @@ export function isAnswered(ans: {
     case QuestionType.fill_blank:
       // Điền đủ mọi ô mới tính đã làm.
       return allBlanksFilled(ans.blankAnswerKey, ans.blankAnswers);
+    case QuestionType.ordering: {
+      // Dùng hết thẻ mới tính đã làm.
+      const cards = stringArray(ans.options);
+      return (
+        cards.length > 0 && (ans.orderAnswer?.length ?? 0) === cards.length
+      );
+    }
     default:
       return assertNever(ans.type, 'question type');
   }
@@ -188,6 +209,19 @@ function gradeOne(
         isCorrect: graded.total > 0 && graded.correct === graded.total,
         pointsAwarded: graded.points,
       };
+    }
+    case QuestionType.ordering: {
+      // So theo chữ thẻ: thẻ trùng chữ đổi chỗ vẫn đúng. Khớp toàn bộ mới có điểm.
+      const key = orderingKeyOf(
+        stringArray(ans.options),
+        ans.optionOrder ?? [],
+      );
+      const given = ans.orderAnswer ?? [];
+      const isCorrect =
+        key.length > 0 &&
+        given.length === key.length &&
+        given.every((text, i) => text === key[i]);
+      return { isCorrect, pointsAwarded: isCorrect ? ans.pointsPossible : 0 };
     }
     case QuestionType.single_choice: {
       const isCorrect =

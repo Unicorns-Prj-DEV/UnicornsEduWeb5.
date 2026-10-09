@@ -158,6 +158,7 @@ export interface LessonQuizAnswer {
   essayAnswer: string | null;
   tfChoices?: TrueFalseChoices | null;
   blankAnswers?: BlankAnswers | null;
+  orderAnswer?: string[] | null;
   createdAt: string;
   updatedAt: string;
   question: {
@@ -186,6 +187,7 @@ export interface SubmitQuizAnswerPayload {
   essayAnswer?: string | null;
   tfChoices?: TrueFalseChoices | null;
   blankAnswers?: BlankAnswers | null;
+  orderAnswer?: string[] | null;
 }
 
 /** Tiết học từ khoá — dùng cho panel chọn nội dung lớp. */

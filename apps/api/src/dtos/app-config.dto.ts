@@ -22,7 +22,14 @@ export class AppConfigResponseDto implements LmsProfileConfig {
   profile!: LmsProfile;
 
   @ApiProperty({
-    enum: ['single_choice', 'essay', 'true_false_group', 'true_false', 'fill_blank'],
+    enum: [
+      'single_choice',
+      'essay',
+      'true_false_group',
+      'true_false',
+      'fill_blank',
+      'ordering',
+    ],
     isArray: true,
     example: ['single_choice', 'true_false_group'],
   })

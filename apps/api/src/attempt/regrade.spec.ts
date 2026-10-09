@@ -193,7 +193,9 @@ describe('regradeQuestionAnswerKey', () => {
       ],
     );
 
-    await regradeQuestionAnswerKey(tx as never, 'q', { blankAnswerKey: newKey });
+    await regradeQuestionAnswerKey(tx as never, 'q', {
+      blankAnswerKey: newKey,
+    });
 
     expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
       where: { id: 'same' },
@@ -204,6 +206,51 @@ describe('regradeQuestionAnswerKey', () => {
     );
     expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
       where: { id: 'f1' },
+      data: { isCorrect: true, pointsAwarded: 40 },
+    });
+  });
+
+  it('câu sắp xếp: đổi thứ tự đúng cùng bộ thẻ → chấm lại; khác bộ thẻ giữ nguyên', async () => {
+    const newKey = ['b', 'c', 'a'];
+    const tx = makeTx(
+      [
+        {
+          id: 'att-ord',
+          scoring: AttemptScoring.equal_100,
+          answers: [
+            // Snapshot đã ghi optionOrder mới: hiển thị [c, a, b] → đúng = b, c, a.
+            answer({
+              id: 'o1',
+              type: QuestionType.ordering,
+              pointsPossible: 40,
+              choiceIndex: null,
+              correctIndex: null,
+              options: ['c', 'a', 'b'],
+              optionOrder: [1, 2, 0],
+              orderAnswer: ['b', 'c', 'a'],
+              isCorrect: false,
+              pointsAwarded: 0,
+            }),
+          ],
+        },
+      ],
+      [
+        { id: 'same', options: ['c', 'a', 'b'], optionOrder: [2, 0, 1] },
+        { id: 'edited', options: ['c', 'a', 'x'], optionOrder: [2, 0, 1] },
+      ],
+    );
+
+    await regradeQuestionAnswerKey(tx as never, 'q', { orderingKey: newKey });
+
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'same' },
+      data: { optionOrder: [1, 2, 0] },
+    });
+    expect(tx.attemptAnswer.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'edited' } }),
+    );
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'o1' },
       data: { isCorrect: true, pointsAwarded: 40 },
     });
   });

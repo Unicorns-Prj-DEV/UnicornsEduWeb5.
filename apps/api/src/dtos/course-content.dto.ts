@@ -480,6 +480,19 @@ export class LessonQuizAnswerDto {
   @ArrayMaxSize(10)
   @Validate(BlankAnswerConstraint, { each: true })
   blankAnswers?: (string | null)[] | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: [String],
+    description:
+      'Câu sắp xếp (JP): chữ thẻ theo thứ tự học sinh xếp; [] = chưa xếp.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  orderAnswer?: string[] | null;
 }
 
 export interface LessonQuizResponseDto {
@@ -526,6 +539,8 @@ export interface LessonQuizAnswerResponseDto {
   tfChoices: (boolean | null)[] | null;
   /** Chữ học sinh gõ vào từng ô (câu điền vào ô trống). */
   blankAnswers: (string | null)[] | null;
+  /** Chữ thẻ theo thứ tự học sinh xếp (câu sắp xếp). */
+  orderAnswer: string[];
   createdAt: Date;
   updatedAt: Date;
 }

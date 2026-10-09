@@ -27,6 +27,11 @@ export function isAttemptQuestionUnanswered(q: AttemptQuestionDto): boolean {
         Array.from({ length: count }).some((_, i) => !answers[i]?.trim())
       );
     }
+    case "ordering": {
+      // Dùng hết thẻ mới tính đã làm.
+      const cards = q.options?.length ?? 0;
+      return cards === 0 || (q.orderAnswer?.length ?? 0) !== cards;
+    }
     default:
       return assertNever(q.type, "question type");
   }
@@ -79,6 +84,7 @@ export function answersSignature(questions: AttemptQuestionDto[]): string {
       e: q.essayAnswer ?? "",
       t: q.tfChoices ?? null,
       b: q.blankAnswers ?? null,
+      o: q.orderAnswer ?? null,
       m: q.markedForReview ?? false,
     })),
   );

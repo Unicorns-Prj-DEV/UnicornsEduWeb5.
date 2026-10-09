@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils";
 import type { LessonQuizQuestion, LessonQuizAnswer } from "@/dtos/course-content.dto";
 import type { BlankAnswers, TrueFalseChoices } from "@/dtos/attempt.dto";
 import FillBlankInputs from "@/components/student/FillBlankInputs";
+import OrderingCards from "@/components/student/OrderingCards";
+import { isOrderCorrect } from "@/lib/ordering";
 import { allBlanksAccepted, numberBlanks } from "@/lib/fill-blank";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import TrueFalseChoice from "@/components/student/TrueFalseChoice";
@@ -310,6 +312,7 @@ type QuizDraftAnswer = {
   essayAnswer?: string | null;
   tfChoices?: TrueFalseChoices | null;
   blankAnswers?: BlankAnswers | null;
+  orderAnswer?: string[] | null;
 };
 
 function LessonQuizSection({
@@ -344,6 +347,7 @@ function LessonQuizSection({
         essayAnswer: draftAnswers[q.questionId]?.essayAnswer ?? null,
         tfChoices: draftAnswers[q.questionId]?.tfChoices ?? null,
         blankAnswers: draftAnswers[q.questionId]?.blankAnswers ?? null,
+        orderAnswer: draftAnswers[q.questionId]?.orderAnswer ?? null,
       }));
       if (
         answers.some(
@@ -465,7 +469,15 @@ function QuizQuestionInput({
         />
       </div>
 
-      {quiz.question.type === "fill_blank" ? (
+      {quiz.question.type === "ordering" ? (
+        <OrderingCards
+          cards={options}
+          orderAnswer={value?.orderAnswer}
+          disabled={false}
+          reveal={false}
+          onChange={(orderAnswer) => onChange({ orderAnswer })}
+        />
+      ) : quiz.question.type === "fill_blank" ? (
         <FillBlankInputs
           name={`quiz-${quiz.questionId}`}
           count={quiz.question.blankCount ?? 0}
@@ -548,7 +560,10 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
         const isTrueFalse = ans.question.type === "true_false_group";
         const isSingleTf = ans.question.type === "true_false";
         const isFillBlank = ans.question.type === "fill_blank";
-        const isCorrect = isFillBlank
+        const isOrdering = ans.question.type === "ordering";
+        const isCorrect = isOrdering
+          ? isOrderCorrect(ans.orderAnswer, ans.question.options ?? [])
+          : isFillBlank
           ? allBlanksAccepted(ans.blankAnswers, ans.question.blankAnswerKey)
           : isSingleTf
           ? ans.tfChoices?.[0] === ans.question.tfAnswerKey?.[0]
@@ -587,7 +602,18 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
             {/* Student answer */}
             <div className="mb-2">
               <span className="text-xs font-semibold text-text-muted">Câu trả lời của bạn: </span>
-              {isFillBlank ? (
+              {isOrdering ? (
+                <div className="mt-2">
+                  <OrderingCards
+                    cards={ans.question.options ?? []}
+                    orderAnswer={ans.orderAnswer}
+                    orderingKey={ans.question.options ?? []}
+                    disabled
+                    reveal
+                    onChange={() => {}}
+                  />
+                </div>
+              ) : isFillBlank ? (
                 <div className="mt-2">
                   <FillBlankInputs
                     name={`quiz-review-${ans.questionId}`}

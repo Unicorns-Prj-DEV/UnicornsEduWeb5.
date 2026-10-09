@@ -12,7 +12,8 @@ export type LmsQuestionType =
   | "essay"
   | "true_false_group"
   | "true_false"
-  | "fill_blank";
+  | "fill_blank"
+  | "ordering";
 
 export interface AppConfig {
   profile: LmsProfile;

@@ -10,6 +10,7 @@ import type {
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
 import FillBlankInputs from "@/components/student/FillBlankInputs";
+import OrderingCards from "@/components/student/OrderingCards";
 import { numberBlanks } from "@/lib/fill-blank";
 import { formatScoreValue } from "@/lib/attempt-score";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
@@ -42,6 +43,7 @@ export default function StudentAttemptQuestion({
     essayAnswer?: string | null;
     tfChoices?: TrueFalseChoices | null;
     blankAnswers?: BlankAnswers | null;
+    orderAnswer?: string[] | null;
     markedForReview?: boolean;
   }) => void;
 }) {
@@ -251,6 +253,17 @@ function AnswerArea({
           disabled={disabled}
           reveal={reveal}
           onChange={(blankAnswers) => onChange({ blankAnswers })}
+        />
+      );
+    case "ordering":
+      return (
+        <OrderingCards
+          cards={options}
+          orderAnswer={question.orderAnswer}
+          orderingKey={reveal ? question.orderingKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
+          onChange={(orderAnswer) => onChange({ orderAnswer })}
         />
       );
     case "essay":
