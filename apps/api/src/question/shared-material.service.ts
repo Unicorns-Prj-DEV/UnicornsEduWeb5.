@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -78,7 +77,7 @@ export class SharedMaterialService {
     const material = await this.prisma.sharedMaterial.findUnique({
       where: { id },
     });
-    if (!material) {
+    if (!material || material.deletedAt) {
       throw new NotFoundException('Không tìm thấy tư liệu.');
     }
     return material;
@@ -93,7 +92,7 @@ export class SharedMaterialService {
   async list(courseId: string): Promise<SharedMaterialResponseDto[]> {
     this.assertEnabled();
     const rows = await this.prisma.sharedMaterial.findMany({
-      where: { courseId },
+      where: { courseId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: { select: { questions: { where: { deletedAt: null } } } },
@@ -314,10 +313,7 @@ export class SharedMaterialService {
           : 'Câu đang thuộc bộ khác — đưa ra khỏi bộ đó trước.',
       );
     }
-    const { _max } = await this.prisma.question.aggregate({
-      where: { sharedMaterialId: id, deletedAt: null },
-      _max: { setPosition: true },
-    });
+    const setPosition = await nextSetPosition(this.prisma, id);
     await this.prisma.$transaction(async (tx) => {
       await tx.questionLink.deleteMany({ where: { questionId } });
       await tx.lessonQuiz.deleteMany({ where: { questionId } });
@@ -325,7 +321,7 @@ export class SharedMaterialService {
         where: { id: questionId },
         data: {
           sharedMaterialId: id,
-          setPosition: (_max.setPosition ?? -1) + 1,
+          setPosition,
           moduleId: set.moduleId,
         },
       });
@@ -375,23 +371,27 @@ export class SharedMaterialService {
     });
   }
 
-  /** Còn câu (chưa xoá) gắn vào → 409. Câu đã xoá mềm được tháo khỏi tư liệu. */
+  /**
+   * Xoá bộ = xoá mềm phần đầu bộ cùng mọi câu, gỡ bộ khỏi mọi tiết thực hành /
+   * bài ôn. Giữ dòng bộ và liên kết câu → bộ để lượt đã làm còn xem lại được.
+   */
   async delete(id: string, actor: MaterialActor) {
     this.assertEnabled();
     const existing = await this.findOrThrow(id);
     await this.assertWriteAccess(actor, existing.courseId);
-    const inUse = await this.activeQuestionCount(id);
-    if (inUse > 0) {
-      throw new ConflictException(
-        `Tư liệu đang được ${inUse} câu hỏi dùng — bỏ gắn các câu trước khi xoá.`,
-      );
-    }
+    const now = new Date();
     return this.prisma.$transaction(async (tx) => {
+      const inSet = { question: { sharedMaterialId: id } };
+      await tx.questionLink.deleteMany({ where: inSet });
+      await tx.lessonQuiz.deleteMany({ where: inSet });
       await tx.question.updateMany({
-        where: { sharedMaterialId: id },
-        data: { sharedMaterialId: null, setPosition: null },
+        where: { sharedMaterialId: id, deletedAt: null },
+        data: { deletedAt: now },
       });
-      const deleted = await tx.sharedMaterial.delete({ where: { id } });
+      const deleted = await tx.sharedMaterial.update({
+        where: { id },
+        data: { deletedAt: now },
+      });
       await this.actionHistory.recordDelete(tx, {
         entityType: 'shared_material',
         entityId: id,
@@ -435,9 +435,9 @@ export async function assertMaterialAttachable(
   }
   const material = await prisma.sharedMaterial.findUnique({
     where: { id: sharedMaterialId },
-    select: { courseId: true, moduleId: true },
+    select: { courseId: true, moduleId: true, deletedAt: true },
   });
-  if (!material || material.courseId !== courseId) {
+  if (!material || material.deletedAt || material.courseId !== courseId) {
     throw new BadRequestException(
       'Tư liệu dùng chung không thuộc khoá của câu hỏi.',
     );

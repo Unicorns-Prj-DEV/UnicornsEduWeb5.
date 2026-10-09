@@ -12,6 +12,7 @@ describe('SharedMaterialService — chuyên đề của bộ', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     question: {
       updateMany: jest.fn(),
@@ -36,7 +37,11 @@ describe('SharedMaterialService — chuyên đề của bộ', () => {
     module: { findUnique: jest.fn() },
     $transaction: jest.fn(),
   };
-  const actionHistory = { recordCreate: jest.fn(), recordUpdate: jest.fn() };
+  const actionHistory = {
+    recordCreate: jest.fn(),
+    recordUpdate: jest.fn(),
+    recordDelete: jest.fn(),
+  };
   const courseAccess = {
     assertCourseExists: jest.fn(),
     resolveActor: jest.fn(),
@@ -266,6 +271,64 @@ describe('SharedMaterialService — chuyên đề của bộ', () => {
       });
       await expect(service.moveQuestionOut('s1', 'q2', actor)).rejects.toThrow(
         'Câu không thuộc bộ này.',
+      );
+    });
+  });
+
+  describe('xoá bộ', () => {
+    beforeEach(() => {
+      prisma.sharedMaterial.findUnique.mockResolvedValue({
+        id: 's1',
+        courseId: 'c1',
+        moduleId: 'm1',
+        content: '<p>Đoạn</p>',
+        audioId: null,
+        deletedAt: null,
+      });
+      prisma.sharedMaterial.update.mockResolvedValue({ id: 's1' });
+    });
+
+    it('xoá mềm bộ và mọi câu trong bộ, gỡ khỏi mọi tiết / bài ôn', async () => {
+      await service.delete('s1', actor);
+      const inSet = { question: { sharedMaterialId: 's1' } };
+      expect(prisma.questionLink.deleteMany).toHaveBeenCalledWith({
+        where: inSet,
+      });
+      expect(prisma.lessonQuiz.deleteMany).toHaveBeenCalledWith({
+        where: inSet,
+      });
+      expect(prisma.question.updateMany).toHaveBeenCalledWith({
+        where: { sharedMaterialId: 's1', deletedAt: null },
+        data: { deletedAt: expect.any(Date) as unknown },
+      });
+      expect(prisma.sharedMaterial.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { deletedAt: expect.any(Date) as unknown },
+      });
+    });
+
+    it('giữ nguyên dòng bộ để lượt đã bắt đầu / đã nộp còn xem lại được', async () => {
+      await service.delete('s1', actor);
+      expect(prisma.sharedMaterial.delete).not.toHaveBeenCalled();
+      // Câu giữ liên kết bộ: xem lại lượt đọc snapshot + bộ qua id.
+      expect(prisma.question.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sharedMaterialId: null }) as unknown,
+        }),
+      );
+    });
+
+    it('bộ đã xoá không còn sửa / xoá được', async () => {
+      prisma.sharedMaterial.findUnique.mockResolvedValue({
+        id: 's1',
+        courseId: 'c1',
+        moduleId: 'm1',
+        content: '<p>Đoạn</p>',
+        audioId: null,
+        deletedAt: new Date(),
+      });
+      await expect(service.delete('s1', actor)).rejects.toThrow(
+        'Không tìm thấy tư liệu.',
       );
     });
   });

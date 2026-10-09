@@ -23,6 +23,7 @@ import AudioUploadField from "@/components/admin/question/AudioUploadField";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { invalidateQuestionScopedQueries } from "@/lib/query-invalidation";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
+import { DeleteQuestionSetButton } from "./DeleteQuestionSetButton";
 import SetQuestionList from "./SetQuestionList";
 import { formatLessonUsage } from "./lesson-usage";
 import { questionExcerpt } from "./question-excerpt";
@@ -312,9 +313,16 @@ export default function SharedMaterialFormDialog({
               </p>
             )}
             {saved ? (
-              <p className="text-xs text-text-muted">
-                Bài làm đã bắt đầu giữ nội dung cũ của bộ.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-text-muted">
+                  Bài làm đã bắt đầu giữ nội dung cũ của bộ.
+                </p>
+                <DeleteQuestionSetButton
+                  courseId={courseId}
+                  set={saved}
+                  onDeleted={onClose}
+                />
+              </div>
             ) : null}
           </ResponsiveDialogBody>
           <ResponsiveActionFooter>

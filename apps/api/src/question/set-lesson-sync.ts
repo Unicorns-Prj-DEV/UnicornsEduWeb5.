@@ -65,9 +65,10 @@ export async function setQuestionIdsForLesson(
 ): Promise<string[]> {
   const set = await prisma.sharedMaterial.findUnique({
     where: { id: sharedMaterialId },
-    select: { id: true, courseId: true },
+    select: { id: true, courseId: true, deletedAt: true },
   });
-  if (!set) throw new NotFoundException('Không tìm thấy bộ câu hỏi.');
+  if (!set || set.deletedAt)
+    throw new NotFoundException('Không tìm thấy bộ câu hỏi.');
   if (set.courseId !== courseId) {
     throw new BadRequestException('Bộ câu hỏi phải thuộc cùng khoá với tiết.');
   }

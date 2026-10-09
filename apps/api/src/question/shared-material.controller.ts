@@ -13,7 +13,6 @@ import {
 import {
   ApiBadRequestResponse,
   ApiBody,
-  ApiConflictResponse,
   ApiCookieAuth,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -202,11 +201,14 @@ export class SharedMaterialController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Xoá Tư liệu dùng chung' })
-  @ApiParam({ name: 'id', description: 'Shared material ID' })
-  @ApiOkResponse({ description: 'Tư liệu đã xoá.' })
-  @ApiConflictResponse({ description: 'Còn câu hỏi đang gắn tư liệu' })
-  @ApiNotFoundResponse({ description: 'Không tìm thấy tư liệu' })
+  @ApiOperation({
+    summary: 'Xoá Bộ câu hỏi',
+    description:
+      'Xoá mềm phần đầu bộ cùng mọi câu, gỡ bộ khỏi mọi tiết thực hành / bài ôn. Lượt đã bắt đầu / đã nộp giữ bản chụp, xem lại vẫn đúng.',
+  })
+  @ApiParam({ name: 'id', description: 'Shared material (bộ) ID' })
+  @ApiOkResponse({ description: 'Bộ đã xoá (mềm).' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy bộ / bộ đã xoá' })
   delete(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
