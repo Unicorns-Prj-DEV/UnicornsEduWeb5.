@@ -7,6 +7,8 @@ export const SHARED_MATERIAL_TITLE_MAX = 200;
 export interface SharedMaterialResponseDto {
   id: string;
   courseId: string;
+  /** Chuyên đề của bộ — mọi câu trong bộ cùng chuyên đề này. */
+  moduleId: string;
   title: string;
   /** HTML (đoạn văn, ảnh). */
   content: string;
@@ -29,6 +31,12 @@ export class CreateSharedMaterialDto {
   @ApiProperty({ description: 'Khoá học sở hữu tư liệu' })
   @IsUUID()
   courseId: string;
+
+  @ApiProperty({
+    description: 'Chuyên đề của bộ (cùng khoá). Mọi câu trong bộ cùng chuyên đề này.',
+  })
+  @IsUUID()
+  moduleId: string;
 
   @ApiProperty({
     description: 'Tên ngắn để người soạn nhận ra (học sinh không thấy)',
@@ -55,6 +63,13 @@ export class CreateSharedMaterialDto {
 }
 
 export class UpdateSharedMaterialDto {
+  @ApiPropertyOptional({
+    description: 'Đổi chuyên đề của bộ (cùng khoá) — mọi câu trong bộ đi theo.',
+  })
+  @IsOptional()
+  @IsUUID()
+  moduleId?: string;
+
   @ApiPropertyOptional({ description: 'Tên ngắn' })
   @IsOptional()
   @IsString()

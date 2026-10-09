@@ -150,7 +150,13 @@ export default function QuestionFormFields({
   );
   const materialOptions = [
     { value: "", label: "Không có (câu đứng riêng)" },
-    ...materials.map((m) => ({ value: m.id, label: m.title })),
+    // Câu chỉ vào bộ cùng chuyên đề (bộ thuộc đúng một chuyên đề).
+    ...materials
+      .filter(
+        (m) =>
+          m.moduleId === value.moduleId || m.id === value.sharedMaterialId,
+      )
+      .map((m) => ({ value: m.id, label: m.title })),
   ];
   const selectedMaterial = materials.find(
     (m) => m.id === value.sharedMaterialId,

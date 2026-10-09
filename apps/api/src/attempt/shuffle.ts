@@ -58,49 +58,66 @@ export function shuffleWithinGroups<T>(
   return out;
 }
 
+/** Câu thuộc Bộ câu hỏi nào, ở vị trí nào trong bộ. */
+export type SetSlot = { setId: string; position: number };
+
 /**
- * Chia đề thành đơn vị: mỗi Tư liệu dùng chung là một khối (đặt tại vị trí câu
- * đầu tiên của nó, giữ thứ tự người soạn), câu không gắn tư liệu đứng riêng.
+ * Chia đề thành đơn vị: mỗi Bộ câu hỏi là một khối (đặt tại vị trí câu đầu
+ * tiên của nó, bên trong xếp theo thứ tự của bộ), câu lẻ đứng riêng.
  */
 function materialUnits<T>(
   items: T[],
-  materialOf: (item: T) => string | null,
+  setOf: (item: T) => SetSlot | null,
 ): T[][] {
-  const units: T[][] = [];
-  const blockOf = new Map<string, T[]>();
+  type Entry = { item: T; position: number };
+  const units: Entry[][] = [];
+  const blockOf = new Map<string, Entry[]>();
   for (const item of items) {
-    const material = materialOf(item);
-    if (material === null) {
-      units.push([item]);
+    const slot = setOf(item);
+    if (slot === null) {
+      units.push([{ item, position: 0 }]);
       continue;
     }
-    const block = blockOf.get(material);
+    const entry = { item, position: slot.position };
+    const block = blockOf.get(slot.setId);
     if (block) {
-      block.push(item);
+      block.push(entry);
     } else {
-      const created = [item];
-      blockOf.set(material, created);
+      const created = [entry];
+      blockOf.set(slot.setId, created);
       units.push(created);
     }
   }
-  return units;
+  return units.map((unit) =>
+    unit.sort((x, y) => x.position - y.position).map((e) => e.item),
+  );
 }
 
-/** Các câu cùng tư liệu dùng chung đứng liền nhau (không xáo). */
+/** Vị trí trong bộ của một câu (câu lẻ → null). */
+export function setSlotOf(question: {
+  sharedMaterialId: string | null;
+  setPosition: number | null;
+}): SetSlot | null {
+  return question.sharedMaterialId === null
+    ? null
+    : { setId: question.sharedMaterialId, position: question.setPosition ?? 0 };
+}
+
+/** Các câu cùng bộ đứng liền nhau theo thứ tự bộ (không xáo). */
 export function groupByMaterial<T>(
   items: T[],
-  materialOf: (item: T) => string | null,
+  setOf: (item: T) => SetSlot | null,
 ): T[] {
-  return materialUnits(items, materialOf).flat();
+  return materialUnits(items, setOf).flat();
 }
 
-/** Đảo câu theo đơn vị: khối tư liệu xáo như một câu, bên trong khối giữ thứ tự. */
+/** Đảo câu theo đơn vị: bộ xáo như một câu, bên trong bộ giữ thứ tự bộ. */
 export function shuffleMaterialBlocks<T>(
   items: T[],
-  materialOf: (item: T) => string | null,
+  setOf: (item: T) => SetSlot | null,
   rng: Rng = Math.random,
 ): T[] {
-  const units = materialUnits(items, materialOf);
+  const units = materialUnits(items, setOf);
   return shuffledIndices(units.length, rng).flatMap((i) => units[i]);
 }
 

@@ -48,6 +48,7 @@ import { assertExamForm, examGroupRank, orderExamLinks } from './exam-form';
 import {
   orderingKeyOf,
   groupByMaterial,
+  setSlotOf,
   shuffleMaterialBlocks,
   shuffleOrderingCards,
   shuffleQuestionOptions,
@@ -159,10 +160,10 @@ export class AttemptService {
       assertExamForm(examLinks);
     }
     // Đảo câu: đề IT giữ khung Phần I → bắt buộc → TC1 → TC2, xáo trong nhóm.
-    // Hồ sơ khác: câu cùng Tư liệu dùng chung là một khối liền nhau, xáo cả khối.
+    // Hồ sơ khác: Bộ câu hỏi là một khối liền nhau theo thứ tự bộ, xáo cả khối.
     const shuffle = item.shuffleQuestions;
     const materialOf = (link: (typeof examLinks)[number]) =>
-      link.question.sharedMaterialId;
+      setSlotOf(link.question);
     const links = isIt
       ? shuffle
         ? shuffleWithinGroups(examLinks, (link) => examGroupRank(link))

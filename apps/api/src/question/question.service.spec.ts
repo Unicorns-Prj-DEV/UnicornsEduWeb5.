@@ -25,6 +25,10 @@ describe('QuestionService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      aggregate: jest.fn(),
+    },
+    sharedMaterial: {
+      findUnique: jest.fn(),
     },
     questionLink: {
       findMany: jest.fn(),
@@ -547,6 +551,68 @@ describe('QuestionService', () => {
       await expect(service.bulkCreate(dto, actor)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+  describe('Bộ câu hỏi', () => {
+    const dto = {
+      courseId: 'c1',
+      moduleId: 'ch1',
+      difficultyLevelId: 'd1',
+      content: '<p>Q</p>',
+      skills: [QuestionSkillDto.listening],
+      type: QuestionTypeDto.essay,
+    };
+    const inSet = {
+      id: 'q1',
+      courseId: 'c1',
+      moduleId: 'ch1',
+      type: QuestionTypeDto.essay,
+      options: null,
+      correctIndex: null,
+      tfAnswerKey: [],
+      skills: [QuestionSkillDto.listening],
+      sharedMaterialId: 'set1',
+      setPosition: 0,
+      audioId: null,
+      deletedAt: null,
+    };
+
+    beforeEach(() => {
+      mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+        courseId: 'c1',
+        moduleId: 'ch1',
+      });
+      mockPrisma.question.aggregate.mockResolvedValue({
+        _max: { setPosition: 2 },
+      });
+    });
+
+    it('câu mới vào bộ xếp cuối bộ', async () => {
+      mockPrisma.question.create.mockResolvedValue({ id: 'q9' });
+      await service.create({ ...dto, sharedMaterialId: 'set1' }, actor);
+      expect(mockPrisma.question.create).toHaveBeenCalledWith({
+        data: contains({ sharedMaterialId: 'set1', setPosition: 3 }),
+      });
+    });
+
+    it('câu khác chuyên đề với bộ bị từ chối', async () => {
+      await expect(
+        service.create(
+          { ...dto, moduleId: 'ch2', sharedMaterialId: 'set1' },
+          actor,
+        ),
+      ).rejects.toThrow('Câu phải cùng chuyên đề với bộ.');
+      expect(mockPrisma.question.create).not.toHaveBeenCalled();
+    });
+
+    it('gỡ câu khỏi bộ thì bỏ vị trí trong bộ', async () => {
+      mockPrisma.question.findUnique.mockResolvedValue(inSet);
+      mockPrisma.question.update.mockResolvedValue(inSet);
+      await service.update('q1', { sharedMaterialId: null }, actor);
+      expect(mockPrisma.question.update).toHaveBeenCalledWith({
+        where: { id: 'q1' },
+        data: contains({ sharedMaterialId: null, setPosition: null }),
+      });
     });
   });
 });

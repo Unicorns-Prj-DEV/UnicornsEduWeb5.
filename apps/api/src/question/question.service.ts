@@ -12,7 +12,10 @@ import { CourseAccessService } from '../class/course-access.service';
 import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import { regradeQuestionAnswerKey } from '../attempt/regrade';
 import { assertQuestionShape, assertQuestionSkills } from './question-rules';
-import { assertMaterialAttachable } from './shared-material.service';
+import {
+  assertMaterialAttachable,
+  nextSetPosition,
+} from './shared-material.service';
 import { assertAudioAttachable, withAudioRefs } from './audio-asset.service';
 import {
   CreateQuestionDto,
@@ -100,6 +103,7 @@ export class QuestionService {
       this.lmsProfile.config,
       dto.sharedMaterialId,
       dto.courseId,
+      dto.moduleId,
     );
     await assertAudioAttachable(
       this.prisma,
@@ -109,7 +113,14 @@ export class QuestionService {
     );
 
     const created = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.question.create({ data: { ...dto } });
+      const created = await tx.question.create({
+        data: {
+          ...dto,
+          setPosition: dto.sharedMaterialId
+            ? await nextSetPosition(tx, dto.sharedMaterialId)
+            : null,
+        },
+      });
       await this.actionHistory.recordCreate(tx, {
         entityType: 'question',
         entityId: created.id,
@@ -154,12 +165,18 @@ export class QuestionService {
     );
     // Câu JP cũ chưa có kỹ năng: sửa là phải chọn.
     assertQuestionSkills(dto.skills ?? existing.skills, this.lmsProfile.config);
-    if (dto.sharedMaterialId !== existing.sharedMaterialId) {
+    const sharedMaterialId =
+      dto.sharedMaterialId !== undefined
+        ? dto.sharedMaterialId
+        : existing.sharedMaterialId;
+    const setChanged = sharedMaterialId !== existing.sharedMaterialId;
+    if (setChanged) {
       await assertMaterialAttachable(
         this.prisma,
         this.lmsProfile.config,
-        dto.sharedMaterialId,
+        sharedMaterialId,
         existing.courseId,
+        existing.moduleId,
       );
     }
     if (dto.audioId !== existing.audioId) {
@@ -212,7 +229,14 @@ export class QuestionService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.question.update({
         where: { id },
-        data: { ...dto },
+        data: {
+          ...dto,
+          ...(setChanged && {
+            setPosition: sharedMaterialId
+              ? await nextSetPosition(tx, sharedMaterialId)
+              : null,
+          }),
+        },
       });
       // Sửa đáp án → chấm lại mọi Bài làm chứa câu (ADR it-absolute-scoring).
       await regradeQuestionAnswerKey(tx, id, answerKeyChange);

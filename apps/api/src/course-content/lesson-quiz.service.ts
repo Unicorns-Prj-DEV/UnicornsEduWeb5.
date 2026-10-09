@@ -9,6 +9,7 @@ import { parseBlankAnswerKey } from '../attempt/fill-blank';
 import {
   groupByMaterial,
   seededRng,
+  setSlotOf,
   shuffleOrderingCards,
 } from '../attempt/shuffle';
 import { orderQuizAnswers } from './quiz-review-order';
@@ -177,6 +178,8 @@ export class LessonQuizService extends CourseContentSupportService {
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,
+            sharedMaterialId: true,
+            setPosition: true,
             sharedMaterial: {
               select: { id: true, content: true, audioId: true },
             },
@@ -206,6 +209,8 @@ export class LessonQuizService extends CourseContentSupportService {
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,
+            sharedMaterialId: true,
+            setPosition: true,
             sharedMaterial: {
               select: { id: true, content: true, audioId: true },
             },
@@ -216,11 +221,8 @@ export class LessonQuizService extends CourseContentSupportService {
 
     // Học sinh chỉ biết số ô trống, không thấy đáp án hợp lệ. Thẻ câu sắp xếp
     // xáo theo seed học sinh + câu: tải lại không đổi thứ tự, không lộ đáp án.
-    // Câu cùng Tư liệu dùng chung đứng liền nhau (đặt tại câu đầu của khối).
-    const grouped = groupByMaterial(
-      quizzes,
-      (q) => q.question.sharedMaterial?.id ?? null,
-    );
+    // Câu cùng Bộ câu hỏi đứng liền nhau (tại câu đầu của khối), theo thứ tự bộ.
+    const grouped = groupByMaterial(quizzes, (q) => setSlotOf(q.question));
     return this.withQuizAudio(
       grouped.map((q) => ({
         ...q,
@@ -336,6 +338,8 @@ export class LessonQuizService extends CourseContentSupportService {
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,
+            sharedMaterialId: true,
+            setPosition: true,
             sharedMaterial: {
               select: { id: true, content: true, audioId: true },
             },
@@ -364,6 +368,8 @@ export class LessonQuizService extends CourseContentSupportService {
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,
+            sharedMaterialId: true,
+            setPosition: true,
             sharedMaterial: {
               select: { id: true, content: true, audioId: true },
             },
@@ -379,7 +385,7 @@ export class LessonQuizService extends CourseContentSupportService {
       orderQuizAnswers(
         rows,
         new Map(quizzes.map((q) => [q.questionId, q.order])),
-        (a) => a.question.sharedMaterial?.id ?? null,
+        (a) => setSlotOf(a.question),
       ),
     );
   }

@@ -347,13 +347,15 @@ describe('seededRng', () => {
 });
 
 describe('Tư liệu dùng chung — khối câu', () => {
-  type Item = { id: string; material: string | null };
-  const item = (id: string, material: string | null = null): Item => ({
-    id,
-    material,
-  });
+  type Item = { id: string; material: string | null; position: number };
+  const item = (
+    id: string,
+    material: string | null = null,
+    position = Number(id.replace(/\D/g, '')) || 0,
+  ): Item => ({ id, material, position });
   const ids = (items: Item[]) => items.map((i) => i.id);
-  const materialOf = (i: Item) => i.material;
+  const materialOf = (i: Item) =>
+    i.material === null ? null : { setId: i.material, position: i.position };
 
   it('kéo các câu cùng tư liệu về liền nhau tại vị trí câu đầu tiên, giữ thứ tự người soạn', () => {
     const items = [
@@ -374,6 +376,26 @@ describe('Tư liệu dùng chung — khối câu', () => {
       'l1',
       'l2',
     ]);
+  });
+
+  it('trong khối xếp theo thứ tự của bộ, không theo thứ tự trong tiết', () => {
+    const items = [
+      item('a'),
+      item('r3', 'R'),
+      item('r1', 'R'),
+      item('b'),
+      item('r2', 'R'),
+    ];
+    expect(ids(groupByMaterial(items, materialOf))).toEqual([
+      'a',
+      'r1',
+      'r2',
+      'r3',
+      'b',
+    ]);
+    const shuffled = ids(shuffleMaterialBlocks(items, materialOf, () => 0));
+    const start = shuffled.indexOf('r1');
+    expect(shuffled.slice(start, start + 3)).toEqual(['r1', 'r2', 'r3']);
   });
 
   it('đảo câu xáo khối như một đơn vị, bên trong khối giữ thứ tự', () => {

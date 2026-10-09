@@ -21,6 +21,7 @@ import {
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
 import AudioUploadField from "@/components/admin/question/AudioUploadField";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
+import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import type { AudioRef } from "@/dtos/audio-asset.dto";
 import {
   SHARED_MATERIAL_TITLE_MAX,
@@ -46,7 +47,14 @@ export default function SharedMaterialFormDialog({
   const queryClient = useQueryClient();
   const { data: appConfig } = useAppConfig();
   const audioEnabled = appConfig?.questionAudio ?? false;
-  const initial: { title: string; content: string; audio: AudioRef | null } = {
+  const { data: modules = [] } = useCourseModules(courseId);
+  const initial: {
+    moduleId: string;
+    title: string;
+    content: string;
+    audio: AudioRef | null;
+  } = {
+    moduleId: material?.moduleId ?? "",
     title: material?.title ?? "",
     content: material?.content ?? "",
     audio: material?.audio ?? null,
@@ -67,6 +75,7 @@ export default function SharedMaterialFormDialog({
   const saveMutation = useMutation({
     mutationFn: () => {
       const payload = {
+        moduleId: form.moduleId,
         title: form.title,
         content: form.content,
         ...(audioEnabled && { audioId: form.audio?.id ?? null }),
@@ -87,6 +96,10 @@ export default function SharedMaterialFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.moduleId) {
+      toast.error("Chọn chuyên đề của bộ.");
+      return;
+    }
     if (!form.title.trim()) {
       toast.error("Nhập tên tư liệu.");
       return;
@@ -138,6 +151,25 @@ export default function SharedMaterialFormDialog({
                 className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-base text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:text-sm"
               />
             </label>
+            <div>
+              <span className="mb-1 block text-xs font-medium text-text-muted">
+                Chuyên đề
+              </span>
+              <UpgradedSelect
+                value={form.moduleId}
+                onValueChange={(moduleId) =>
+                  setForm((prev) => ({ ...prev, moduleId }))
+                }
+                options={modules.map((m) => ({ value: m.id, label: m.title }))}
+                placeholder="Chọn chuyên đề"
+                ariaLabel="Chuyên đề của bộ"
+              />
+              {material && form.moduleId !== material.moduleId ? (
+                <p className="mt-1 text-xs text-warning">
+                  Mọi câu trong bộ chuyển sang chuyên đề mới.
+                </p>
+              ) : null}
+            </div>
             <div>
               <span className="mb-1 block text-xs font-medium text-text-muted">
                 Nội dung (đoạn văn, ảnh)

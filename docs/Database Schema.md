@@ -46,7 +46,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `modules` (chuyên đề — nhóm tiết học bên trong khoá học)
 - `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề của khoá — tiết riêng lớp cũ đã lưu trữ)
 - `class_modules` (chuyên đề lớp đã thêm — nguồn đồng bộ tiết lý thuyết vào lớp)
-- `shared_materials` (Tư liệu dùng chung — hồ sơ JP; nhiều câu cùng gắn)
+- `shared_materials` (phần đầu Bộ câu hỏi — hồ sơ JP; câu trong bộ theo `questions.set_position`)
 - `audio_assets` (Audio tư liệu — hồ sơ JP; file trong bucket private `question-audio`)
 - `attempt_audio_plays` (số lần đã nghe từng audio trong một lượt làm — Giới hạn nghe)
 - `lesson_quizzes` (liên kết câu hỏi từ ngân hàng vào bài tập ôn nhẹ của tiết lý thuyết)
@@ -674,7 +674,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `explanation` (`TEXT`, nullable): giải thích sau khi trả lời (HTML)
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
   - `skills` (`QuestionSkill[]`, default `{}`): Kỹ năng — chỉ hồ sơ JP, chọn nhiều: `kanji` | `vocabulary` | `grammar` | `reading` | `listening` | `conversation` | `writing`. JP bắt buộc ≥1 khi tạo/sửa (câu cũ rỗng chỉ bị đòi khi sửa; nhập hàng loạt chưa bắt buộc); IT/ENG luôn rỗng.
-  - `shared_material_id` (`UUID?` → `shared_materials.id`, `ON DELETE NO ACTION`): Tư liệu dùng chung (JP) — tối đa một; phải cùng khoá. Index `(shared_material_id)`.
+  - `shared_material_id` (`UUID?` → `shared_materials.id`, `ON DELETE NO ACTION`): Bộ câu hỏi (JP) — tối đa một; phải cùng khoá **và cùng chuyên đề** với bộ. Index `(shared_material_id)`.
+  - `set_position` (`INT?`): vị trí của câu trong bộ (0-based) — câu mới vào bộ xếp cuối bộ. CHECK `questions_set_position_check`: có `shared_material_id` ⇔ có `set_position`. Làm bài / xem lại / ôn nhẹ xếp câu trong khối bộ theo `set_position`.
   - `audio_id` (`UUID?` → `audio_assets.id`, `ON DELETE SET NULL`): audio nhúng của câu (JP) — tối đa một; phải cùng khoá.
   - `essay_input_size` (`EssayInputSize?`: `short` | `long`): kiểu ô nhập câu tự luận — chỉ hồ sơ JP, chỉ câu `essay`. `null` = ô dài (câu cũ, hồ sơ khác); form JP mặc định `short` cho câu mới. Chỉ đổi giao diện làm bài/ôn nhẹ (ô ngắn một dòng, tự xuống dòng), không giới hạn độ dài, không ảnh hưởng chấm.
   - `deleted_at` (`TIMESTAMPTZ`, nullable): soft-delete timestamp
@@ -683,18 +684,18 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Quan hệ: `courses` (1-N), `modules` (1-N), `course_difficulty_levels` (1-N), `question_links` (1-N)
 - Table: `questions` (via `@@map`)
 
-### 4.6d-sm `shared_materials` (Tư liệu dùng chung — hồ sơ JP)
+### 4.6d-sm `shared_materials` (phần đầu Bộ câu hỏi — hồ sơ JP)
 
-- Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `title` (≤ 200, để chọn/lọc), `content` (`TEXT`, HTML TipTap; có thể chứa **vị trí trống** `[[#<questionId>]]` nối tới câu gắn tư liệu — web đổi thành số câu trong lượt làm `（27）`, câu vắng/đã gỡ hiện `（　　）`), `created_at`, `updated_at`.
+- Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `module_id` (→ `modules.id`, `ON DELETE CASCADE`; chuyên đề của bộ — đổi chuyên đề thì mọi câu trong bộ đổi theo), `title` (≤ 200, để chọn/lọc), `content` (`TEXT`, HTML TipTap; có thể chứa **vị trí trống** `[[#<questionId>]]` nối tới câu gắn tư liệu — web đổi thành số câu trong lượt làm `（27）`, câu vắng/đã gỡ hiện `（　　）`), `created_at`, `updated_at`.
 - Quan hệ: `questions.shared_material_id` (1-N). Xoá bị chặn (`409`) khi còn câu chưa xoá đang gắn; câu đã soft-delete được tháo gắn trước khi xoá.
-- Index `(course_id)`. Migration `20261009050000_shared_material`. ADR `docs/adr/2026-10-09-shared-material.md`.
+- Index `(course_id)`, `(module_id)`. Migration `20261009050000_shared_material`; chuyên đề + thứ tự trong bộ: `20261009080000_question_set` (tách tư liệu dùng ở nhiều chuyên đề thành bộ riêng từng chuyên đề, tách audio tham chiếu nhiều nơi thành bản riêng, thứ tự trong bộ theo thời gian tạo câu). ADR `docs/adr/2026-10-09-question-set.md` (thay một phần `2026-10-09-shared-material.md`).
 - `audio_id` (`UUID?` → `audio_assets.id`, `ON DELETE SET NULL`): audio dùng chung cho cả nhóm câu (bài nghe). Migration `20261009060000_audio_asset`.
 
 ### 4.6d-au `audio_assets` (Audio tư liệu — hồ sơ JP)
 
 - Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `storage_path` (object path trong bucket private `question-audio`, dạng `{courseId}/{id}.{mp3|m4a|aac|wav}`), `mime_type`, `size_bytes` (≤ 20MB), `original_name` (≤ 200), `created_at`.
 - **Bất biến:** thay audio = tải asset mới và đổi `audio_id`; file cũ giữ lại để bài làm đã bắt đầu (snapshot `audio_id`) vẫn nghe được.
-- Gắn vào: `questions.audio_id` (audio nhúng của câu) và `shared_materials.audio_id` (audio dùng chung) — tối đa một mỗi nơi, phải cùng khoá.
+- Gắn vào: `questions.audio_id` (audio nhúng của câu) và `shared_materials.audio_id` (audio dùng chung) — tối đa một mỗi nơi, phải cùng khoá. Mỗi asset thuộc đúng một chỗ (migration `20261009080000_question_set` tách bản dùng chung thành bản riêng cùng file storage).
 - Học sinh chỉ nhận signed URL ngắn hạn (6 giờ) qua endpoint đã kiểm quyền xem câu; không lộ `storage_path`.
 - **Giới hạn nghe** (cấu hình duy nhất sửa được trên asset, `PATCH /audio-assets/:id/limits`): `max_plays` (`INT?`, `null` = không giới hạn, cho phép 1 hoặc 2), `allow_seek` (`BOOLEAN`, default `true`). Đọc live — đổi giới hạn áp luôn cho lượt đang làm. Không áp khi xem lại sau nộp và ôn nhẹ.
 - Index `(course_id)`. Migration `20261009060000_audio_asset`; giới hạn nghe: `20261009070000_audio_play_limit`.

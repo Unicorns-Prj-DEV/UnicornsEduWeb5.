@@ -58,6 +58,19 @@ export class SharedMaterialService {
     );
   }
 
+  private async assertModuleInCourse(
+    moduleId: string,
+    courseId: string,
+  ): Promise<void> {
+    const courseModule = await this.prisma.module.findUnique({
+      where: { id: moduleId },
+      select: { courseId: true },
+    });
+    if (!courseModule || courseModule.courseId !== courseId) {
+      throw new BadRequestException('Chuyên đề không thuộc khoá của bộ.');
+    }
+  }
+
   private async findOrThrow(id: string) {
     const material = await this.prisma.sharedMaterial.findUnique({
       where: { id },
@@ -99,6 +112,7 @@ export class SharedMaterialService {
     this.assertEnabled();
     await this.courseAccess.assertCourseExists(dto.courseId);
     await this.assertWriteAccess(actor, dto.courseId);
+    await this.assertModuleInCourse(dto.moduleId, dto.courseId);
     await assertAudioAttachable(
       this.prisma,
       this.lmsProfile.config,
@@ -109,6 +123,7 @@ export class SharedMaterialService {
       const created = await tx.sharedMaterial.create({
         data: {
           courseId: dto.courseId,
+          moduleId: dto.moduleId,
           title: dto.title.trim(),
           content: dto.content,
           audioId: dto.audioId ?? null,
@@ -136,6 +151,13 @@ export class SharedMaterialService {
     this.assertEnabled();
     const existing = await this.findOrThrow(id);
     await this.assertWriteAccess(actor, existing.courseId);
+    const movedTo =
+      dto.moduleId !== undefined && dto.moduleId !== existing.moduleId
+        ? dto.moduleId
+        : null;
+    if (movedTo) {
+      await this.assertModuleInCourse(movedTo, existing.courseId);
+    }
     if (dto.audioId !== undefined && dto.audioId !== existing.audioId) {
       await assertAudioAttachable(
         this.prisma,
@@ -151,8 +173,16 @@ export class SharedMaterialService {
           ...(dto.title !== undefined && { title: dto.title.trim() }),
           ...(dto.content !== undefined && { content: dto.content }),
           ...(dto.audioId !== undefined && { audioId: dto.audioId }),
+          ...(movedTo && { moduleId: movedTo }),
         },
       });
+      // Bộ thuộc đúng một chuyên đề: chuyển bộ thì cả bộ đi theo.
+      if (movedTo) {
+        await tx.question.updateMany({
+          where: { sharedMaterialId: id },
+          data: { moduleId: movedTo },
+        });
+      }
       await this.actionHistory.recordUpdate(tx, {
         entityType: 'shared_material',
         entityId: id,
@@ -182,7 +212,7 @@ export class SharedMaterialService {
     return this.prisma.$transaction(async (tx) => {
       await tx.question.updateMany({
         where: { sharedMaterialId: id },
-        data: { sharedMaterialId: null },
+        data: { sharedMaterialId: null, setPosition: null },
       });
       const deleted = await tx.sharedMaterial.delete({ where: { id } });
       await this.actionHistory.recordDelete(tx, {
@@ -197,14 +227,15 @@ export class SharedMaterialService {
 }
 
 /**
- * Gắn câu vào tư liệu: hồ sơ phải bật và tư liệu phải cùng khoá với câu.
- * `undefined` = không đổi, `null` = bỏ gắn (luôn hợp lệ).
+ * Gắn câu vào Bộ câu hỏi: hồ sơ phải bật, bộ cùng khoá và cùng chuyên đề với
+ * câu. `undefined` = không đổi, `null` = bỏ gắn (luôn hợp lệ).
  */
 export async function assertMaterialAttachable(
   prisma: PrismaService,
   profile: LmsProfileConfig,
   sharedMaterialId: string | null | undefined,
   courseId: string,
+  moduleId: string,
 ): Promise<void> {
   if (sharedMaterialId == null) return;
   if (!profile.sharedMaterials) {
@@ -214,11 +245,26 @@ export async function assertMaterialAttachable(
   }
   const material = await prisma.sharedMaterial.findUnique({
     where: { id: sharedMaterialId },
-    select: { courseId: true },
+    select: { courseId: true, moduleId: true },
   });
   if (!material || material.courseId !== courseId) {
     throw new BadRequestException(
       'Tư liệu dùng chung không thuộc khoá của câu hỏi.',
     );
   }
+  if (material.moduleId !== moduleId) {
+    throw new BadRequestException('Câu phải cùng chuyên đề với bộ.');
+  }
+}
+
+/** Vị trí cuối bộ cho câu mới vào bộ. */
+export async function nextSetPosition(
+  prisma: Pick<PrismaService, 'question'>,
+  sharedMaterialId: string,
+): Promise<number> {
+  const { _max } = await prisma.question.aggregate({
+    where: { sharedMaterialId },
+    _max: { setPosition: true },
+  });
+  return (_max.setPosition ?? -1) + 1;
 }

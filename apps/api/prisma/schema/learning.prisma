@@ -235,6 +235,7 @@ model Module {
   course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons      Lesson[]
   questions    Question[] // back‑relation for question bank
+  sharedMaterials SharedMaterial[]
   classModules ClassModule[]
 
   @@index([courseId])
@@ -611,22 +612,26 @@ model AttemptAudioPlay {
   @@map("attempt_audio_plays")
 }
 
-/// Tư liệu dùng chung (hồ sơ JP): đoạn văn/ảnh nhiều câu cùng dựa vào. Thuộc ngân
-/// hàng câu hỏi của một Khoá học; không xoá được khi còn câu (chưa xoá) gắn vào.
+/// Phần đầu của Bộ câu hỏi (hồ sơ JP): văn bản / ảnh / audio các câu trong bộ cùng
+/// dựa vào. Thuộc đúng một chuyên đề; mọi câu của bộ cùng chuyên đề đó
+/// (ADR 2026-10-09-question-set).
 model SharedMaterial {
   id        String      @id @default(uuid())
   courseId  String      @map("course_id")
+  moduleId  String      @map("module_id")
   title     String
   content   String      @db.Text // HTML từ TipTap
   createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
   course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module    Module      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   /// Audio dùng chung (hội thoại cho nhiều câu).
   audioId   String?     @map("audio_id")
   audio     AudioAsset? @relation(fields: [audioId], references: [id], onDelete: SetNull)
   questions Question[]
 
   @@index([courseId])
+  @@index([moduleId])
   @@map("shared_materials")
 }
 
@@ -654,6 +659,8 @@ model Question {
   blankAnswerKey    Json?                @map("blank_answer_key")
   /// Tư liệu dùng chung (hồ sơ JP): các câu cùng tư liệu luôn đứng liền nhau trong đề.
   sharedMaterialId  String?              @map("shared_material_id")
+  /// Vị trí của câu trong bộ (0-based); null với câu lẻ.
+  setPosition       Int?                 @map("set_position")
   /// Audio nhúng riêng của câu (hồ sơ JP).
   audioId           String?              @map("audio_id")
   deletedAt         DateTime?            @map("deleted_at")

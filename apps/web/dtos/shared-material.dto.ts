@@ -4,6 +4,8 @@ import type { AudioRef } from "./audio-asset.dto";
 export interface SharedMaterial {
   id: string;
   courseId: string;
+  /** Chuyên đề của bộ — mọi câu trong bộ cùng chuyên đề này. */
+  moduleId: string;
   title: string;
   /** HTML (TipTap). */
   content: string;
@@ -18,6 +20,7 @@ export interface SharedMaterial {
 
 export interface CreateSharedMaterialInput {
   courseId: string;
+  moduleId: string;
   title: string;
   content: string;
   /** null = gỡ audio. */
@@ -25,7 +28,7 @@ export interface CreateSharedMaterialInput {
 }
 
 export type UpdateSharedMaterialInput = Partial<
-  Pick<CreateSharedMaterialInput, "title" | "content" | "audioId">
+  Pick<CreateSharedMaterialInput, "moduleId" | "title" | "content" | "audioId">
 >;
 
 export const SHARED_MATERIAL_TITLE_MAX = 200;
