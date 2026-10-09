@@ -2,7 +2,8 @@
 
 import StudentAttemptQuestion from "@/components/student/StudentAttemptQuestion";
 import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
-import { QuestionTypeDto } from "@/dtos/question.dto";
+import { QuestionTypeDto, countBlanks } from "@/dtos/question.dto";
+import { resizeBlankKey } from "@/lib/fill-blank";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
 
 const NOOP = () => {};
@@ -33,6 +34,8 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
   const isChoice = value.type === QuestionTypeDto.single_choice;
   const isTrueFalse = value.type === QuestionTypeDto.true_false_group;
   const isSingleTf = value.type === QuestionTypeDto.true_false;
+  const isFillBlank = value.type === QuestionTypeDto.fill_blank;
+  const blankCount = isFillBlank ? countBlanks(value.content) : null;
   const question: AttemptQuestionDto = {
     questionId: "preview",
     order: 0,
@@ -50,6 +53,14 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
         ? value.tfAnswerKey.slice(0, 1)
         : undefined,
     tfLabelStyle: isSingleTf ? value.tfLabelStyle : null,
+    blankCount,
+    blankAnswers: null,
+    blankAnswerKey:
+      blankCount != null
+        ? resizeBlankKey(value.blankAnswerKey, blankCount).map((answers) =>
+            answers.map((a) => a.trim()).filter(Boolean),
+          )
+        : null,
     markedForReview: false,
     correctIndex: isChoice ? value.correctIndex : null,
     isCorrect: null,

@@ -23,6 +23,8 @@ function q(
     markedForReview: partial.markedForReview ?? false,
     slot: partial.slot ?? "required",
     tfChoices: partial.tfChoices ?? null,
+    blankCount: partial.blankCount ?? null,
+    blankAnswers: partial.blankAnswers ?? null,
   };
 }
 
@@ -59,6 +61,24 @@ describe("Câu Đúng/Sai (một nhận định)", () => {
   it("chưa chọn là chưa làm", () => {
     expect(isAttemptQuestionUnanswered(q({ type: "true_false", tfChoices: null }))).toBe(true);
     expect(isAttemptQuestionUnanswered(q({ type: "true_false", tfChoices: [null] }))).toBe(true);
+  });
+});
+
+describe("Câu điền vào ô trống", () => {
+  it("chỉ tính đã làm khi mọi ô đều có chữ", () => {
+    const fb = (blankAnswers: (string | null)[] | null) =>
+      q({ type: "fill_blank", blankCount: 2, blankAnswers });
+    expect(isAttemptQuestionUnanswered(fb(["たべ", "のみ"]))).toBe(false);
+    expect(isAttemptQuestionUnanswered(fb(["たべ", null]))).toBe(true);
+    expect(isAttemptQuestionUnanswered(fb(["たべ", "　 "]))).toBe(true);
+    expect(isAttemptQuestionUnanswered(fb(["たべ"]))).toBe(true);
+    expect(isAttemptQuestionUnanswered(fb(null))).toBe(true);
+  });
+
+  it("chữ gõ vào ô làm đổi chữ ký tự lưu", () => {
+    const a = q({ type: "fill_blank", blankCount: 1, blankAnswers: ["a"] });
+    const b = q({ type: "fill_blank", blankCount: 1, blankAnswers: ["b"] });
+    expect(answersSignature([a])).not.toBe(answersSignature([b]));
   });
 });
 

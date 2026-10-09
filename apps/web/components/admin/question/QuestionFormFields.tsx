@@ -8,6 +8,8 @@ import QuestionPreview from "@/components/admin/question/QuestionPreview";
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
+import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
+import { appendBlankMarker } from "@/lib/fill-blank";
 import {
   ESSAY_INPUT_SIZE_LABELS,
   type EssayInputSizeDto,
@@ -39,6 +41,8 @@ export type QuestionFormValue = {
   tfAnswerKey: boolean[];
   /** Kiểu nhãn Câu Đúng/Sai (JP). */
   tfLabelStyle: TrueFalseLabelStyleDto;
+  /** Đáp án hợp lệ từng ô của câu điền vào ô trống (JP). */
+  blankAnswerKey: string[][];
   explanation: string;
   answerGuide: string;
   /** Kỹ năng (chỉ hồ sơ JP). */
@@ -57,6 +61,7 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   statements: ["", "", "", ""],
   tfAnswerKey: [true, true, true, true],
   tfLabelStyle: "maru_batsu",
+  blankAnswerKey: [],
   explanation: "",
   answerGuide: "",
   skills: [],
@@ -312,6 +317,17 @@ export default function QuestionFormFields({
 
             {value.type === QuestionTypeDto.true_false && (
               <TrueFalseSingleFields value={value} onChange={onChange} />
+            )}
+
+            {value.type === QuestionTypeDto.fill_blank && (
+              <FillBlankAnswerFields
+                content={value.content}
+                blankAnswerKey={value.blankAnswerKey}
+                onChange={(blankAnswerKey) => onChange({ blankAnswerKey })}
+                onInsertBlank={() =>
+                  onChange({ content: appendBlankMarker(value.content) })
+                }
+              />
             )}
 
             <div>

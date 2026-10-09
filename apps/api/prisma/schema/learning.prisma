@@ -544,16 +544,18 @@ model LessonQuiz {
 
 /// Trả lời bài tập ôn nhẹ — KHÔNG sinh Attempt, KHÔNG tính điểm.
 model LessonQuizAnswer {
-  id          String   @id @default(uuid())
-  lessonId    String   @map("lesson_id")
-  questionId  String   @map("question_id")
-  studentId   String   @map("student_id")
-  choiceIndex Int?     @map("choice_index")
-  essayAnswer String?  @map("essay_answer")
+  id           String   @id @default(uuid())
+  lessonId     String   @map("lesson_id")
+  questionId   String   @map("question_id")
+  studentId    String   @map("student_id")
+  choiceIndex  Int?     @map("choice_index")
+  essayAnswer  String?  @map("essay_answer")
   /// Nhóm câu Đúng/Sai: `(boolean | null)[4]`, null = bỏ trống nhận định.
-  tfChoices   Json?    @map("tf_choices")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tfChoices    Json?    @map("tf_choices")
+  /// Chữ học sinh gõ vào từng ô trống: `(string | null)[]`.
+  blankAnswers Json?    @map("blank_answers")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   lesson   Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id], onDelete: Restrict)
@@ -588,6 +590,8 @@ model Question {
   essayInputSize    EssayInputSize?      @map("essay_input_size")
   /// Kiểu nhãn Câu Đúng/Sai (JP). null = ○/×.
   tfLabelStyle      TrueFalseLabelStyle? @map("tf_label_style")
+  /// Câu điền vào ô trống: đáp án hợp lệ từng ô `string[][]` (thứ tự ô trong `content`).
+  blankAnswerKey    Json?                @map("blank_answer_key")
   deletedAt         DateTime?            @map("deleted_at")
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -649,6 +653,8 @@ enum QuestionType {
   true_false_group
   /// Câu Đúng/Sai (JP): một nhận định, đáp án `tfAnswerKey[0]`, chấm cả câu.
   true_false
+  /// Câu điền vào ô trống (JP): ô `[[___]]` trong `content`, đáp án hợp lệ `blankAnswerKey`.
+  fill_blank
 }
 
 /// Kiểu nhãn Câu Đúng/Sai (JP), chọn theo từng câu. null = ○/×.
@@ -736,6 +742,10 @@ model AttemptAnswer {
   choiceIndex     Int?                 @map("choice_index")
   /// Lựa chọn 4 nhận định: `(boolean | null)[4]`.
   tfChoices       Json?                @map("tf_choices")
+  /// Snapshot đáp án hợp lệ từng ô — được cập nhật khi sửa đáp án (chấm lại), trừ khi đổi số ô.
+  blankAnswerKey  Json?                @map("blank_answer_key")
+  /// Chữ học sinh gõ vào từng ô trống: `(string | null)[]`.
+  blankAnswers    Json?                @map("blank_answers")
   essayAnswer     String?              @map("essay_answer") @db.Text
   /// Học sinh đánh dấu quay lại xem trước nộp — không ảnh hưởng chấm điểm.
   markedForReview Boolean              @default(false) @map("marked_for_review")

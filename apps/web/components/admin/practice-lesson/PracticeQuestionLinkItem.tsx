@@ -13,6 +13,7 @@ import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 import { QuestionSlotSelect } from "@/components/admin/ElectiveGroupSettings";
 import type { QuestionLink } from "@/dtos/course-content.dto";
 import type { QuestionSlotDto } from "@/dtos/attempt.dto";
+import { numberBlanks } from "@/lib/fill-blank";
 import {
   QuestionTypeDto,
   TRUE_FALSE_STATEMENT_LABELS,
@@ -246,7 +247,13 @@ export function PracticeQuestionLinkItem({
               "max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
           )}
         >
-          <MathContent content={question.content} />
+          <MathContent
+            content={
+              question.type === QuestionTypeDto.fill_blank
+                ? numberBlanks(question.content)
+                : question.content
+            }
+          />
         </div>
 
         {!compact && isChoice && options.length > 0 ? (
@@ -343,6 +350,20 @@ export function PracticeQuestionLinkItem({
               {trueFalseChoiceLabels(question.tfLabelStyle)[singleTfKey ? 0 : 1]}
             </span>
           </p>
+        ) : null}
+
+        {question.type === QuestionTypeDto.fill_blank &&
+        question.blankAnswerKey?.length ? (
+          <ol className="mt-1.5 space-y-0.5 text-xs text-text-muted">
+            {question.blankAnswerKey.map((answers, i) => (
+              <li key={i}>
+                【{i + 1}】{" "}
+                <span className="font-semibold text-success">
+                  {answers.join(" / ")}
+                </span>
+              </li>
+            ))}
+          </ol>
         ) : null}
 
         {!compact && solution ? (

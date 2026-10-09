@@ -18,6 +18,15 @@ export function isAttemptQuestionUnanswered(q: AttemptQuestionDto): boolean {
       return typeof q.tfChoices?.[0] !== "boolean";
     case "essay":
       return !q.essayAnswer?.trim();
+    case "fill_blank": {
+      // Chỉ tính đã làm khi mọi ô đều có chữ.
+      const answers = q.blankAnswers ?? [];
+      const count = q.blankCount ?? 0;
+      return (
+        count === 0 ||
+        Array.from({ length: count }).some((_, i) => !answers[i]?.trim())
+      );
+    }
     default:
       return assertNever(q.type, "question type");
   }
@@ -69,6 +78,7 @@ export function answersSignature(questions: AttemptQuestionDto[]): string {
       c: q.choiceIndex,
       e: q.essayAnswer ?? "",
       t: q.tfChoices ?? null,
+      b: q.blankAnswers ?? null,
       m: q.markedForReview ?? false,
     })),
   );

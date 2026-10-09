@@ -13,6 +13,7 @@ import {
 import { LessonKind, QuestionSlot } from 'generated/enums';
 import { Prisma } from '../../generated/client';
 import { examFormError } from 'src/attempt/exam-form';
+import { parseBlankAnswerKey } from 'src/attempt/fill-blank';
 import { questionWeight } from 'src/attempt/split-total-points';
 import { loadLmsProfile } from 'src/lms-profile/lms-profile';
 import {
@@ -36,6 +37,7 @@ const LINK_INCLUDE = {
       answerGuide: true,
       essayInputSize: true,
       tfLabelStyle: true,
+      blankAnswerKey: true,
     },
   },
 } satisfies Prisma.QuestionLinkInclude;
@@ -52,7 +54,13 @@ function toLinkResponse(link: LinkWithQuestion): QuestionLinkResponseDto {
     order: link.order,
     points: link.points,
     slot: link.slot,
-    question: link.question,
+    question: {
+      ...link.question,
+      blankAnswerKey:
+        link.question.blankAnswerKey == null
+          ? null
+          : parseBlankAnswerKey(link.question.blankAnswerKey),
+    },
   };
 }
 

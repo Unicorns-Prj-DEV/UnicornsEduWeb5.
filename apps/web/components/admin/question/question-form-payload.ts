@@ -4,7 +4,9 @@ import {
   QuestionTypeDto,
   type TrueFalseLabelStyleDto,
   DEFAULT_TRUE_FALSE_LABEL_STYLE,
+  countBlanks,
 } from "@/dtos/question.dto";
+import { resizeBlankKey } from "@/lib/fill-blank";
 import { assertNever } from "@/lib/assert-never";
 import type { QuestionFormInitial } from "@/dtos/question.dto";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
@@ -22,6 +24,7 @@ export type QuestionFormPayload = {
   skills?: QuestionSkillDto[];
   essayInputSize?: EssayInputSizeDto;
   tfLabelStyle?: TrueFalseLabelStyleDto;
+  blankAnswerKey?: string[][];
 };
 
 function isBlankHtml(html: string): boolean {
@@ -77,6 +80,8 @@ export function questionFormToPayload(
           tfLabelStyle: form.tfLabelStyle,
         },
       };
+    case QuestionTypeDto.fill_blank:
+      return fillBlankPayload(base, form);
     case QuestionTypeDto.essay:
       return {
         payload: {
@@ -136,15 +141,44 @@ function trueFalseGroupPayload(
   };
 }
 
+function fillBlankPayload(
+  base: PayloadBase,
+  form: QuestionFormValue,
+): PayloadResult {
+  const count = countBlanks(form.content);
+  if (count === 0) {
+    return { error: "Chèn ít nhất một ô trống [[___]] vào đề" };
+  }
+  // Bỏ ô đáp án để trống; ô nào không còn đáp án thì báo.
+  const blankAnswerKey = resizeBlankKey(form.blankAnswerKey, count).map(
+    (answers) => answers.map((a) => a.trim()).filter(Boolean),
+  );
+  const missing = blankAnswerKey.findIndex((answers) => answers.length === 0);
+  if (missing >= 0) {
+    return { error: `Ô ${missing + 1} cần ít nhất một đáp án` };
+  }
+  return { payload: { ...base, blankAnswerKey } };
+}
+
 /** Phần form phụ thuộc loại câu, dựng từ câu có sẵn (sửa) hoặc mặc định (tạo). */
 export function questionToFormParts(
   question: Pick<
     QuestionFormInitial,
-    "type" | "options" | "correctIndex" | "tfAnswerKey" | "tfLabelStyle"
+    | "type"
+    | "options"
+    | "correctIndex"
+    | "tfAnswerKey"
+    | "tfLabelStyle"
+    | "blankAnswerKey"
   > | null,
 ): Pick<
   QuestionFormValue,
-  "options" | "correctIndex" | "statements" | "tfAnswerKey" | "tfLabelStyle"
+  | "options"
+  | "correctIndex"
+  | "statements"
+  | "tfAnswerKey"
+  | "tfLabelStyle"
+  | "blankAnswerKey"
 > {
   const isTf = question?.type === QuestionTypeDto.true_false_group;
   const isSingleTf = question?.type === QuestionTypeDto.true_false;
@@ -162,5 +196,6 @@ export function questionToFormParts(
           ? [question.tfAnswerKey[0], true, true, true]
           : [true, true, true, true],
     tfLabelStyle: question?.tfLabelStyle ?? DEFAULT_TRUE_FALSE_LABEL_STYLE,
+    blankAnswerKey: question?.blankAnswerKey?.map((a) => [...a]) ?? [],
   };
 }

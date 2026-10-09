@@ -31,7 +31,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import MathContent from "@/components/ui/MathContent";
 import { cn } from "@/lib/utils";
 import type { LessonQuizQuestion, LessonQuizAnswer } from "@/dtos/course-content.dto";
-import type { TrueFalseChoices } from "@/dtos/attempt.dto";
+import type { BlankAnswers, TrueFalseChoices } from "@/dtos/attempt.dto";
+import FillBlankInputs from "@/components/student/FillBlankInputs";
+import { allBlanksAccepted, numberBlanks } from "@/lib/fill-blank";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import EssayAnswerInput from "@/components/student/EssayAnswerInput";
@@ -307,6 +309,7 @@ type QuizDraftAnswer = {
   choiceIndex?: number | null;
   essayAnswer?: string | null;
   tfChoices?: TrueFalseChoices | null;
+  blankAnswers?: BlankAnswers | null;
 };
 
 function LessonQuizSection({
@@ -340,6 +343,7 @@ function LessonQuizSection({
         choiceIndex: draftAnswers[q.questionId]?.choiceIndex ?? null,
         essayAnswer: draftAnswers[q.questionId]?.essayAnswer ?? null,
         tfChoices: draftAnswers[q.questionId]?.tfChoices ?? null,
+        blankAnswers: draftAnswers[q.questionId]?.blankAnswers ?? null,
       }));
       if (
         answers.some(
@@ -451,10 +455,26 @@ function QuizQuestionInput({
     <div className="rounded-xl border border-border-default p-4">
       <div className="text-sm font-medium text-text-primary mb-3">
         <span className="text-primary mr-1">Câu {index + 1}.</span>
-        <MathContent content={quiz.question.content} className="inline [&>p:first-child]:inline" />
+        <MathContent
+          content={
+            quiz.question.type === "fill_blank"
+              ? numberBlanks(quiz.question.content)
+              : quiz.question.content
+          }
+          className="inline [&>p:first-child]:inline"
+        />
       </div>
 
-      {quiz.question.type === "true_false" ? (
+      {quiz.question.type === "fill_blank" ? (
+        <FillBlankInputs
+          name={`quiz-${quiz.questionId}`}
+          count={quiz.question.blankCount ?? 0}
+          answers={value?.blankAnswers}
+          disabled={false}
+          reveal={false}
+          onChange={(blankAnswers) => onChange({ blankAnswers })}
+        />
+      ) : quiz.question.type === "true_false" ? (
         <TrueFalseChoice
           choices={value?.tfChoices}
           labelStyle={quiz.question.tfLabelStyle}
@@ -527,7 +547,10 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
       {answers.map((ans, idx) => {
         const isTrueFalse = ans.question.type === "true_false_group";
         const isSingleTf = ans.question.type === "true_false";
-        const isCorrect = isSingleTf
+        const isFillBlank = ans.question.type === "fill_blank";
+        const isCorrect = isFillBlank
+          ? allBlanksAccepted(ans.blankAnswers, ans.question.blankAnswerKey)
+          : isSingleTf
           ? ans.tfChoices?.[0] === ans.question.tfAnswerKey?.[0]
           : isTrueFalse
           ? (ans.question.tfAnswerKey ?? []).every(
@@ -551,13 +574,32 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
           >
             <div className="text-sm font-medium text-text-primary mb-2">
               <span className="text-primary mr-1">Câu {idx + 1}.</span>
-              <MathContent content={ans.question.content} className="inline [&>p:first-child]:inline" />
+              <MathContent
+                content={
+                  isFillBlank
+                    ? numberBlanks(ans.question.content)
+                    : ans.question.content
+                }
+                className="inline [&>p:first-child]:inline"
+              />
             </div>
 
             {/* Student answer */}
             <div className="mb-2">
               <span className="text-xs font-semibold text-text-muted">Câu trả lời của bạn: </span>
-              {isSingleTf ? (
+              {isFillBlank ? (
+                <div className="mt-2">
+                  <FillBlankInputs
+                    name={`quiz-review-${ans.questionId}`}
+                    count={ans.question.blankAnswerKey?.length ?? 0}
+                    answers={ans.blankAnswers}
+                    answerKey={ans.question.blankAnswerKey}
+                    disabled
+                    reveal
+                    onChange={() => {}}
+                  />
+                </div>
+              ) : isSingleTf ? (
                 <div className="mt-2">
                   <TrueFalseChoice
                     choices={ans.tfChoices}
@@ -596,7 +638,7 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
             </div>
 
             {/* Correct answer (for single_choice) */}
-            {!isEssay && !isTrueFalse && !isSingleTf && ans.question.correctIndex !== null && (
+            {!isEssay && !isTrueFalse && !isSingleTf && !isFillBlank && ans.question.correctIndex !== null && (
               <div className="mb-1">
                 <span className="text-xs font-semibold text-text-muted">Đáp án đúng: </span>
                 <span className="inline-flex flex-wrap items-baseline gap-1 text-sm font-medium text-success">

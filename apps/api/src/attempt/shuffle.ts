@@ -122,6 +122,8 @@ export function shuffleQuestionOptions(
     case QuestionType.essay:
     // Câu Đúng/Sai: hai lựa chọn cố định, không có phương án để xáo.
     case QuestionType.true_false:
+    // Câu điền vào ô trống: ô theo thứ tự trong đề, không có phương án.
+    case QuestionType.fill_blank:
       return null;
     case QuestionType.single_choice:
     case QuestionType.true_false_group:

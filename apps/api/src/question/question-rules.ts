@@ -4,6 +4,12 @@ import type {
   LmsProfileConfig,
   LmsQuestionType,
 } from '../lms-profile/lms-profile';
+import {
+  MAX_ANSWERS_PER_BLANK,
+  MAX_BLANKS,
+  countBlanks,
+  normalizeBlankAnswer,
+} from '../attempt/fill-blank';
 
 /** Hình dạng câu hỏi theo loại + hồ sơ môn. Trả lỗi tiếng Việt hoặc null. */
 export interface QuestionShape {
@@ -15,6 +21,10 @@ export interface QuestionShape {
   essayInputSize?: 'short' | 'long' | null;
   /** Kiểu nhãn Câu Đúng/Sai (JP). null = ○/×. */
   tfLabelStyle?: string | null;
+  /** Đề bài — câu điền vào ô trống đếm ô `[[___]]` trong đây. */
+  content?: string;
+  /** Câu điền vào ô trống (JP): đáp án hợp lệ từng ô. */
+  blankAnswerKey?: unknown;
 }
 
 const TYPE_LABEL: Record<LmsQuestionType, string> = {
@@ -22,6 +32,7 @@ const TYPE_LABEL: Record<LmsQuestionType, string> = {
   essay: 'tự luận',
   true_false_group: 'Đúng/Sai (nhóm 4 nhận định)',
   true_false: 'Đúng/Sai',
+  fill_blank: 'điền vào ô trống',
 };
 
 export function questionShapeError(
@@ -42,6 +53,9 @@ export function questionShapeError(
   }
   if (shape.tfLabelStyle != null && type !== 'true_false') {
     return 'Chỉ Câu Đúng/Sai có kiểu nhãn.';
+  }
+  if (shape.blankAnswerKey != null && type !== 'fill_blank') {
+    return 'Chỉ câu điền vào ô trống có đáp án ô trống.';
   }
   switch (type) {
     case 'single_choice': {
@@ -79,6 +93,14 @@ export function questionShapeError(
         return 'Câu Đúng/Sai không dùng correctIndex.';
       }
       return null;
+    case 'fill_blank':
+      if (options?.length || hasKey) {
+        return 'Câu điền vào ô trống không có phương án.';
+      }
+      if (shape.correctIndex !== undefined && shape.correctIndex !== null) {
+        return 'Câu điền vào ô trống không dùng correctIndex.';
+      }
+      return blankAnswerKeyError(shape.content ?? '', shape.blankAnswerKey);
     case 'essay':
       if (options?.length) return 'Câu tự luận không có phương án.';
       if (hasKey) return 'Câu tự luận không có đáp án Đúng/Sai.';
@@ -89,6 +111,35 @@ export function questionShapeError(
     default:
       return assertNever(type, 'question type');
   }
+}
+
+/** Số ô `[[___]]` trong đề khớp danh sách đáp án; mỗi ô có ≥1 đáp án không rỗng. */
+function blankAnswerKeyError(content: string, rawKey: unknown): string | null {
+  const blanks = countBlanks(content);
+  if (blanks === 0) {
+    return 'Câu điền vào ô trống phải có ít nhất một ô [[___]] trong đề.';
+  }
+  if (blanks > MAX_BLANKS) {
+    return `Câu điền vào ô trống có tối đa ${MAX_BLANKS} ô.`;
+  }
+  const key = Array.isArray(rawKey) ? (rawKey as unknown[]) : [];
+  if (key.length !== blanks) {
+    return `Đề có ${blanks} ô trống nhưng có đáp án cho ${key.length} ô.`;
+  }
+  for (const [i, answers] of key.entries()) {
+    const valid = Array.isArray(answers)
+      ? answers.filter(
+          (a) => typeof a === 'string' && normalizeBlankAnswer(a) !== '',
+        )
+      : [];
+    if (valid.length === 0) {
+      return `Ô ${i + 1} phải có ít nhất một đáp án hợp lệ.`;
+    }
+    if (!Array.isArray(answers) || answers.length > MAX_ANSWERS_PER_BLANK) {
+      return `Ô ${i + 1} có tối đa ${MAX_ANSWERS_PER_BLANK} đáp án hợp lệ.`;
+    }
+  }
+  return null;
 }
 
 /**

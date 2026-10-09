@@ -5,6 +5,21 @@ export enum QuestionTypeDto {
   true_false_group = "true_false_group",
   /** Câu Đúng/Sai (chỉ hồ sơ JP): một nhận định ở `content`, đáp án `tfAnswerKey: [boolean]`. */
   true_false = "true_false",
+  /**
+   * Câu điền vào ô trống (chỉ hồ sơ JP): ô `[[___]]` trong `content`, đáp án hợp lệ
+   * từng ô ở `blankAnswerKey`.
+   */
+  fill_blank = "fill_blank",
+}
+
+/** Dấu ô trống trong đề câu điền vào ô trống. Thứ tự xuất hiện = số ô. */
+export const BLANK_MARKER = "[[___]]";
+export const MAX_BLANKS = 10;
+export const MAX_ANSWERS_PER_BLANK = 10;
+export const BLANK_ANSWER_MAX_LENGTH = 200;
+
+export function countBlanks(content: string): number {
+  return content.split(BLANK_MARKER).length - 1;
 }
 
 /** Kiểu nhãn Câu Đúng/Sai (JP), chọn theo từng câu. null = ○/×. */
@@ -79,6 +94,8 @@ export interface Question {
   essayInputSize: EssayInputSizeDto | null;
   /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
   tfLabelStyle: TrueFalseLabelStyleDto | null;
+  /** Đáp án hợp lệ từng ô (câu điền vào ô trống); null với loại khác. */
+  blankAnswerKey: string[][] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,7 +118,9 @@ export type QuestionFormInitial = Pick<
   | "explanation"
   | "answerGuide"
 > &
-  Partial<Pick<Question, "skills" | "essayInputSize" | "tfLabelStyle">>;
+  Partial<
+    Pick<Question, "skills" | "essayInputSize" | "tfLabelStyle" | "blankAnswerKey">
+  >;
 
 export interface CreateQuestionInput {
   courseId: string;
@@ -117,6 +136,7 @@ export interface CreateQuestionInput {
   skills?: QuestionSkillDto[];
   essayInputSize?: EssayInputSizeDto | null;
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
+  blankAnswerKey?: string[][];
 }
 
 export type UpdateQuestionInput = Partial<
@@ -187,6 +207,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionTypeDto, string> = {
   [QuestionTypeDto.true_false_group]: "Đúng/Sai",
   [QuestionTypeDto.true_false]: "Đúng/Sai",
   [QuestionTypeDto.essay]: "Tự luận",
+  [QuestionTypeDto.fill_blank]: "Điền vào ô trống",
 };
 
 export function questionTypeLabel(type: QuestionTypeDto | string): string {

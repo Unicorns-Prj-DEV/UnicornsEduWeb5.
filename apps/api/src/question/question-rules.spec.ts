@@ -123,6 +123,57 @@ describe('Câu Đúng/Sai một nhận định (true_false)', () => {
   });
 });
 
+describe('Câu điền vào ô trống (fill_blank)', () => {
+  const ENG = lmsProfileConfig('eng');
+  const ok = {
+    type: 'fill_blank',
+    content: '<p>私は [[___]] から [[___]] まで勉強します。</p>',
+    blankAnswerKey: [['九時', '9時'], ['五時']],
+  };
+  it('JP nhận câu 1 ô và nhiều ô', () => {
+    expect(questionShapeError(ok, JP)).toBeNull();
+    expect(
+      questionShapeError(
+        { ...ok, content: '[[___]]です。', blankAnswerKey: [['学校']] },
+        JP,
+      ),
+    ).toBeNull();
+  });
+  it('IT và ENG từ chối', () => {
+    expect(questionShapeError(ok, IT)).toMatch('Hồ sơ IT không hỗ trợ câu điền vào ô trống');
+    expect(questionShapeError(ok, ENG)).toMatch('Hồ sơ ENG không hỗ trợ câu điền vào ô trống');
+  });
+  it('đề phải có ít nhất một ô trống', () => {
+    expect(
+      questionShapeError({ ...ok, content: 'không có ô', blankAnswerKey: [] }, JP),
+    ).toBe('Câu điền vào ô trống phải có ít nhất một ô [[___]] trong đề.');
+  });
+  it('số ô trong đề phải khớp số danh sách đáp án', () => {
+    expect(
+      questionShapeError({ ...ok, blankAnswerKey: [['九時']] }, JP),
+    ).toBe('Đề có 2 ô trống nhưng có đáp án cho 1 ô.');
+  });
+  it('mỗi ô có ít nhất một đáp án hợp lệ không rỗng', () => {
+    expect(
+      questionShapeError({ ...ok, blankAnswerKey: [['九時'], ['\u3000']] }, JP),
+    ).toBe('Ô 2 phải có ít nhất một đáp án hợp lệ.');
+  });
+  it('không có phương án, correctIndex hay đáp án Đúng/Sai; loại khác không có đáp án ô', () => {
+    expect(questionShapeError({ ...ok, options: ['a'] }, JP)).toBe(
+      'Câu điền vào ô trống không có phương án.',
+    );
+    expect(questionShapeError({ ...ok, tfAnswerKey: [true] }, JP)).toBe(
+      'Câu điền vào ô trống không có phương án.',
+    );
+    expect(
+      questionShapeError(
+        { type: 'essay', options: null, blankAnswerKey: [['x']] },
+        JP,
+      ),
+    ).toBe('Chỉ câu điền vào ô trống có đáp án ô trống.');
+  });
+});
+
 describe('kiểu ô tự luận (essayInputSize)', () => {
   const ENG = lmsProfileConfig('eng');
   it.each(['short', 'long'] as const)('JP nhận tự luận ô %s', (size) => {

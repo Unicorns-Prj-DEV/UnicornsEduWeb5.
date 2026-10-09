@@ -257,3 +257,43 @@ describe('autoGradedMaxOf', () => {
     expect(autoGradedMaxOf(answers, AttemptScoring.equal_100)).toBe(1200);
   });
 });
+
+describe('Câu điền vào ô trống', () => {
+  const KEY3 = [['から'], ['まで'], ['学校', 'がっこう']];
+  function fb(blankAnswers: (string | null)[] | null): GradableAnswer {
+    return {
+      id: `fb-${seq++}`,
+      type: QuestionType.fill_blank,
+      slot: QuestionSlot.required,
+      pointsPossible: 30,
+      choiceIndex: null,
+      correctIndex: null,
+      tfChoices: null,
+      tfAnswerKey: [],
+      blankAnswerKey: KEY3,
+      blankAnswers,
+    };
+  }
+
+  it('câu 3 ô đúng 2 ô được 2/3 điểm câu', () => {
+    const r = gradeAnswers([fb(['から', 'まで', '大学'])], AttemptScoring.equal_100);
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 20 });
+  });
+
+  it('đủ ô đúng (theo luật chuẩn hoá, khai nhiều đáp án) là đúng cả câu', () => {
+    const r = gradeAnswers([fb([' から　', 'まで', 'がっこう'])], AttemptScoring.equal_100);
+    expect(r.patches[0]).toMatchObject({ isCorrect: true, pointsAwarded: 30 });
+  });
+
+  it('ô bỏ trống được 0', () => {
+    const r = gradeAnswers([fb([null, '', '  '])], AttemptScoring.equal_100);
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 0 });
+  });
+
+  it('chỉ tính đã làm khi điền đủ mọi ô', () => {
+    const base = { type: QuestionType.fill_blank, choiceIndex: null, essayAnswer: null, tfChoices: null, blankAnswerKey: KEY3 };
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', null] })).toBe(false);
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', '　'] })).toBe(false);
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', 'x'] })).toBe(true);
+  });
+});

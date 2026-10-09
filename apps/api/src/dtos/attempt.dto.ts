@@ -27,6 +27,17 @@ class TrueFalseChoiceConstraint implements ValidatorConstraintInterface {
   }
 }
 
+@ValidatorConstraint({ name: 'blankAnswer' })
+export class BlankAnswerConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return value === null || (typeof value === 'string' && value.length <= 200);
+  }
+
+  defaultMessage(): string {
+    return 'blankAnswers chỉ nhận chuỗi ≤ 200 ký tự hoặc null';
+  }
+}
+
 export type AttemptScoringDto = 'equal_100' | 'absolute_it';
 export type QuestionSlotDto = 'required' | 'elective_1' | 'elective_2';
 
@@ -113,6 +124,18 @@ export class SaveAttemptAnswerItemDto {
   tfChoices?: (boolean | null)[] | null;
 
   @ApiPropertyOptional({
+    nullable: true,
+    type: [String],
+    description:
+      'Câu điền vào ô trống (JP): chữ học sinh gõ vào từng ô theo thứ tự; null/rỗng = bỏ trống.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @Validate(BlankAnswerConstraint, { each: true })
+  blankAnswers?: (string | null)[] | null;
+
+  @ApiPropertyOptional({
     description: 'Học sinh đánh dấu quay lại xem trước nộp',
   })
   @IsOptional()
@@ -133,7 +156,12 @@ export interface AttemptQuestionDto {
   order: number;
   /** `equal_100`: 100/N (Hamilton). `absolute_it`: 25 / 100, đơn vị 1/100 điểm. */
   pointsPossible: number;
-  type: 'single_choice' | 'essay' | 'true_false_group' | 'true_false';
+  type:
+    | 'single_choice'
+    | 'essay'
+    | 'true_false_group'
+    | 'true_false'
+    | 'fill_blank';
   /** Vị trí câu: Bắt buộc / Tự chọn 1 / Tự chọn 2. */
   slot: QuestionSlotDto;
   content: string;
@@ -148,6 +176,12 @@ export interface AttemptQuestionDto {
   tfChoices: (boolean | null)[] | null;
   /** Đáp án 4 nhận định — chỉ khi đã nộp. */
   tfAnswerKey?: boolean[] | null;
+  /** Câu điền vào ô trống: số ô; null với loại khác. */
+  blankCount: number | null;
+  /** Chữ học sinh gõ từng ô (độ dài = blankCount); null với loại khác. */
+  blankAnswers: (string | null)[] | null;
+  /** Đáp án hợp lệ từng ô — chỉ khi đã nộp. */
+  blankAnswerKey?: string[][] | null;
   essayAnswer: string | null;
   markedForReview: boolean;
   correctIndex?: number | null;
@@ -224,7 +258,12 @@ export interface PracticeStatsQuestionRateDto {
   questionId: string;
   /** Vị trí câu trong đề (1-based). */
   order: number;
-  type: 'single_choice' | 'essay' | 'true_false_group' | 'true_false';
+  type:
+    | 'single_choice'
+    | 'essay'
+    | 'true_false_group'
+    | 'true_false'
+    | 'fill_blank';
   correctCount: number;
   /** Số học sinh có lượt tốt nhất đã chấm xong chứa câu này. */
   sampleCount: number;

@@ -42,6 +42,7 @@ import {
   normalizeTrueFalseChoices,
   tfChoicesOf,
 } from './grading';
+import { blankFieldsOf, parseBlankAnswerKey } from './fill-blank';
 import { assertExamForm, examGroupRank, orderExamLinks } from './exam-form';
 import { shuffleQuestionOptions, shuffleWithinGroups } from './shuffle';
 import { assignmentCloseAt, isAssignmentClosed } from './assignment-window';
@@ -203,6 +204,10 @@ export class AttemptService {
                 answerGuide: link.question.answerGuide,
                 essayInputSize: link.question.essayInputSize,
                 tfLabelStyle: link.question.tfLabelStyle,
+                blankAnswerKey:
+                  link.question.blankAnswerKey === null
+                    ? Prisma.JsonNull
+                    : (link.question.blankAnswerKey as Prisma.InputJsonValue),
                 difficultyLabel: link.question.difficultyLevel.name,
               };
             }),
@@ -267,6 +272,16 @@ export class AttemptService {
                 : {}),
               ...(item.tfChoices !== undefined
                 ? { tfChoices: normalizeTrueFalseChoices(item.tfChoices) }
+                : {}),
+              ...(item.blankAnswers !== undefined
+                ? {
+                    blankAnswers:
+                      item.blankAnswers === null
+                        ? Prisma.JsonNull
+                        : item.blankAnswers.map((a) =>
+                            typeof a === 'string' ? a : null,
+                          ),
+                  }
                 : {}),
               ...(item.markedForReview !== undefined
                 ? { markedForReview: item.markedForReview }
@@ -919,6 +934,7 @@ export class AttemptService {
         choiceIndex: ans.choiceIndex,
         tfChoices: tfChoicesOf(ans.type, ans.tfChoices),
         tfLabelStyle: ans.tfLabelStyle,
+        ...blankFieldsOf(ans.type, ans.blankAnswerKey, ans.blankAnswers),
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };
@@ -928,6 +944,10 @@ export class AttemptService {
           ans.type === QuestionType.true_false_group ||
           ans.type === QuestionType.true_false
             ? ans.tfAnswerKey
+            : null;
+        base.blankAnswerKey =
+          ans.type === QuestionType.fill_blank
+            ? parseBlankAnswerKey(ans.blankAnswerKey)
             : null;
         base.isCorrect = ans.isCorrect;
         base.pointsAwarded = ans.pointsAwarded;

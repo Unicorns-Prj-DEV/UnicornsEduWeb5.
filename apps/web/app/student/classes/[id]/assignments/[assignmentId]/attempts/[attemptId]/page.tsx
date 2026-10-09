@@ -14,6 +14,7 @@ import {
 import type {
   AttemptDetailDto,
   AttemptQuestionDto,
+  BlankAnswers,
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
 import { formatScore } from "@/lib/attempt-score";
@@ -84,6 +85,7 @@ export default function StudentAttemptPage() {
           choiceIndex: q.choiceIndex,
           essayAnswer: q.essayAnswer,
           tfChoices: q.tfChoices,
+          blankAnswers: q.blankAnswers,
           markedForReview: q.markedForReview ?? false,
         })),
       }),
@@ -106,6 +108,7 @@ export default function StudentAttemptPage() {
             choiceIndex: q.choiceIndex,
             essayAnswer: q.essayAnswer,
             tfChoices: q.tfChoices,
+            blankAnswers: q.blankAnswers,
             markedForReview: q.markedForReview ?? false,
           })),
         });
@@ -218,6 +221,7 @@ export default function StudentAttemptPage() {
       choiceIndex?: number | null;
       essayAnswer?: string | null;
       tfChoices?: TrueFalseChoices | null;
+      blankAnswers?: BlankAnswers | null;
       markedForReview?: boolean;
     },
   ) => {
@@ -350,6 +354,7 @@ function StudentAttemptInProgress({
       choiceIndex?: number | null;
       essayAnswer?: string | null;
       tfChoices?: TrueFalseChoices | null;
+      blankAnswers?: BlankAnswers | null;
       markedForReview?: boolean;
     },
   ) => void;

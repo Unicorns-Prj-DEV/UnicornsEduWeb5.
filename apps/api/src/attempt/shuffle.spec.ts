@@ -130,6 +130,17 @@ describe('shuffleQuestionOptions', () => {
       }),
     ).toBeNull();
   });
+
+  it('câu điền vào ô trống không xáo (ô theo thứ tự đề)', () => {
+    expect(
+      shuffleQuestionOptions({
+        type: QuestionType.fill_blank,
+        options: null,
+        correctIndex: null,
+        tfAnswerKey: [],
+      }),
+    ).toBeNull();
+  });
 });
 
 describe('đảo không đổi điểm (so với đề gốc)', () => {

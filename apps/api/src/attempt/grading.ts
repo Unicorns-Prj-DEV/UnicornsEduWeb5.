@@ -1,5 +1,6 @@
 import { AttemptScoring, QuestionSlot, QuestionType } from 'generated/enums';
 import { assertNever } from 'src/common/assert-never';
+import { allBlanksFilled, gradeFillBlank } from './fill-blank';
 
 /**
  * Chấm Bài làm — hàm thuần, dùng chung cho nộp bài / hết giờ và chấm lại khi
@@ -25,6 +26,9 @@ export interface GradableAnswer {
   correctIndex: number | null;
   tfChoices: unknown;
   tfAnswerKey: boolean[];
+  /** Câu điền vào ô trống: đáp án hợp lệ từng ô (snapshot) và chữ học sinh gõ. */
+  blankAnswerKey?: unknown;
+  blankAnswers?: unknown;
 }
 
 export interface AnswerGradePatch {
@@ -109,6 +113,7 @@ export function tfChoicesOf(
       return normalizeTrueFalseChoices(raw, 1);
     case QuestionType.single_choice:
     case QuestionType.essay:
+    case QuestionType.fill_blank:
       return null;
     default:
       return assertNever(type, 'question type');
@@ -121,6 +126,8 @@ export function isAnswered(ans: {
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices: unknown;
+  blankAnswerKey?: unknown;
+  blankAnswers?: unknown;
 }): boolean {
   switch (ans.type) {
     case QuestionType.single_choice:
@@ -132,6 +139,9 @@ export function isAnswered(ans: {
       return normalizeTrueFalseChoices(ans.tfChoices).every((c) => c !== null);
     case QuestionType.true_false:
       return singleTrueFalseChoice(ans.tfChoices) !== null;
+    case QuestionType.fill_blank:
+      // Điền đủ mọi ô mới tính đã làm.
+      return allBlanksFilled(ans.blankAnswerKey, ans.blankAnswers);
     default:
       return assertNever(ans.type, 'question type');
   }
@@ -167,6 +177,17 @@ function gradeOne(
       const choice = singleTrueFalseChoice(ans.tfChoices);
       const isCorrect = choice !== null && choice === ans.tfAnswerKey[0];
       return { isCorrect, pointsAwarded: isCorrect ? ans.pointsPossible : 0 };
+    }
+    case QuestionType.fill_blank: {
+      const graded = gradeFillBlank(
+        ans.blankAnswerKey,
+        ans.blankAnswers,
+        ans.pointsPossible,
+      );
+      return {
+        isCorrect: graded.total > 0 && graded.correct === graded.total,
+        pointsAwarded: graded.points,
+      };
     }
     case QuestionType.single_choice: {
       const isCorrect =

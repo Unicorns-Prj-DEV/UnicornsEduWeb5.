@@ -14,9 +14,11 @@ import {
   Max,
   MaxLength,
   Min,
+  Validate,
   ValidateIf,
 } from 'class-validator';
 import { LessonKind } from 'generated/enums';
+import { BlankAnswerConstraint } from './attempt.dto';
 import { CONTENT_LIMITS, HTTP_URL_OPTIONS } from './content-limits';
 
 /** Product cap for practice lần giao duration (12 hours). Matches FE + schema docs. */
@@ -419,6 +421,8 @@ export interface QuestionLinkResponseDto {
     tfAnswerKey: boolean[];
     essayInputSize: 'short' | 'long' | null;
     tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
+    /** Đáp án hợp lệ từng ô (câu điền vào ô trống, JP). */
+    blankAnswerKey: string[][] | null;
   };
 }
 
@@ -465,6 +469,17 @@ export class LessonQuizAnswerDto {
   @IsArray()
   @ArrayMaxSize(4)
   tfChoices?: (boolean | null)[] | null;
+  @ApiPropertyOptional({
+    description:
+      'Câu điền vào ô trống (JP): chữ học sinh gõ vào từng ô; null/rỗng = bỏ trống.',
+    nullable: true,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @Validate(BlankAnswerConstraint, { each: true })
+  blankAnswers?: (string | null)[] | null;
 }
 
 export interface LessonQuizResponseDto {
@@ -485,6 +500,10 @@ export interface LessonQuizResponseDto {
     essayInputSize: 'short' | 'long' | null;
     /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
     tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
+    /** Đáp án hợp lệ từng ô — học sinh nhận null (chỉ biết `blankCount`). */
+    blankAnswerKey: string[][] | null;
+    /** Số ô trống (câu điền vào ô trống); loại khác = null / không có. */
+    blankCount?: number | null;
   };
 }
 
@@ -505,6 +524,8 @@ export interface LessonQuizAnswerResponseDto {
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices: (boolean | null)[] | null;
+  /** Chữ học sinh gõ vào từng ô (câu điền vào ô trống). */
+  blankAnswers: (string | null)[] | null;
   createdAt: Date;
   updatedAt: Date;
 }

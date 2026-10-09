@@ -2,7 +2,11 @@ import type {
   QuestionTypeDto,
   TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
-import type { QuestionSlotDto, TrueFalseChoices } from "@/dtos/attempt.dto";
+import type {
+  BlankAnswers,
+  QuestionSlotDto,
+  TrueFalseChoices,
+} from "@/dtos/attempt.dto";
 
 export type LessonKind = "theory" | "practice";
 
@@ -85,6 +89,7 @@ export interface QuestionLinkQuestion {
   answerGuide: string | null;
   essayInputSize?: "short" | "long" | null;
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
+  blankAnswerKey?: string[][] | null;
 }
 
 export interface QuestionLink {
@@ -137,6 +142,10 @@ export interface LessonQuizQuestion {
     essayInputSize?: "short" | "long" | null;
     /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
     tfLabelStyle?: TrueFalseLabelStyleDto | null;
+    /** Đáp án hợp lệ từng ô — học sinh làm bài nhận null. */
+    blankAnswerKey?: string[][] | null;
+    /** Số ô trống (câu điền vào ô trống). */
+    blankCount?: number | null;
   };
 }
 
@@ -148,6 +157,7 @@ export interface LessonQuizAnswer {
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices?: TrueFalseChoices | null;
+  blankAnswers?: BlankAnswers | null;
   createdAt: string;
   updatedAt: string;
   question: {
@@ -163,6 +173,10 @@ export interface LessonQuizAnswer {
     essayInputSize?: "short" | "long" | null;
     /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
     tfLabelStyle?: TrueFalseLabelStyleDto | null;
+    /** Đáp án hợp lệ từng ô — học sinh làm bài nhận null. */
+    blankAnswerKey?: string[][] | null;
+    /** Số ô trống (câu điền vào ô trống). */
+    blankCount?: number | null;
   };
 }
 
@@ -171,6 +185,7 @@ export interface SubmitQuizAnswerPayload {
   choiceIndex?: number | null;
   essayAnswer?: string | null;
   tfChoices?: TrueFalseChoices | null;
+  blankAnswers?: BlankAnswers | null;
 }
 
 /** Tiết học từ khoá — dùng cho panel chọn nội dung lớp. */

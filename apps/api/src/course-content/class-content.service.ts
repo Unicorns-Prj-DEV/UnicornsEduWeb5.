@@ -569,7 +569,8 @@ export class ClassContentService extends CourseContentSupportService {
         choiceIndex: number | null;
         essayAnswer: string | null;
         tfChoices: unknown;
-        question: { type: QuestionType };
+        blankAnswers: unknown;
+        question: { type: QuestionType; blankAnswerKey: unknown };
       }[]
     > =
       studentIds.length === 0 || quizQuestionCount === 0
@@ -586,7 +587,8 @@ export class ClassContentService extends CourseContentSupportService {
               choiceIndex: true,
               essayAnswer: true,
               tfChoices: true,
-              question: { select: { type: true } },
+              blankAnswers: true,
+              question: { select: { type: true, blankAnswerKey: true } },
             },
           });
 
@@ -597,7 +599,15 @@ export class ClassContentService extends CourseContentSupportService {
     );
     const answersByStudent = new Map<string, Set<string>>();
     for (const answer of answers) {
-      if (!isAnswered({ ...answer, type: answer.question.type })) continue;
+      if (
+        !isAnswered({
+          ...answer,
+          type: answer.question.type,
+          blankAnswerKey: answer.question.blankAnswerKey,
+        })
+      ) {
+        continue;
+      }
       const pairKey = `${answer.lessonId}:${answer.questionId}`;
       if (!requiredQuizPairs.has(pairKey)) continue;
       const studentAnswers =

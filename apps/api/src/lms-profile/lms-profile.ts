@@ -12,7 +12,8 @@ export type LmsQuestionType =
   | 'single_choice'
   | 'essay'
   | 'true_false_group'
-  | 'true_false';
+  | 'true_false'
+  | 'fill_blank';
 
 /** Kỹ năng câu hỏi (chỉ JP), thứ tự hiển thị cố định. */
 export const QUESTION_SKILLS = [
@@ -58,7 +59,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
   },
   jp: {
     profile: 'jp',
-    questionTypes: ['single_choice', 'essay', 'true_false'],
+    questionTypes: ['single_choice', 'essay', 'true_false', 'fill_blank'],
     optionCount: OPTION_COUNT,
     scoring: 'equal_100',
     electiveGroups: false,

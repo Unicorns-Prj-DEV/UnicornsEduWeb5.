@@ -1,5 +1,6 @@
 import { Prisma } from '../../generated/client';
-import { AttemptStatus } from 'generated/enums';
+import { AttemptStatus, QuestionType } from 'generated/enums';
+import { parseBlankAnswerKey } from './fill-blank';
 import { gradeAnswers } from './grading';
 import { remapAnswerKey } from './shuffle';
 
@@ -13,27 +14,57 @@ import { remapAnswerKey } from './shuffle';
 export async function regradeQuestionAnswerKey(
   tx: Prisma.TransactionClient,
   questionId: string,
-  key: { correctIndex?: number | null; tfAnswerKey?: boolean[] },
+  key: {
+    correctIndex?: number | null;
+    tfAnswerKey?: boolean[];
+    blankAnswerKey?: string[][];
+  },
 ): Promise<number> {
+  const { blankAnswerKey, ...optionKey } = key;
   const data: Prisma.AttemptAnswerUpdateManyMutationInput = {};
-  if (key.correctIndex !== undefined) data.correctIndex = key.correctIndex;
-  if (key.tfAnswerKey !== undefined) data.tfAnswerKey = key.tfAnswerKey;
-  if (Object.keys(data).length === 0) return 0;
+  if (optionKey.correctIndex !== undefined) {
+    data.correctIndex = optionKey.correctIndex;
+  }
+  if (optionKey.tfAnswerKey !== undefined) {
+    data.tfAnswerKey = optionKey.tfAnswerKey;
+  }
+  if (Object.keys(data).length === 0 && blankAnswerKey === undefined) return 0;
 
-  // Snapshot không đảo: ghi thẳng. Snapshot đã đảo: đổi đáp án sang thứ tự hiển thị của lượt đó.
-  await tx.attemptAnswer.updateMany({
-    where: { questionId, optionOrder: { isEmpty: true } },
-    data,
-  });
-  const shuffledRows = await tx.attemptAnswer.findMany({
-    where: { questionId, NOT: { optionOrder: { isEmpty: true } } },
-    select: { id: true, optionOrder: true },
-  });
-  for (const row of shuffledRows) {
-    await tx.attemptAnswer.update({
-      where: { id: row.id },
-      data: remapAnswerKey(row.optionOrder, key),
+  if (Object.keys(data).length > 0) {
+    // Snapshot không đảo: ghi thẳng. Snapshot đã đảo: đổi đáp án sang thứ tự hiển thị của lượt đó.
+    await tx.attemptAnswer.updateMany({
+      where: { questionId, optionOrder: { isEmpty: true } },
+      data,
     });
+    const shuffledRows = await tx.attemptAnswer.findMany({
+      where: { questionId, NOT: { optionOrder: { isEmpty: true } } },
+      select: { id: true, optionOrder: true },
+    });
+    for (const row of shuffledRows) {
+      await tx.attemptAnswer.update({
+        where: { id: row.id },
+        data: remapAnswerKey(row.optionOrder, optionKey),
+      });
+    }
+  }
+
+  if (blankAnswerKey !== undefined) {
+    // Chỉ snapshot cùng số ô: thêm/bớt ô không làm bài cũ đổi.
+    const rows = await tx.attemptAnswer.findMany({
+      where: { questionId, type: QuestionType.fill_blank },
+      select: { id: true, blankAnswerKey: true },
+    });
+    for (const row of rows) {
+      if (
+        parseBlankAnswerKey(row.blankAnswerKey).length !== blankAnswerKey.length
+      ) {
+        continue;
+      }
+      await tx.attemptAnswer.update({
+        where: { id: row.id },
+        data: { blankAnswerKey },
+      });
+    }
   }
 
   const attempts = await tx.attempt.findMany({

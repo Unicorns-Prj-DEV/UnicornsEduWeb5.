@@ -6,8 +6,11 @@ import MathContent from "@/components/ui/MathContent";
 import type {
   AttemptQuestionDto,
   AttemptScoringDto,
+  BlankAnswers,
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
+import FillBlankInputs from "@/components/student/FillBlankInputs";
+import { numberBlanks } from "@/lib/fill-blank";
 import { formatScoreValue } from "@/lib/attempt-score";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import TrueFalseChoice from "@/components/student/TrueFalseChoice";
@@ -38,6 +41,7 @@ export default function StudentAttemptQuestion({
     choiceIndex?: number | null;
     essayAnswer?: string | null;
     tfChoices?: TrueFalseChoices | null;
+    blankAnswers?: BlankAnswers | null;
     markedForReview?: boolean;
   }) => void;
 }) {
@@ -71,7 +75,11 @@ export default function StudentAttemptQuestion({
         <div className="min-w-0 flex-1 text-sm font-medium text-text-primary">
           <span className="mr-1 text-primary">Câu {number ?? index + 1}.</span>
           <MathContent
-            content={question.content}
+            content={
+              question.type === "fill_blank"
+                ? numberBlanks(question.content)
+                : question.content
+            }
             className="inline [&>p:first-child]:inline"
           />
           {hidePoints ? null : (
@@ -231,6 +239,18 @@ function AnswerArea({
           disabled={disabled}
           reveal={reveal}
           onChange={(tfChoices) => onChange({ tfChoices })}
+        />
+      );
+    case "fill_blank":
+      return (
+        <FillBlankInputs
+          name={`q-${question.questionId}`}
+          count={question.blankCount ?? 0}
+          answers={question.blankAnswers}
+          answerKey={reveal ? question.blankAnswerKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
+          onChange={(blankAnswers) => onChange({ blankAnswers })}
         />
       );
     case "essay":

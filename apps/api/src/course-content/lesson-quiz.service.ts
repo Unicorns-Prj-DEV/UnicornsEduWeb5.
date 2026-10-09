@@ -4,7 +4,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { LessonKind } from 'generated/enums';
+import { LessonKind, QuestionType } from 'generated/enums';
+import { parseBlankAnswerKey } from '../attempt/fill-blank';
 import { normalizeTrueFalseChoices } from '../attempt/grading';
 import {
   ActionHistoryActor,
@@ -136,6 +137,7 @@ export class LessonQuizService extends CourseContentSupportService {
             answerGuide: true,
             essayInputSize: true,
             tfLabelStyle: true,
+            blankAnswerKey: true,
           },
         },
       },
@@ -159,14 +161,25 @@ export class LessonQuizService extends CourseContentSupportService {
             answerGuide: true,
             essayInputSize: true,
             tfLabelStyle: true,
+            blankAnswerKey: true,
           },
         },
       },
     });
 
+    // Học sinh chỉ biết số ô trống, không thấy đáp án hợp lệ.
     return quizzes.map((q) => ({
       ...q,
-      question: { ...q.question, correctIndex: null, tfAnswerKey: [] },
+      question: {
+        ...q.question,
+        correctIndex: null,
+        tfAnswerKey: [],
+        blankAnswerKey: null,
+        blankCount:
+          q.question.type === QuestionType.fill_blank
+            ? parseBlankAnswerKey(q.question.blankAnswerKey).length
+            : null,
+      },
     }));
   }
 
@@ -178,6 +191,7 @@ export class LessonQuizService extends CourseContentSupportService {
       choiceIndex?: number | null;
       essayAnswer?: string | null;
       tfChoices?: unknown;
+      blankAnswers?: (string | null)[] | null;
     }[],
   ) {
     await this.loadTheoryLesson(lessonId);
@@ -216,12 +230,22 @@ export class LessonQuizService extends CourseContentSupportService {
             ...(a.tfChoices != null && {
               tfChoices: normalizeTrueFalseChoices(a.tfChoices),
             }),
+            ...(a.blankAnswers != null && {
+              blankAnswers: a.blankAnswers.map((b) =>
+                typeof b === 'string' ? b : null,
+              ),
+            }),
           },
           update: {
             choiceIndex: a.choiceIndex ?? null,
             essayAnswer: a.essayAnswer ?? null,
             ...(a.tfChoices != null && {
               tfChoices: normalizeTrueFalseChoices(a.tfChoices),
+            }),
+            ...(a.blankAnswers != null && {
+              blankAnswers: a.blankAnswers.map((b) =>
+                typeof b === 'string' ? b : null,
+              ),
             }),
           },
         }),
@@ -243,6 +267,7 @@ export class LessonQuizService extends CourseContentSupportService {
             answerGuide: true,
             essayInputSize: true,
             tfLabelStyle: true,
+            blankAnswerKey: true,
           },
         },
       },
@@ -265,6 +290,7 @@ export class LessonQuizService extends CourseContentSupportService {
             answerGuide: true,
             essayInputSize: true,
             tfLabelStyle: true,
+            blankAnswerKey: true,
           },
         },
       },

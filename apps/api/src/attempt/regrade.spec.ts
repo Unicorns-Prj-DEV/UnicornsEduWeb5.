@@ -164,6 +164,50 @@ describe('regradeQuestionAnswerKey', () => {
     });
   });
 
+  it('câu điền ô trống: thêm đáp án hợp lệ → chấm lại; snapshot khác số ô giữ nguyên', async () => {
+    const newKey = [['から'], ['まで', 'までに']];
+    const tx = makeTx(
+      [
+        {
+          id: 'att-fb',
+          scoring: AttemptScoring.equal_100,
+          answers: [
+            // Snapshot đã có đáp án mới; học sinh gõ "までに", trước bị chấm 1/2.
+            answer({
+              id: 'f1',
+              type: QuestionType.fill_blank,
+              pointsPossible: 40,
+              choiceIndex: null,
+              correctIndex: null,
+              blankAnswerKey: newKey,
+              blankAnswers: ['から', 'までに'],
+              isCorrect: false,
+              pointsAwarded: 20,
+            }),
+          ],
+        },
+      ],
+      [
+        { id: 'same', blankAnswerKey: [['から'], ['まで']] },
+        { id: 'fewer', blankAnswerKey: [['から']] },
+      ],
+    );
+
+    await regradeQuestionAnswerKey(tx as never, 'q', { blankAnswerKey: newKey });
+
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'same' },
+      data: { blankAnswerKey: newKey },
+    });
+    expect(tx.attemptAnswer.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'fewer' } }),
+    );
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'f1' },
+      data: { isCorrect: true, pointsAwarded: 40 },
+    });
+  });
+
   it('snapshot đã đảo đáp án → đổi đáp án mới sang thứ tự hiển thị của lượt', async () => {
     // Lượt x: hiển thị [c, a, d, b]; lượt y: Đúng/Sai hiển thị [d, c, b, a].
     const tx = makeTx(

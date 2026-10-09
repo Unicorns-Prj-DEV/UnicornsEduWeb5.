@@ -127,6 +127,8 @@ export class QuestionService {
           dto.tfLabelStyle !== undefined
             ? dto.tfLabelStyle
             : existing.tfLabelStyle,
+        content: dto.content ?? existing.content,
+        blankAnswerKey: dto.blankAnswerKey ?? existing.blankAnswerKey,
       },
       this.lmsProfile.config,
     );
@@ -136,6 +138,7 @@ export class QuestionService {
     const answerKeyChange: {
       correctIndex?: number | null;
       tfAnswerKey?: boolean[];
+      blankAnswerKey?: string[][];
     } = {};
     if (
       dto.correctIndex !== undefined &&
@@ -148,6 +151,15 @@ export class QuestionService {
       dto.tfAnswerKey.join() !== existing.tfAnswerKey.join()
     ) {
       answerKeyChange.tfAnswerKey = dto.tfAnswerKey;
+    }
+
+    if (
+      dto.blankAnswerKey !== undefined &&
+      JSON.stringify(dto.blankAnswerKey) !==
+        JSON.stringify(existing.blankAnswerKey)
+    ) {
+      // Đổi đáp án hợp lệ của ô → chấm lại (regrade bỏ qua snapshot khác số ô).
+      answerKeyChange.blankAnswerKey = dto.blankAnswerKey;
     }
 
     const before = existing;

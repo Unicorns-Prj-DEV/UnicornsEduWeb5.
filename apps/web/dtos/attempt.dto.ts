@@ -10,6 +10,9 @@ export type QuestionSlotDto = "required" | "elective_1" | "elective_2";
 /** Lựa chọn 4 nhận định a–d: true = Đúng, false = Sai, null = chưa chọn. */
 export type TrueFalseChoices = (boolean | null)[];
 
+/** Chữ học sinh gõ vào từng ô trống; null = bỏ trống. */
+export type BlankAnswers = (string | null)[];
+
 export interface AttemptQuestionDto {
   questionId: string;
   order: number;
@@ -18,7 +21,7 @@ export interface AttemptQuestionDto {
    * (trắc nghiệm 25, Đúng/Sai 100).
    */
   pointsPossible: number;
-  type: "single_choice" | "essay" | "true_false_group" | "true_false";
+  type: "single_choice" | "essay" | "true_false_group" | "true_false" | "fill_blank";
   slot: QuestionSlotDto;
   content: string;
   options: string[] | null;
@@ -29,9 +32,14 @@ export interface AttemptQuestionDto {
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices: TrueFalseChoices | null;
+  /** Câu điền vào ô trống: số ô + chữ đã gõ từng ô (null = bỏ trống). Loại khác = null. */
+  blankCount?: number | null;
+  blankAnswers?: BlankAnswers | null;
   markedForReview: boolean;
   correctIndex?: number | null;
   tfAnswerKey?: boolean[];
+  /** Đáp án hợp lệ từng ô — chỉ có khi xem lại. */
+  blankAnswerKey?: string[][] | null;
   isCorrect?: boolean | null;
   pointsAwarded?: number | null;
   explanation?: string | null;
@@ -96,6 +104,7 @@ export interface SaveAttemptAnswersPayload {
     choiceIndex?: number | null;
     essayAnswer?: string | null;
     tfChoices?: TrueFalseChoices | null;
+    blankAnswers?: BlankAnswers | null;
     markedForReview?: boolean;
   }>;
 }

@@ -12,8 +12,32 @@ import {
   Min,
   ValidateNested,
   IsIn,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+/** Độ dài tối đa một đáp án hợp lệ của ô trống. */
+export const BLANK_ANSWER_MAX_LENGTH = 200;
+
+/** Một ô trống: danh sách đáp án hợp lệ, mỗi đáp án là chuỗi ≤ 200 ký tự, tối đa 10. */
+@ValidatorConstraint({ name: 'blankAcceptedAnswers' })
+class BlankAcceptedAnswersConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return (
+      Array.isArray(value) &&
+      value.length <= 10 &&
+      value.every(
+        (a) => typeof a === 'string' && a.length <= BLANK_ANSWER_MAX_LENGTH,
+      )
+    );
+  }
+
+  defaultMessage(): string {
+    return `Mỗi ô trống có tối đa 10 đáp án hợp lệ, mỗi đáp án ≤ ${BLANK_ANSWER_MAX_LENGTH} ký tự`;
+  }
+}
 
 export enum QuestionTypeDto {
   single_choice = 'single_choice',
@@ -22,6 +46,8 @@ export enum QuestionTypeDto {
   true_false_group = 'true_false_group',
   /** Câu Đúng/Sai (JP): một nhận định trong `content`, đáp án `tfAnswerKey: [boolean]`. */
   true_false = 'true_false',
+  /** Câu điền vào ô trống (JP): ô `[[___]]` trong `content`, đáp án hợp lệ `blankAnswerKey`. */
+  fill_blank = 'fill_blank',
 }
 
 /** Kiểu nhãn Câu Đúng/Sai (JP): ○/× (mặc định), Đúng/Sai, True/False. */
@@ -69,6 +95,8 @@ export interface QuestionResponseDto {
   essayInputSize: EssayInputSizeDto | null;
   /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
   tfLabelStyle: TrueFalseLabelStyleDto | null;
+  /** Câu điền vào ô trống (JP): đáp án hợp lệ từng ô; null với loại khác. */
+  blankAnswerKey: string[][] | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -191,6 +219,19 @@ export class CreateQuestionDto {
   @IsOptional()
   @IsIn(Object.values(TrueFalseLabelStyleDto))
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Câu điền vào ô trống (chỉ fill_blank, JP): đáp án hợp lệ của từng ô `[[___]]` theo thứ tự trong `content`. Mỗi ô ≥1 đáp án. So khớp bỏ khoảng trắng đầu/cuối (cả toàn góc), số/Latin toàn góc = nửa góc, không phân biệt hoa/thường; kana/kanji không tự tương đương.',
+    type: 'array',
+    items: { type: 'array', items: { type: 'string' } },
+    example: [['九時', '9時'], ['五時']],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @Validate(BlankAcceptedAnswersConstraint, { each: true })
+  blankAnswerKey?: string[][];
 }
 
 /** DTO for updating a question – all fields optional */
@@ -273,6 +314,19 @@ export class UpdateQuestionDto {
   @IsOptional()
   @IsIn(Object.values(TrueFalseLabelStyleDto))
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Câu điền vào ô trống (chỉ fill_blank, JP): đáp án hợp lệ của từng ô `[[___]]` theo thứ tự trong `content`. Mỗi ô ≥1 đáp án. So khớp bỏ khoảng trắng đầu/cuối (cả toàn góc), số/Latin toàn góc = nửa góc, không phân biệt hoa/thường; kana/kanji không tự tương đương.',
+    type: 'array',
+    items: { type: 'array', items: { type: 'string' } },
+    example: [['九時', '9時'], ['五時']],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @Validate(BlankAcceptedAnswersConstraint, { each: true })
+  blankAnswerKey?: string[][];
 }
 
 // --- Bulk import DTOs -------------------------------------------------------
