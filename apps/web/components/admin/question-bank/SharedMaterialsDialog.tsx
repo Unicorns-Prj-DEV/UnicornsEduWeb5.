@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import { Headphones, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import * as sharedMaterialApi from "@/lib/apis/shared-material.api";
 import { sharedMaterialKeys } from "@/lib/query-keys";
@@ -99,8 +99,14 @@ export default function SharedMaterialsDialog({
                       content={numberMaterialGaps(m.content, new Map())}
                       className="mt-1 line-clamp-2 text-xs text-text-secondary"
                     />
-                    <p className="mt-1 text-xs text-text-muted">
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-text-muted">
                       {m.questionCount} câu
+                      {m.audio ? (
+                        <span className="inline-flex items-center gap-1">
+                          · <Headphones className="size-3.5" aria-hidden />
+                          Có audio
+                        </span>
+                      ) : null}
                     </p>
                   </div>
                   {canMutate ? (

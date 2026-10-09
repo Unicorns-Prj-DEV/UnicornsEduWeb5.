@@ -26,11 +26,13 @@ function optionalHtml(html: string): string | null {
 export default function QuestionPreview({
   value,
   sharedMaterialContent,
+  sharedMaterialAudioUrl,
   questionId,
 }: {
   value: QuestionFormValue;
   /** Tư liệu dùng chung đang gắn (HTML) — hiện trên câu như học sinh thấy. */
   sharedMaterialContent?: string;
+  sharedMaterialAudioUrl?: string | null;
   /** Id câu đang sửa — vị trí trống nối tới câu này hiện số 1 trong xem trước. */
   questionId?: string;
 }) {
@@ -81,6 +83,7 @@ export default function QuestionPreview({
           )
         : null,
     markedForReview: false,
+    audioUrl: value.audio?.url,
     correctIndex: isChoice ? value.correctIndex : null,
     isCorrect: null,
     explanation: optionalHtml(value.explanation),
@@ -96,6 +99,7 @@ export default function QuestionPreview({
         <SharedMaterialPanel
           header={{
             content: sharedMaterialContent,
+            audioUrl: sharedMaterialAudioUrl,
             firstNumber: 1,
             lastNumber: 1,
           }}

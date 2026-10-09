@@ -52,7 +52,14 @@ export interface AttemptQuestionDto {
   /** Câu sắp xếp: thứ tự đúng — chỉ có khi xem lại. */
   orderingKey?: string[] | null;
   /** Tư liệu dùng chung (bản chụp lúc start); câu cùng `id` đứng liền nhau. */
-  sharedMaterial?: { id: string; content: string } | null;
+  sharedMaterial?: {
+    id: string;
+    content: string;
+    /** Audio của tư liệu (signed URL ngắn hạn). */
+    audioUrl?: string | null;
+  } | null;
+  /** Audio nhúng của câu (signed URL ngắn hạn). */
+  audioUrl?: string | null;
   isCorrect?: boolean | null;
   pointsAwarded?: number | null;
   explanation?: string | null;

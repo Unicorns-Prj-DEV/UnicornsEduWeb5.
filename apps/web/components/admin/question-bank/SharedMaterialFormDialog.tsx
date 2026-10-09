@@ -19,6 +19,9 @@ import {
   useConfirmDialog,
 } from "@/components/ui/ConfirmDialog";
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
+import AudioUploadField from "@/components/admin/question/AudioUploadField";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
+import type { AudioRef } from "@/dtos/audio-asset.dto";
 import {
   SHARED_MATERIAL_TITLE_MAX,
   type SharedMaterial,
@@ -41,9 +44,12 @@ export default function SharedMaterialFormDialog({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const initial = {
+  const { data: appConfig } = useAppConfig();
+  const audioEnabled = appConfig?.questionAudio ?? false;
+  const initial: { title: string; content: string; audio: AudioRef | null } = {
     title: material?.title ?? "",
     content: material?.content ?? "",
+    audio: material?.audio ?? null,
   };
   const [form, setForm] = useState(initial);
   const [gapQuestionId, setGapQuestionId] = useState("");
@@ -59,10 +65,16 @@ export default function SharedMaterialFormDialog({
   const gapIds = materialGapIds(form.content);
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      material
-        ? sharedMaterialApi.updateSharedMaterial(material.id, form)
-        : sharedMaterialApi.createSharedMaterial({ courseId, ...form }),
+    mutationFn: () => {
+      const payload = {
+        title: form.title,
+        content: form.content,
+        ...(audioEnabled && { audioId: form.audio?.id ?? null }),
+      };
+      return material
+        ? sharedMaterialApi.updateSharedMaterial(material.id, payload)
+        : sharedMaterialApi.createSharedMaterial({ courseId, ...payload });
+    },
     onSuccess: async () => {
       toast.success(material ? "Đã cập nhật tư liệu." : "Đã tạo tư liệu.");
       await queryClient.invalidateQueries({
@@ -140,6 +152,14 @@ export default function SharedMaterialFormDialog({
                 minHeight="min-h-[200px]"
               />
             </div>
+            {audioEnabled ? (
+              <AudioUploadField
+                courseId={courseId}
+                value={form.audio}
+                onChange={(audio) => setForm((prev) => ({ ...prev, audio }))}
+                label="Audio dùng chung (bài nghe cho cả nhóm câu)"
+              />
+            ) : null}
             <div className="space-y-2 rounded-lg border border-border-default p-3">
               <span className="block text-xs font-medium text-text-muted">
                 Vị trí trống (đoạn văn điền số câu)

@@ -15,6 +15,7 @@ import {
   SharedMaterialResponseDto,
   UpdateSharedMaterialDto,
 } from '../dtos/shared-material.dto';
+import { assertAudioAttachable, withAudioRefs } from './audio-asset.service';
 
 type MaterialActor = {
   userId?: string;
@@ -82,10 +83,13 @@ export class SharedMaterialService {
         _count: { select: { questions: { where: { deletedAt: null } } } },
       },
     });
-    return rows.map(({ _count, ...m }) => ({
-      ...m,
-      questionCount: _count.questions,
-    }));
+    return withAudioRefs(
+      this.prisma,
+      rows.map(({ _count, ...m }) => ({
+        ...m,
+        questionCount: _count.questions,
+      })),
+    );
   }
 
   async create(
@@ -95,12 +99,19 @@ export class SharedMaterialService {
     this.assertEnabled();
     await this.courseAccess.assertCourseExists(dto.courseId);
     await this.assertWriteAccess(actor, dto.courseId);
-    return this.prisma.$transaction(async (tx) => {
+    await assertAudioAttachable(
+      this.prisma,
+      this.lmsProfile.config,
+      dto.audioId,
+      dto.courseId,
+    );
+    const created = await this.prisma.$transaction(async (tx) => {
       const created = await tx.sharedMaterial.create({
         data: {
           courseId: dto.courseId,
           title: dto.title.trim(),
           content: dto.content,
+          audioId: dto.audioId ?? null,
         },
       });
       await this.actionHistory.recordCreate(tx, {
@@ -109,8 +120,12 @@ export class SharedMaterialService {
         actor,
         afterValue: created,
       });
-      return { ...created, questionCount: 0 };
+      return created;
     });
+    const [withAudio] = await withAudioRefs(this.prisma, [
+      { ...created, questionCount: 0 },
+    ]);
+    return withAudio;
   }
 
   async update(
@@ -121,12 +136,21 @@ export class SharedMaterialService {
     this.assertEnabled();
     const existing = await this.findOrThrow(id);
     await this.assertWriteAccess(actor, existing.courseId);
+    if (dto.audioId !== undefined && dto.audioId !== existing.audioId) {
+      await assertAudioAttachable(
+        this.prisma,
+        this.lmsProfile.config,
+        dto.audioId,
+        existing.courseId,
+      );
+    }
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await tx.sharedMaterial.update({
         where: { id },
         data: {
           ...(dto.title !== undefined && { title: dto.title.trim() }),
           ...(dto.content !== undefined && { content: dto.content }),
+          ...(dto.audioId !== undefined && { audioId: dto.audioId }),
         },
       });
       await this.actionHistory.recordUpdate(tx, {
@@ -138,7 +162,10 @@ export class SharedMaterialService {
       });
       return row;
     });
-    return { ...updated, questionCount: await this.activeQuestionCount(id) };
+    const [withAudio] = await withAudioRefs(this.prisma, [
+      { ...updated, questionCount: await this.activeQuestionCount(id) },
+    ]);
+    return withAudio;
   }
 
   /** Còn câu (chưa xoá) gắn vào → 409. Câu đã xoá mềm được tháo khỏi tư liệu. */

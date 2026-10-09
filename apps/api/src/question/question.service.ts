@@ -13,6 +13,7 @@ import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import { regradeQuestionAnswerKey } from '../attempt/regrade';
 import { assertQuestionShape, assertQuestionSkills } from './question-rules';
 import { assertMaterialAttachable } from './shared-material.service';
+import { assertAudioAttachable, withAudioRefs } from './audio-asset.service';
 import {
   CreateQuestionDto,
   UpdateQuestionDto,
@@ -67,18 +68,20 @@ export class QuestionService {
       where.content = { contains: filter.search, mode: 'insensitive' };
     }
     where.deletedAt = null;
-    return this.prisma.question.findMany({
+    const rows = await this.prisma.question.findMany({
       where,
       skip,
       take,
       orderBy: { createdAt: 'desc' },
     });
+    return withAudioRefs(this.prisma, rows);
   }
 
   async get(id: string) {
     const q = await this.prisma.question.findUnique({ where: { id } });
     if (!q || q.deletedAt) throw new NotFoundException('Question not found');
-    return q;
+    const [withAudio] = await withAudioRefs(this.prisma, [q]);
+    return withAudio;
   }
 
   async create(dto: CreateQuestionDto, actor: QuestionActor) {
@@ -98,8 +101,14 @@ export class QuestionService {
       dto.sharedMaterialId,
       dto.courseId,
     );
+    await assertAudioAttachable(
+      this.prisma,
+      this.lmsProfile.config,
+      dto.audioId,
+      dto.courseId,
+    );
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const created = await tx.question.create({ data: { ...dto } });
       await this.actionHistory.recordCreate(tx, {
         entityType: 'question',
@@ -109,6 +118,8 @@ export class QuestionService {
       });
       return created;
     });
+    const [withAudio] = await withAudioRefs(this.prisma, [created]);
+    return withAudio;
   }
 
   async update(id: string, dto: UpdateQuestionDto, actor: QuestionActor) {
@@ -151,6 +162,14 @@ export class QuestionService {
         existing.courseId,
       );
     }
+    if (dto.audioId !== existing.audioId) {
+      await assertAudioAttachable(
+        this.prisma,
+        this.lmsProfile.config,
+        dto.audioId,
+        existing.courseId,
+      );
+    }
 
     const answerKeyChange: {
       correctIndex?: number | null;
@@ -190,7 +209,7 @@ export class QuestionService {
     }
 
     const before = existing;
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.question.update({
         where: { id },
         data: { ...dto },
@@ -206,6 +225,8 @@ export class QuestionService {
       });
       return updated;
     });
+    const [withAudio] = await withAudioRefs(this.prisma, [updated]);
+    return withAudio;
   }
 
   async delete(id: string, actor: { userId?: string; userEmail?: string }) {

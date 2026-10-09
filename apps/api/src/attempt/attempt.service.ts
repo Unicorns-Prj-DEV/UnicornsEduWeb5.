@@ -53,6 +53,7 @@ import {
   shuffleWithinGroups,
 } from './shuffle';
 import { assignmentCloseAt, isAssignmentClosed } from './assignment-window';
+import { resolveAudioRefs } from 'src/question/audio-asset.service';
 
 /** Include chấm/đọc bài: chỉ snapshot trên AttemptAnswer, không join Question live. */
 type AttemptWithAnswers = Prisma.AttemptGetPayload<{
@@ -238,13 +239,16 @@ export class AttemptService {
                 sharedMaterialId: link.question.sharedMaterialId,
                 sharedMaterialContent:
                   link.question.sharedMaterial?.content ?? null,
+                audioId: link.question.audioId,
+                sharedMaterialAudioId:
+                  link.question.sharedMaterial?.audioId ?? null,
               };
             }),
           },
         },
         include: this.attemptInclude(),
       });
-      return this.toDetail(created, false);
+      return await this.toDetail(created, false);
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -944,10 +948,17 @@ export class AttemptService {
     };
   }
 
-  private toDetail(
+  private async toDetail(
     attempt: AttemptWithAnswers,
     reveal: boolean,
-  ): AttemptDetailDto {
+  ): Promise<AttemptDetailDto> {
+    // Audio theo bản chụp; URL ký mới mỗi lần tải bài (signed URL ngắn hạn).
+    const audio = await resolveAudioRefs(
+      this.prisma,
+      attempt.answers.flatMap((a) => [a.audioId, a.sharedMaterialAudioId]),
+    );
+    const audioUrlOf = (id: string | null) =>
+      id ? (audio.get(id)?.url ?? null) : null;
     const endsAt = this.endsAt(attempt);
     // Đã nộp nhưng chưa tới hạn lần giao: không lộ điểm/đáp án.
     const closeAt = assignmentCloseAt(attempt.assignment);
@@ -971,8 +982,13 @@ export class AttemptService {
           ans.type === QuestionType.ordering ? ans.orderAnswer : null,
         sharedMaterial:
           ans.sharedMaterialId && ans.sharedMaterialContent !== null
-            ? { id: ans.sharedMaterialId, content: ans.sharedMaterialContent }
+            ? {
+                id: ans.sharedMaterialId,
+                content: ans.sharedMaterialContent,
+                audioUrl: audioUrlOf(ans.sharedMaterialAudioId),
+              }
             : null,
+        audioUrl: audioUrlOf(ans.audioId),
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };

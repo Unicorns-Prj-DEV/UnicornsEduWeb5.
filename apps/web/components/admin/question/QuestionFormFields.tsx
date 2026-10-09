@@ -23,6 +23,8 @@ import {
   type TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
+import AudioUploadField from "@/components/admin/question/AudioUploadField";
+import type { AudioRef } from "@/dtos/audio-asset.dto";
 import { useSharedMaterials } from "@/lib/hooks/useSharedMaterials";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
@@ -54,6 +56,8 @@ export type QuestionFormValue = {
   essayInputSize: EssayInputSizeDto;
   /** Tư liệu dùng chung (JP); "" = không gắn. */
   sharedMaterialId: string;
+  /** Audio nhúng (JP); null = không có. */
+  audio: AudioRef | null;
 };
 
 export const emptyQuestionFormValue: QuestionFormValue = {
@@ -72,6 +76,7 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   skills: [],
   essayInputSize: "short",
   sharedMaterialId: "",
+  audio: null,
 };
 
 const ESSAY_INPUT_SIZE_OPTIONS = (
@@ -211,6 +216,7 @@ export default function QuestionFormFields({
           <QuestionPreview
             value={value}
             sharedMaterialContent={selectedMaterial?.content}
+            sharedMaterialAudioUrl={selectedMaterial?.audio?.url}
             questionId={questionId}
           />
         ) : (
@@ -283,6 +289,20 @@ export default function QuestionFormFields({
                   </p>
                 ) : null}
               </div>
+            ) : null}
+
+            {appConfig?.questionAudio && courseId ? (
+              <AudioUploadField
+                courseId={courseId}
+                value={value.audio}
+                onChange={(audio) => onChange({ audio })}
+                label="Audio của câu"
+                hint={
+                  selectedMaterial?.audio
+                    ? "Tư liệu đã có audio dùng chung — chỉ thêm khi câu cần audio riêng. MP3, M4A/AAC hoặc WAV, tối đa 20MB."
+                    : undefined
+                }
+              />
             ) : null}
 
             <div>

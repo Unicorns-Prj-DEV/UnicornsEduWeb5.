@@ -1,3 +1,4 @@
+import type { AudioRefDto } from './audio-asset.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
@@ -101,6 +102,10 @@ export interface QuestionResponseDto {
   blankAnswerKey: string[][] | null;
   /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
   sharedMaterialId: string | null;
+  /** Audio nhúng của câu (JP); null = không có. */
+  audioId: string | null;
+  /** Audio kèm signed URL ngắn hạn. */
+  audio: AudioRefDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -245,6 +250,15 @@ export class CreateQuestionDto {
   @IsOptional()
   @IsUUID()
   sharedMaterialId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Audio nhúng (JP) — id từ POST /audio-assets, cùng khoá. null = gỡ audio.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  audioId?: string | null;
 }
 
 /** DTO for updating a question – all fields optional */
@@ -349,6 +363,15 @@ export class UpdateQuestionDto {
   @IsOptional()
   @IsUUID()
   sharedMaterialId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Audio nhúng (JP) — id từ POST /audio-assets, cùng khoá. null = gỡ audio.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  audioId?: string | null;
 }
 
 // --- Bulk import DTOs -------------------------------------------------------

@@ -204,7 +204,14 @@ export interface AttemptQuestionDto {
    * Tư liệu dùng chung (bản chụp lúc start). Các câu cùng `id` đứng liền nhau —
    * web hiện nội dung một lần trước câu đầu của khối.
    */
-  sharedMaterial: { id: string; content: string } | null;
+  sharedMaterial: {
+    id: string;
+    content: string;
+    /** Audio của tư liệu (signed URL ngắn hạn); null = không có. */
+    audioUrl: string | null;
+  } | null;
+  /** Audio nhúng của câu (signed URL ngắn hạn); null = không có. */
+  audioUrl: string | null;
   essayAnswer: string | null;
   markedForReview: boolean;
   correctIndex?: number | null;

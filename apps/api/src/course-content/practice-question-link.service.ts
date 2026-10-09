@@ -40,6 +40,8 @@ const LINK_INCLUDE = {
       blankAnswerKey: true,
       sharedMaterialId: true,
       sharedMaterial: { select: { id: true, title: true } },
+      audioId: true,
+      audio: { select: { id: true, originalName: true } },
     },
   },
 } satisfies Prisma.QuestionLinkInclude;

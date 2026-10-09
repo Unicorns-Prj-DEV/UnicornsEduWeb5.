@@ -1,3 +1,5 @@
+import type { AudioRef } from "./audio-asset.dto";
+
 /** Tư liệu dùng chung (JP): đoạn văn/ảnh nhiều câu hỏi cùng dựa vào. */
 export interface SharedMaterial {
   id: string;
@@ -7,6 +9,9 @@ export interface SharedMaterial {
   content: string;
   /** Số câu (chưa xoá) đang gắn tư liệu. */
   questionCount: number;
+  /** Audio dùng chung (JP), vd bài nghe cho cả nhóm câu. */
+  audioId?: string | null;
+  audio?: AudioRef | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -15,10 +20,12 @@ export interface CreateSharedMaterialInput {
   courseId: string;
   title: string;
   content: string;
+  /** null = gỡ audio. */
+  audioId?: string | null;
 }
 
 export type UpdateSharedMaterialInput = Partial<
-  Pick<CreateSharedMaterialInput, "title" | "content">
+  Pick<CreateSharedMaterialInput, "title" | "content" | "audioId">
 >;
 
 export const SHARED_MATERIAL_TITLE_MAX = 200;

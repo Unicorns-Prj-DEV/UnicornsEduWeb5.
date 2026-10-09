@@ -332,6 +332,7 @@ function AuthorForm({
       requireSkills: appConfig?.questionSkills,
       essayInputSizes: appConfig?.essayInputSizes,
       sharedMaterials: appConfig?.sharedMaterials,
+      questionAudio: appConfig?.questionAudio,
     });
     if ("error" in result) {
       toast.error(result.error);

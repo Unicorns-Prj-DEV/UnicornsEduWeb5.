@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { Card, CardContent } from "@/components/ui/card";
 import MathContent from "@/components/ui/MathContent";
+import QuestionAudio from "@/components/student/QuestionAudio";
 import { cn } from "@/lib/utils";
 import type { LessonQuizQuestion, LessonQuizAnswer } from "@/dtos/course-content.dto";
 import type { BlankAnswers, TrueFalseChoices } from "@/dtos/attempt.dto";
@@ -484,6 +485,11 @@ function QuizQuestionInput({
           className="inline [&>p:first-child]:inline"
         />
       </div>
+      {quiz.question.audioUrl ? (
+        <div className="mb-3">
+          <QuestionAudio url={quiz.question.audioUrl} />
+        </div>
+      ) : null}
 
       {quiz.question.type === "ordering" ? (
         <OrderingCards
@@ -627,6 +633,11 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
                 className="inline [&>p:first-child]:inline"
               />
             </div>
+            {ans.question.audioUrl ? (
+              <div className="mb-2">
+                <QuestionAudio url={ans.question.audioUrl} />
+              </div>
+            ) : null}
 
             {/* Student answer */}
             <div className="mb-2">

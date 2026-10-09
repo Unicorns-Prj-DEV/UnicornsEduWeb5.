@@ -184,6 +184,7 @@ model Course {
   lessonPlanMembers   CourseLessonPlanMember[]
   questions           Question[] // <‑‑ back‑relation for question bank
   sharedMaterials     SharedMaterial[]
+  audioAssets         AudioAsset[]
 
   @@map("courses")
 }
@@ -573,23 +574,44 @@ model LessonQuizAnswer {
 
 // Question bank models
 
-/// Ngân hàng câu hỏi – mỗi câu thuộc một Module (chuyên đề) và một DifficultyLevel của course
+/// Audio làm tư liệu (hồ sơ JP), lưu ở bucket private `question-audio`, đọc qua
+/// signed URL. Bất biến: thay audio = tạo bản mới, bản cũ giữ cho snapshot bài làm.
+model AudioAsset {
+  id              String           @id @default(uuid())
+  courseId        String           @map("course_id")
+  storagePath     String           @map("storage_path")
+  mimeType        String           @map("mime_type")
+  sizeBytes       Int              @map("size_bytes")
+  originalName    String           @map("original_name")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions       Question[]
+  sharedMaterials SharedMaterial[]
+
+  @@index([courseId])
+  @@map("audio_assets")
+}
+
 /// Tư liệu dùng chung (hồ sơ JP): đoạn văn/ảnh nhiều câu cùng dựa vào. Thuộc ngân
 /// hàng câu hỏi của một Khoá học; không xoá được khi còn câu (chưa xoá) gắn vào.
 model SharedMaterial {
-  id        String     @id @default(uuid())
-  courseId  String     @map("course_id")
+  id        String      @id @default(uuid())
+  courseId  String      @map("course_id")
   title     String
-  content   String     @db.Text // HTML từ TipTap
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  content   String      @db.Text // HTML từ TipTap
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Audio dùng chung (hội thoại cho nhiều câu).
+  audioId   String?     @map("audio_id")
+  audio     AudioAsset? @relation(fields: [audioId], references: [id], onDelete: SetNull)
   questions Question[]
 
   @@index([courseId])
   @@map("shared_materials")
 }
 
+/// Ngân hàng câu hỏi – mỗi câu thuộc một Module (chuyên đề) và một DifficultyLevel của course
 model Question {
   id                String               @id @default(uuid())
   courseId          String               @map("course_id")
@@ -613,6 +635,8 @@ model Question {
   blankAnswerKey    Json?                @map("blank_answer_key")
   /// Tư liệu dùng chung (hồ sơ JP): các câu cùng tư liệu luôn đứng liền nhau trong đề.
   sharedMaterialId  String?              @map("shared_material_id")
+  /// Audio nhúng riêng của câu (hồ sơ JP).
+  audioId           String?              @map("audio_id")
   deletedAt         DateTime?            @map("deleted_at")
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -621,6 +645,7 @@ model Question {
   module          Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   difficultyLevel CourseDifficultyLevel @relation(fields: [difficultyLevelId], references: [id], onDelete: Restrict)
   sharedMaterial  SharedMaterial?       @relation(fields: [sharedMaterialId], references: [id], onDelete: NoAction)
+  audio           AudioAsset?           @relation(fields: [audioId], references: [id], onDelete: SetNull)
 
   questionLinks     QuestionLink[]
   lessonQuizzes     LessonQuiz[]
@@ -776,6 +801,9 @@ model AttemptAnswer {
   /// Snapshot tư liệu dùng chung lúc start (id để gom khối, content để hiển thị).
   sharedMaterialId      String?              @map("shared_material_id")
   sharedMaterialContent String?              @map("shared_material_content") @db.Text
+  /// Snapshot audio lúc start (id của audio_assets, không FK — asset bất biến).
+  audioId               String?              @map("audio_id")
+  sharedMaterialAudioId String?              @map("shared_material_audio_id")
   essayAnswer           String?              @map("essay_answer") @db.Text
   /// Học sinh đánh dấu quay lại xem trước nộp — không ảnh hưởng chấm điểm.
   markedForReview       Boolean              @default(false) @map("marked_for_review")

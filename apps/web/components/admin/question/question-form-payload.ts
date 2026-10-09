@@ -29,6 +29,8 @@ export type QuestionFormPayload = {
   blankAnswerKey?: string[][];
   /** null = bỏ gắn tư liệu. */
   sharedMaterialId?: string | null;
+  /** null = gỡ audio. */
+  audioId?: string | null;
 };
 
 function isBlankHtml(html: string): boolean {
@@ -51,10 +53,12 @@ export function questionFormToPayload(
     requireSkills = false,
     essayInputSizes = false,
     sharedMaterials = false,
+    questionAudio = false,
   }: {
     requireSkills?: boolean;
     essayInputSizes?: boolean;
     sharedMaterials?: boolean;
+    questionAudio?: boolean;
   } = {},
 ): PayloadResult {
   if (!form.moduleId || !form.difficultyLevelId || isBlankHtml(form.content)) {
@@ -74,6 +78,7 @@ export function questionFormToPayload(
       : form.explanation.trim(),
     ...(requireSkills && { skills: [...form.skills] }),
     ...(sharedMaterials && { sharedMaterialId: form.sharedMaterialId || null }),
+    ...(questionAudio && { audioId: form.audio?.id ?? null }),
   };
 
   switch (form.type) {
@@ -118,6 +123,7 @@ type PayloadBase = Pick<
   | "explanation"
   | "skills"
   | "sharedMaterialId"
+  | "audioId"
 >;
 type PayloadResult = { payload: QuestionFormPayload } | { error: string };
 

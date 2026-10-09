@@ -424,6 +424,9 @@ export interface QuestionLinkResponseDto {
     /** Đáp án hợp lệ từng ô (câu điền vào ô trống, JP). */
     blankAnswerKey: string[][] | null;
     sharedMaterialId: string | null;
+    /** Audio nhúng (JP) — giữ khi sửa câu từ màn xếp đề. */
+    audioId: string | null;
+    audio: { id: string; originalName: string } | null;
     /** Tư liệu dùng chung (JP) — badge trong danh sách câu của đề. */
     sharedMaterial: { id: string; title: string } | null;
   };
@@ -520,8 +523,14 @@ export interface LessonQuizResponseDto {
     blankAnswerKey: string[][] | null;
     /** Số ô trống (câu điền vào ô trống); loại khác = null / không có. */
     blankCount?: number | null;
+    /** Audio nhúng (JP): signed URL ngắn hạn; null = không có. */
+    audioUrl: string | null;
     /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
-    sharedMaterial: { id: string; content: string } | null;
+    sharedMaterial: {
+      id: string;
+      content: string;
+      audioUrl: string | null;
+    } | null;
   };
 }
 

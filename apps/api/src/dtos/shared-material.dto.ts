@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import type { AudioRefDto } from './audio-asset.dto';
 
 export const SHARED_MATERIAL_TITLE_MAX = 200;
 
@@ -11,6 +12,9 @@ export interface SharedMaterialResponseDto {
   content: string;
   /** Số câu (chưa xoá) đang gắn tư liệu. */
   questionCount: number;
+  /** Audio dùng chung (JP), vd bài nghe cho cả nhóm câu. */
+  audioId: string | null;
+  audio: AudioRefDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +43,15 @@ export class CreateSharedMaterialDto {
   @IsString()
   @IsNotEmpty()
   content: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Audio dùng chung (JP) — id từ POST /audio-assets, cùng khoá. null = gỡ audio.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  audioId?: string | null;
 }
 
 export class UpdateSharedMaterialDto {
@@ -57,4 +70,13 @@ export class UpdateSharedMaterialDto {
   @IsString()
   @IsNotEmpty()
   content?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Audio dùng chung (JP) — id từ POST /audio-assets, cùng khoá. null = gỡ audio.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  audioId?: string | null;
 }

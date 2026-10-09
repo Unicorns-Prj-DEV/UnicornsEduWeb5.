@@ -12,6 +12,7 @@ import {
   shuffleOrderingCards,
 } from '../attempt/shuffle';
 import { normalizeTrueFalseChoices } from '../attempt/grading';
+import { resolveAudioRefs } from '../question/audio-asset.service';
 import {
   ActionHistoryActor,
   CourseContentSupportService,
@@ -20,6 +21,37 @@ import {
 @Injectable()
 export class LessonQuizService extends CourseContentSupportService {
   protected readonly logger = new Logger(LessonQuizService.name);
+
+  /** Ký URL audio của câu + tư liệu (một lần gọi storage cho cả lô). */
+  private async withQuizAudio<
+    T extends {
+      question: {
+        audioId: string | null;
+        sharedMaterial: { audioId: string | null } | null;
+      };
+    },
+  >(rows: T[]) {
+    const refs = await resolveAudioRefs(
+      this.prisma,
+      rows.flatMap((r) => [
+        r.question.audioId,
+        r.question.sharedMaterial?.audioId,
+      ]),
+    );
+    const urlOf = (id: string | null | undefined) =>
+      id ? (refs.get(id)?.url ?? null) : null;
+    return rows.map((r) => ({
+      ...r,
+      question: {
+        ...r.question,
+        audioUrl: urlOf(r.question.audioId),
+        sharedMaterial: r.question.sharedMaterial && {
+          ...r.question.sharedMaterial,
+          audioUrl: urlOf(r.question.sharedMaterial.audioId),
+        },
+      },
+    }));
+  }
 
   private async loadTheoryLesson(lessonId: string) {
     const lesson = await this.prisma.lesson.findUnique({
@@ -126,7 +158,7 @@ export class LessonQuizService extends CourseContentSupportService {
     const lesson = await this.loadTheoryLesson(lessonId);
     await this.assertCanManageOwnedAcademicContent(actor, lesson);
 
-    return this.prisma.lessonQuiz.findMany({
+    const rows = await this.prisma.lessonQuiz.findMany({
       where: { lessonId },
       orderBy: { order: 'asc' },
       include: {
@@ -143,11 +175,15 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
-            sharedMaterial: { select: { id: true, content: true } },
+            audioId: true,
+            sharedMaterial: {
+              select: { id: true, content: true, audioId: true },
+            },
           },
         },
       },
     });
+    return this.withQuizAudio(rows);
   }
 
   async getLessonQuizzesForStudent(lessonId: string, studentId: string) {
@@ -168,7 +204,10 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
-            sharedMaterial: { select: { id: true, content: true } },
+            audioId: true,
+            sharedMaterial: {
+              select: { id: true, content: true, audioId: true },
+            },
           },
         },
       },
@@ -181,28 +220,30 @@ export class LessonQuizService extends CourseContentSupportService {
       quizzes,
       (q) => q.question.sharedMaterial?.id ?? null,
     );
-    return grouped.map((q) => ({
-      ...q,
-      question: {
-        ...q.question,
-        options:
-          q.question.type === QuestionType.ordering
-            ? shuffleOrderingCards(
-                Array.isArray(q.question.options)
-                  ? (q.question.options as string[])
-                  : [],
-                seededRng(`${studentId}:${q.question.id}`),
-              ).options
-            : q.question.options,
-        correctIndex: null,
-        tfAnswerKey: [],
-        blankAnswerKey: null,
-        blankCount:
-          q.question.type === QuestionType.fill_blank
-            ? parseBlankAnswerKey(q.question.blankAnswerKey).length
-            : null,
-      },
-    }));
+    return this.withQuizAudio(
+      grouped.map((q) => ({
+        ...q,
+        question: {
+          ...q.question,
+          options:
+            q.question.type === QuestionType.ordering
+              ? shuffleOrderingCards(
+                  Array.isArray(q.question.options)
+                    ? (q.question.options as string[])
+                    : [],
+                  seededRng(`${studentId}:${q.question.id}`),
+                ).options
+              : q.question.options,
+          correctIndex: null,
+          tfAnswerKey: [],
+          blankAnswerKey: null,
+          blankCount:
+            q.question.type === QuestionType.fill_blank
+              ? parseBlankAnswerKey(q.question.blankAnswerKey).length
+              : null,
+        },
+      })),
+    );
   }
 
   async submitQuizAnswers(
@@ -277,7 +318,7 @@ export class LessonQuizService extends CourseContentSupportService {
       ),
     );
 
-    return this.prisma.lessonQuizAnswer.findMany({
+    const rows = await this.prisma.lessonQuizAnswer.findMany({
       where: { lessonId, studentId },
       include: {
         question: {
@@ -293,15 +334,19 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
-            sharedMaterial: { select: { id: true, content: true } },
+            audioId: true,
+            sharedMaterial: {
+              select: { id: true, content: true, audioId: true },
+            },
           },
         },
       },
     });
+    return this.withQuizAudio(rows);
   }
 
   async getQuizAnswers(lessonId: string, studentId: string) {
-    return this.prisma.lessonQuizAnswer.findMany({
+    const rows = await this.prisma.lessonQuizAnswer.findMany({
       where: { lessonId, studentId },
       include: {
         question: {
@@ -317,10 +362,14 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
-            sharedMaterial: { select: { id: true, content: true } },
+            audioId: true,
+            sharedMaterial: {
+              select: { id: true, content: true, audioId: true },
+            },
           },
         },
       },
     });
+    return this.withQuizAudio(rows);
   }
 }

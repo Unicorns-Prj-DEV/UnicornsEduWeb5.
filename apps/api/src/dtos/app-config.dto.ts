@@ -69,4 +69,10 @@ export class AppConfigResponseDto implements LmsProfileConfig {
       'Ngân hàng câu hỏi có Tư liệu dùng chung — nhiều câu dựa vào một đoạn văn/ảnh (JP)',
   })
   sharedMaterials!: boolean;
+
+  @ApiProperty({
+    description:
+      'Tư liệu có audio: tải lên cho tư liệu dùng chung và từng câu (JP)',
+  })
+  questionAudio!: boolean;
 }

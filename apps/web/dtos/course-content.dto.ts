@@ -1,3 +1,4 @@
+import type { AudioRef } from "./audio-asset.dto";
 import type {
   QuestionTypeDto,
   TrueFalseLabelStyleDto,
@@ -93,6 +94,9 @@ export interface QuestionLinkQuestion {
   /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
   sharedMaterialId?: string | null;
   sharedMaterial?: { id: string; title: string } | null;
+  /** Audio nhúng (JP) — giữ khi sửa câu từ màn xếp đề. */
+  audioId?: string | null;
+  audio?: AudioRef | null;
 }
 
 export interface QuestionLink {
@@ -149,8 +153,14 @@ export interface LessonQuizQuestion {
     blankAnswerKey?: string[][] | null;
     /** Số ô trống (câu điền vào ô trống). */
     blankCount?: number | null;
+    /** Audio nhúng (JP): signed URL ngắn hạn. */
+    audioUrl?: string | null;
     /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
-    sharedMaterial?: { id: string; content: string } | null;
+    sharedMaterial?: {
+      id: string;
+      content: string;
+      audioUrl?: string | null;
+    } | null;
   };
 }
 
@@ -183,8 +193,14 @@ export interface LessonQuizAnswer {
     blankAnswerKey?: string[][] | null;
     /** Số ô trống (câu điền vào ô trống). */
     blankCount?: number | null;
+    /** Audio nhúng (JP): signed URL ngắn hạn. */
+    audioUrl?: string | null;
     /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
-    sharedMaterial?: { id: string; content: string } | null;
+    sharedMaterial?: {
+      id: string;
+      content: string;
+      audioUrl?: string | null;
+    } | null;
   };
 }
 

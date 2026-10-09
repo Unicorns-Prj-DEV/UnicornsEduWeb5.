@@ -109,7 +109,7 @@ describe('QuestionService', () => {
       const q = { id: 'q1', deletedAt: null };
       mockPrisma.question.findUnique.mockResolvedValue(q);
       const result = await service.get('q1');
-      expect(result).toEqual(q);
+      expect(result).toEqual({ ...q, audio: null });
     });
 
     it('throws NotFoundException for missing question', async () => {

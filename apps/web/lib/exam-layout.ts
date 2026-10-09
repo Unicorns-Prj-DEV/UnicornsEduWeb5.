@@ -185,6 +185,8 @@ export function itExamBreakdown(questions: OrderableQuestion[]): ItExamBreakdown
 export interface MaterialHeader {
   /** HTML tư liệu (bản chụp lúc start). */
   content: string;
+  /** Audio của tư liệu (signed URL); vắng = tư liệu không có audio. */
+  audioUrl?: string | null;
   /** Dải số câu (đánh số liên tục từ 1) dựa vào tư liệu: "Câu 2–4". */
   firstNumber: number;
   lastNumber: number;
@@ -196,7 +198,12 @@ export interface MaterialHeader {
  */
 export function materialHeaders<Q>(
   questions: Q[],
-  materialOf: (q: Q) => { id: string; content: string } | null | undefined,
+  materialOf: (
+    q: Q,
+  ) =>
+    | { id: string; content: string; audioUrl?: string | null }
+    | null
+    | undefined,
 ): (MaterialHeader | null)[] {
   return questions.map((q, i) => {
     const material = materialOf(q);
@@ -211,6 +218,7 @@ export function materialHeaders<Q>(
     }
     return {
       content: material.content,
+      ...(material.audioUrl !== undefined && { audioUrl: material.audioUrl }),
       firstNumber: i + 1,
       lastNumber: last + 1,
     };

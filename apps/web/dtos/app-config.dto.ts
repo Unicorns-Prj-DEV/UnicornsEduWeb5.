@@ -29,4 +29,6 @@ export interface AppConfig {
   essayInputSizes: boolean;
   /** Ngân hàng câu hỏi có Tư liệu dùng chung (JP). */
   sharedMaterials: boolean;
+  /** Audio tư liệu cho câu / tư liệu dùng chung (JP). */
+  questionAudio: boolean;
 }

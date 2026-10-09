@@ -18,6 +18,7 @@ import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import EssayAnswerInput from "@/components/student/EssayAnswerInput";
 import { assertNever } from "@/lib/assert-never";
+import QuestionAudio from "@/components/student/QuestionAudio";
 
 export default function StudentAttemptQuestion({
   question,
@@ -119,6 +120,11 @@ export default function StudentAttemptQuestion({
           </span>
         ) : null}
       </div>
+      {question.audioUrl ? (
+        <div className="mb-3">
+          <QuestionAudio url={question.audioUrl} />
+        </div>
+      ) : null}
 
       <AnswerArea
         question={question}

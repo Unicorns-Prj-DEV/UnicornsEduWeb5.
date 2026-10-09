@@ -1,3 +1,4 @@
+import type { AudioRef } from "./audio-asset.dto";
 export enum QuestionTypeDto {
   single_choice = "single_choice",
   essay = "essay",
@@ -107,6 +108,9 @@ export interface Question {
   blankAnswerKey: string[][] | null;
   /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
   sharedMaterialId: string | null;
+  /** Audio nhúng (JP); null = không có. */
+  audioId?: string | null;
+  audio?: AudioRef | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -137,6 +141,7 @@ export type QuestionFormInitial = Pick<
       | "tfLabelStyle"
       | "blankAnswerKey"
       | "sharedMaterialId"
+      | "audio"
     >
   >;
 
@@ -157,6 +162,8 @@ export interface CreateQuestionInput {
   blankAnswerKey?: string[][];
   /** null = bỏ gắn tư liệu. */
   sharedMaterialId?: string | null;
+  /** null = gỡ audio. */
+  audioId?: string | null;
 }
 
 export type UpdateQuestionInput = Partial<
