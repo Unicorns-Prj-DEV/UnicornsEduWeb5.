@@ -1,19 +1,24 @@
 import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
+import { assertNever } from "@/lib/assert-never";
 import { touchedElectiveGroups } from "@/lib/exam-layout";
 
 export type AttemptQuestionVisualStatus =
-  | "unanswered"
-  | "answered"
-  | "marked_for_review";
+  "unanswered" | "answered" | "marked_for_review";
 
 export function isAttemptQuestionUnanswered(q: AttemptQuestionDto): boolean {
-  if (q.type === "single_choice") return q.choiceIndex == null;
-  // Câu Đúng/Sai chỉ tính đã làm khi đủ cả 4 nhận định.
-  if (q.type === "true_false_group") {
-    const choices = q.tfChoices ?? [];
-    return [0, 1, 2, 3].some((i) => typeof choices[i] !== "boolean");
+  switch (q.type) {
+    case "single_choice":
+      return q.choiceIndex == null;
+    case "true_false_group": {
+      // Câu Đúng/Sai chỉ tính đã làm khi đủ cả 4 nhận định.
+      const choices = q.tfChoices ?? [];
+      return [0, 1, 2, 3].some((i) => typeof choices[i] !== "boolean");
+    }
+    case "essay":
+      return !q.essayAnswer?.trim();
+    default:
+      return assertNever(q.type, "question type");
   }
-  return !q.essayAnswer?.trim();
 }
 
 export function getAttemptQuestionVisualStatus(
@@ -33,7 +38,12 @@ export function unansweredQuestionNumbers(
 ): number[] {
   const touched = touchedElectiveGroups(questions);
   return questions.flatMap((q, i) => {
-    if (q.slot && q.slot !== "required" && touched.size > 0 && !touched.has(q.slot)) {
+    if (
+      q.slot &&
+      q.slot !== "required" &&
+      touched.size > 0 &&
+      !touched.has(q.slot)
+    ) {
       return [];
     }
     return isAttemptQuestionUnanswered(q) ? [i + 1] : [];

@@ -1,4 +1,5 @@
 import { QuestionType } from 'generated/enums';
+import { assertNever } from 'src/common/assert-never';
 
 /**
  * Đảo câu / đảo đáp án lúc `start` (CONTEXT.md — Đảo câu). Mỗi lượt xáo một lần,
@@ -117,7 +118,15 @@ export function shuffleQuestionOptions(
   },
   rng: Rng = Math.random,
 ): ShuffledOptions | null {
-  if (question.type === QuestionType.essay) return null;
+  switch (question.type) {
+    case QuestionType.essay:
+      return null;
+    case QuestionType.single_choice:
+    case QuestionType.true_false_group:
+      break;
+    default:
+      return assertNever(question.type, 'question type');
+  }
   const options = question.options;
   if (
     !Array.isArray(options) ||

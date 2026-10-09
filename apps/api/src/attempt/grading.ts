@@ -1,4 +1,5 @@
 import { AttemptScoring, QuestionSlot, QuestionType } from 'generated/enums';
+import { assertNever } from 'src/common/assert-never';
 
 /**
  * Chấm Bài làm — hàm thuần, dùng chung cho nộp bài / hết giờ và chấm lại khi
@@ -85,6 +86,26 @@ export function gradeTrueFalse(
   };
 }
 
+/** Câu đã được trả lời (đủ để tính "đã làm"), theo loại câu. */
+export function isAnswered(ans: {
+  type: QuestionType;
+  choiceIndex: number | null;
+  essayAnswer: string | null;
+  tfChoices: unknown;
+}): boolean {
+  switch (ans.type) {
+    case QuestionType.single_choice:
+      return ans.choiceIndex != null;
+    case QuestionType.essay:
+      return Boolean(ans.essayAnswer?.trim());
+    case QuestionType.true_false_group:
+      // Câu Đúng/Sai chỉ tính đã làm khi đủ cả 4 nhận định.
+      return normalizeTrueFalseChoices(ans.tfChoices).every((c) => c !== null);
+    default:
+      return assertNever(ans.type, 'question type');
+  }
+}
+
 /**
  * Luật nhóm tự chọn: cả nhóm Tự chọn 1 và Tự chọn 2 đều có ≥1 nhận định được
  * chọn → phần tự chọn 0 điểm.
@@ -93,6 +114,31 @@ export function isElectiveVoided(answers: GradableAnswer[]): boolean {
   const touched = (slot: QuestionSlot) =>
     answers.some((a) => a.slot === slot && hasAnyTrueFalseChoice(a.tfChoices));
   return touched(QuestionSlot.elective_1) && touched(QuestionSlot.elective_2);
+}
+
+/** Chấm một câu theo loại. `null` = chấm tay (tự luận). */
+function gradeOne(
+  ans: GradableAnswer,
+): { isCorrect: boolean; pointsAwarded: number } | null {
+  switch (ans.type) {
+    case QuestionType.essay:
+      return null;
+    case QuestionType.true_false_group: {
+      const graded = gradeTrueFalse(
+        ans.tfAnswerKey,
+        ans.tfChoices,
+        ans.pointsPossible,
+      );
+      return { isCorrect: graded.correct === 4, pointsAwarded: graded.points };
+    }
+    case QuestionType.single_choice: {
+      const isCorrect =
+        ans.choiceIndex != null && ans.choiceIndex === ans.correctIndex;
+      return { isCorrect, pointsAwarded: isCorrect ? ans.pointsPossible : 0 };
+    }
+    default:
+      return assertNever(ans.type, 'question type');
+  }
 }
 
 export function gradeAnswers(
@@ -104,30 +150,17 @@ export function gradeAnswers(
   let hasUngradedEssay = false;
 
   const patches = answers.map((ans): AnswerGradePatch => {
-    if (ans.type === QuestionType.essay) {
+    const graded = gradeOne(ans);
+    if (graded === null) {
       hasUngradedEssay = true;
       return { id: ans.id, isCorrect: null, pointsAwarded: null };
     }
-    let isCorrect: boolean;
-    let pointsAwarded: number;
-    if (ans.type === QuestionType.true_false_group) {
-      const graded = gradeTrueFalse(
-        ans.tfAnswerKey,
-        ans.tfChoices,
-        ans.pointsPossible,
-      );
-      isCorrect = graded.correct === 4;
-      pointsAwarded = graded.points;
-    } else {
-      isCorrect =
-        ans.choiceIndex != null && ans.choiceIndex === ans.correctIndex;
-      pointsAwarded = isCorrect ? ans.pointsPossible : 0;
-    }
+    let { pointsAwarded } = graded;
     if (electiveVoided && ans.slot !== QuestionSlot.required) {
       pointsAwarded = 0;
     }
     autoGradedScore += pointsAwarded;
-    return { id: ans.id, isCorrect, pointsAwarded };
+    return { id: ans.id, isCorrect: graded.isCorrect, pointsAwarded };
   });
 
   return {
