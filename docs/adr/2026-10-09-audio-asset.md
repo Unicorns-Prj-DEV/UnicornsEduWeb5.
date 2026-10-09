@@ -1,6 +1,6 @@
 # ADR: Audio tư liệu là asset bất biến trong bucket private, đọc qua signed URL
 
-- **Status:** Accepted
+- **Status:** Accepted — sửa bởi `2026-10-09-question-set.md` (bỏ audio riêng từng câu; mỗi asset thuộc đúng một bộ)
 - **Date:** 2026-10-09
 - **Ticket:** #200 (chuẩn bị cho #201 giới hạn lượt nghe)
 

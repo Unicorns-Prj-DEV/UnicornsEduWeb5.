@@ -1,6 +1,6 @@
 # ADR: Tư liệu dùng chung là bảng riêng, câu gắn tối đa một tư liệu
 
-- **Status:** Accepted
+- **Status:** Superseded một phần bởi `2026-10-09-question-set.md` (mục 1, 2, 5, 6)
 - **Date:** 2026-10-09
 - **Ticket:** #198
 - **Thay quyết định:** "Tư liệu nhúng trong nội dung câu, chưa dùng chung giữa nhiều câu" (`docs/plans/2026-10-07-it-question-types.md`, mục gửi lại người soạn) — chỉ áp cho hồ sơ JP.
