@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import * as questionApi from "@/lib/apis/question.api";
 import * as classApi from "@/lib/apis/class.api";
+import * as sharedMaterialApi from "@/lib/apis/shared-material.api";
 import { courseKeys } from "@/lib/query-keys";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { invalidateQuestionScopedQueries } from "@/lib/query-invalidation";
@@ -79,7 +80,9 @@ export default function QuestionFormDialog({
     mutationFn: (data: CreateQuestionInput) =>
       question
         ? questionApi.updateQuestion(question.id, data)
-        : questionApi.createQuestion(data),
+        : set
+          ? sharedMaterialApi.createSetQuestion(set.id, data)
+          : questionApi.createQuestion(data),
     onSuccess: async () => {
       toast.success(question ? "Đã cập nhật câu hỏi." : "Đã tạo câu hỏi.");
       await invalidateQuestionScopedQueries(queryClient, courseId);
@@ -95,8 +98,6 @@ export default function QuestionFormDialog({
     const result = questionFormToPayload(form, {
       requireSkills: appConfig?.questionSkills,
       essayInputSizes: appConfig?.essayInputSizes,
-      sharedMaterials: appConfig?.sharedMaterials,
-      questionAudio: appConfig?.questionAudio,
     });
     if ("error" in result) {
       toast.error(result.error);

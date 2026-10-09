@@ -34,6 +34,8 @@ import {
   SharedMaterialFilterDto,
   UpdateSharedMaterialDto,
 } from '../dtos/shared-material.dto';
+import { CreateQuestionDto } from '../dtos/question.dto';
+import { QuestionService } from './question.service';
 import { SharedMaterialService } from './shared-material.service';
 
 @ApiTags('shared-material')
@@ -47,7 +49,10 @@ import { SharedMaterialService } from './shared-material.service';
   StaffRole.lesson_plan_head,
 )
 export class SharedMaterialController {
-  constructor(private readonly service: SharedMaterialService) {}
+  constructor(
+    private readonly service: SharedMaterialService,
+    private readonly questions: QuestionService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -149,6 +154,31 @@ export class SharedMaterialController {
       userEmail: user.email,
       roleType: user.roleType,
     });
+  }
+
+  @Post(':id/questions')
+  @ApiOperation({
+    summary: 'Tạo câu mới trong Bộ câu hỏi',
+    description:
+      'Câu nhận chuyên đề của bộ (bỏ qua `moduleId` gửi lên), đứng cuối bộ và vào mọi tiết / bài ôn đang dùng bộ. `sharedMaterialId` trong body bị bỏ qua.',
+  })
+  @ApiParam({ name: 'id', description: 'Shared material (bộ) ID' })
+  @ApiBody({ type: CreateQuestionDto })
+  @ApiResponse({ status: 201, description: 'Câu vừa tạo.' })
+  @ApiBadRequestResponse({
+    description: 'Câu sai dạng / bộ khác khoá / audio đã dùng ở chỗ khác',
+  })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy bộ' })
+  createQuestion(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateQuestionDto,
+  ) {
+    return this.questions.createInSet(
+      id,
+      { ...dto, sharedMaterialId: undefined },
+      { userId: user.id, userEmail: user.email, roleType: user.roleType },
+    );
   }
 
   @Post(':id/questions/:questionId')

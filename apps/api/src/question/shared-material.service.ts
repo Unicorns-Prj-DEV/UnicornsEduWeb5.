@@ -171,6 +171,7 @@ export class SharedMaterialService {
         this.lmsProfile.config,
         dto.audioId,
         existing.courseId,
+        { sharedMaterialId: id },
       );
     }
     const updated = await this.prisma.$transaction(async (tx) => {

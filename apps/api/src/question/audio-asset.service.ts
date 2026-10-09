@@ -98,14 +98,16 @@ export async function withAudioRefs<T extends { audioId: string | null }>(
 }
 
 /**
- * Gắn audio vào câu / tư liệu: hồ sơ phải bật và audio cùng khoá.
- * `undefined` = không đổi, `null` = gỡ audio (luôn hợp lệ).
+ * Gắn audio vào câu / phần đầu bộ: hồ sơ phải bật, audio cùng khoá và chưa gắn
+ * ở chỗ nào khác (mỗi asset thuộc đúng một chỗ). `owner` = chỗ đang gắn (bỏ
+ * qua chính nó khi sửa). `undefined` = không đổi, `null` = gỡ audio.
  */
 export async function assertAudioAttachable(
-  prisma: PrismaService,
+  prisma: Pick<PrismaService, 'audioAsset' | 'question' | 'sharedMaterial'>,
   profile: LmsProfileConfig,
   audioId: string | null | undefined,
   courseId: string,
+  owner: { questionId?: string; sharedMaterialId?: string } = {},
 ): Promise<void> {
   if (audioId == null) return;
   if (!profile.questionAudio) {
@@ -117,6 +119,23 @@ export async function assertAudioAttachable(
   });
   if (!audio || audio.courseId !== courseId) {
     throw new BadRequestException('Audio không thuộc khoá của câu hỏi.');
+  }
+  const [questionRefs, setRefs] = await Promise.all([
+    prisma.question.count({
+      where: {
+        audioId,
+        ...(owner.questionId && { id: { not: owner.questionId } }),
+      },
+    }),
+    prisma.sharedMaterial.count({
+      where: {
+        audioId,
+        ...(owner.sharedMaterialId && { id: { not: owner.sharedMaterialId } }),
+      },
+    }),
+  ]);
+  if (questionRefs + setRefs > 0) {
+    throw new BadRequestException('Audio đã dùng ở chỗ khác — tải bản mới.');
   }
 }
 

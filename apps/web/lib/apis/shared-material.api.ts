@@ -1,4 +1,5 @@
 import { api } from "@/lib/client";
+import type { CreateQuestionInput, Question } from "@/dtos/question.dto";
 import type {
   CreateSharedMaterialInput,
   SharedMaterial,
@@ -57,6 +58,18 @@ export async function getQuestionLessonUsage(
 ): Promise<SharedMaterialUsage> {
   const response = await api.get<SharedMaterialUsage>(
     `/shared-materials/questions/${questionId}/usage`,
+  );
+  return response.data;
+}
+
+/** Câu mới viết trong form bộ: nhận chuyên đề của bộ, đứng cuối bộ. */
+export async function createSetQuestion(
+  id: string,
+  data: CreateQuestionInput,
+): Promise<Question> {
+  const response = await api.post<Question>(
+    `/shared-materials/${id}/questions`,
+    data,
   );
   return response.data;
 }

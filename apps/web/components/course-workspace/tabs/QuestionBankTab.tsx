@@ -32,7 +32,6 @@ import { QuestionSkillDto, QuestionTypeDto } from "@/dtos/question.dto";
 import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import AiImportModal from "@/components/admin/question-bank/AiImportModal";
-import SharedMaterialsDialog from "@/components/admin/question-bank/SharedMaterialsDialog";
 import SharedMaterialFormDialog from "@/components/admin/question-bank/SharedMaterialFormDialog";
 import QuestionSetCard from "@/components/admin/question-bank/QuestionSetCard";
 import type { SharedMaterial } from "@/dtos/shared-material.dto";
@@ -63,7 +62,6 @@ export function QuestionBankTab({
   const { data: appConfig } = useAppConfig();
   const showSkills = appConfig?.questionSkills ?? false;
   const showMaterials = appConfig?.sharedMaterials ?? false;
-  const [showMaterialsDialog, setShowMaterialsDialog] = useState(false);
   // Form Bộ câu hỏi: null = đóng, "new" = tạo bộ.
   const [setForm, setSetForm] = useState<SharedMaterial | "new" | null>(null);
   const { data: materials = [] } = useSharedMaterials(courseId, showMaterials);
@@ -223,44 +221,31 @@ export function QuestionBankTab({
         <h2 className="text-lg font-bold text-text-primary sm:text-xl">
           Ngân hàng câu hỏi
         </h2>
-        {canMutateQuestions || showMaterials ? (
+        {canMutateQuestions ? (
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAiImport(true)}
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary/40 sm:min-h-10 sm:flex-none sm:w-auto"
+            >
+              Nhập từ AI
+            </button>
             {showMaterials ? (
               <button
                 type="button"
-                onClick={() => setShowMaterialsDialog(true)}
-                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary/40 sm:min-h-10 sm:flex-none sm:w-auto"
+                onClick={() => setSetForm("new")}
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-primary/40 bg-bg-surface px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5 sm:min-h-10 sm:flex-none sm:w-auto"
               >
-                Tư liệu dùng chung
+                + Thêm bộ câu hỏi
               </button>
             ) : null}
-            {canMutateQuestions ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowAiImport(true)}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary/40 sm:min-h-10 sm:flex-none sm:w-auto"
-                >
-                  Nhập từ AI
-                </button>
-                {showMaterials ? (
-                  <button
-                    type="button"
-                    onClick={() => setSetForm("new")}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-primary/40 bg-bg-surface px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5 sm:min-h-10 sm:flex-none sm:w-auto"
-                  >
-                    + Thêm bộ câu hỏi
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={openCreate}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 sm:min-h-10 sm:flex-none"
-                >
-                  + Thêm câu hỏi
-                </button>
-              </>
-            ) : null}
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 sm:min-h-10 sm:flex-none"
+            >
+              + Thêm câu hỏi
+            </button>
           </div>
         ) : null}
       </div>
@@ -533,13 +518,6 @@ export function QuestionBankTab({
         />
       ) : null}
 
-      {showMaterialsDialog ? (
-        <SharedMaterialsDialog
-          courseId={courseId}
-          canMutate={canMutateQuestions}
-          onClose={() => setShowMaterialsDialog(false)}
-        />
-      ) : null}
     </div>
   );
 }

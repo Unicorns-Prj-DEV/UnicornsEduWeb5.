@@ -163,10 +163,6 @@ export interface CreateQuestionInput {
   essayInputSize?: EssayInputSizeDto | null;
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
   blankAnswerKey?: string[][];
-  /** null = bỏ gắn tư liệu. */
-  sharedMaterialId?: string | null;
-  /** null = gỡ audio. */
-  audioId?: string | null;
 }
 
 export type UpdateQuestionInput = Partial<

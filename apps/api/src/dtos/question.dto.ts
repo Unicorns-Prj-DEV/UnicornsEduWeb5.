@@ -244,7 +244,7 @@ export class CreateQuestionDto {
 
   @ApiPropertyOptional({
     description:
-      'Tư liệu dùng chung (JP) cùng khoá. null = bỏ gắn. Các câu cùng tư liệu luôn đứng liền nhau trong đề.',
+      'Không dùng để gắn bộ: khác null → 400. Câu mới trong bộ qua POST /shared-materials/:id/questions.',
     nullable: true,
   })
   @IsOptional()
@@ -357,7 +357,7 @@ export class UpdateQuestionDto {
 
   @ApiPropertyOptional({
     description:
-      'Tư liệu dùng chung (JP) cùng khoá. null = bỏ gắn. Các câu cùng tư liệu luôn đứng liền nhau trong đề.',
+      'Không dùng để đổi bộ: khác bộ hiện tại → 400. Đổi bộ qua POST / DELETE /shared-materials/:id/questions/:questionId.',
     nullable: true,
   })
   @IsOptional()

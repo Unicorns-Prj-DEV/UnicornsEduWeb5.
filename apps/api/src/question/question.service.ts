@@ -93,6 +93,35 @@ export class QuestionService {
   }
 
   async create(dto: CreateQuestionDto, actor: QuestionActor) {
+    if (dto.sharedMaterialId != null) {
+      throw new BadRequestException(
+        'Câu chỉ vào bộ qua form bộ hoặc chuyển vào bộ.',
+      );
+    }
+    return this.insert(dto, null, actor);
+  }
+
+  /** Câu mới viết ngay trong form bộ: nhận chuyên đề của bộ, xếp cuối bộ. */
+  async createInSet(
+    setId: string,
+    dto: CreateQuestionDto,
+    actor: QuestionActor,
+  ) {
+    const set = await this.prisma.sharedMaterial.findUnique({
+      where: { id: setId },
+      select: { moduleId: true, deletedAt: true },
+    });
+    if (!set || set.deletedAt) {
+      throw new NotFoundException('Không tìm thấy bộ câu hỏi.');
+    }
+    return this.insert({ ...dto, moduleId: set.moduleId }, setId, actor);
+  }
+
+  private async insert(
+    dto: CreateQuestionDto,
+    setId: string | null,
+    actor: QuestionActor,
+  ) {
     await this.assertWriteAccess(actor, dto.courseId);
     assertQuestionShape(dto, this.lmsProfile.config);
     assertQuestionSkills(dto.skills ?? [], this.lmsProfile.config);
@@ -106,7 +135,7 @@ export class QuestionService {
     await assertMaterialAttachable(
       this.prisma,
       this.lmsProfile.config,
-      dto.sharedMaterialId,
+      setId,
       dto.courseId,
       dto.moduleId,
     );
@@ -121,13 +150,12 @@ export class QuestionService {
       const created = await tx.question.create({
         data: {
           ...dto,
-          setPosition: dto.sharedMaterialId
-            ? await nextSetPosition(tx, dto.sharedMaterialId)
-            : null,
+          sharedMaterialId: setId,
+          setPosition: setId ? await nextSetPosition(tx, setId) : null,
         },
       });
-      if (dto.sharedMaterialId) {
-        await linkQuestionToSetLessons(tx, created.id, dto.sharedMaterialId);
+      if (setId) {
+        await linkQuestionToSetLessons(tx, created.id, setId);
       }
       await this.actionHistory.recordCreate(tx, {
         entityType: 'question',
@@ -173,19 +201,11 @@ export class QuestionService {
     );
     // Câu JP cũ chưa có kỹ năng: sửa là phải chọn.
     assertQuestionSkills(dto.skills ?? existing.skills, this.lmsProfile.config);
-    const sharedMaterialId =
-      dto.sharedMaterialId !== undefined
-        ? dto.sharedMaterialId
-        : existing.sharedMaterialId;
-    const setChanged = sharedMaterialId !== existing.sharedMaterialId;
-    if (setChanged) {
-      await assertMaterialAttachable(
-        this.prisma,
-        this.lmsProfile.config,
-        sharedMaterialId,
-        existing.courseId,
-        existing.moduleId,
-      );
+    if (
+      dto.sharedMaterialId !== undefined &&
+      dto.sharedMaterialId !== existing.sharedMaterialId
+    ) {
+      throw new BadRequestException('Đổi bộ của câu qua chuyển vào / ra bộ.');
     }
     if (dto.audioId !== existing.audioId) {
       await assertAudioAttachable(
@@ -193,6 +213,7 @@ export class QuestionService {
         this.lmsProfile.config,
         dto.audioId,
         existing.courseId,
+        { questionId: id },
       );
     }
 
@@ -237,14 +258,7 @@ export class QuestionService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.question.update({
         where: { id },
-        data: {
-          ...dto,
-          ...(setChanged && {
-            setPosition: sharedMaterialId
-              ? await nextSetPosition(tx, sharedMaterialId)
-              : null,
-          }),
-        },
+        data: { ...dto, sharedMaterialId: undefined },
       });
       // Sửa đáp án → chấm lại mọi Bài làm chứa câu (ADR it-absolute-scoring).
       await regradeQuestionAnswerKey(tx, id, answerKeyChange);

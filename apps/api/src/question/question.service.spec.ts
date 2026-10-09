@@ -26,9 +26,15 @@ describe('QuestionService', () => {
       create: jest.fn(),
       update: jest.fn(),
       aggregate: jest.fn(),
+      count: jest.fn(),
     },
     sharedMaterial: {
       findUnique: jest.fn(),
+      count: jest.fn(),
+    },
+    audioAsset: {
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     questionLink: {
       findMany: jest.fn(),
@@ -600,7 +606,7 @@ describe('QuestionService', () => {
 
     it('câu mới vào bộ xếp cuối bộ', async () => {
       mockPrisma.question.create.mockResolvedValue({ id: 'q9' });
-      await service.create({ ...dto, sharedMaterialId: 'set1' }, actor);
+      await service.createInSet('set1', dto, actor);
       expect(mockPrisma.question.create).toHaveBeenCalledWith({
         data: contains({ sharedMaterialId: 'set1', setPosition: 3 }),
       });
@@ -615,7 +621,7 @@ describe('QuestionService', () => {
         { lessonId: 't2', order: 0 },
       ]);
 
-      await service.create({ ...dto, sharedMaterialId: 'set1' }, actor);
+      await service.createInSet('set1', dto, actor);
 
       expect(mockPrisma.questionLink.updateMany).toHaveBeenCalledWith({
         where: { lessonId: 't1', order: { gt: 4 } },
@@ -638,7 +644,7 @@ describe('QuestionService', () => {
         { lessonId: 'l1', order: 1 },
       ]);
 
-      await service.create({ ...dto, sharedMaterialId: 'set1' }, actor);
+      await service.createInSet('set1', dto, actor);
 
       expect(mockPrisma.lessonQuiz.updateMany).toHaveBeenCalledWith({
         where: { lessonId: 'l1', order: { gt: 1 } },
@@ -681,24 +687,69 @@ describe('QuestionService', () => {
       });
     });
 
-    it('câu khác chuyên đề với bộ bị từ chối', async () => {
+    it('câu tạo trong bộ nhận chuyên đề của bộ', async () => {
+      mockPrisma.question.create.mockResolvedValue({ id: 'q9' });
+      await service.createInSet('set1', { ...dto, moduleId: 'ch2' }, actor);
+      expect(mockPrisma.question.create).toHaveBeenCalledWith({
+        data: contains({ moduleId: 'ch1', sharedMaterialId: 'set1' }),
+      });
+    });
+
+    it('tạo câu không gắn thẳng vào bộ được — phải qua luồng của bộ', async () => {
       await expect(
-        service.create(
-          { ...dto, moduleId: 'ch2', sharedMaterialId: 'set1' },
-          actor,
-        ),
-      ).rejects.toThrow('Câu phải cùng chuyên đề với bộ.');
+        service.create({ ...dto, sharedMaterialId: 'set1' }, actor),
+      ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.question.create).not.toHaveBeenCalled();
     });
 
-    it('gỡ câu khỏi bộ thì bỏ vị trí trong bộ', async () => {
+    it('sửa câu không đổi bộ được — phải chuyển vào / ra bộ', async () => {
       mockPrisma.question.findUnique.mockResolvedValue(inSet);
-      mockPrisma.question.update.mockResolvedValue(inSet);
-      await service.update('q1', { sharedMaterialId: null }, actor);
-      expect(mockPrisma.question.update).toHaveBeenCalledWith({
-        where: { id: 'q1' },
-        data: contains({ sharedMaterialId: null, setPosition: null }),
-      });
+      await expect(
+        service.update('q1', { sharedMaterialId: null }, actor),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update('q1', { sharedMaterialId: 'set2' }, actor),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.question.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('audio của câu', () => {
+    const dto = {
+      courseId: 'c1',
+      moduleId: 'ch1',
+      difficultyLevelId: 'd1',
+      content: '<p>Q</p>',
+      skills: [QuestionSkillDto.listening],
+      type: QuestionTypeDto.essay,
+      audioId: 'a1',
+    };
+
+    beforeEach(() => {
+      mockPrisma.audioAsset.findUnique.mockResolvedValue({ courseId: 'c1' });
+      mockPrisma.question.count.mockResolvedValue(0);
+      mockPrisma.sharedMaterial.count.mockResolvedValue(0);
+      mockPrisma.question.create.mockResolvedValue({ id: 'q9', audioId: 'a1' });
+    });
+
+    it('audio đã dùng ở câu khác → 400', async () => {
+      mockPrisma.question.count.mockResolvedValue(1);
+      await expect(service.create(dto, actor)).rejects.toThrow(
+        'Audio đã dùng ở chỗ khác — tải bản mới.',
+      );
+      expect(mockPrisma.question.create).not.toHaveBeenCalled();
+    });
+
+    it('audio đã dùng ở phần đầu bộ → 400', async () => {
+      mockPrisma.sharedMaterial.count.mockResolvedValue(1);
+      await expect(service.create(dto, actor)).rejects.toThrow(
+        'Audio đã dùng ở chỗ khác — tải bản mới.',
+      );
+    });
+
+    it('audio mới tải chưa dùng ở đâu → gắn được', async () => {
+      await service.create(dto, actor);
+      expect(mockPrisma.question.create).toHaveBeenCalled();
     });
   });
 });

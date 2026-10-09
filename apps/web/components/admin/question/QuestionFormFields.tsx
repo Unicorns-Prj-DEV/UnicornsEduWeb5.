@@ -11,7 +11,6 @@ import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker
 import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
 import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
 import { appendBlankMarker } from "@/lib/fill-blank";
-import { materialGapIds } from "@/lib/material-gaps";
 import {
   ESSAY_INPUT_SIZE_LABELS,
   type EssayInputSizeDto,
@@ -23,7 +22,6 @@ import {
   type TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
-import AudioUploadField from "@/components/admin/question/AudioUploadField";
 import type { AudioRef } from "@/dtos/audio-asset.dto";
 import { useSharedMaterials } from "@/lib/hooks/useSharedMaterials";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
@@ -54,9 +52,9 @@ export type QuestionFormValue = {
   skills: QuestionSkillDto[];
   /** Kiểu ô nhập câu tự luận (chỉ hồ sơ JP). Câu mới mặc định ngắn. */
   essayInputSize: EssayInputSizeDto;
-  /** Tư liệu dùng chung (JP); "" = không gắn. */
+  /** Bộ câu hỏi của câu (JP, chỉ đọc); "" = câu lẻ. Đổi bộ qua chuyển vào / ra bộ. */
   sharedMaterialId: string;
-  /** Audio nhúng (JP); null = không có. */
+  /** Audio cũ của câu (JP, chỉ đọc — chỉ để xem trước); null = không có. */
   audio: AudioRef | null;
 };
 
@@ -144,31 +142,14 @@ export default function QuestionFormFields({
   );
 
   const sharedMaterialsEnabled = appConfig?.sharedMaterials ?? false;
+  // Chỉ để xem trước phần đầu bộ của câu trong bộ.
   const { data: materials = [] } = useSharedMaterials(
     courseId || undefined,
-    sharedMaterialsEnabled,
+    sharedMaterialsEnabled && Boolean(value.sharedMaterialId),
   );
-  const materialOptions = [
-    { value: "", label: "Không có (câu đứng riêng)" },
-    // Câu chỉ vào bộ cùng chuyên đề (bộ thuộc đúng một chuyên đề).
-    ...materials
-      .filter(
-        (m) =>
-          m.moduleId === value.moduleId || m.id === value.sharedMaterialId,
-      )
-      .map((m) => ({ value: m.id, label: m.title })),
-  ];
   const selectedMaterial = materials.find(
     (m) => m.id === value.sharedMaterialId,
   );
-  // Tư liệu khác (thường là tư liệu vừa gỡ) còn vị trí trống nối tới câu này.
-  const orphanGapMaterial = questionId
-    ? materials.find(
-        (m) =>
-          m.id !== value.sharedMaterialId &&
-          materialGapIds(m.content).includes(questionId),
-      )
-    : undefined;
 
   const chapterOptions = modules.map((ch) => ({
     value: ch.id,
@@ -273,47 +254,6 @@ export default function QuestionFormFields({
               <QuestionSkillPicker
                 value={value.skills}
                 onChange={(skills) => onChange({ skills })}
-              />
-            ) : null}
-
-            {sharedMaterialsEnabled ? (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-text-muted">
-                  Tư liệu dùng chung
-                </span>
-                <UpgradedSelect
-                  searchable
-                  value={value.sharedMaterialId}
-                  onValueChange={(v) => onChange({ sharedMaterialId: v })}
-                  options={materialOptions}
-                  ariaLabel="Tư liệu dùng chung"
-                  noResultsLabel="Không tìm thấy tư liệu."
-                />
-                <p className="mt-1 text-xs text-text-muted">
-                  Câu cùng tư liệu luôn đứng liền nhau trong đề. Tạo tư liệu ở
-                  “Tư liệu dùng chung” của ngân hàng câu hỏi.
-                </p>
-                {orphanGapMaterial ? (
-                  <p className="mt-1 text-xs text-warning">
-                    Tư liệu “{orphanGapMaterial.title}” có vị trí trống nối tới
-                    câu này. Không gắn câu vào tư liệu đó thì vị trí trống hiện
-                    không số — sửa tư liệu để gỡ.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {appConfig?.questionAudio && courseId ? (
-              <AudioUploadField
-                courseId={courseId}
-                value={value.audio}
-                onChange={(audio) => onChange({ audio })}
-                label="Audio của câu"
-                hint={
-                  selectedMaterial?.audio
-                    ? "Tư liệu đã có audio dùng chung — chỉ thêm khi câu cần audio riêng. MP3, M4A/AAC hoặc WAV, tối đa 20MB."
-                    : undefined
-                }
               />
             ) : null}
 
