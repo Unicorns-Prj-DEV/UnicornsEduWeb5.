@@ -165,12 +165,15 @@ export function importDisabledReason(input: {
   moduleId: string;
   validCount: number;
   isPending: boolean;
+  /** Hồ sơ JP bắt buộc kỹ năng mà lô chưa chọn. */
+  skillsMissing?: boolean;
 }): string | null {
   if (input.isPending) return "Đang lưu…";
   if (input.remainingUnreviewed > 0) {
     return remainingReviewLabel(input.remainingUnreviewed);
   }
   if (!input.moduleId) return "Chọn chuyên đề trước khi lưu";
+  if (input.skillsMissing) return "Chọn kỹ năng trước khi lưu";
   if (input.validCount <= 0) return "Không có câu hợp lệ để lưu";
   return null;
 }

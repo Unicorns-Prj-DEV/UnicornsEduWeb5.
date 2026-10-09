@@ -222,6 +222,7 @@ export interface BulkCreateQuestionInput {
     explanation?: string;
     answerGuide?: string;
     difficultyLevelId: string;
+    skills?: QuestionSkillDto[];
   }>;
 }
 

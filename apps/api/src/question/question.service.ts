@@ -267,14 +267,11 @@ export class QuestionService {
     // Validate each item
     for (const [i, item] of dto.questions.entries()) {
       assertQuestionShape(item, this.lmsProfile.config, `Câu ${i + 1}: `);
-      // Nhập hàng loạt (AI import) chưa sinh kỹ năng: chỉ kiểm tra khi có gửi.
-      if (item.skills?.length) {
-        assertQuestionSkills(
-          item.skills,
-          this.lmsProfile.config,
-          `Câu ${i + 1}: `,
-        );
-      }
+      assertQuestionSkills(
+        item.skills ?? [],
+        this.lmsProfile.config,
+        `Câu ${i + 1}: `,
+      );
       if (!item.content || !item.content.trim()) {
         throw new BadRequestException(`Question ${i + 1}: content is required`);
       }

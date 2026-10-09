@@ -135,6 +135,18 @@ describe("review gate helpers", () => {
       }),
     ).toBe("Còn 2 câu chưa review");
   });
+
+  it("hồ sơ JP: chưa chọn kỹ năng thì chưa lưu được", () => {
+    expect(
+      importDisabledReason({
+        remainingUnreviewed: 0,
+        moduleId: "ch-1",
+        validCount: 4,
+        isPending: false,
+        skillsMissing: true,
+      }),
+    ).toBe("Chọn kỹ năng trước khi lưu");
+  });
 });
 
 describe("formatQuestionErrors", () => {

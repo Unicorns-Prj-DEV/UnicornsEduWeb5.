@@ -403,14 +403,28 @@ describe('QuestionService', () => {
           options: ['A', 'B', 'C'],
           correctIndex: 1,
           difficultyLevelId: 'd1',
+          skills: [QuestionSkillDto.reading],
         },
         {
           type: QuestionTypeDto.essay as const,
           content: '<p>Q2?</p>',
           difficultyLevelId: 'd1',
+          skills: [QuestionSkillDto.reading],
         },
       ],
     };
+
+    it('JP: rejects a bulk item without any skill', async () => {
+      const dto = {
+        ...baseBulkDto,
+        questions: [{ ...baseBulkDto.questions[1], skills: undefined }],
+      };
+
+      await expect(service.bulkCreate(dto, actor)).rejects.toThrow(
+        'Câu 1: Câu hỏi phải chọn ít nhất một kỹ năng.',
+      );
+      expect(mockPrisma.question.create).not.toHaveBeenCalled();
+    });
 
     it('creates multiple questions in a transaction', async () => {
       mockPrisma.question.create

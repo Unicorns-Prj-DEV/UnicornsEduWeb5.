@@ -435,7 +435,7 @@ export class BulkCreateQuestionItemDto {
   difficultyLevelId: string;
   @ApiPropertyOptional({
     description:
-      'Kỹ năng (chỉ hồ sơ JP, chọn nhiều). JP bắt buộc ≥1 khi tạo/sửa; IT/ENG không được gửi.',
+      'Kỹ năng (chỉ hồ sơ JP, chọn nhiều). JP bắt buộc ≥1 cho từng câu; IT/ENG không được gửi.',
     enum: QuestionSkillDto,
     isArray: true,
     example: ['vocabulary', 'reading'],

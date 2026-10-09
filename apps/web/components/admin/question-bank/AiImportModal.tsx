@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  QuestionSkillDto,
   QuestionTypeDto,
   TRUE_FALSE_STATEMENT_LABELS,
   questionTypeLabel,
@@ -10,6 +11,7 @@ import { useState, useMemo, useCallback, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as questionApi from "@/lib/apis/question.api";
+import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
 import { api } from "@/lib/client";
 import { questionKeys, courseKeys } from "@/lib/query-keys";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
@@ -74,6 +76,7 @@ export default function AiImportModal({
   const [rawJson, setRawJson] = useState("");
   const [items, setItems] = useState<ValidatedAiQuestion[]>([]);
   const [selectedChapterId, setSelectedChapterId] = useState("");
+  const [skills, setSkills] = useState<QuestionSkillDto[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewed, setReviewed] = useState<Set<number>>(() => new Set());
 
@@ -339,6 +342,7 @@ ${hasTf ? "4. true_false_group: đúng 4 options + tfAnswerKey 4 phần tử boo
           explanation: item.explanation,
           answerGuide: item.answerGuide,
           difficultyLevelId: item.difficultyLevelId,
+          ...(appConfig?.questionSkills && { skills }),
         })),
       });
     },
@@ -362,6 +366,7 @@ ${hasTf ? "4. true_false_group: đúng 4 options + tfAnswerKey 4 phần tử boo
   const disabledReason = importDisabledReason({
     remainingUnreviewed,
     moduleId: selectedChapterId,
+    skillsMissing: Boolean(appConfig?.questionSkills) && skills.length === 0,
     validCount: validItems.length,
     isPending: importMutation.isPending,
   });
@@ -669,6 +674,15 @@ ${hasTf ? "4. true_false_group: đúng 4 options + tfAnswerKey 4 phần tử boo
                   {...chapterCreate}
                 />
               </div>
+
+              {appConfig?.questionSkills ? (
+                <div className="space-y-1">
+                  <QuestionSkillPicker value={skills} onChange={setSkills} />
+                  <p className="text-xs text-text-muted">
+                    Áp dụng cho mọi câu trong lần nhập này.
+                  </p>
+                </div>
+              ) : null}
 
               {currentItem ? (
                 <div className="space-y-3">
