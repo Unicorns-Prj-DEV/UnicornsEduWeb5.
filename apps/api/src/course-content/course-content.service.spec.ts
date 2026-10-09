@@ -1855,6 +1855,9 @@ describe('CourseContentService — ClassContent methods', () => {
             question: mockQuestion,
           },
         ]);
+        mockPrisma.lessonQuiz.findMany.mockResolvedValue([
+          { questionId: 'q-1', order: 0 },
+        ]);
 
         const result = await quizService.getQuizAnswers(
           'lecture-1',

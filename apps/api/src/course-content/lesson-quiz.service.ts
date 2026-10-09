@@ -11,6 +11,7 @@ import {
   seededRng,
   shuffleOrderingCards,
 } from '../attempt/shuffle';
+import { orderQuizAnswers } from './quiz-review-order';
 import { normalizeTrueFalseChoices } from '../attempt/grading';
 import { resolveAudioRefs } from '../question/audio-asset.service';
 import {
@@ -370,6 +371,16 @@ export class LessonQuizService extends CourseContentSupportService {
         },
       },
     });
-    return this.withQuizAudio(rows);
+    const quizzes = await this.prisma.lessonQuiz.findMany({
+      where: { lessonId },
+      select: { questionId: true, order: true },
+    });
+    return this.withQuizAudio(
+      orderQuizAnswers(
+        rows,
+        new Map(quizzes.map((q) => [q.questionId, q.order])),
+        (a) => a.question.sharedMaterial?.id ?? null,
+      ),
+    );
   }
 }
