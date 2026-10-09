@@ -28,6 +28,14 @@ export interface SharedMaterialResponseDto {
   updatedAt: Date;
 }
 
+/** Tiết đang dùng một Bộ câu hỏi — để cảnh báo trước khi sửa bộ. */
+export interface SharedMaterialUsageDto {
+  /** Số tiết thực hành đang chứa bộ. */
+  lessonCount: number;
+  /** Trong đó, số tiết đã giao cho ít nhất một lớp. */
+  assignedLessonCount: number;
+}
+
 export class SharedMaterialFilterDto {
   @ApiProperty({ description: 'Khoá học (ngân hàng câu hỏi)' })
   @IsUUID()

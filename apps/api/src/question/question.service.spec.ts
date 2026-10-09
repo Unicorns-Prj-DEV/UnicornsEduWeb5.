@@ -32,6 +32,9 @@ describe('QuestionService', () => {
     },
     questionLink: {
       findMany: jest.fn(),
+      create: jest.fn(),
+      updateMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     module: {
       findUnique: jest.fn(),
@@ -585,6 +588,7 @@ describe('QuestionService', () => {
       mockPrisma.question.aggregate.mockResolvedValue({
         _max: { setPosition: 2 },
       });
+      mockPrisma.questionLink.findMany.mockResolvedValue([]);
     });
 
     it('câu mới vào bộ xếp cuối bộ', async () => {
@@ -593,6 +597,52 @@ describe('QuestionService', () => {
       expect(mockPrisma.question.create).toHaveBeenCalledWith({
         data: contains({ sharedMaterialId: 'set1', setPosition: 3 }),
       });
+    });
+
+    it('câu mới vào bộ vào luôn mọi tiết đang dùng bộ, ngay sau câu cuối của bộ, trọng số 1', async () => {
+      mockPrisma.question.create.mockResolvedValue({ id: 'q9' });
+      // Tiết t1 có bộ ở order 3–4 (câu lẻ ở 5); tiết t2 có bộ ở order 0.
+      mockPrisma.questionLink.findMany.mockResolvedValue([
+        { lessonId: 't1', order: 3 },
+        { lessonId: 't1', order: 4 },
+        { lessonId: 't2', order: 0 },
+      ]);
+
+      await service.create({ ...dto, sharedMaterialId: 'set1' }, actor);
+
+      expect(mockPrisma.questionLink.updateMany).toHaveBeenCalledWith({
+        where: { lessonId: 't1', order: { gt: 4 } },
+        data: { order: { increment: 1 } },
+      });
+      expect(mockPrisma.questionLink.create).toHaveBeenCalledWith({
+        data: { lessonId: 't1', questionId: 'q9', order: 5, points: null },
+      });
+      expect(mockPrisma.questionLink.create).toHaveBeenCalledWith({
+        data: { lessonId: 't2', questionId: 'q9', order: 1, points: null },
+      });
+      // Lượt đã bắt đầu đọc snapshot attempt_answers — không bị đụng tới.
+      expect(mockPrisma).not.toHaveProperty('attemptAnswer');
+    });
+
+    it('câu lẻ mới không vào tiết nào', async () => {
+      mockPrisma.question.create.mockResolvedValue({ id: 'q9' });
+      await service.create(dto, actor);
+      expect(mockPrisma.questionLink.create).not.toHaveBeenCalled();
+    });
+
+    it('xoá câu của bộ thì câu biến khỏi mọi tiết dùng bộ', async () => {
+      mockPrisma.question.findUnique.mockResolvedValue(inSet);
+      mockPrisma.questionLink.findMany.mockResolvedValue([
+        { lessonId: 't1', questionId: 'q1' },
+      ]);
+      mockPrisma.question.update.mockResolvedValue(inSet);
+
+      await service.delete('q1', actor);
+
+      expect(mockPrisma.questionLink.deleteMany).toHaveBeenCalledWith({
+        where: { questionId: 'q1' },
+      });
+      expect(mockPrisma.question.update).toHaveBeenCalled();
     });
 
     it('câu khác chuyên đề với bộ bị từ chối', async () => {

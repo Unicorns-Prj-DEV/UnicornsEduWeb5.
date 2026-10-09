@@ -11,6 +11,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -391,6 +392,14 @@ export class QuestionLinkUpdateDto {
   @IsOptional()
   @IsIn(['required', 'elective_1', 'elective_2'])
   slot?: 'required' | 'elective_1' | 'elective_2';
+}
+
+export class QuestionSetLinkCreateDto {
+  @ApiProperty({
+    description: 'ID Bộ câu hỏi (shared material) cần thêm cả bộ',
+  })
+  @IsUUID()
+  sharedMaterialId: string;
 }
 
 export class ReorderQuestionLinksDto {

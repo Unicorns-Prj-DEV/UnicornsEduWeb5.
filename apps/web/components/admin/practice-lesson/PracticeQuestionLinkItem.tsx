@@ -183,6 +183,8 @@ export function PracticeQuestionLinkItem({
   };
 
   const { question } = link;
+  // Câu của bộ: đổi chỗ / gỡ theo cả bộ ở đầu khối, không lẻ từng câu.
+  const inSet = Boolean(question.sharedMaterialId);
   const isChoice = question.type === QuestionTypeDto.single_choice;
   const isTrueFalse = question.type === QuestionTypeDto.true_false_group;
   const singleTfKey =
@@ -209,40 +211,41 @@ export function PracticeQuestionLinkItem({
             {itExamPart(question.type) === "II" ? "1 điểm" : "0,25 điểm"}
           </Badge>
         ) : null}
-        {question.sharedMaterial ? (
-          <Badge variant="outline" className="min-w-0 truncate">
-            Tư liệu: {question.sharedMaterial.title}
-          </Badge>
-        ) : null}
         {canEdit ? (
           <div className="ml-auto flex items-center">
-            <IconButton
-              label="Đưa câu lên trên"
-              disabled={!canMoveUp}
-              onClick={() => onMove(-1)}
-            >
-              <ChevronUp className="size-4" />
-            </IconButton>
-            <IconButton
-              label="Đưa câu xuống dưới"
-              disabled={!canMoveDown}
-              onClick={() => onMove(1)}
-            >
-              <ChevronDown className="size-4" />
-            </IconButton>
+            {inSet ? null : (
+              <>
+                <IconButton
+                  label="Đưa câu lên trên"
+                  disabled={!canMoveUp}
+                  onClick={() => onMove(-1)}
+                >
+                  <ChevronUp className="size-4" />
+                </IconButton>
+                <IconButton
+                  label="Đưa câu xuống dưới"
+                  disabled={!canMoveDown}
+                  onClick={() => onMove(1)}
+                >
+                  <ChevronDown className="size-4" />
+                </IconButton>
+              </>
+            )}
             <IconButton
               label="Sửa câu hỏi trong ngân hàng"
               onClick={() => void openQuestionForm()}
             >
               <Pencil className="size-4" />
             </IconButton>
-            <IconButton
-              label="Xóa câu hỏi khỏi đề"
-              tone="danger"
-              onClick={() => void remove()}
-            >
-              <Trash2 className="size-4" />
-            </IconButton>
+            {inSet ? null : (
+              <IconButton
+                label="Xóa câu hỏi khỏi đề"
+                tone="danger"
+                onClick={() => void remove()}
+              >
+                <Trash2 className="size-4" />
+              </IconButton>
+            )}
           </div>
         ) : null}
       </div>

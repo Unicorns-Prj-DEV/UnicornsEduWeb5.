@@ -1528,14 +1528,182 @@ describe('CourseContentService — ClassContent methods', () => {
       });
     });
 
+    // ─── Bộ câu hỏi trong tiết (ADR 2026-10-09-question-set) ───
+
+    describe('Bộ câu hỏi trong tiết', () => {
+      const setQuestion = {
+        ...mockQuestion,
+        id: 'q-a',
+        sharedMaterialId: 'set-1',
+      };
+
+      beforeEach(() => {
+        mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
+        mockPrisma.question.findMany = jest.fn();
+        mockPrisma.questionLink.createMany = jest.fn();
+        mockPrisma.questionLink.deleteMany = jest.fn();
+        mockPrisma.questionLink.count = jest.fn().mockResolvedValue(0);
+        mockPrisma.sharedMaterial = { findUnique: jest.fn() };
+      });
+
+      it('từ chối thêm lẻ một câu thuộc bộ', async () => {
+        mockPrisma.question.findUnique.mockResolvedValue(setQuestion);
+
+        await expect(
+          service.addQuestionToLesson(
+            'topic-practice-1',
+            { questionId: 'q-a' },
+            adminActor,
+          ),
+        ).rejects.toThrow('Câu thuộc bộ — thêm cả bộ vào tiết.');
+        expect(mockPrisma.questionLink.create).not.toHaveBeenCalled();
+      });
+
+      it('thêm bộ = mọi câu của bộ theo thứ tự bộ, nối cuối đề, trọng số mặc định', async () => {
+        mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+          id: 'set-1',
+          courseId: 'course-1',
+        });
+        mockPrisma.question.findMany.mockResolvedValue([
+          { id: 'q-a' },
+          { id: 'q-b' },
+        ]);
+        mockPrisma.questionLink.aggregate.mockResolvedValue({
+          _max: { order: 4 },
+        });
+
+        await service.addSetToLesson('topic-practice-1', 'set-1', adminActor);
+
+        expect(mockPrisma.question.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { sharedMaterialId: 'set-1', deletedAt: null },
+          }),
+        );
+        expect(mockPrisma.questionLink.createMany).toHaveBeenCalledWith({
+          data: [
+            {
+              lessonId: 'topic-practice-1',
+              questionId: 'q-a',
+              order: 5,
+              points: null,
+            },
+            {
+              lessonId: 'topic-practice-1',
+              questionId: 'q-b',
+              order: 6,
+              points: null,
+            },
+          ],
+        });
+      });
+
+      it('từ chối bộ đã có trong tiết', async () => {
+        mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+          id: 'set-1',
+          courseId: 'course-1',
+        });
+        mockPrisma.question.findMany.mockResolvedValue([{ id: 'q-a' }]);
+        mockPrisma.questionLink.count.mockResolvedValue(1);
+
+        await expect(
+          service.addSetToLesson('topic-practice-1', 'set-1', adminActor),
+        ).rejects.toThrow('Bộ đã có trong tiết.');
+      });
+
+      it('từ chối bộ chưa có câu', async () => {
+        mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+          id: 'set-1',
+          courseId: 'course-1',
+        });
+        mockPrisma.question.findMany.mockResolvedValue([]);
+
+        await expect(
+          service.addSetToLesson('topic-practice-1', 'set-1', adminActor),
+        ).rejects.toThrow('Bộ chưa có câu.');
+      });
+
+      it('từ chối bộ khác khoá', async () => {
+        mockPrisma.sharedMaterial.findUnique.mockResolvedValue({
+          id: 'set-1',
+          courseId: 'course-other',
+        });
+
+        await expect(
+          service.addSetToLesson('topic-practice-1', 'set-1', adminActor),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('gỡ bộ = gỡ mọi câu của bộ khỏi tiết', async () => {
+        mockPrisma.questionLink.deleteMany.mockResolvedValue({ count: 2 });
+
+        await service.removeSetFromLesson(
+          'topic-practice-1',
+          'set-1',
+          adminActor,
+        );
+
+        expect(mockPrisma.questionLink.deleteMany).toHaveBeenCalledWith({
+          where: {
+            lessonId: 'topic-practice-1',
+            question: { sharedMaterialId: 'set-1' },
+          },
+        });
+      });
+
+      it('không gỡ lẻ một câu của bộ', async () => {
+        mockPrisma.questionLink.findUnique.mockResolvedValue({
+          ...mockLink,
+          question: { sharedMaterialId: 'set-1' },
+        });
+
+        await expect(
+          service.removeQuestionFromLesson(
+            'topic-practice-1',
+            'link-1',
+            adminActor,
+          ),
+        ).rejects.toThrow('Câu thuộc bộ — gỡ cả bộ khỏi tiết.');
+        expect(mockPrisma.questionLink.delete).not.toHaveBeenCalled();
+      });
+
+      it('sắp xếp không được chen câu lẻ vào giữa bộ', async () => {
+        mockPrisma.questionLink.findMany.mockResolvedValue([
+          { id: 'l-a', question: { sharedMaterialId: 'set-1' } },
+          { id: 'l-b', question: { sharedMaterialId: 'set-1' } },
+          { id: 'l-x', question: { sharedMaterialId: null } },
+        ]);
+
+        await expect(
+          service.reorderQuestionLinks(
+            'topic-practice-1',
+            ['l-a', 'l-x', 'l-b'],
+            adminActor,
+          ),
+        ).rejects.toThrow('Bộ câu hỏi phải là một mục liền trong tiết.');
+        expect(mockPrisma.questionLink.update).not.toHaveBeenCalled();
+      });
+
+      it('sắp xếp phải gửi đủ mọi câu của tiết', async () => {
+        mockPrisma.questionLink.findMany.mockResolvedValue([
+          { id: 'l-a', question: { sharedMaterialId: 'set-1' } },
+          { id: 'l-x', question: { sharedMaterialId: null } },
+        ]);
+
+        await expect(
+          service.reorderQuestionLinks('topic-practice-1', ['l-x'], adminActor),
+        ).rejects.toThrow(BadRequestException);
+      });
+    });
+
     // ─── reorderQuestionLinks ───
 
     describe('reorderQuestionLinks', () => {
       it('should update sortOrder for all owned IDs', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
-        mockPrisma.questionLink.findMany
-          .mockResolvedValueOnce([{ id: 'link-1' }, { id: 'link-2' }])
-          .mockResolvedValueOnce([]);
+        mockPrisma.questionLink.findMany.mockResolvedValue([
+          { id: 'link-1', question: { sharedMaterialId: null } },
+          { id: 'link-2', question: { sharedMaterialId: null } },
+        ]);
         mockPrisma.questionLink.update.mockResolvedValue({});
 
         await service.reorderQuestionLinks(
@@ -1557,7 +1725,9 @@ describe('CourseContentService — ClassContent methods', () => {
 
       it('should throw if any ID does not belong to topic', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(practiceTopic);
-        mockPrisma.questionLink.findMany.mockResolvedValue([{ id: 'link-1' }]);
+        mockPrisma.questionLink.findMany.mockResolvedValue([
+          { id: 'link-1', question: { sharedMaterialId: null } },
+        ]);
 
         await expect(
           service.reorderQuestionLinks(

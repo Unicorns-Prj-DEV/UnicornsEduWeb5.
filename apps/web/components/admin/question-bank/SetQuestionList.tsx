@@ -158,7 +158,7 @@ export default function SetQuestionList({
             if (!open) setDeleteTarget(null);
           }}
           title="Xoá câu khỏi bộ"
-          description="Câu bị xoá khỏi ngân hàng câu hỏi. Hành động này không thể hoàn tác."
+          description="Câu bị xoá khỏi ngân hàng câu hỏi và khỏi mọi tiết đang dùng bộ. Hành động này không thể hoàn tác."
           confirmLabel="Xoá"
           cancelLabel="Huỷ"
           variant="destructive"

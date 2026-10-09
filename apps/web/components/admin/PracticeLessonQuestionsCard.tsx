@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, Plus } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Layers, Plus, Trash2 } from "lucide-react";
 import { practiceLessonQuestionKeys } from "@/lib/query-keys";
 import * as classApi from "@/lib/apis/class.api";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
@@ -12,6 +12,8 @@ import {
   itExamBreakdown,
   orderExamQuestions,
 } from "@/lib/exam-layout";
+import { moveUnit, practiceUnits } from "@/lib/practice-units";
+import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -114,6 +116,72 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
   );
 }
 
+const SET_ICON_BUTTON =
+  "inline-flex size-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-40 sm:size-8";
+
+/** Đầu khối Bộ câu hỏi trong tiết: đổi chỗ / gỡ cả bộ. */
+function SetUnitHeader({
+  title,
+  count,
+  canEdit,
+  canMoveUp,
+  canMoveDown,
+  onMove,
+  onRemove,
+}: {
+  title: string;
+  count: number;
+  canEdit: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <li className="list-none pt-1">
+      <div className="flex items-center gap-2 rounded-md border border-info/30 bg-info/5 px-3 py-1.5">
+        <Layers className="size-4 shrink-0 text-info" aria-hidden />
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">
+          Bộ: {title}
+          <span className="ml-1.5 text-xs font-normal text-text-muted">
+            {count} câu
+          </span>
+        </p>
+        {canEdit ? (
+          <div className="flex shrink-0 items-center">
+            <button
+              type="button"
+              className={SET_ICON_BUTTON}
+              disabled={!canMoveUp}
+              onClick={() => onMove(-1)}
+              aria-label={`Đưa bộ ${title} lên trên`}
+            >
+              <ChevronUp className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className={SET_ICON_BUTTON}
+              disabled={!canMoveDown}
+              onClick={() => onMove(1)}
+              aria-label={`Đưa bộ ${title} xuống dưới`}
+            >
+              <ChevronDown className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className={`${SET_ICON_BUTTON} hover:bg-error/10 hover:text-error`}
+              onClick={onRemove}
+              aria-label={`Gỡ bộ ${title} khỏi đề`}
+            >
+              <Trash2 className="size-4" aria-hidden />
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 function ViewModeToggle({
   value,
   onChange,
@@ -180,6 +248,16 @@ export function PracticeLessonQuestionsCard({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("full");
   const { confirm, dialog } = useConfirmDialog();
+  const removeSet = useMutation({
+    mutationFn: (setId: string) =>
+      classApi.removePracticeLessonQuestionSet(lessonId, setId),
+    onSuccess: async () => {
+      toast.success("Đã gỡ bộ khỏi đề.");
+      await invalidate();
+    },
+    onError: (error) =>
+      toast.error(getMutationErrorMessage(error, "Không thể gỡ bộ khỏi đề.")),
+  });
 
   if (isLoading) {
     return (
@@ -197,9 +275,16 @@ export function PracticeLessonQuestionsCard({
     );
   }
 
-  // Cùng thứ tự và cách đánh số học sinh thấy trong Bài làm.
-  const ordered = orderExamQuestions(
-    links.map((link) => ({ ...link, type: link.question.type })),
+  // Cùng thứ tự và cách đánh số học sinh thấy trong Bài làm; Bộ câu hỏi là
+  // một mục liền, đổi chỗ / gỡ theo cả bộ.
+  const units = practiceUnits(
+    orderExamQuestions(
+      links.map((link) => ({ ...link, type: link.question.type })),
+    ),
+  );
+  const ordered = units.flatMap((unit) => unit.links);
+  const unitIndexOf = new Map(
+    units.flatMap((unit, i) => unit.links.map((link) => [link.id, i] as const)),
   );
   const layout = buildExamLayout(
     ordered,
@@ -225,8 +310,7 @@ export function PracticeLessonQuestionsCard({
     elective_2: breakdown.elective2,
   };
 
-  const move = async (index: number, direction: -1 | 1) => {
-    const target = index + direction;
+  const confirmAssigned = async () => {
     if (assigned) {
       const ok = await confirm({
         title: "Đề đã giao cho lớp",
@@ -235,12 +319,38 @@ export function PracticeLessonQuestionsCard({
         confirmLabel: "Tiếp tục",
         variant: "destructive",
       });
-      if (!ok) return;
+      if (!ok) return false;
     }
-    const next = [...ordered];
-    [next[index], next[target]] = [next[target], next[index]];
+    return true;
+  };
+
+  const move = async (unitIndex: number, direction: -1 | 1) => {
+    if (!(await confirmAssigned())) return;
     const byId = new Map(links.map((link) => [link.id, link]));
-    reorder.mutate(next.map((link) => byId.get(link.id)!));
+    reorder.mutate(
+      moveUnit(units, unitIndex, direction).map((link) => byId.get(link.id)!),
+    );
+  };
+  // Mục kề cùng Phần/nhóm (IT) mới đổi chỗ được.
+  const canMoveUnit = (unitIndex: number, direction: -1 | 1) => {
+    const neighbor = units[unitIndex + direction];
+    return (
+      !reorder.isPending &&
+      neighbor !== undefined &&
+      groupOf(neighbor.links[0]) === groupOf(units[unitIndex].links[0])
+    );
+  };
+
+  const requestRemoveSet = async (setId: string, title: string) => {
+    const ok = await confirm({
+      title: "Gỡ bộ khỏi đề",
+      description: assigned
+        ? `Gỡ mọi câu của bộ "${title}" khỏi đề. Đề đã giao cho lớp — lượt làm bắt đầu sau sẽ không còn bộ này.`
+        : `Gỡ mọi câu của bộ "${title}" khỏi đề. Câu vẫn còn trong ngân hàng.`,
+      confirmLabel: "Gỡ bộ",
+      variant: "destructive",
+    });
+    if (ok) removeSet.mutate(setId);
   };
 
   return (
@@ -336,9 +446,11 @@ export function PracticeLessonQuestionsCard({
         </div>
       ) : (
         <ul className="space-y-2">
-          {layout.map((view, index) => {
+          {layout.map((view) => {
             const link = view.question;
-            const group = groupOf(link);
+            const unitIndex = unitIndexOf.get(link.id)!;
+            const unit = units[unitIndex];
+            const setTitle = link.question.sharedMaterial?.title ?? "Bộ câu hỏi";
             return (
               <Fragment key={link.id}>
                 {view.partHeader ? (
@@ -361,6 +473,17 @@ export function PracticeLessonQuestionsCard({
                     </div>
                   </li>
                 ) : null}
+                {unit.setId && unit.links[0].id === link.id ? (
+                  <SetUnitHeader
+                    title={setTitle}
+                    count={unit.links.length}
+                    canEdit={canEdit}
+                    canMoveUp={canMoveUnit(unitIndex, -1)}
+                    canMoveDown={canMoveUnit(unitIndex, 1)}
+                    onMove={(direction) => void move(unitIndex, direction)}
+                    onRemove={() => void requestRemoveSet(unit.setId!, setTitle)}
+                  />
+                ) : null}
                 <PracticeQuestionLinkItem
                   link={link}
                   label={`Câu ${view.number}`}
@@ -372,17 +495,9 @@ export function PracticeLessonQuestionsCard({
                   isAbsolute={isAbsolute}
                   weighted={weighted}
                   compact={viewMode === "compact"}
-                  canMoveUp={
-                    !reorder.isPending &&
-                    index > 0 &&
-                    groupOf(ordered[index - 1]) === group
-                  }
-                  canMoveDown={
-                    !reorder.isPending &&
-                    index < ordered.length - 1 &&
-                    groupOf(ordered[index + 1]) === group
-                  }
-                  onMove={(direction) => void move(index, direction)}
+                  canMoveUp={canMoveUnit(unitIndex, -1)}
+                  canMoveDown={canMoveUnit(unitIndex, 1)}
+                  onMove={(direction) => void move(unitIndex, direction)}
                   confirm={confirm}
                   onSaved={invalidate}
                 />
@@ -397,6 +512,7 @@ export function PracticeLessonQuestionsCard({
           lessonId={lessonId}
           courseId={courseId}
           existingLinkQuestionIds={links.map((l) => l.questionId)}
+          existingSetIds={units.flatMap((unit) => (unit.setId ? [unit.setId] : []))}
           assigned={assigned}
           onClose={() => setShowAddDialog(false)}
           onAdded={invalidate}

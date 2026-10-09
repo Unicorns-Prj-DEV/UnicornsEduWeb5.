@@ -86,6 +86,11 @@ export default function SharedMaterialFormDialog({
     queryFn: () => questionApi.getQuestions(attachedFilter, 0, 200),
     enabled: Boolean(saved),
   });
+  const { data: usage } = useQuery({
+    queryKey: sharedMaterialKeys.usage(saved?.id ?? ""),
+    queryFn: () => sharedMaterialApi.getSharedMaterialUsage(saved!.id),
+    enabled: Boolean(saved),
+  });
   const attachedById = new Map(attached.map((q) => [q.id, q]));
   const gapIds = materialGapIds(form.content);
 
@@ -283,6 +288,19 @@ export default function SharedMaterialFormDialog({
                 </ol>
               ) : null}
             </div>
+            {usage && usage.lessonCount > 0 ? (
+              <p
+                role="note"
+                className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-primary"
+              >
+                Bộ đang ở {usage.lessonCount} tiết
+                {usage.assignedLessonCount > 0
+                  ? `, ${usage.assignedLessonCount} tiết đã giao cho lớp`
+                  : ""}
+                . Thêm / xoá câu đổi đề của các tiết này cho lượt làm bắt đầu
+                sau.
+              </p>
+            ) : null}
             {saved ? (
               <SetQuestionList
                 courseId={courseId}

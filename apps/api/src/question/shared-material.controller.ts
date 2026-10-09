@@ -98,6 +98,19 @@ export class SharedMaterialController {
     });
   }
 
+  @Get(':id/usage')
+  @ApiOperation({
+    summary: 'Số tiết thực hành đang dùng Bộ câu hỏi',
+    description:
+      'Tiết đi theo bộ: thêm / xoá câu trong bộ đổi đề các tiết này cho lượt bắt đầu sau. Dùng để cảnh báo trước khi sửa bộ.',
+  })
+  @ApiParam({ name: 'id', description: 'Shared material (bộ) ID' })
+  @ApiOkResponse({ description: '{ lessonCount, assignedLessonCount }' })
+  @ApiNotFoundResponse({ description: 'Không tìm thấy bộ' })
+  usage(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.usage(id);
+  }
+
   @Put(':id/question-order')
   @ApiOperation({
     summary: 'Sắp lại thứ tự câu trong Bộ câu hỏi',

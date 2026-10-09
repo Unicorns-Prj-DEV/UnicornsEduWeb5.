@@ -18,6 +18,13 @@ export interface SharedMaterial {
   updatedAt: string;
 }
 
+/** Tiết đang dùng bộ (tiết đi theo bộ → sửa bộ là sửa các tiết này). */
+export interface SharedMaterialUsage {
+  lessonCount: number;
+  /** Số tiết trong đó đã giao cho lớp. */
+  assignedLessonCount: number;
+}
+
 export interface CreateSharedMaterialInput {
   courseId: string;
   moduleId: string;

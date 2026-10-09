@@ -39,6 +39,7 @@ const LINK_INCLUDE = {
       tfLabelStyle: true,
       blankAnswerKey: true,
       sharedMaterialId: true,
+      setPosition: true,
       sharedMaterial: { select: { id: true, title: true } },
       audioId: true,
       audio: { select: { id: true, originalName: true } },
@@ -66,6 +67,18 @@ function toLinkResponse(link: LinkWithQuestion): QuestionLinkResponseDto {
           : parseBlankAnswerKey(link.question.blankAnswerKey),
     },
   };
+}
+
+/** Mỗi bộ chiếm một đoạn liền: không gặp lại bộ đã rời khỏi. */
+export function setsContiguous(sets: (string | null)[]): boolean {
+  const closed = new Set<string>();
+  let current: string | null = null;
+  for (const set of sets) {
+    if (set !== current && current !== null) closed.add(current);
+    if (set !== null && closed.has(set)) return false;
+    current = set;
+  }
+  return true;
 }
 
 @Injectable()
@@ -181,6 +194,10 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
         'Câu hỏi phải thuộc cùng khoá học với chuyên đề',
       );
     }
+    // Tiết lấy nguyên bộ (ADR 2026-10-09-question-set).
+    if (question.sharedMaterialId != null) {
+      throw new BadRequestException('Câu thuộc bộ — thêm cả bộ vào tiết.');
+    }
 
     // Check duplicate
     const existing = await this.prisma.questionLink.findUnique({
@@ -257,9 +274,13 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
 
     const link = await this.prisma.questionLink.findUnique({
       where: { id: linkId },
+      include: { question: { select: { sharedMaterialId: true } } },
     });
     if (!link || link.lessonId !== lessonId) {
       throw new NotFoundException('Question link not found');
+    }
+    if (link.question?.sharedMaterialId != null) {
+      throw new BadRequestException('Câu thuộc bộ — gỡ cả bộ khỏi tiết.');
     }
 
     await this.prisma.questionLink.delete({ where: { id: linkId } });
@@ -276,14 +297,26 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
     const { topic, courseId } = await this.validatePracticeLesson(lessonId);
     await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
 
-    // Verify all links belong to this topic
+    // Gửi đủ mọi câu của tiết, mỗi câu một lần — mới kiểm được bộ liền khối.
     const owned = await this.prisma.questionLink.findMany({
-      where: { id: { in: linkIds }, lessonId },
-      select: { id: true },
+      where: { lessonId },
+      select: { id: true, question: { select: { sharedMaterialId: true } } },
     });
-    if (owned.length !== linkIds.length) {
+    const setOf = new Map(
+      owned.map((l) => [l.id, l.question.sharedMaterialId]),
+    );
+    if (
+      owned.length !== linkIds.length ||
+      new Set(linkIds).size !== linkIds.length ||
+      linkIds.some((id) => !setOf.has(id))
+    ) {
       throw new BadRequestException(
         'Một số ID không thuộc tiết học này hoặc không tồn tại',
+      );
+    }
+    if (!setsContiguous(linkIds.map((id) => setOf.get(id) ?? null))) {
+      throw new BadRequestException(
+        'Bộ câu hỏi phải là một mục liền trong tiết.',
       );
     }
 
@@ -298,6 +331,74 @@ export class PracticeQuestionLinkService extends CourseContentSupportService {
 
     this.logger.log(
       `Question links reordered for topic ${lessonId} by ${actor.userEmail}`,
+    );
+  }
+
+  /** Thêm cả Bộ câu hỏi vào cuối tiết: mọi câu của bộ theo thứ tự bộ, trọng số mặc định. */
+  async addSetToLesson(
+    lessonId: string,
+    sharedMaterialId: string,
+    actor: ActionHistoryActor,
+  ): Promise<void> {
+    const { topic, courseId } = await this.validatePracticeLesson(lessonId);
+    await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
+
+    const set = await this.prisma.sharedMaterial.findUnique({
+      where: { id: sharedMaterialId },
+      select: { id: true, courseId: true },
+    });
+    if (!set) throw new NotFoundException('Không tìm thấy bộ câu hỏi.');
+    if (set.courseId !== courseId) {
+      throw new BadRequestException(
+        'Bộ câu hỏi phải thuộc cùng khoá với tiết.',
+      );
+    }
+    const questions = await this.prisma.question.findMany({
+      where: { sharedMaterialId, deletedAt: null },
+      orderBy: [{ setPosition: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true },
+    });
+    if (questions.length === 0) {
+      throw new BadRequestException('Bộ chưa có câu.');
+    }
+    const already = await this.prisma.questionLink.count({
+      where: { lessonId, question: { sharedMaterialId } },
+    });
+    if (already > 0) throw new BadRequestException('Bộ đã có trong tiết.');
+
+    const { _max } = await this.prisma.questionLink.aggregate({
+      where: { lessonId },
+      _max: { order: true },
+    });
+    const start = (_max.order ?? -1) + 1;
+    await this.prisma.questionLink.createMany({
+      data: questions.map((q, i) => ({
+        lessonId,
+        questionId: q.id,
+        order: start + i,
+        points: null,
+      })),
+    });
+    this.logger.log(
+      `Question set ${sharedMaterialId} linked to lesson ${lessonId} by ${actor.userEmail}`,
+    );
+  }
+
+  /** Gỡ cả Bộ câu hỏi khỏi tiết. */
+  async removeSetFromLesson(
+    lessonId: string,
+    sharedMaterialId: string,
+    actor: ActionHistoryActor,
+  ): Promise<void> {
+    const { topic, courseId } = await this.validatePracticeLesson(lessonId);
+    await this.assertCanLinkPracticeQuestions(topic, courseId, actor);
+
+    const { count } = await this.prisma.questionLink.deleteMany({
+      where: { lessonId, question: { sharedMaterialId } },
+    });
+    if (count === 0) throw new NotFoundException('Bộ không có trong tiết.');
+    this.logger.log(
+      `Question set ${sharedMaterialId} unlinked from lesson ${lessonId} by ${actor.userEmail}`,
     );
   }
 

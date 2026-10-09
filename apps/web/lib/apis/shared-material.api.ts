@@ -2,6 +2,7 @@ import { api } from "@/lib/client";
 import type {
   CreateSharedMaterialInput,
   SharedMaterial,
+  SharedMaterialUsage,
   UpdateSharedMaterialInput,
 } from "@/dtos/shared-material.dto";
 
@@ -38,6 +39,16 @@ export async function reorderSetQuestions(
   questionIds: string[],
 ): Promise<void> {
   await api.put(`/shared-materials/${id}/question-order`, { questionIds });
+}
+
+/** Số tiết đang dùng bộ — cảnh báo trước khi sửa bộ. */
+export async function getSharedMaterialUsage(
+  id: string,
+): Promise<SharedMaterialUsage> {
+  const response = await api.get<SharedMaterialUsage>(
+    `/shared-materials/${id}/usage`,
+  );
+  return response.data;
 }
 
 export async function deleteSharedMaterial(id: string): Promise<void> {

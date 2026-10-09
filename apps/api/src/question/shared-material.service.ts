@@ -13,6 +13,7 @@ import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import {
   CreateSharedMaterialDto,
   SharedMaterialResponseDto,
+  SharedMaterialUsageDto,
   UpdateSharedMaterialDto,
 } from '../dtos/shared-material.dto';
 import { assertAudioAttachable, withAudioRefs } from './audio-asset.service';
@@ -201,6 +202,29 @@ export class SharedMaterialService {
       { ...updated, questionCount: await this.activeQuestionCount(id) },
     ]);
     return withAudio;
+  }
+
+  /** Tiết thực hành đang dùng bộ (tiết đi theo bộ → sửa bộ là sửa các tiết này). */
+  async usage(id: string): Promise<SharedMaterialUsageDto> {
+    this.assertEnabled();
+    await this.findOrThrow(id);
+    const links = await this.prisma.questionLink.findMany({
+      where: { question: { sharedMaterialId: id, deletedAt: null } },
+      distinct: ['lessonId'],
+      select: { lessonId: true },
+    });
+    const lessonIds = links.map((l) => l.lessonId);
+    const assigned = lessonIds.length
+      ? await this.prisma.classContentItem.findMany({
+          where: { lessonId: { in: lessonIds } },
+          distinct: ['lessonId'],
+          select: { lessonId: true },
+        })
+      : [];
+    return {
+      lessonCount: lessonIds.length,
+      assignedLessonCount: assigned.length,
+    };
   }
 
   /**

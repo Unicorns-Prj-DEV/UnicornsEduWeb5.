@@ -17,6 +17,7 @@ import {
   nextSetPosition,
 } from './shared-material.service';
 import { assertAudioAttachable, withAudioRefs } from './audio-asset.service';
+import { linkQuestionToSetLessons } from './set-lesson-sync';
 import {
   CreateQuestionDto,
   UpdateQuestionDto,
@@ -125,6 +126,9 @@ export class QuestionService {
             : null,
         },
       });
+      if (dto.sharedMaterialId) {
+        await linkQuestionToSetLessons(tx, created.id, dto.sharedMaterialId);
+      }
       await this.actionHistory.recordCreate(tx, {
         entityType: 'question',
         entityId: created.id,
@@ -264,7 +268,9 @@ export class QuestionService {
     const usage = await this.prisma.questionLink.findMany({
       where: { questionId: id },
     });
-    if (usage.length) {
+    // Câu của bộ: tiết đi theo bộ nên câu chỉ biến khỏi tiết (lượt cũ giữ snapshot).
+    // Câu lẻ đang nằm trong tiết thì phải gỡ khỏi tiết trước.
+    if (usage.length && !q.sharedMaterialId) {
       const lessonIds = usage.map((u) => u.lessonId);
       throw new ConflictException({
         message: 'Question is used by practice lessons',
@@ -273,6 +279,9 @@ export class QuestionService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (usage.length) {
+        await tx.questionLink.deleteMany({ where: { questionId: id } });
+      }
       const updated = await tx.question.update({
         where: { id },
         data: { deletedAt: new Date() },

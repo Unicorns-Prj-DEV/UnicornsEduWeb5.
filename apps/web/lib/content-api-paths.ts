@@ -34,6 +34,12 @@ export const contentApiPaths = {
   lessonQuestion: (lessonId: string, linkId: string) =>
     `/lessons/${enc(lessonId)}/questions/${enc(linkId)}`,
 
+  lessonQuestionSets: (lessonId: string) =>
+    `/lessons/${enc(lessonId)}/questions/sets`,
+
+  lessonQuestionSet: (lessonId: string, setId: string) =>
+    `/lessons/${enc(lessonId)}/questions/sets/${enc(setId)}`,
+
   lessonQuestionsReorder: (lessonId: string) =>
     `/lessons/${enc(lessonId)}/questions/reorder`,
 

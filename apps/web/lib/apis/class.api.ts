@@ -1030,6 +1030,26 @@ export async function removePracticeLessonQuestion(
   await api.delete(contentApiPaths.lessonQuestion(lessonId, linkId));
 }
 
+/** Thêm cả Bộ câu hỏi vào tiết — tiết lấy nguyên bộ. */
+export async function addPracticeLessonQuestionSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.post(contentApiPaths.lessonQuestionSets(lessonId), {
+    sharedMaterialId,
+  });
+}
+
+/** Gỡ cả Bộ câu hỏi khỏi tiết. */
+export async function removePracticeLessonQuestionSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.delete(
+    contentApiPaths.lessonQuestionSet(lessonId, sharedMaterialId),
+  );
+}
+
 export async function reorderPracticeLessonQuestions(
   lessonId: string,
   linkIds: string[],

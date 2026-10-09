@@ -198,6 +198,18 @@ export class CourseContentService extends CourseContentSupportService {
     return this.questions.removeQuestionFromLesson(...args);
   }
 
+  addSetToLesson(
+    ...args: Parameters<PracticeQuestionLinkService['addSetToLesson']>
+  ) {
+    return this.questions.addSetToLesson(...args);
+  }
+
+  removeSetFromLesson(
+    ...args: Parameters<PracticeQuestionLinkService['removeSetFromLesson']>
+  ) {
+    return this.questions.removeSetFromLesson(...args);
+  }
+
   reorderQuestionLinks(
     ...args: Parameters<PracticeQuestionLinkService['reorderQuestionLinks']>
   ) {

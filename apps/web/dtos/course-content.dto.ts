@@ -94,6 +94,8 @@ export interface QuestionLinkQuestion {
   blankAnswerKey?: string[][] | null;
   /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
   sharedMaterialId?: string | null;
+  /** Vị trí trong bộ — trong tiết, câu của bộ theo thứ tự này. */
+  setPosition?: number | null;
   sharedMaterial?: { id: string; title: string } | null;
   /** Audio nhúng (JP) — giữ khi sửa câu từ màn xếp đề. */
   audioId?: string | null;
