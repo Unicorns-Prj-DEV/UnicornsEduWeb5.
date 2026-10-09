@@ -38,6 +38,8 @@ const LINK_INCLUDE = {
       essayInputSize: true,
       tfLabelStyle: true,
       blankAnswerKey: true,
+      sharedMaterialId: true,
+      sharedMaterial: { select: { id: true, title: true } },
     },
   },
 } satisfies Prisma.QuestionLinkInclude;

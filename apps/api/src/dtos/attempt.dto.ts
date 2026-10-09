@@ -200,6 +200,11 @@ export interface AttemptQuestionDto {
   orderAnswer: string[] | null;
   /** Câu sắp xếp: thứ tự đúng — chỉ khi đã nộp. */
   orderingKey?: string[] | null;
+  /**
+   * Tư liệu dùng chung (bản chụp lúc start). Các câu cùng `id` đứng liền nhau —
+   * web hiện nội dung một lần trước câu đầu của khối.
+   */
+  sharedMaterial: { id: string; content: string } | null;
   essayAnswer: string | null;
   markedForReview: boolean;
   correctIndex?: number | null;

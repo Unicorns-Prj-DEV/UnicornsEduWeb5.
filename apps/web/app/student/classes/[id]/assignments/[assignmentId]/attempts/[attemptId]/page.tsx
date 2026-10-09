@@ -20,7 +20,12 @@ import type {
 import { formatScore } from "@/lib/attempt-score";
 import { refetchIntervalUntilClose } from "@/lib/assignment-window";
 import { formatDateTime } from "@/lib/class.helpers";
-import { buildExamLayout, isElectiveConflict } from "@/lib/exam-layout";
+import {
+  buildExamLayout,
+  isElectiveConflict,
+  materialHeaders,
+} from "@/lib/exam-layout";
+import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import {
   answeredQuestionCount,
@@ -395,6 +400,7 @@ function StudentAttemptInProgress({
     attempt.electiveGroupNames,
   );
   const labelOf = (n: number) => layout[n - 1]?.shortLabel ?? String(n);
+  const materials = materialHeaders(questions, (q) => q.sharedMaterial);
   const electiveConflict = !closed && isElectiveConflict(questions);
   const isIt = attempt.scoring === "absolute_it";
 
@@ -536,6 +542,9 @@ function StudentAttemptInProgress({
                   <h3 className="text-sm font-semibold text-primary">
                     {view.groupHeader}
                   </h3>
+                ) : null}
+                {materials[idx] ? (
+                  <SharedMaterialPanel header={materials[idx]} />
                 ) : null}
                 <StudentAttemptQuestion
                   question={view.question}

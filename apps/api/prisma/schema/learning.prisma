@@ -183,6 +183,7 @@ model Course {
   difficultyLevels    CourseDifficultyLevel[]
   lessonPlanMembers   CourseLessonPlanMember[]
   questions           Question[] // <‑‑ back‑relation for question bank
+  sharedMaterials     SharedMaterial[]
 
   @@map("courses")
 }
@@ -573,6 +574,22 @@ model LessonQuizAnswer {
 // Question bank models
 
 /// Ngân hàng câu hỏi – mỗi câu thuộc một Module (chuyên đề) và một DifficultyLevel của course
+/// Tư liệu dùng chung (hồ sơ JP): đoạn văn/ảnh nhiều câu cùng dựa vào. Thuộc ngân
+/// hàng câu hỏi của một Khoá học; không xoá được khi còn câu (chưa xoá) gắn vào.
+model SharedMaterial {
+  id        String     @id @default(uuid())
+  courseId  String     @map("course_id")
+  title     String
+  content   String     @db.Text // HTML từ TipTap
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@index([courseId])
+  @@map("shared_materials")
+}
+
 model Question {
   id                String               @id @default(uuid())
   courseId          String               @map("course_id")
@@ -594,6 +611,8 @@ model Question {
   tfLabelStyle      TrueFalseLabelStyle? @map("tf_label_style")
   /// Câu điền vào ô trống: đáp án hợp lệ từng ô `string[][]` (thứ tự ô trong `content`).
   blankAnswerKey    Json?                @map("blank_answer_key")
+  /// Tư liệu dùng chung (hồ sơ JP): các câu cùng tư liệu luôn đứng liền nhau trong đề.
+  sharedMaterialId  String?              @map("shared_material_id")
   deletedAt         DateTime?            @map("deleted_at")
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -601,6 +620,7 @@ model Question {
   course          Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
   module          Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   difficultyLevel CourseDifficultyLevel @relation(fields: [difficultyLevelId], references: [id], onDelete: Restrict)
+  sharedMaterial  SharedMaterial?       @relation(fields: [sharedMaterialId], references: [id], onDelete: NoAction)
 
   questionLinks     QuestionLink[]
   lessonQuizzes     LessonQuiz[]
@@ -610,6 +630,7 @@ model Question {
   @@index([courseId])
   @@index([moduleId])
   @@index([difficultyLevelId])
+  @@index([sharedMaterialId])
   @@map("questions")
 }
 
@@ -718,49 +739,52 @@ model Attempt {
 
 /// Câu trả lời trong một Attempt. Snapshot toàn bộ đề lúc `start`; chấm không đọc `Question` live.
 model AttemptAnswer {
-  id              String               @id @default(uuid())
-  attemptId       String               @map("attempt_id")
-  questionId      String               @map("question_id")
-  order           Int                  @default(0)
+  id                    String               @id @default(uuid())
+  attemptId             String               @map("attempt_id")
+  questionId            String               @map("question_id")
+  order                 Int                  @default(0)
   /// `equal_100`: 100/N (Hamilton). `absolute_it`: 25 (trắc nghiệm) / 100 (Đúng/Sai), đơn vị 1/100 điểm.
-  pointsPossible  Int                  @map("points_possible")
+  pointsPossible        Int                  @map("points_possible")
   /// Snapshot vị trí câu (Bắt buộc / Tự chọn 1 / Tự chọn 2).
-  slot            QuestionSlot         @default(required)
+  slot                  QuestionSlot         @default(required)
   /// Snapshot loại câu lúc start.
-  type            QuestionType
-  content         String               @db.Text
-  options         Json?
-  correctIndex    Int?                 @map("correct_index")
+  type                  QuestionType
+  content               String               @db.Text
+  options               Json?
+  correctIndex          Int?                 @map("correct_index")
   /// Đảo đáp án: `optionOrder[i]` = chỉ số gốc của phương án hiển thị thứ i. Rỗng = không đảo.
   /// `options`/`correctIndex`/`tfAnswerKey`/`choiceIndex`/`tfChoices` đều theo thứ tự hiển thị.
-  optionOrder     Int[]                @default([]) @map("option_order")
-  explanation     String?              @db.Text
-  answerGuide     String?              @map("answer_guide") @db.Text
+  optionOrder           Int[]                @default([]) @map("option_order")
+  explanation           String?              @db.Text
+  answerGuide           String?              @map("answer_guide") @db.Text
   /// Snapshot kiểu ô tự luận lúc start (null = ô dài).
-  essayInputSize  EssayInputSize?      @map("essay_input_size")
+  essayInputSize        EssayInputSize?      @map("essay_input_size")
   /// Snapshot kiểu nhãn Câu Đúng/Sai lúc start.
-  tfLabelStyle    TrueFalseLabelStyle? @map("tf_label_style")
-  difficultyLabel String               @map("difficulty_label")
+  tfLabelStyle          TrueFalseLabelStyle? @map("tf_label_style")
+  difficultyLabel       String               @map("difficulty_label")
   /// Snapshot đáp án nhóm câu Đúng/Sai — được cập nhật khi sửa đáp án (chấm lại).
-  tfAnswerKey     Boolean[]            @default([]) @map("tf_answer_key")
-  choiceIndex     Int?                 @map("choice_index")
+  tfAnswerKey           Boolean[]            @default([]) @map("tf_answer_key")
+  choiceIndex           Int?                 @map("choice_index")
   /// Lựa chọn 4 nhận định: `(boolean | null)[4]`.
-  tfChoices       Json?                @map("tf_choices")
+  tfChoices             Json?                @map("tf_choices")
   /// Snapshot đáp án hợp lệ từng ô — được cập nhật khi sửa đáp án (chấm lại), trừ khi đổi số ô.
-  blankAnswerKey  Json?                @map("blank_answer_key")
+  blankAnswerKey        Json?                @map("blank_answer_key")
   /// Chữ học sinh gõ vào từng ô trống: `(string | null)[]`.
-  blankAnswers    Json?                @map("blank_answers")
+  blankAnswers          Json?                @map("blank_answers")
   /// Câu sắp xếp: chữ trên thẻ theo thứ tự học sinh xếp (so theo chữ). Rỗng = chưa xếp.
-  orderAnswer     String[]             @default([]) @map("order_answer")
-  essayAnswer     String?              @map("essay_answer") @db.Text
+  orderAnswer           String[]             @default([]) @map("order_answer")
+  /// Snapshot tư liệu dùng chung lúc start (id để gom khối, content để hiển thị).
+  sharedMaterialId      String?              @map("shared_material_id")
+  sharedMaterialContent String?              @map("shared_material_content") @db.Text
+  essayAnswer           String?              @map("essay_answer") @db.Text
   /// Học sinh đánh dấu quay lại xem trước nộp — không ảnh hưởng chấm điểm.
-  markedForReview Boolean              @default(false) @map("marked_for_review")
-  isCorrect       Boolean?             @map("is_correct")
-  pointsAwarded   Int?                 @map("points_awarded")
+  markedForReview       Boolean              @default(false) @map("marked_for_review")
+  isCorrect             Boolean?             @map("is_correct")
+  pointsAwarded         Int?                 @map("points_awarded")
   /// Nhận xét của gia sư cho câu tự luận này — chỉ có khi đã chấm.
-  feedback        String?              @db.Text
-  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  feedback              String?              @db.Text
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id], onDelete: Restrict)

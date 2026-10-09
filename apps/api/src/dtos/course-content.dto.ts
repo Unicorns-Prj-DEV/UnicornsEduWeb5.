@@ -423,6 +423,9 @@ export interface QuestionLinkResponseDto {
     tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
     /** Đáp án hợp lệ từng ô (câu điền vào ô trống, JP). */
     blankAnswerKey: string[][] | null;
+    sharedMaterialId: string | null;
+    /** Tư liệu dùng chung (JP) — badge trong danh sách câu của đề. */
+    sharedMaterial: { id: string; title: string } | null;
   };
 }
 
@@ -517,6 +520,8 @@ export interface LessonQuizResponseDto {
     blankAnswerKey: string[][] | null;
     /** Số ô trống (câu điền vào ô trống); loại khác = null / không có. */
     blankCount?: number | null;
+    /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
+    sharedMaterial: { id: string; content: string } | null;
   };
 }
 

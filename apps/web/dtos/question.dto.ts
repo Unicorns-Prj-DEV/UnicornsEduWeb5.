@@ -105,6 +105,8 @@ export interface Question {
   tfLabelStyle: TrueFalseLabelStyleDto | null;
   /** Đáp án hợp lệ từng ô (câu điền vào ô trống); null với loại khác. */
   blankAnswerKey: string[][] | null;
+  /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
+  sharedMaterialId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -128,7 +130,14 @@ export type QuestionFormInitial = Pick<
   | "answerGuide"
 > &
   Partial<
-    Pick<Question, "skills" | "essayInputSize" | "tfLabelStyle" | "blankAnswerKey">
+    Pick<
+      Question,
+      | "skills"
+      | "essayInputSize"
+      | "tfLabelStyle"
+      | "blankAnswerKey"
+      | "sharedMaterialId"
+    >
   >;
 
 export interface CreateQuestionInput {
@@ -146,6 +155,8 @@ export interface CreateQuestionInput {
   essayInputSize?: EssayInputSizeDto | null;
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
   blankAnswerKey?: string[][];
+  /** null = bỏ gắn tư liệu. */
+  sharedMaterialId?: string | null;
 }
 
 export type UpdateQuestionInput = Partial<
@@ -159,6 +170,7 @@ export interface QuestionFilter {
   type?: QuestionTypeDto;
   skill?: QuestionSkillDto;
   search?: string;
+  sharedMaterialId?: string;
 }
 
 // --- AI Import types -------------------------------------------------------

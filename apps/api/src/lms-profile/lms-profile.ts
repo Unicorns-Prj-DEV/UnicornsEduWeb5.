@@ -43,6 +43,8 @@ export interface LmsProfileConfig {
   questionWeights: boolean;
   /** Câu tự luận chọn được kiểu ô nhập ngắn/dài (chỉ đổi giao diện làm bài). */
   essayInputSizes: boolean;
+  /** Ngân hàng câu hỏi có Tư liệu dùng chung (nhiều câu dựa vào một đoạn văn/ảnh). */
+  sharedMaterials: boolean;
 }
 
 const OPTION_COUNT = { min: 2, max: 6, default: 4 };
@@ -57,6 +59,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: false,
     questionWeights: false,
     essayInputSizes: false,
+    sharedMaterials: false,
   },
   jp: {
     profile: 'jp',
@@ -73,6 +76,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: true,
     questionWeights: true,
     essayInputSizes: true,
+    sharedMaterials: true,
   },
   eng: {
     profile: 'eng',
@@ -83,6 +87,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: false,
     questionWeights: false,
     essayInputSizes: false,
+    sharedMaterials: false,
   },
 };
 

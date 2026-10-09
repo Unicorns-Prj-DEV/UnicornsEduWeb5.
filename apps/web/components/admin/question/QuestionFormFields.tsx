@@ -22,6 +22,7 @@ import {
   type TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
+import { useSharedMaterials } from "@/lib/hooks/useSharedMaterials";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import { useCourseDifficultyLevels } from "@/lib/hooks/useCourseDifficultyLevels";
 import {
@@ -50,6 +51,8 @@ export type QuestionFormValue = {
   skills: QuestionSkillDto[];
   /** Kiểu ô nhập câu tự luận (chỉ hồ sơ JP). Câu mới mặc định ngắn. */
   essayInputSize: EssayInputSizeDto;
+  /** Tư liệu dùng chung (JP); "" = không gắn. */
+  sharedMaterialId: string;
 };
 
 export const emptyQuestionFormValue: QuestionFormValue = {
@@ -67,6 +70,7 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   answerGuide: "",
   skills: [],
   essayInputSize: "short",
+  sharedMaterialId: "",
 };
 
 const ESSAY_INPUT_SIZE_OPTIONS = (
@@ -130,6 +134,19 @@ export default function QuestionFormFields({
     (id) => onChange({ difficultyLevelId: id }),
   );
 
+  const sharedMaterialsEnabled = appConfig?.sharedMaterials ?? false;
+  const { data: materials = [] } = useSharedMaterials(
+    courseId || undefined,
+    sharedMaterialsEnabled,
+  );
+  const materialOptions = [
+    { value: "", label: "Không có (câu đứng riêng)" },
+    ...materials.map((m) => ({ value: m.id, label: m.title })),
+  ];
+  const selectedMaterial = materials.find(
+    (m) => m.id === value.sharedMaterialId,
+  );
+
   const chapterOptions = modules.map((ch) => ({
     value: ch.id,
     label: ch.title,
@@ -179,7 +196,10 @@ export default function QuestionFormFields({
         aria-labelledby={`${viewIdPrefix}-${view}`}
       >
         {view === "preview" ? (
-          <QuestionPreview value={value} />
+          <QuestionPreview
+            value={value}
+            sharedMaterialContent={selectedMaterial?.content}
+          />
         ) : (
           <div className="space-y-4">
             <div
@@ -223,6 +243,26 @@ export default function QuestionFormFields({
                 value={value.skills}
                 onChange={(skills) => onChange({ skills })}
               />
+            ) : null}
+
+            {sharedMaterialsEnabled ? (
+              <div>
+                <span className="mb-1 block text-xs font-medium text-text-muted">
+                  Tư liệu dùng chung
+                </span>
+                <UpgradedSelect
+                  searchable
+                  value={value.sharedMaterialId}
+                  onValueChange={(v) => onChange({ sharedMaterialId: v })}
+                  options={materialOptions}
+                  ariaLabel="Tư liệu dùng chung"
+                  noResultsLabel="Không tìm thấy tư liệu."
+                />
+                <p className="mt-1 text-xs text-text-muted">
+                  Câu cùng tư liệu luôn đứng liền nhau trong đề. Tạo tư liệu ở
+                  “Tư liệu dùng chung” của ngân hàng câu hỏi.
+                </p>
+              </div>
             ) : null}
 
             <div>

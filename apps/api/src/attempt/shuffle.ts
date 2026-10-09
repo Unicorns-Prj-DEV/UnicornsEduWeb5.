@@ -58,6 +58,52 @@ export function shuffleWithinGroups<T>(
   return out;
 }
 
+/**
+ * Chia đề thành đơn vị: mỗi Tư liệu dùng chung là một khối (đặt tại vị trí câu
+ * đầu tiên của nó, giữ thứ tự người soạn), câu không gắn tư liệu đứng riêng.
+ */
+function materialUnits<T>(
+  items: T[],
+  materialOf: (item: T) => string | null,
+): T[][] {
+  const units: T[][] = [];
+  const blockOf = new Map<string, T[]>();
+  for (const item of items) {
+    const material = materialOf(item);
+    if (material === null) {
+      units.push([item]);
+      continue;
+    }
+    const block = blockOf.get(material);
+    if (block) {
+      block.push(item);
+    } else {
+      const created = [item];
+      blockOf.set(material, created);
+      units.push(created);
+    }
+  }
+  return units;
+}
+
+/** Các câu cùng tư liệu dùng chung đứng liền nhau (không xáo). */
+export function groupByMaterial<T>(
+  items: T[],
+  materialOf: (item: T) => string | null,
+): T[] {
+  return materialUnits(items, materialOf).flat();
+}
+
+/** Đảo câu theo đơn vị: khối tư liệu xáo như một câu, bên trong khối giữ thứ tự. */
+export function shuffleMaterialBlocks<T>(
+  items: T[],
+  materialOf: (item: T) => string | null,
+  rng: Rng = Math.random,
+): T[] {
+  const units = materialUnits(items, materialOf);
+  return shuffledIndices(units.length, rng).flatMap((i) => units[i]);
+}
+
 const NOT_LETTER = '(?<![\\p{L}\\p{N}])';
 const END = '(?![\\p{L}\\p{N}])';
 

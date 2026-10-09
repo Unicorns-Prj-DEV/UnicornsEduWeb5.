@@ -90,6 +90,9 @@ export interface QuestionLinkQuestion {
   essayInputSize?: "short" | "long" | null;
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
   blankAnswerKey?: string[][] | null;
+  /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
+  sharedMaterialId?: string | null;
+  sharedMaterial?: { id: string; title: string } | null;
 }
 
 export interface QuestionLink {
@@ -146,6 +149,8 @@ export interface LessonQuizQuestion {
     blankAnswerKey?: string[][] | null;
     /** Số ô trống (câu điền vào ô trống). */
     blankCount?: number | null;
+    /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
+    sharedMaterial?: { id: string; content: string } | null;
   };
 }
 
@@ -178,6 +183,8 @@ export interface LessonQuizAnswer {
     blankAnswerKey?: string[][] | null;
     /** Số ô trống (câu điền vào ô trống). */
     blankCount?: number | null;
+    /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
+    sharedMaterial?: { id: string; content: string } | null;
   };
 }
 

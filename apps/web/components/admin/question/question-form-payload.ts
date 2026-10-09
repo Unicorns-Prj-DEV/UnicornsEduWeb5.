@@ -27,6 +27,8 @@ export type QuestionFormPayload = {
   essayInputSize?: EssayInputSizeDto;
   tfLabelStyle?: TrueFalseLabelStyleDto;
   blankAnswerKey?: string[][];
+  /** null = bỏ gắn tư liệu. */
+  sharedMaterialId?: string | null;
 };
 
 function isBlankHtml(html: string): boolean {
@@ -48,7 +50,12 @@ export function questionFormToPayload(
   {
     requireSkills = false,
     essayInputSizes = false,
-  }: { requireSkills?: boolean; essayInputSizes?: boolean } = {},
+    sharedMaterials = false,
+  }: {
+    requireSkills?: boolean;
+    essayInputSizes?: boolean;
+    sharedMaterials?: boolean;
+  } = {},
 ): PayloadResult {
   if (!form.moduleId || !form.difficultyLevelId || isBlankHtml(form.content)) {
     return { error: "Điền chuyên đề, mức khó và nội dung câu hỏi" };
@@ -66,6 +73,7 @@ export function questionFormToPayload(
       ? undefined
       : form.explanation.trim(),
     ...(requireSkills && { skills: [...form.skills] }),
+    ...(sharedMaterials && { sharedMaterialId: form.sharedMaterialId || null }),
   };
 
   switch (form.type) {
@@ -109,6 +117,7 @@ type PayloadBase = Pick<
   | "content"
   | "explanation"
   | "skills"
+  | "sharedMaterialId"
 >;
 type PayloadResult = { payload: QuestionFormPayload } | { error: string };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +39,8 @@ import { allBlanksAccepted, numberBlanks } from "@/lib/fill-blank";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
 import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import EssayAnswerInput from "@/components/student/EssayAnswerInput";
+import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
+import { materialHeaders } from "@/lib/exam-layout";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
 import { studentClassLessonsHref } from "@/lib/course-content-routes";
@@ -338,6 +340,10 @@ function LessonQuizSection({
     queryFn: () => getMyQuizAnswers(classId, lessonId),
     staleTime: 60_000,
   });
+  const quizMaterials = materialHeaders(
+    quizzes,
+    (q) => q.question.sharedMaterial,
+  );
 
   const submitMutation = useMutation({
     mutationFn: () => {
@@ -407,18 +413,22 @@ function LessonQuizSection({
           ) : (
             <div className="space-y-4">
               {quizzes.map((quiz, idx) => (
-                <QuizQuestionInput
-                  key={quiz.questionId}
-                  quiz={quiz}
-                  index={idx}
-                  value={draftAnswers[quiz.questionId]}
-                  onChange={(val) =>
-                    setDraftAnswers((prev) => ({
-                      ...prev,
-                      [quiz.questionId]: val,
-                    }))
-                  }
-                />
+                <Fragment key={quiz.questionId}>
+                  {quizMaterials[idx] && (
+                    <SharedMaterialPanel header={quizMaterials[idx]} />
+                  )}
+                  <QuizQuestionInput
+                    quiz={quiz}
+                    index={idx}
+                    value={draftAnswers[quiz.questionId]}
+                    onChange={(val) =>
+                      setDraftAnswers((prev) => ({
+                        ...prev,
+                        [quiz.questionId]: val,
+                      }))
+                    }
+                  />
+                </Fragment>
               ))}
               <div className="flex justify-end pt-2">
                 <button
@@ -551,6 +561,10 @@ function QuizQuestionInput({
 // ─── Quiz Review (after submission) ──────────────────────────
 
 function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
+  const reviewMaterials = materialHeaders(
+    answers,
+    (a) => a.question.sharedMaterial,
+  );
   return (
     <div className="space-y-4">
       <p className="text-xs text-text-muted mb-2">
@@ -576,8 +590,11 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
         const isEssay = ans.question.type === "essay";
 
         return (
+          <Fragment key={ans.questionId}>
+          {reviewMaterials[idx] && (
+            <SharedMaterialPanel header={reviewMaterials[idx]} />
+          )}
           <div
-            key={ans.questionId}
             className={cn(
               "rounded-xl border p-4",
               isCorrect
@@ -701,6 +718,7 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
               </div>
             )}
           </div>
+          </Fragment>
         );
       })}
     </div>

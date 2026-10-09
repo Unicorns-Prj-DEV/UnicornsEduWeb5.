@@ -99,6 +99,8 @@ export interface QuestionResponseDto {
   tfLabelStyle: TrueFalseLabelStyleDto | null;
   /** Câu điền vào ô trống (JP): đáp án hợp lệ từng ô; null với loại khác. */
   blankAnswerKey: string[][] | null;
+  /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
+  sharedMaterialId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -234,6 +236,15 @@ export class CreateQuestionDto {
   @ArrayMaxSize(10)
   @Validate(BlankAcceptedAnswersConstraint, { each: true })
   blankAnswerKey?: string[][];
+
+  @ApiPropertyOptional({
+    description:
+      'Tư liệu dùng chung (JP) cùng khoá. null = bỏ gắn. Các câu cùng tư liệu luôn đứng liền nhau trong đề.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  sharedMaterialId?: string | null;
 }
 
 /** DTO for updating a question – all fields optional */
@@ -329,6 +340,15 @@ export class UpdateQuestionDto {
   @ArrayMaxSize(10)
   @Validate(BlankAcceptedAnswersConstraint, { each: true })
   blankAnswerKey?: string[][];
+
+  @ApiPropertyOptional({
+    description:
+      'Tư liệu dùng chung (JP) cùng khoá. null = bỏ gắn. Các câu cùng tư liệu luôn đứng liền nhau trong đề.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID()
+  sharedMaterialId?: string | null;
 }
 
 // --- Bulk import DTOs -------------------------------------------------------
@@ -464,4 +484,9 @@ export class QuestionFilterDto {
   @IsOptional()
   @IsIn(Object.values(QuestionSkillDto))
   skill?: QuestionSkillDto;
+
+  @ApiPropertyOptional({ description: 'Lọc câu gắn Tư liệu dùng chung này (JP)' })
+  @IsOptional()
+  @IsUUID()
+  sharedMaterialId?: string;
 }

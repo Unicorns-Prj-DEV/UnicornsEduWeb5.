@@ -32,6 +32,8 @@ import { QuestionSkillDto, QuestionTypeDto } from "@/dtos/question.dto";
 import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import AiImportModal from "@/components/admin/question-bank/AiImportModal";
+import SharedMaterialsDialog from "@/components/admin/question-bank/SharedMaterialsDialog";
+import { useSharedMaterials } from "@/lib/hooks/useSharedMaterials";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { resolveQuestionBankEmptyModuleCopy } from "@/lib/question-bank-empty-module";
 
@@ -57,6 +59,11 @@ export function QuestionBankTab({
   const [skillFilter, setSkillFilter] = useState<string>("");
   const { data: appConfig } = useAppConfig();
   const showSkills = appConfig?.questionSkills ?? false;
+  const showMaterials = appConfig?.sharedMaterials ?? false;
+  const [materialFilter, setMaterialFilter] = useState<string>("");
+  const [showMaterialsDialog, setShowMaterialsDialog] = useState(false);
+  const { data: materials = [] } = useSharedMaterials(courseId, showMaterials);
+  const materialTitleById = new Map(materials.map((m) => [m.id, m.title]));
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showAiImport, setShowAiImport] = useState(false);
@@ -70,7 +77,14 @@ export function QuestionBankTab({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, typeFilter, chapterFilter, difficultyFilter, skillFilter]);
+  }, [
+    debouncedSearch,
+    typeFilter,
+    chapterFilter,
+    difficultyFilter,
+    skillFilter,
+    materialFilter,
+  ]);
 
   const filter: QuestionFilter = {
     courseId,
@@ -79,6 +93,7 @@ export function QuestionBankTab({
     moduleId: chapterFilter || undefined,
     difficultyLevelId: difficultyFilter || undefined,
     skill: showSkills ? (skillFilter as QuestionSkillDto) || undefined : undefined,
+    sharedMaterialId: showMaterials ? materialFilter || undefined : undefined,
   };
   const skip = (page - 1) * PAGE_SIZE;
 
@@ -153,6 +168,10 @@ export function QuestionBankTab({
       label,
     })),
   ];
+  const materialOptions = [
+    { value: "", label: "Tất cả tư liệu" },
+    ...materials.map((m) => ({ value: m.id, label: m.title })),
+  ];
 
   if (isChaptersLoading) {
     return (
@@ -194,22 +213,35 @@ export function QuestionBankTab({
         <h2 className="text-lg font-bold text-text-primary sm:text-xl">
           Ngân hàng câu hỏi
         </h2>
-        {canMutateQuestions ? (
+        {canMutateQuestions || showMaterials ? (
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShowAiImport(true)}
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary/40 sm:min-h-10 sm:flex-none sm:w-auto"
-            >
-              Nhập từ AI
-            </button>
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 sm:min-h-10 sm:flex-none"
-            >
-              + Thêm câu hỏi
-            </button>
+            {showMaterials ? (
+              <button
+                type="button"
+                onClick={() => setShowMaterialsDialog(true)}
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary/40 sm:min-h-10 sm:flex-none sm:w-auto"
+              >
+                Tư liệu dùng chung
+              </button>
+            ) : null}
+            {canMutateQuestions ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowAiImport(true)}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary/40 sm:min-h-10 sm:flex-none sm:w-auto"
+                >
+                  Nhập từ AI
+                </button>
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 sm:min-h-10 sm:flex-none"
+                >
+                  + Thêm câu hỏi
+                </button>
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -254,6 +286,17 @@ export function QuestionBankTab({
               options={skillOptions}
               placeholder="Kỹ năng"
               ariaLabel="Lọc theo kỹ năng"
+            />
+          ) : null}
+          {showMaterials ? (
+            <UpgradedSelect
+              value={materialFilter}
+              onValueChange={setMaterialFilter}
+              searchable
+              options={materialOptions}
+              placeholder="Tư liệu"
+              ariaLabel="Lọc theo tư liệu dùng chung"
+              noResultsLabel="Không tìm thấy tư liệu phù hợp."
             />
           ) : null}
         </div>
@@ -316,6 +359,9 @@ export function QuestionBankTab({
                     {questionTypeLabel(q.type)}
                   </Badge>
                   <QuestionSkillBadges skills={q.skills} />
+                  <MaterialBadge
+                    title={materialTitleById.get(q.sharedMaterialId ?? "")}
+                  />
                 </div>
               </li>
             ))}
@@ -360,6 +406,9 @@ export function QuestionBankTab({
                           {questionTypeLabel(q.type)}
                         </Badge>
                         <QuestionSkillBadges skills={q.skills} />
+                        <MaterialBadge
+                          title={materialTitleById.get(q.sharedMaterialId ?? "")}
+                        />
                       </div>
                     </TableCell>
                     <TableCell
@@ -451,8 +500,21 @@ export function QuestionBankTab({
           }}
         />
       ) : null}
+
+      {showMaterialsDialog ? (
+        <SharedMaterialsDialog
+          courseId={courseId}
+          canMutate={canMutateQuestions}
+          onClose={() => setShowMaterialsDialog(false)}
+        />
+      ) : null}
     </div>
   );
+}
+
+function MaterialBadge({ title }: { title?: string }) {
+  if (!title) return null;
+  return <Badge variant="outline">Tư liệu: {title}</Badge>;
 }
 
 function QuestionSkillBadges({ skills }: { skills?: QuestionSkillDto[] }) {

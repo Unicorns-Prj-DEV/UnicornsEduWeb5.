@@ -331,6 +331,7 @@ function AuthorForm({
     const result = questionFormToPayload(form, {
       requireSkills: appConfig?.questionSkills,
       essayInputSizes: appConfig?.essayInputSizes,
+      sharedMaterials: appConfig?.sharedMaterials,
     });
     if ("error" in result) {
       toast.error(result.error);

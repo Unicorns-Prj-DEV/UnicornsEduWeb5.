@@ -181,3 +181,38 @@ export function itExamBreakdown(questions: OrderableQuestion[]): ItExamBreakdown
       IT_POINTS.true_false_group;
   return { ...count, maxPoints };
 }
+
+export interface MaterialHeader {
+  /** HTML tư liệu (bản chụp lúc start). */
+  content: string;
+  /** Dải số câu (đánh số liên tục từ 1) dựa vào tư liệu: "Câu 2–4". */
+  firstNumber: number;
+  lastNumber: number;
+}
+
+/**
+ * Tư liệu dùng chung hiện MỘT lần trước câu đầu của khối (API đã xếp câu cùng
+ * tư liệu liền nhau). Phần tử i = tư liệu cần hiện trước câu i, hoặc null.
+ */
+export function materialHeaders<Q>(
+  questions: Q[],
+  materialOf: (q: Q) => { id: string; content: string } | null | undefined,
+): (MaterialHeader | null)[] {
+  return questions.map((q, i) => {
+    const material = materialOf(q);
+    if (!material) return null;
+    if (i > 0 && materialOf(questions[i - 1])?.id === material.id) return null;
+    let last = i;
+    while (
+      last + 1 < questions.length &&
+      materialOf(questions[last + 1])?.id === material.id
+    ) {
+      last += 1;
+    }
+    return {
+      content: material.content,
+      firstNumber: i + 1,
+      lastNumber: last + 1,
+    };
+  });
+}

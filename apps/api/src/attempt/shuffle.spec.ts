@@ -4,7 +4,9 @@ import {
   isPositionDependent,
   orderingKeyOf,
   reorderForKey,
+  groupByMaterial,
   seededRng,
+  shuffleMaterialBlocks,
   shuffleOrderingCards,
   remapAnswerKey,
   shuffleQuestionOptions,
@@ -341,5 +343,68 @@ describe('seededRng', () => {
     expect(Array.from({ length: 5 }, () => a())).not.toEqual(
       Array.from({ length: 5 }, () => b()),
     );
+  });
+});
+
+describe('Tư liệu dùng chung — khối câu', () => {
+  type Item = { id: string; material: string | null };
+  const item = (id: string, material: string | null = null): Item => ({
+    id,
+    material,
+  });
+  const ids = (items: Item[]) => items.map((i) => i.id);
+  const materialOf = (i: Item) => i.material;
+
+  it('kéo các câu cùng tư liệu về liền nhau tại vị trí câu đầu tiên, giữ thứ tự người soạn', () => {
+    const items = [
+      item('a'),
+      item('r1', 'R'),
+      item('b'),
+      item('r2', 'R'),
+      item('l1', 'L'),
+      item('r3', 'R'),
+      item('l2', 'L'),
+    ];
+    expect(ids(groupByMaterial(items, materialOf))).toEqual([
+      'a',
+      'r1',
+      'r2',
+      'r3',
+      'b',
+      'l1',
+      'l2',
+    ]);
+  });
+
+  it('đảo câu xáo khối như một đơn vị, bên trong khối giữ thứ tự', () => {
+    const items = [
+      item('a'),
+      item('r1', 'R'),
+      item('r2', 'R'),
+      item('r3', 'R'),
+      item('b'),
+    ];
+    // rng = 0 → Fisher–Yates đưa đơn vị cuối lên đầu: [a, R, b] → [R, b, a].
+    const out = ids(shuffleMaterialBlocks(items, materialOf, () => 0));
+    expect(out).toEqual(['r1', 'r2', 'r3', 'b', 'a']);
+  });
+
+  it('khối luôn liền nhau và giữ thứ tự với rng bất kỳ', () => {
+    const items = [
+      item('r1', 'R'),
+      item('a'),
+      item('r2', 'R'),
+      item('b'),
+      item('r3', 'R'),
+      item('c'),
+    ];
+    for (let seed = 0; seed < 20; seed++) {
+      const out = ids(
+        shuffleMaterialBlocks(items, materialOf, seededRng(String(seed))),
+      );
+      const start = out.indexOf('r1');
+      expect(out.slice(start, start + 3)).toEqual(['r1', 'r2', 'r3']);
+      expect([...out].sort()).toEqual(['a', 'b', 'c', 'r1', 'r2', 'r3']);
+    }
   });
 });

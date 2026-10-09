@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { LessonKind, QuestionType } from 'generated/enums';
 import { parseBlankAnswerKey } from '../attempt/fill-blank';
-import { seededRng, shuffleOrderingCards } from '../attempt/shuffle';
+import {
+  groupByMaterial,
+  seededRng,
+  shuffleOrderingCards,
+} from '../attempt/shuffle';
 import { normalizeTrueFalseChoices } from '../attempt/grading';
 import {
   ActionHistoryActor,
@@ -139,6 +143,7 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
+            sharedMaterial: { select: { id: true, content: true } },
           },
         },
       },
@@ -163,6 +168,7 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
+            sharedMaterial: { select: { id: true, content: true } },
           },
         },
       },
@@ -170,7 +176,12 @@ export class LessonQuizService extends CourseContentSupportService {
 
     // Học sinh chỉ biết số ô trống, không thấy đáp án hợp lệ. Thẻ câu sắp xếp
     // xáo theo seed học sinh + câu: tải lại không đổi thứ tự, không lộ đáp án.
-    return quizzes.map((q) => ({
+    // Câu cùng Tư liệu dùng chung đứng liền nhau (đặt tại câu đầu của khối).
+    const grouped = groupByMaterial(
+      quizzes,
+      (q) => q.question.sharedMaterial?.id ?? null,
+    );
+    return grouped.map((q) => ({
       ...q,
       question: {
         ...q.question,
@@ -282,6 +293,7 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
+            sharedMaterial: { select: { id: true, content: true } },
           },
         },
       },
@@ -305,6 +317,7 @@ export class LessonQuizService extends CourseContentSupportService {
             essayInputSize: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
+            sharedMaterial: { select: { id: true, content: true } },
           },
         },
       },

@@ -46,6 +46,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `modules` (chuyên đề — nhóm tiết học bên trong khoá học)
 - `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề của khoá — tiết riêng lớp cũ đã lưu trữ)
 - `class_modules` (chuyên đề lớp đã thêm — nguồn đồng bộ tiết lý thuyết vào lớp)
+- `shared_materials` (Tư liệu dùng chung — hồ sơ JP; nhiều câu cùng gắn)
 - `lesson_quizzes` (liên kết câu hỏi từ ngân hàng vào bài tập ôn nhẹ của tiết lý thuyết)
 - `lesson_quiz_answers` (trả lời bài tập ôn nhẹ — không sinh Attempt, không tính điểm)
 - `class_theory_lesson_views` (lượt mở trang tiết lý thuyết của học sinh trong phạm vi lớp)
@@ -481,6 +482,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `attempts.elective_voided` (`BOOLEAN`, default `false`): học sinh có ít nhất một nhận định được chọn ở **cả hai** nhóm tự chọn → mọi câu `elective_1`/`elective_2` chấm 0.
   - `attempt_answers.slot` (`QuestionSlot`): snapshot vị trí câu lúc start (từ `question_links.slot`).
   - `attempt_answers.essay_input_size` (`EssayInputSize?`): snapshot kiểu ô tự luận lúc start (`null` = ô dài).
+  - `attempt_answers.shared_material_id` (`UUID?`, không FK) + `shared_material_content` (`TEXT?`): snapshot Tư liệu dùng chung lúc start (JP). Các câu cùng tư liệu đứng liền nhau trong `order`; Đảo câu xáo cả khối. Sửa tư liệu không đổi bài đã bắt đầu.
   - `attempt_answers.tf_label_style` (`TrueFalseLabelStyle?`): snapshot kiểu nhãn Câu Đúng/Sai lúc start (`null` = ○/×). Câu `true_false` lưu lựa chọn ở `tf_choices[0]`.
   - `attempt_answers.blank_answer_key` (`JSONB?`, `string[][]`): snapshot đáp án hợp lệ từng ô của câu `fill_blank` lúc start; `blank_answers` (`JSONB?`, `(string|null)[]`): chữ học sinh gõ vào từng ô. Chấm từng ô: điểm = `round(points_possible × số ô đúng / số ô)`, `is_correct` = đúng mọi ô. Sửa đáp án ô ở ngân hàng → chấm lại như `correct_index`/`tf_answer_key`, nhưng chỉ cập nhật snapshot có **cùng số ô** (thêm/bớt ô sau khi lượt bắt đầu không chấm lại).
   - Câu `ordering` (sắp xếp): `options` = thẻ **đã xáo** (luôn xáo lúc start, kể cả khi tắt Đảo câu; không bao giờ trùng thứ tự đúng trừ khi mọi thẻ cùng chữ), `option_order[i]` = vị trí gốc của thẻ hiển thị thứ i → thứ tự đúng = thẻ xếp theo `option_order`. `order_answer` (`TEXT[]`, mặc định `{}`): chữ thẻ theo thứ tự học sinh xếp (so theo chữ nên thẻ trùng chữ đổi chỗ vẫn đúng). Chấm cả chuỗi: khớp toàn bộ = đủ điểm, ngược lại 0; đã làm = dùng hết thẻ. Sửa thẻ ở ngân hàng → tính lại `option_order` cho snapshot cùng bộ thẻ (khác bộ thẻ thì bỏ qua) rồi chấm lại.
@@ -669,12 +671,19 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `explanation` (`TEXT`, nullable): giải thích sau khi trả lời (HTML)
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
   - `skills` (`QuestionSkill[]`, default `{}`): Kỹ năng — chỉ hồ sơ JP, chọn nhiều: `kanji` | `vocabulary` | `grammar` | `reading` | `listening` | `conversation` | `writing`. JP bắt buộc ≥1 khi tạo/sửa (câu cũ rỗng chỉ bị đòi khi sửa; nhập hàng loạt chưa bắt buộc); IT/ENG luôn rỗng.
+  - `shared_material_id` (`UUID?` → `shared_materials.id`, `ON DELETE NO ACTION`): Tư liệu dùng chung (JP) — tối đa một; phải cùng khoá. Index `(shared_material_id)`.
   - `essay_input_size` (`EssayInputSize?`: `short` | `long`): kiểu ô nhập câu tự luận — chỉ hồ sơ JP, chỉ câu `essay`. `null` = ô dài (câu cũ, hồ sơ khác); form JP mặc định `short` cho câu mới. Chỉ đổi giao diện làm bài/ôn nhẹ (ô ngắn một dòng, tự xuống dòng), không giới hạn độ dài, không ảnh hưởng chấm.
   - `deleted_at` (`TIMESTAMPTZ`, nullable): soft-delete timestamp
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
 - Indexes: `(course_id)`, `(module_id)`, `(difficulty_level_id)`
 - Quan hệ: `courses` (1-N), `modules` (1-N), `course_difficulty_levels` (1-N), `question_links` (1-N)
 - Table: `questions` (via `@@map`)
+
+### 4.6d-sm `shared_materials` (Tư liệu dùng chung — hồ sơ JP)
+
+- Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `title` (≤ 200, để chọn/lọc), `content` (`TEXT`, HTML TipTap), `created_at`, `updated_at`.
+- Quan hệ: `questions.shared_material_id` (1-N). Xoá bị chặn (`409`) khi còn câu chưa xoá đang gắn; câu đã soft-delete được tháo gắn trước khi xoá.
+- Index `(course_id)`. Migration `20261009050000_shared_material`. ADR `docs/adr/2026-10-09-shared-material.md`.
 
 ### 4.6e `question_links` (Liên kết câu hỏi — tiết luyện tập)
 

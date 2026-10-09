@@ -63,4 +63,10 @@ export class AppConfigResponseDto implements LmsProfileConfig {
     description: 'Câu tự luận chọn được kiểu ô ngắn/dài (JP)',
   })
   essayInputSizes!: boolean;
+
+  @ApiProperty({
+    description:
+      'Ngân hàng câu hỏi có Tư liệu dùng chung — nhiều câu dựa vào một đoạn văn/ảnh (JP)',
+  })
+  sharedMaterials!: boolean;
 }

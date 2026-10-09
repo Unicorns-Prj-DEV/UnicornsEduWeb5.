@@ -12,6 +12,7 @@ import { CourseAccessService } from '../class/course-access.service';
 import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import { regradeQuestionAnswerKey } from '../attempt/regrade';
 import { assertQuestionShape, assertQuestionSkills } from './question-rules';
+import { assertMaterialAttachable } from './shared-material.service';
 import {
   CreateQuestionDto,
   UpdateQuestionDto,
@@ -60,6 +61,8 @@ export class QuestionService {
       where.difficultyLevelId = filter.difficultyLevelId;
     if (filter.type) where.type = filter.type;
     if (filter.skill) where.skills = { has: filter.skill };
+    if (filter.sharedMaterialId)
+      where.sharedMaterialId = filter.sharedMaterialId;
     if (filter.search) {
       where.content = { contains: filter.search, mode: 'insensitive' };
     }
@@ -87,6 +90,12 @@ export class QuestionService {
     await this.assertModuleBelongsToCourse(dto.moduleId, dto.courseId);
     await this.assertDifficultyBelongsToCourse(
       dto.difficultyLevelId,
+      dto.courseId,
+    );
+    await assertMaterialAttachable(
+      this.prisma,
+      this.lmsProfile.config,
+      dto.sharedMaterialId,
       dto.courseId,
     );
 
@@ -134,6 +143,14 @@ export class QuestionService {
     );
     // Câu JP cũ chưa có kỹ năng: sửa là phải chọn.
     assertQuestionSkills(dto.skills ?? existing.skills, this.lmsProfile.config);
+    if (dto.sharedMaterialId !== existing.sharedMaterialId) {
+      await assertMaterialAttachable(
+        this.prisma,
+        this.lmsProfile.config,
+        dto.sharedMaterialId,
+        existing.courseId,
+      );
+    }
 
     const answerKeyChange: {
       correctIndex?: number | null;

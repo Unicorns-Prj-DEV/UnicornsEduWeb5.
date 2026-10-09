@@ -27,4 +27,6 @@ export interface AppConfig {
   questionWeights: boolean;
   /** Câu tự luận chọn được kiểu ô ngắn/dài (JP). */
   essayInputSizes: boolean;
+  /** Ngân hàng câu hỏi có Tư liệu dùng chung (JP). */
+  sharedMaterials: boolean;
 }

@@ -5,6 +5,7 @@ import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
 import { QuestionTypeDto, countBlanks } from "@/dtos/question.dto";
 import { resizeBlankKey } from "@/lib/fill-blank";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
+import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
 
 const NOOP = () => {};
 
@@ -22,7 +23,14 @@ function optionalHtml(html: string): string | null {
  * Xem trước câu hỏi đúng như học sinh thấy sau khi nộp bài (đáp án đúng + giải thích),
  * dùng chính `StudentAttemptQuestion` để render LaTeX/HTML giống hệt phía học sinh.
  */
-export default function QuestionPreview({ value }: { value: QuestionFormValue }) {
+export default function QuestionPreview({
+  value,
+  sharedMaterialContent,
+}: {
+  value: QuestionFormValue;
+  /** Tư liệu dùng chung đang gắn (HTML) — hiện trên câu như học sinh thấy. */
+  sharedMaterialContent?: string;
+}) {
   if (isBlankHtml(value.content)) {
     return (
       <p className="rounded-xl border border-dashed border-border-default px-4 py-6 text-center text-sm text-text-muted">
@@ -81,6 +89,15 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
       <p className="text-xs text-text-muted">
         Hiển thị như học sinh thấy khi xem lại bài (kèm đáp án đúng và giải thích).
       </p>
+      {sharedMaterialContent ? (
+        <SharedMaterialPanel
+          header={{
+            content: sharedMaterialContent,
+            firstNumber: 1,
+            lastNumber: 1,
+          }}
+        />
+      ) : null}
       <StudentAttemptQuestion
         question={question}
         index={0}

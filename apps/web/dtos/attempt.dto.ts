@@ -51,6 +51,8 @@ export interface AttemptQuestionDto {
   blankAnswerKey?: string[][] | null;
   /** Câu sắp xếp: thứ tự đúng — chỉ có khi xem lại. */
   orderingKey?: string[] | null;
+  /** Tư liệu dùng chung (bản chụp lúc start); câu cùng `id` đứng liền nhau. */
+  sharedMaterial?: { id: string; content: string } | null;
   isCorrect?: boolean | null;
   pointsAwarded?: number | null;
   explanation?: string | null;

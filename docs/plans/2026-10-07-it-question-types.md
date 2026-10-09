@@ -189,7 +189,7 @@ Context7 kiểm tra API TipTap hiện hành trước khi code.
 - Trắc nghiệm 2–6 phương án (mặc định 4), không cố định A–D.
 - Ghi luật chấm cụ thể (0,25; bậc thang 0,1 / 0,25 / 0,5 / 1).
 - Thêm mục nhóm tự chọn và luật "làm cả hai nhóm → 0 điểm phần tự chọn".
-- Tư liệu nhúng trong nội dung câu, chưa dùng chung giữa nhiều câu.
+- Tư liệu nhúng trong nội dung câu, chưa dùng chung giữa nhiều câu. (Hồ sơ JP đã có Tư liệu dùng chung — ADR `2026-10-09-shared-material`.)
 - Code song song Python / C++ chia theo hàng, chung số dòng.
 - Một lời giải chung cho cả nhóm Đúng/Sai.
 - Hồ sơ Tin học không có câu tự luận.

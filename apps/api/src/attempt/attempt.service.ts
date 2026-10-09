@@ -46,6 +46,8 @@ import { blankFieldsOf, parseBlankAnswerKey } from './fill-blank';
 import { assertExamForm, examGroupRank, orderExamLinks } from './exam-form';
 import {
   orderingKeyOf,
+  groupByMaterial,
+  shuffleMaterialBlocks,
   shuffleOrderingCards,
   shuffleQuestionOptions,
   shuffleWithinGroups,
@@ -137,7 +139,9 @@ export class AttemptService {
     }
     const rawLinks = await this.prisma.questionLink.findMany({
       where: { lessonId, question: { deletedAt: null } },
-      include: { question: { include: { difficultyLevel: true } } },
+      include: {
+        question: { include: { difficultyLevel: true, sharedMaterial: true } },
+      },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
     });
     if (rawLinks.length === 0) {
@@ -152,12 +156,17 @@ export class AttemptService {
       assertExamForm(examLinks);
     }
     // Đảo câu: đề IT giữ khung Phần I → bắt buộc → TC1 → TC2, xáo trong nhóm.
+    // Hồ sơ khác: câu cùng Tư liệu dùng chung là một khối liền nhau, xáo cả khối.
     const shuffle = item.shuffleQuestions;
-    const links = shuffle
-      ? shuffleWithinGroups(examLinks, (link) =>
-          isIt ? examGroupRank(link) : 0,
-        )
-      : examLinks;
+    const materialOf = (link: (typeof examLinks)[number]) =>
+      link.question.sharedMaterialId;
+    const links = isIt
+      ? shuffle
+        ? shuffleWithinGroups(examLinks, (link) => examGroupRank(link))
+        : examLinks
+      : shuffle
+        ? shuffleMaterialBlocks(examLinks, materialOf)
+        : groupByMaterial(examLinks, materialOf);
     const pointsByIndex =
       scoring === AttemptScoring.absolute_it
         ? links.map((link) =>
@@ -202,7 +211,7 @@ export class AttemptService {
                     : null;
               return {
                 questionId: link.questionId,
-                order: isIt || shuffle ? index : (link.order ?? index),
+                order: index,
                 pointsPossible: pointsByIndex[index],
                 slot: link.slot,
                 tfAnswerKey: shuffled?.tfAnswerKey ?? link.question.tfAnswerKey,
@@ -226,6 +235,9 @@ export class AttemptService {
                     ? Prisma.JsonNull
                     : (link.question.blankAnswerKey as Prisma.InputJsonValue),
                 difficultyLabel: link.question.difficultyLevel.name,
+                sharedMaterialId: link.question.sharedMaterialId,
+                sharedMaterialContent:
+                  link.question.sharedMaterial?.content ?? null,
               };
             }),
           },
@@ -957,6 +969,10 @@ export class AttemptService {
         ...blankFieldsOf(ans.type, ans.blankAnswerKey, ans.blankAnswers),
         orderAnswer:
           ans.type === QuestionType.ordering ? ans.orderAnswer : null,
+        sharedMaterial:
+          ans.sharedMaterialId && ans.sharedMaterialContent !== null
+            ? { id: ans.sharedMaterialId, content: ans.sharedMaterialContent }
+            : null,
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };

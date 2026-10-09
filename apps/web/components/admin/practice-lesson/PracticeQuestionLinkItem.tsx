@@ -206,6 +206,11 @@ export function PracticeQuestionLinkItem({
         {isAbsolute ? (
           <Badge variant="outline">{isTrueFalse ? "1 điểm" : "0,25 điểm"}</Badge>
         ) : null}
+        {question.sharedMaterial ? (
+          <Badge variant="outline" className="min-w-0 truncate">
+            Tư liệu: {question.sharedMaterial.title}
+          </Badge>
+        ) : null}
         {canEdit ? (
           <div className="ml-auto flex items-center">
             <IconButton
