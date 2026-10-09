@@ -10,6 +10,7 @@ import type {
 } from "@/dtos/attempt.dto";
 import { formatScoreValue } from "@/lib/attempt-score";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
+import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import EssayAnswerInput from "@/components/student/EssayAnswerInput";
 import { assertNever } from "@/lib/assert-never";
@@ -218,6 +219,17 @@ function AnswerArea({
           disabled={disabled}
           reveal={reveal}
           neutralWhenBlank={question.slot !== "required"}
+          onChange={(tfChoices) => onChange({ tfChoices })}
+        />
+      );
+    case "true_false":
+      return (
+        <TrueFalseChoice
+          choices={question.tfChoices}
+          labelStyle={question.tfLabelStyle}
+          answerKey={reveal ? question.tfAnswerKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
           onChange={(tfChoices) => onChange({ tfChoices })}
         />
       );

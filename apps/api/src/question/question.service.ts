@@ -123,6 +123,10 @@ export class QuestionService {
           dto.essayInputSize !== undefined
             ? dto.essayInputSize
             : existing.essayInputSize,
+        tfLabelStyle:
+          dto.tfLabelStyle !== undefined
+            ? dto.tfLabelStyle
+            : existing.tfLabelStyle,
       },
       this.lmsProfile.config,
     );

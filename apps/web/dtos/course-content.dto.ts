@@ -1,4 +1,7 @@
-import type { QuestionTypeDto } from "@/dtos/question.dto";
+import type {
+  QuestionTypeDto,
+  TrueFalseLabelStyleDto,
+} from "@/dtos/question.dto";
 import type { QuestionSlotDto, TrueFalseChoices } from "@/dtos/attempt.dto";
 
 export type LessonKind = "theory" | "practice";
@@ -81,6 +84,7 @@ export interface QuestionLinkQuestion {
   explanation: string | null;
   answerGuide: string | null;
   essayInputSize?: "short" | "long" | null;
+  tfLabelStyle?: TrueFalseLabelStyleDto | null;
 }
 
 export interface QuestionLink {
@@ -131,6 +135,8 @@ export interface LessonQuizQuestion {
     answerGuide: string | null;
     /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
     essayInputSize?: "short" | "long" | null;
+    /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+    tfLabelStyle?: TrueFalseLabelStyleDto | null;
   };
 }
 
@@ -155,6 +161,8 @@ export interface LessonQuizAnswer {
     answerGuide: string | null;
     /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
     essayInputSize?: "short" | "long" | null;
+    /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+    tfLabelStyle?: TrueFalseLabelStyleDto | null;
   };
 }
 

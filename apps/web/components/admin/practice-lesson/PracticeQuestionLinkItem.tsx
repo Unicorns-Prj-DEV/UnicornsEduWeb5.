@@ -17,6 +17,7 @@ import {
   QuestionTypeDto,
   TRUE_FALSE_STATEMENT_LABELS,
   questionTypeLabel,
+  trueFalseChoiceLabels,
 } from "@/dtos/question.dto";
 
 const ASSIGNED_CONFIRM = {
@@ -182,9 +183,15 @@ export function PracticeQuestionLinkItem({
   const { question } = link;
   const isChoice = question.type === QuestionTypeDto.single_choice;
   const isTrueFalse = question.type === QuestionTypeDto.true_false_group;
+  const singleTfKey =
+    question.type === QuestionTypeDto.true_false
+      ? question.tfAnswerKey?.[0]
+      : undefined;
   const options = Array.isArray(question.options) ? question.options : [];
   const solution =
-    isChoice || isTrueFalse ? question.explanation : question.answerGuide;
+    question.type === QuestionTypeDto.essay
+      ? question.answerGuide
+      : question.explanation;
 
   return (
     <li className="rounded-lg border border-border-default bg-bg-surface shadow-xs transition-colors hover:border-border-focus/40">
@@ -324,10 +331,26 @@ export function PracticeQuestionLinkItem({
           </p>
         ) : null}
 
+        {typeof singleTfKey === "boolean" ? (
+          <p className="mt-1.5 text-xs text-text-muted">
+            Đáp án:{" "}
+            <span
+              className={cn(
+                "font-semibold",
+                singleTfKey ? "text-success" : "text-error",
+              )}
+            >
+              {trueFalseChoiceLabels(question.tfLabelStyle)[singleTfKey ? 0 : 1]}
+            </span>
+          </p>
+        ) : null}
+
         {!compact && solution ? (
           <details className="mt-2 rounded-md border border-border-default/60 bg-bg-secondary/40 px-2 py-1.5">
             <summary className="cursor-pointer text-xs font-medium text-text-secondary">
-              {isChoice || isTrueFalse ? "Lời giải" : "Barem / ý cần có"}
+              {question.type === QuestionTypeDto.essay
+                ? "Barem / ý cần có"
+                : "Lời giải"}
             </summary>
             <div className="mt-1.5 text-sm text-text-secondary">
               <MathContent content={solution} />

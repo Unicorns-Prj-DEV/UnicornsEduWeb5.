@@ -119,6 +119,17 @@ describe('shuffleQuestionOptions', () => {
       shuffleQuestionOptions({ ...base, options: ['x', 'Cả A và B'] }),
     ).toBeNull();
   });
+
+  it('Câu Đúng/Sai (JP): hai lựa chọn Đúng/Sai không bị xáo', () => {
+    expect(
+      shuffleQuestionOptions({
+        type: QuestionType.true_false,
+        options: null,
+        correctIndex: null,
+        tfAnswerKey: [true],
+      }),
+    ).toBeNull();
+  });
 });
 
 describe('đảo không đổi điểm (so với đề gốc)', () => {

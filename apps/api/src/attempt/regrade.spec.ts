@@ -126,6 +126,44 @@ describe('regradeQuestionAnswerKey', () => {
     );
   });
 
+  it('Câu Đúng/Sai (JP): đổi đáp án Đúng→Sai chấm lại cả câu', async () => {
+    const tx = makeTx([
+      {
+        id: 'att-jp',
+        scoring: AttemptScoring.equal_100,
+        answers: [
+          // Snapshot đã có đáp án mới (Sai); học sinh chọn Sai, trước đó bị chấm sai.
+          answer({
+            id: 'j1',
+            type: QuestionType.true_false,
+            pointsPossible: 50,
+            choiceIndex: null,
+            correctIndex: null,
+            tfChoices: [false],
+            tfAnswerKey: [false],
+            isCorrect: false,
+            pointsAwarded: 0,
+          }),
+        ],
+      },
+    ]);
+
+    await regradeQuestionAnswerKey(tx as never, 'q', { tfAnswerKey: [false] });
+
+    expect(tx.attemptAnswer.updateMany).toHaveBeenCalledWith({
+      where: { questionId: 'q', optionOrder: { isEmpty: true } },
+      data: { tfAnswerKey: [false] },
+    });
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'j1' },
+      data: { isCorrect: true, pointsAwarded: 50 },
+    });
+    expect(tx.attempt.update).toHaveBeenCalledWith({
+      where: { id: 'att-jp' },
+      data: { autoGradedScore: 50, autoGradedMax: 50, electiveVoided: false },
+    });
+  });
+
   it('snapshot đã đảo đáp án → đổi đáp án mới sang thứ tự hiển thị của lượt', async () => {
     // Lượt x: hiển thị [c, a, d, b]; lượt y: Đúng/Sai hiển thị [d, c, b, a].
     const tx = makeTx(

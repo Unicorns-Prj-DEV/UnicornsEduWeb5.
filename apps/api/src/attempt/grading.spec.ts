@@ -4,8 +4,10 @@ import {
   autoGradedMaxOf,
   gradeAnswers,
   gradeTrueFalse,
+  isAnswered,
   isElectiveVoided,
   normalizeTrueFalseChoices,
+  tfChoicesOf,
 } from './grading';
 
 const KEY = [true, false, true, false];
@@ -53,6 +55,74 @@ function standardExam(opts: {
     ...opts.e2.map((c) => tf(c, QuestionSlot.elective_2)),
   ];
 }
+
+function single(
+  choice: boolean | null,
+  key = true,
+  pointsPossible = 34,
+): GradableAnswer {
+  return {
+    id: `t-${seq++}`,
+    type: QuestionType.true_false,
+    slot: QuestionSlot.required,
+    pointsPossible,
+    choiceIndex: null,
+    correctIndex: null,
+    tfChoices: choice === null ? null : [choice],
+    tfAnswerKey: [key],
+  };
+}
+
+describe('Câu Đúng/Sai (true_false) — chấm cả câu', () => {
+  it('đúng thì đủ điểm câu, sai hoặc bỏ trống thì 0', () => {
+    const answers = [single(true), single(false), single(null)];
+    const result = gradeAnswers(answers, AttemptScoring.equal_100);
+    expect(result.patches.map((p) => [p.isCorrect, p.pointsAwarded])).toEqual([
+      [true, 34],
+      [false, 0],
+      [false, 0],
+    ]);
+    expect(result.autoGradedScore).toBe(34);
+    expect(result.autoGradedMax).toBe(102);
+    expect(result.hasUngradedEssay).toBe(false);
+  });
+
+  it('đáp án Sai: chọn Sai là đúng', () => {
+    const [patch] = gradeAnswers(
+      [single(false, false)],
+      AttemptScoring.equal_100,
+    ).patches;
+    expect(patch).toMatchObject({ isCorrect: true, pointsAwarded: 34 });
+  });
+
+  it('chọn một lựa chọn là tính đã trả lời', () => {
+    const base = {
+      type: QuestionType.true_false,
+      choiceIndex: null,
+      essayAnswer: null,
+    };
+    expect(isAnswered({ ...base, tfChoices: [false] })).toBe(true);
+    expect(isAnswered({ ...base, tfChoices: [null] })).toBe(false);
+    expect(isAnswered({ ...base, tfChoices: null })).toBe(false);
+  });
+});
+
+describe('tfChoicesOf — lựa chọn trả về client theo loại câu', () => {
+  it('Câu Đúng/Sai 1 phần tử, nhóm 4 phần tử, loại khác null', () => {
+    expect(
+      tfChoicesOf(QuestionType.true_false, [true, null, null, null]),
+    ).toEqual([true]);
+    expect(tfChoicesOf(QuestionType.true_false, null)).toEqual([null]);
+    expect(tfChoicesOf(QuestionType.true_false_group, [false])).toEqual([
+      false,
+      null,
+      null,
+      null,
+    ]);
+    expect(tfChoicesOf(QuestionType.single_choice, [true])).toBeNull();
+    expect(tfChoicesOf(QuestionType.essay, null)).toBeNull();
+  });
+});
 
 describe('normalizeTrueFalseChoices', () => {
   it('pads to 4 and drops non-boolean', () => {

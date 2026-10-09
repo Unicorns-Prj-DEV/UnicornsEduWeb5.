@@ -32,6 +32,7 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
 
   const isChoice = value.type === QuestionTypeDto.single_choice;
   const isTrueFalse = value.type === QuestionTypeDto.true_false_group;
+  const isSingleTf = value.type === QuestionTypeDto.true_false;
   const question: AttemptQuestionDto = {
     questionId: "preview",
     order: 0,
@@ -43,7 +44,12 @@ export default function QuestionPreview({ value }: { value: QuestionFormValue })
     choiceIndex: null,
     essayAnswer: null,
     tfChoices: null,
-    tfAnswerKey: isTrueFalse ? value.tfAnswerKey : undefined,
+    tfAnswerKey: isTrueFalse
+      ? value.tfAnswerKey
+      : isSingleTf
+        ? value.tfAnswerKey.slice(0, 1)
+        : undefined,
+    tfLabelStyle: isSingleTf ? value.tfLabelStyle : null,
     markedForReview: false,
     correctIndex: isChoice ? value.correctIndex : null,
     isCorrect: null,

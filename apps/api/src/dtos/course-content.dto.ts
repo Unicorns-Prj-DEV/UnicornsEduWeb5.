@@ -418,6 +418,7 @@ export interface QuestionLinkResponseDto {
     options: unknown;
     tfAnswerKey: boolean[];
     essayInputSize: 'short' | 'long' | null;
+    tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
   };
 }
 
@@ -482,6 +483,8 @@ export interface LessonQuizResponseDto {
     answerGuide: string | null;
     /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
     essayInputSize: 'short' | 'long' | null;
+    /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+    tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
   };
 }
 

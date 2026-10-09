@@ -14,6 +14,8 @@ export function isAttemptQuestionUnanswered(q: AttemptQuestionDto): boolean {
       const choices = q.tfChoices ?? [];
       return [0, 1, 2, 3].some((i) => typeof choices[i] !== "boolean");
     }
+    case "true_false":
+      return typeof q.tfChoices?.[0] !== "boolean";
     case "essay":
       return !q.essayAnswer?.trim();
     default:

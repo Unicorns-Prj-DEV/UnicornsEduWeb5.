@@ -40,6 +40,7 @@ import {
   autoGradedMaxOf,
   gradeAnswers,
   normalizeTrueFalseChoices,
+  tfChoicesOf,
 } from './grading';
 import { assertExamForm, examGroupRank, orderExamLinks } from './exam-form';
 import { shuffleQuestionOptions, shuffleWithinGroups } from './shuffle';
@@ -201,6 +202,7 @@ export class AttemptService {
                 explanation: link.question.explanation,
                 answerGuide: link.question.answerGuide,
                 essayInputSize: link.question.essayInputSize,
+                tfLabelStyle: link.question.tfLabelStyle,
                 difficultyLabel: link.question.difficultyLevel.name,
               };
             }),
@@ -915,17 +917,18 @@ export class AttemptService {
         options: Array.isArray(ans.options) ? (ans.options as string[]) : null,
         essayInputSize: ans.essayInputSize,
         choiceIndex: ans.choiceIndex,
-        tfChoices:
-          ans.type === QuestionType.true_false_group
-            ? normalizeTrueFalseChoices(ans.tfChoices)
-            : null,
+        tfChoices: tfChoicesOf(ans.type, ans.tfChoices),
+        tfLabelStyle: ans.tfLabelStyle,
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };
       if (reveal && resultsReleased) {
         base.correctIndex = ans.correctIndex;
         base.tfAnswerKey =
-          ans.type === QuestionType.true_false_group ? ans.tfAnswerKey : null;
+          ans.type === QuestionType.true_false_group ||
+          ans.type === QuestionType.true_false
+            ? ans.tfAnswerKey
+            : null;
         base.isCorrect = ans.isCorrect;
         base.pointsAwarded = ans.pointsAwarded;
         base.explanation = ans.explanation;

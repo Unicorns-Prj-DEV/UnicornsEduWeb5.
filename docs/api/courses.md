@@ -127,8 +127,9 @@ Thuật ngữ: `CONTEXT.md` (Kỹ năng, Câu Đúng/Sai, Câu điền vào ô t
 
 | Method | Path | Ghi chú |
 | --- | --- | --- |
-| `GET` | `/public/app-config` | Thêm `questionSkills`, `questionWeights`, `essayInputSizes: boolean` (JP `true`). |
+| `GET` | `/public/app-config` | Thêm `questionSkills`, `questionWeights`, `essayInputSizes: boolean` (JP `true`). JP `questionTypes = ["single_choice","essay","true_false"]`. |
 | `POST/PATCH` | `/questions`, `POST /questions/bulk` | `skills: QuestionSkill[]` (`kanji` \| `vocabulary` \| `grammar` \| `reading` \| `listening` \| `conversation` \| `writing`). JP: tạo/sửa phải có ≥1 kỹ năng, không trùng (sửa câu cũ chưa có kỹ năng mà không gửi `skills` → `400`); bulk chỉ kiểm tra khi có gửi. IT/ENG gửi `skills` khác rỗng → `400`. |
+| `POST/PATCH` | `/questions` | `type: 'true_false'` (Câu Đúng/Sai, chỉ JP; IT/ENG → `400`): nhận định ở `content`, `tfAnswerKey: [boolean]` (đúng 1 phần tử), không `options`/`correctIndex`; `tfLabelStyle: 'maru_batsu' \| 'dung_sai' \| 'true_false' \| null` (`null` = ○/×; loại khác gửi → `400` *Chỉ Câu Đúng/Sai có kiểu nhãn.*). Bài làm: học sinh gửi `tfChoices: [boolean]`; câu trả về `tfChoices` 1 phần tử và `tfLabelStyle` (snapshot); không xáo; chấm cả câu; xem lại có `tfAnswerKey`. Sửa đáp án → chấm lại như câu khác. Ôn nhẹ: chọn một lựa chọn là đã trả lời. |
 | `POST/PATCH` | `/questions` | `essayInputSize: 'short' \| 'long' \| null` — kiểu ô câu tự luận (JP). Câu không phải tự luận gửi → `400` *Chỉ câu tự luận có kiểu ô nhập.*; IT/ENG gửi → `400`. `null` = ô dài (câu cũ). Trả về trên câu hỏi, câu của tiết, quiz ôn nhẹ và câu trong bài làm (`AttemptQuestionDto.essayInputSize`, snapshot lúc start). Màn chấm tự luận không đổi. |
 | `GET` | `/questions` | Lọc thêm `skill=<QuestionSkill>` (câu có kỹ năng đó), kết hợp với bộ lọc sẵn có. |
 | `POST/PATCH` | `/lessons/:lessonId/questions[/:linkId]` (liên kết câu vào tiết) | JP: `points` là **trọng số** câu-trong-tiết (null = 1); `points: 0` → `400` *Trọng số câu phải ≥ 1.* Lúc bắt đầu làm bài, `pointsPossible` = chia 100 theo trọng số (Hamilton). Sửa trọng số không chấm lại bài đã bắt đầu. ADR `2026-10-09-jp-weighted-scoring`. |

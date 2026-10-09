@@ -13,12 +13,15 @@ export interface QuestionShape {
   tfAnswerKey?: boolean[] | null;
   /** Kiểu ô nhập của câu tự luận (JP). null = ô dài như câu cũ. */
   essayInputSize?: 'short' | 'long' | null;
+  /** Kiểu nhãn Câu Đúng/Sai (JP). null = ○/×. */
+  tfLabelStyle?: string | null;
 }
 
 const TYPE_LABEL: Record<LmsQuestionType, string> = {
   single_choice: 'trắc nghiệm',
   essay: 'tự luận',
-  true_false_group: 'Đúng/Sai',
+  true_false_group: 'Đúng/Sai (nhóm 4 nhận định)',
+  true_false: 'Đúng/Sai',
 };
 
 export function questionShapeError(
@@ -36,6 +39,9 @@ export function questionShapeError(
   const type = shape.type as LmsQuestionType;
   if (shape.essayInputSize != null && type !== 'essay') {
     return 'Chỉ câu tự luận có kiểu ô nhập.';
+  }
+  if (shape.tfLabelStyle != null && type !== 'true_false') {
+    return 'Chỉ Câu Đúng/Sai có kiểu nhãn.';
   }
   switch (type) {
     case 'single_choice': {
@@ -58,6 +64,16 @@ export function questionShapeError(
       }
       if (shape.tfAnswerKey?.length !== 4) {
         return 'Câu Đúng/Sai phải có đáp án cho đủ 4 nhận định.';
+      }
+      if (shape.correctIndex !== undefined && shape.correctIndex !== null) {
+        return 'Câu Đúng/Sai không dùng correctIndex.';
+      }
+      return null;
+    case 'true_false':
+      // Một nhận định nằm ở `content`; đáp án ở `tfAnswerKey[0]`.
+      if (options?.length) return 'Câu Đúng/Sai không có phương án.';
+      if (shape.tfAnswerKey?.length !== 1) {
+        return 'Câu Đúng/Sai phải có đáp án Đúng hoặc Sai.';
       }
       if (shape.correctIndex !== undefined && shape.correctIndex !== null) {
         return 'Câu Đúng/Sai không dùng correctIndex.';

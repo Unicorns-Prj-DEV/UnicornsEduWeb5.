@@ -3,6 +3,29 @@ export enum QuestionTypeDto {
   essay = "essay",
   /** Nhóm câu Đúng/Sai: 4 nhận định a–d nằm trong `options`, đáp án ở `tfAnswerKey` (chỉ hồ sơ IT). */
   true_false_group = "true_false_group",
+  /** Câu Đúng/Sai (chỉ hồ sơ JP): một nhận định ở `content`, đáp án `tfAnswerKey: [boolean]`. */
+  true_false = "true_false",
+}
+
+/** Kiểu nhãn Câu Đúng/Sai (JP), chọn theo từng câu. null = ○/×. */
+export type TrueFalseLabelStyleDto = "maru_batsu" | "dung_sai" | "true_false";
+
+export const DEFAULT_TRUE_FALSE_LABEL_STYLE: TrueFalseLabelStyleDto = "maru_batsu";
+
+/** Nhãn hai lựa chọn [Đúng, Sai] theo kiểu nhãn. */
+export const TRUE_FALSE_CHOICE_LABELS: Record<
+  TrueFalseLabelStyleDto,
+  readonly [string, string]
+> = {
+  maru_batsu: ["○", "×"],
+  dung_sai: ["Đúng", "Sai"],
+  true_false: ["True", "False"],
+};
+
+export function trueFalseChoiceLabels(
+  style: TrueFalseLabelStyleDto | null | undefined,
+): readonly [string, string] {
+  return TRUE_FALSE_CHOICE_LABELS[style ?? DEFAULT_TRUE_FALSE_LABEL_STYLE];
 }
 
 /** Kỹ năng câu hỏi (chỉ hồ sơ JP), thứ tự hiển thị cố định. */
@@ -54,6 +77,8 @@ export interface Question {
   skills: QuestionSkillDto[];
   /** Kiểu ô tự luận (JP); null = ô dài. */
   essayInputSize: EssayInputSizeDto | null;
+  /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+  tfLabelStyle: TrueFalseLabelStyleDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,7 +101,7 @@ export type QuestionFormInitial = Pick<
   | "explanation"
   | "answerGuide"
 > &
-  Partial<Pick<Question, "skills" | "essayInputSize">>;
+  Partial<Pick<Question, "skills" | "essayInputSize" | "tfLabelStyle">>;
 
 export interface CreateQuestionInput {
   courseId: string;
@@ -91,6 +116,7 @@ export interface CreateQuestionInput {
   answerGuide?: string;
   skills?: QuestionSkillDto[];
   essayInputSize?: EssayInputSizeDto | null;
+  tfLabelStyle?: TrueFalseLabelStyleDto | null;
 }
 
 export type UpdateQuestionInput = Partial<
@@ -159,6 +185,7 @@ export interface BulkCreateResponse {
 export const QUESTION_TYPE_LABELS: Record<QuestionTypeDto, string> = {
   [QuestionTypeDto.single_choice]: "Trắc nghiệm",
   [QuestionTypeDto.true_false_group]: "Đúng/Sai",
+  [QuestionTypeDto.true_false]: "Đúng/Sai",
   [QuestionTypeDto.essay]: "Tự luận",
 };
 

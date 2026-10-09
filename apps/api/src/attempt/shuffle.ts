@@ -120,6 +120,8 @@ export function shuffleQuestionOptions(
 ): ShuffledOptions | null {
   switch (question.type) {
     case QuestionType.essay:
+    // Câu Đúng/Sai: hai lựa chọn cố định, không có phương án để xáo.
+    case QuestionType.true_false:
       return null;
     case QuestionType.single_choice:
     case QuestionType.true_false_group:

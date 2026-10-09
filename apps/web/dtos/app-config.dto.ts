@@ -7,7 +7,11 @@ export type LmsProfile = "it" | "jp" | "eng";
  */
 export type LmsScoring = "equal_100" | "absolute_it";
 
-export type LmsQuestionType = "single_choice" | "essay" | "true_false_group";
+export type LmsQuestionType =
+  | "single_choice"
+  | "essay"
+  | "true_false_group"
+  | "true_false";
 
 export interface AppConfig {
   profile: LmsProfile;

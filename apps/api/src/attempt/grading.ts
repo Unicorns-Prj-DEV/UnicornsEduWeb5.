@@ -41,10 +41,16 @@ export interface AttemptGradeResult {
   electiveVoided: boolean;
 }
 
-/** Chuẩn hoá `tf_choices` (Json) thành mảng 4 phần tử `boolean | null`. */
-export function normalizeTrueFalseChoices(raw: unknown): TrueFalseChoice[] {
+/** Số nhận định: Câu Đúng/Sai (JP) 1, nhóm câu Đúng/Sai (IT) 4. */
+export const TRUE_FALSE_GROUP_SIZE = 4;
+
+/** Chuẩn hoá `tf_choices` (Json) thành mảng `length` phần tử `boolean | null`. */
+export function normalizeTrueFalseChoices(
+  raw: unknown,
+  length = TRUE_FALSE_GROUP_SIZE,
+): TrueFalseChoice[] {
   const list = Array.isArray(raw) ? raw : [];
-  return Array.from({ length: 4 }, (_, i) =>
+  return Array.from({ length }, (_, i) =>
     typeof list[i] === 'boolean' ? (list[i] as boolean) : null,
   );
 }
@@ -86,6 +92,29 @@ export function gradeTrueFalse(
   };
 }
 
+/** Lựa chọn của Câu Đúng/Sai một nhận định; null = bỏ trống. */
+export function singleTrueFalseChoice(raw: unknown): TrueFalseChoice {
+  return normalizeTrueFalseChoices(raw, 1)[0];
+}
+
+/** Lựa chọn Đúng/Sai trả cho client: Câu Đúng/Sai 1 phần tử, nhóm 4, loại khác null. */
+export function tfChoicesOf(
+  type: QuestionType,
+  raw: unknown,
+): TrueFalseChoice[] | null {
+  switch (type) {
+    case QuestionType.true_false_group:
+      return normalizeTrueFalseChoices(raw);
+    case QuestionType.true_false:
+      return normalizeTrueFalseChoices(raw, 1);
+    case QuestionType.single_choice:
+    case QuestionType.essay:
+      return null;
+    default:
+      return assertNever(type, 'question type');
+  }
+}
+
 /** Câu đã được trả lời (đủ để tính "đã làm"), theo loại câu. */
 export function isAnswered(ans: {
   type: QuestionType;
@@ -101,6 +130,8 @@ export function isAnswered(ans: {
     case QuestionType.true_false_group:
       // Câu Đúng/Sai chỉ tính đã làm khi đủ cả 4 nhận định.
       return normalizeTrueFalseChoices(ans.tfChoices).every((c) => c !== null);
+    case QuestionType.true_false:
+      return singleTrueFalseChoice(ans.tfChoices) !== null;
     default:
       return assertNever(ans.type, 'question type');
   }
@@ -130,6 +161,12 @@ function gradeOne(
         ans.pointsPossible,
       );
       return { isCorrect: graded.correct === 4, pointsAwarded: graded.points };
+    }
+    case QuestionType.true_false: {
+      // Chấm cả câu, không bậc thang: đúng đủ điểm, sai/bỏ trống 0.
+      const choice = singleTrueFalseChoice(ans.tfChoices);
+      const isCorrect = choice !== null && choice === ans.tfAnswerKey[0];
+      return { isCorrect, pointsAwarded: isCorrect ? ans.pointsPossible : 0 };
     }
     case QuestionType.single_choice: {
       const isCorrect =

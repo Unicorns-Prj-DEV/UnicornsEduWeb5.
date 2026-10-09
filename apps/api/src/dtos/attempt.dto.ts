@@ -104,7 +104,7 @@ export class SaveAttemptAnswerItemDto {
     nullable: true,
     type: [Boolean],
     description:
-      'Nhóm câu Đúng/Sai: 4 phần tử true (Đúng) / false (Sai) / null (bỏ trống)',
+      'Lựa chọn Đúng/Sai: true (Đúng) / false (Sai) / null (bỏ trống). Nhóm câu Đúng/Sai 4 phần tử; Câu Đúng/Sai (JP) 1 phần tử.',
   })
   @IsOptional()
   @IsArray()
@@ -133,7 +133,7 @@ export interface AttemptQuestionDto {
   order: number;
   /** `equal_100`: 100/N (Hamilton). `absolute_it`: 25 / 100, đơn vị 1/100 điểm. */
   pointsPossible: number;
-  type: 'single_choice' | 'essay' | 'true_false_group';
+  type: 'single_choice' | 'essay' | 'true_false_group' | 'true_false';
   /** Vị trí câu: Bắt buộc / Tự chọn 1 / Tự chọn 2. */
   slot: QuestionSlotDto;
   content: string;
@@ -141,6 +141,8 @@ export interface AttemptQuestionDto {
   options: string[] | null;
   /** Kiểu ô tự luận (snapshot): short = một dòng, long/null = nhiều dòng. */
   essayInputSize: 'short' | 'long' | null;
+  /** Kiểu nhãn Câu Đúng/Sai (snapshot): maru_batsu (○/×, mặc định khi null) / dung_sai / true_false. */
+  tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
   choiceIndex: number | null;
   /** Lựa chọn 4 nhận định (Đúng/Sai/trống); null với loại khác. */
   tfChoices: (boolean | null)[] | null;
@@ -222,7 +224,7 @@ export interface PracticeStatsQuestionRateDto {
   questionId: string;
   /** Vị trí câu trong đề (1-based). */
   order: number;
-  type: 'single_choice' | 'essay' | 'true_false_group';
+  type: 'single_choice' | 'essay' | 'true_false_group' | 'true_false';
   correctCount: number;
   /** Số học sinh có lượt tốt nhất đã chấm xong chứa câu này. */
   sampleCount: number;

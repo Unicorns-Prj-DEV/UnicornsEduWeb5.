@@ -85,6 +85,44 @@ describe('questionShapeError', () => {
   });
 });
 
+describe('Câu Đúng/Sai một nhận định (true_false)', () => {
+  const ENG = lmsProfileConfig('eng');
+  const ok = { type: 'true_false', options: null, tfAnswerKey: [false] };
+  it('JP nhận, kèm kiểu nhãn tuỳ chọn', () => {
+    expect(questionShapeError(ok, JP)).toBeNull();
+    expect(
+      questionShapeError({ ...ok, tfLabelStyle: 'dung_sai' }, JP),
+    ).toBeNull();
+  });
+  it('IT và ENG từ chối', () => {
+    expect(questionShapeError(ok, IT)).toMatch(
+      'Hồ sơ IT không hỗ trợ câu Đúng/Sai',
+    );
+    expect(questionShapeError(ok, ENG)).toMatch(
+      'Hồ sơ ENG không hỗ trợ câu Đúng/Sai',
+    );
+  });
+  it('phải có đúng một đáp án, không có phương án', () => {
+    expect(questionShapeError({ ...ok, tfAnswerKey: [] }, JP)).toBe(
+      'Câu Đúng/Sai phải có đáp án Đúng hoặc Sai.',
+    );
+    expect(questionShapeError({ ...ok, tfAnswerKey: [true, false] }, JP)).toBe(
+      'Câu Đúng/Sai phải có đáp án Đúng hoặc Sai.',
+    );
+    expect(questionShapeError({ ...ok, options: ['x'] }, JP)).toBe(
+      'Câu Đúng/Sai không có phương án.',
+    );
+    expect(questionShapeError({ ...ok, correctIndex: 0 }, JP)).toBe(
+      'Câu Đúng/Sai không dùng correctIndex.',
+    );
+  });
+  it('chỉ Câu Đúng/Sai có kiểu nhãn', () => {
+    expect(
+      questionShapeError({ type: 'essay', tfLabelStyle: 'maru_batsu' }, JP),
+    ).toBe('Chỉ Câu Đúng/Sai có kiểu nhãn.');
+  });
+});
+
 describe('kiểu ô tự luận (essayInputSize)', () => {
   const ENG = lmsProfileConfig('eng');
   it.each(['short', 'long'] as const)('JP nhận tự luận ô %s', (size) => {

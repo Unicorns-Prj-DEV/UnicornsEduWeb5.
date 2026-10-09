@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import type { LessonQuizQuestion, LessonQuizAnswer } from "@/dtos/course-content.dto";
 import type { TrueFalseChoices } from "@/dtos/attempt.dto";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
+import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import EssayAnswerInput from "@/components/student/EssayAnswerInput";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import { formatVnDate } from "@/lib/formatters";
@@ -453,7 +454,15 @@ function QuizQuestionInput({
         <MathContent content={quiz.question.content} className="inline [&>p:first-child]:inline" />
       </div>
 
-      {quiz.question.type === "true_false_group" ? (
+      {quiz.question.type === "true_false" ? (
+        <TrueFalseChoice
+          choices={value?.tfChoices}
+          labelStyle={quiz.question.tfLabelStyle}
+          disabled={false}
+          reveal={false}
+          onChange={(tfChoices) => onChange({ tfChoices })}
+        />
+      ) : quiz.question.type === "true_false_group" ? (
         <TrueFalseStatements
           name={`quiz-${quiz.questionId}`}
           statements={options}
@@ -517,7 +526,10 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
       </p>
       {answers.map((ans, idx) => {
         const isTrueFalse = ans.question.type === "true_false_group";
-        const isCorrect = isTrueFalse
+        const isSingleTf = ans.question.type === "true_false";
+        const isCorrect = isSingleTf
+          ? ans.tfChoices?.[0] === ans.question.tfAnswerKey?.[0]
+          : isTrueFalse
           ? (ans.question.tfAnswerKey ?? []).every(
               (k, i) => ans.tfChoices?.[i] === k,
             )
@@ -545,7 +557,18 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
             {/* Student answer */}
             <div className="mb-2">
               <span className="text-xs font-semibold text-text-muted">Câu trả lời của bạn: </span>
-              {isTrueFalse ? (
+              {isSingleTf ? (
+                <div className="mt-2">
+                  <TrueFalseChoice
+                    choices={ans.tfChoices}
+                    labelStyle={ans.question.tfLabelStyle}
+                    answerKey={ans.question.tfAnswerKey}
+                    disabled
+                    reveal
+                    onChange={() => {}}
+                  />
+                </div>
+              ) : isTrueFalse ? (
                 <div className="mt-2">
                   <TrueFalseStatements
                     name={`quiz-review-${ans.questionId}`}
@@ -573,7 +596,7 @@ function QuizReview({ answers }: { answers: LessonQuizAnswer[] }) {
             </div>
 
             {/* Correct answer (for single_choice) */}
-            {!isEssay && !isTrueFalse && ans.question.correctIndex !== null && (
+            {!isEssay && !isTrueFalse && !isSingleTf && ans.question.correctIndex !== null && (
               <div className="mb-1">
                 <span className="text-xs font-semibold text-text-muted">Đáp án đúng: </span>
                 <span className="inline-flex flex-wrap items-baseline gap-1 text-sm font-medium text-success">

@@ -20,6 +20,15 @@ export enum QuestionTypeDto {
   essay = 'essay',
   /** Nhóm câu Đúng/Sai: 4 nhận định a–d trong `options`, đáp án trong `tfAnswerKey`. */
   true_false_group = 'true_false_group',
+  /** Câu Đúng/Sai (JP): một nhận định trong `content`, đáp án `tfAnswerKey: [boolean]`. */
+  true_false = 'true_false',
+}
+
+/** Kiểu nhãn Câu Đúng/Sai (JP): ○/× (mặc định), Đúng/Sai, True/False. */
+export enum TrueFalseLabelStyleDto {
+  maru_batsu = 'maru_batsu',
+  dung_sai = 'dung_sai',
+  true_false = 'true_false',
 }
 
 /** Kỹ năng câu hỏi (chỉ hồ sơ JP). */
@@ -58,6 +67,8 @@ export interface QuestionResponseDto {
   skills: QuestionSkillDto[];
   /** Kiểu ô tự luận (JP); null = ô dài (câu cũ / hồ sơ khác). */
   essayInputSize: EssayInputSizeDto | null;
+  /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+  tfLabelStyle: TrueFalseLabelStyleDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -122,14 +133,14 @@ export class CreateQuestionDto {
 
   @ApiPropertyOptional({
     description:
-      'Nhóm câu Đúng/Sai: đáp án 4 nhận định a–d theo thứ tự `options` (true = Đúng). Bắt buộc với true_false_group.',
+      'Đáp án Đúng/Sai (true = Đúng). true_false_group: 4 nhận định a–d theo thứ tự `options`; true_false (JP): đúng 1 phần tử.',
     type: [Boolean],
     example: [true, false, false, true],
   })
   @IsOptional()
   @IsArray()
   @IsBoolean({ each: true })
-  @ArrayMinSize(4)
+  @ArrayMinSize(1)
   @ArrayMaxSize(4)
   tfAnswerKey?: boolean[];
 
@@ -170,6 +181,16 @@ export class CreateQuestionDto {
   @IsOptional()
   @IsIn(Object.values(EssayInputSizeDto))
   essayInputSize?: EssayInputSizeDto | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Kiểu nhãn Câu Đúng/Sai (chỉ true_false, JP): maru_batsu = ○/× (mặc định khi null), dung_sai = Đúng/Sai, true_false = True/False.',
+    enum: TrueFalseLabelStyleDto,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsIn(Object.values(TrueFalseLabelStyleDto))
+  tfLabelStyle?: TrueFalseLabelStyleDto | null;
 }
 
 /** DTO for updating a question – all fields optional */
@@ -200,14 +221,14 @@ export class UpdateQuestionDto {
 
   @ApiPropertyOptional({
     description:
-      'Nhóm câu Đúng/Sai: đáp án 4 nhận định a–d theo thứ tự `options` (true = Đúng). Bắt buộc với true_false_group.',
+      'Đáp án Đúng/Sai (true = Đúng). true_false_group: 4 nhận định a–d theo thứ tự `options`; true_false (JP): đúng 1 phần tử.',
     type: [Boolean],
     example: [true, false, false, true],
   })
   @IsOptional()
   @IsArray()
   @IsBoolean({ each: true })
-  @ArrayMinSize(4)
+  @ArrayMinSize(1)
   @ArrayMaxSize(4)
   tfAnswerKey?: boolean[];
 
@@ -242,6 +263,16 @@ export class UpdateQuestionDto {
   @IsOptional()
   @IsIn(Object.values(EssayInputSizeDto))
   essayInputSize?: EssayInputSizeDto | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Kiểu nhãn Câu Đúng/Sai (chỉ true_false, JP): maru_batsu = ○/× (mặc định khi null), dung_sai = Đúng/Sai, true_false = True/False.',
+    enum: TrueFalseLabelStyleDto,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsIn(Object.values(TrueFalseLabelStyleDto))
+  tfLabelStyle?: TrueFalseLabelStyleDto | null;
 }
 
 // --- Bulk import DTOs -------------------------------------------------------
@@ -277,14 +308,14 @@ export class BulkCreateQuestionItemDto {
 
   @ApiPropertyOptional({
     description:
-      'Nhóm câu Đúng/Sai: đáp án 4 nhận định a–d theo thứ tự `options` (true = Đúng). Bắt buộc với true_false_group.',
+      'Đáp án Đúng/Sai (true = Đúng). true_false_group: 4 nhận định a–d theo thứ tự `options`; true_false (JP): đúng 1 phần tử.',
     type: [Boolean],
     example: [true, false, false, true],
   })
   @IsOptional()
   @IsArray()
   @IsBoolean({ each: true })
-  @ArrayMinSize(4)
+  @ArrayMinSize(1)
   @ArrayMaxSize(4)
   tfAnswerKey?: boolean[];
 

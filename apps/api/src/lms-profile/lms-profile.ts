@@ -8,7 +8,11 @@ export type LmsProfile = (typeof LMS_PROFILES)[number];
 /** `equal_100`: chia đều 100 cho N câu. `absolute_it`: điểm tuyệt đối theo loại câu, đơn vị 1/100 điểm. */
 export type LmsScoring = 'equal_100' | 'absolute_it';
 
-export type LmsQuestionType = 'single_choice' | 'essay' | 'true_false_group';
+export type LmsQuestionType =
+  | 'single_choice'
+  | 'essay'
+  | 'true_false_group'
+  | 'true_false';
 
 /** Kỹ năng câu hỏi (chỉ JP), thứ tự hiển thị cố định. */
 export const QUESTION_SKILLS = [
@@ -54,7 +58,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
   },
   jp: {
     profile: 'jp',
-    questionTypes: ['single_choice', 'essay'],
+    questionTypes: ['single_choice', 'essay', 'true_false'],
     optionCount: OPTION_COUNT,
     scoring: 'equal_100',
     electiveGroups: false,

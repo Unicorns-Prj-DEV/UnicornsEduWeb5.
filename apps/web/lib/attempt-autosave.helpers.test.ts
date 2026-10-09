@@ -50,6 +50,18 @@ describe("câu Đúng/Sai + nhóm tự chọn", () => {
   });
 });
 
+describe("Câu Đúng/Sai (một nhận định)", () => {
+  it("chọn một lựa chọn là tính đã làm, kể cả chọn Sai", () => {
+    expect(isAttemptQuestionUnanswered(q({ type: "true_false", tfChoices: [false] }))).toBe(false);
+    expect(isAttemptQuestionUnanswered(q({ type: "true_false", tfChoices: [true, null, null, null] }))).toBe(false);
+  });
+
+  it("chưa chọn là chưa làm", () => {
+    expect(isAttemptQuestionUnanswered(q({ type: "true_false", tfChoices: null }))).toBe(true);
+    expect(isAttemptQuestionUnanswered(q({ type: "true_false", tfChoices: [null] }))).toBe(true);
+  });
+});
+
 describe("isAttemptQuestionUnanswered", () => {
   it("treats choiceIndex 0 as answered", () => {
     expect(

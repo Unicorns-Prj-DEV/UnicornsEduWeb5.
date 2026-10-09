@@ -481,6 +481,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `attempts.elective_voided` (`BOOLEAN`, default `false`): học sinh có ít nhất một nhận định được chọn ở **cả hai** nhóm tự chọn → mọi câu `elective_1`/`elective_2` chấm 0.
   - `attempt_answers.slot` (`QuestionSlot`): snapshot vị trí câu lúc start (từ `question_links.slot`).
   - `attempt_answers.essay_input_size` (`EssayInputSize?`): snapshot kiểu ô tự luận lúc start (`null` = ô dài).
+  - `attempt_answers.tf_label_style` (`TrueFalseLabelStyle?`): snapshot kiểu nhãn Câu Đúng/Sai lúc start (`null` = ○/×). Câu `true_false` lưu lựa chọn ở `tf_choices[0]`.
   - `attempt_answers.tf_answer_key` (`BOOLEAN[]`): snapshot đáp án 4 nhận định; `tf_choices` (`JSONB`, `(boolean|null)[4]`): lựa chọn của học sinh.
   - Sửa đáp án câu ở ngân hàng (`correct_index` / `tf_answer_key`) → cập nhật snapshot các `attempt_answers` của lượt đã nộp và chấm lại im lặng (`auto_graded_score`), không thông báo. Snapshot đã đảo đáp án được đổi sang thứ tự hiển thị qua `option_order` (`remapAnswerKey`); phương án đúng mới không có trong snapshot (thêm phương án sau khi lượt bắt đầu) → `correct_index = null` (không ai đúng).
   - `attempt_answers.option_order` (`INT[]`, default `{}`): hoán vị lúc đảo đáp án — `option_order[i]` = chỉ số gốc của phương án hiển thị thứ i. Rỗng = không đảo. `options`, `correct_index`, `tf_answer_key`, `choice_index`, `tf_choices` trong snapshot đều theo **thứ tự hiển thị**, nên chấm điểm không cần biết hoán vị.
@@ -656,10 +657,11 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `course_id` (FK → `courses.id`, cascade)
   - `module_id` (FK → `modules.id`, cascade)
   - `difficulty_level_id` (FK → `course_difficulty_levels.id`, restrict)
-  - `type` (`QuestionType`): `single_choice` | `essay` | `true_false_group`. Hồ sơ IT không cho tạo `essay`.
+  - `type` (`QuestionType`): `single_choice` | `essay` | `true_false_group` | `true_false`. Hồ sơ IT không cho tạo `essay`; `true_false` (Câu Đúng/Sai một nhận định) chỉ hồ sơ JP.
   - `content` (`TEXT`): nội dung câu hỏi (HTML từ TipTap; có thể chứa bảng, ảnh, `<pre><code class="language-*">`, `<div data-code-parallel>`). Web sanitize (DOMPurify) trước khi render.
   - `options` (`JSONB`, nullable): `single_choice` — 2–6 phương án; `true_false_group` — đúng 4 nhận định a–d (HTML)
-  - `tf_answer_key` (`BOOLEAN[]`, default `{}`): đáp án 4 nhận định (true = Đúng), chỉ cho `true_false_group`
+  - `tf_answer_key` (`BOOLEAN[]`, default `{}`): đáp án 4 nhận định (true = Đúng) cho `true_false_group`; đúng 1 phần tử cho `true_false` (nhận định nằm ở `content`, không có `options`)
+  - `tf_label_style` (`TrueFalseLabelStyle?`: `maru_batsu` | `dung_sai` | `true_false`): kiểu nhãn hai lựa chọn của Câu Đúng/Sai (○/×, Đúng/Sai, True/False) — chỉ câu `true_false`. `null` = ○/×. Không xáo; chấm cả câu (đúng = đủ điểm, sai/bỏ trống = 0).
   - `correct_index` (`INT`, nullable): chỉ số 0-based của đáp án đúng — cần cho `single_choice`
   - `explanation` (`TEXT`, nullable): giải thích sau khi trả lời (HTML)
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
@@ -908,7 +910,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
 - `ClassContentHiddenReason`: `manual`, `module_removed` — lý do ẩn mềm `class_content_items` (`20261005120000_class_module_order_and_hidden_reason`)
 - `ClassTimelineItemKind`: `session` | `class_survey` | `content_item` — loại mục trên timeline lớp (`class_timeline_items`)
-- `QuestionType`: `single_choice | essay | true_false_group` — phân loại câu hỏi trong ngân hàng câu hỏi (`true_false_group`: nhóm 4 nhận định Đúng/Sai, hồ sơ IT)
+- `QuestionType`: `single_choice | essay | true_false_group | true_false` — phân loại câu hỏi trong ngân hàng câu hỏi (`true_false_group`: nhóm 4 nhận định Đúng/Sai, hồ sơ IT; `true_false`: Câu Đúng/Sai một nhận định, hồ sơ JP)
+- `TrueFalseLabelStyle`: `maru_batsu | dung_sai | true_false` — kiểu nhãn Câu Đúng/Sai (JP)
 - `QuestionSlot`: `required | elective_1 | elective_2` — vị trí câu trong đề thực hành
 - `AttemptScoring`: `equal_100 | absolute_it` — thang điểm của Bài làm
 - `AttemptStatus`: `in_progress | submitted | timed_out` — trạng thái lượt làm bài

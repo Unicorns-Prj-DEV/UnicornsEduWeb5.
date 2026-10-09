@@ -2,6 +2,8 @@ import {
   type EssayInputSizeDto,
   QuestionSkillDto,
   QuestionTypeDto,
+  type TrueFalseLabelStyleDto,
+  DEFAULT_TRUE_FALSE_LABEL_STYLE,
 } from "@/dtos/question.dto";
 import { assertNever } from "@/lib/assert-never";
 import type { QuestionFormInitial } from "@/dtos/question.dto";
@@ -19,6 +21,7 @@ export type QuestionFormPayload = {
   answerGuide?: string;
   skills?: QuestionSkillDto[];
   essayInputSize?: EssayInputSizeDto;
+  tfLabelStyle?: TrueFalseLabelStyleDto;
 };
 
 function isBlankHtml(html: string): boolean {
@@ -65,6 +68,15 @@ export function questionFormToPayload(
       return singleChoicePayload(base, form);
     case QuestionTypeDto.true_false_group:
       return trueFalseGroupPayload(base, form);
+    case QuestionTypeDto.true_false:
+      // Một nhận định nằm ở `content`; đáp án là phần tử đầu của form.tfAnswerKey.
+      return {
+        payload: {
+          ...base,
+          tfAnswerKey: [form.tfAnswerKey[0] ?? true],
+          tfLabelStyle: form.tfLabelStyle,
+        },
+      };
     case QuestionTypeDto.essay:
       return {
         payload: {
@@ -128,13 +140,14 @@ function trueFalseGroupPayload(
 export function questionToFormParts(
   question: Pick<
     QuestionFormInitial,
-    "type" | "options" | "correctIndex" | "tfAnswerKey"
+    "type" | "options" | "correctIndex" | "tfAnswerKey" | "tfLabelStyle"
   > | null,
 ): Pick<
   QuestionFormValue,
-  "options" | "correctIndex" | "statements" | "tfAnswerKey"
+  "options" | "correctIndex" | "statements" | "tfAnswerKey" | "tfLabelStyle"
 > {
   const isTf = question?.type === QuestionTypeDto.true_false_group;
+  const isSingleTf = question?.type === QuestionTypeDto.true_false;
   const opts = question?.options ?? [];
   return {
     options: !isTf && opts.length ? opts : ["", "", "", ""],
@@ -145,6 +158,9 @@ export function questionToFormParts(
     tfAnswerKey:
       isTf && question?.tfAnswerKey?.length === 4
         ? [...question.tfAnswerKey]
-        : [true, true, true, true],
+        : isSingleTf && typeof question?.tfAnswerKey?.[0] === "boolean"
+          ? [question.tfAnswerKey[0], true, true, true]
+          : [true, true, true, true],
+    tfLabelStyle: question?.tfLabelStyle ?? DEFAULT_TRUE_FALSE_LABEL_STYLE,
   };
 }

@@ -14,7 +14,9 @@ import {
   QUESTION_TYPE_LABELS,
   QuestionSkillDto,
   QuestionTypeDto,
+  TRUE_FALSE_CHOICE_LABELS,
   TRUE_FALSE_STATEMENT_LABELS,
+  type TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
@@ -33,7 +35,10 @@ export type QuestionFormValue = {
   correctIndex: number;
   /** 4 nhận định a–d của câu Đúng/Sai (gửi lên API qua `options`). */
   statements: string[];
+  /** Nhóm 4 nhận định: 4 phần tử. Câu Đúng/Sai (JP): chỉ đọc phần tử đầu. */
   tfAnswerKey: boolean[];
+  /** Kiểu nhãn Câu Đúng/Sai (JP). */
+  tfLabelStyle: TrueFalseLabelStyleDto;
   explanation: string;
   answerGuide: string;
   /** Kỹ năng (chỉ hồ sơ JP). */
@@ -51,6 +56,7 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   correctIndex: 0,
   statements: ["", "", "", ""],
   tfAnswerKey: [true, true, true, true],
+  tfLabelStyle: "maru_batsu",
   explanation: "",
   answerGuide: "",
   skills: [],
@@ -60,6 +66,13 @@ export const emptyQuestionFormValue: QuestionFormValue = {
 const ESSAY_INPUT_SIZE_OPTIONS = (
   Object.keys(ESSAY_INPUT_SIZE_LABELS) as EssayInputSizeDto[]
 ).map((size) => ({ value: size, label: ESSAY_INPUT_SIZE_LABELS[size] }));
+
+const TF_LABEL_STYLE_OPTIONS = (
+  Object.keys(TRUE_FALSE_CHOICE_LABELS) as TrueFalseLabelStyleDto[]
+).map((style) => ({
+  value: style,
+  label: TRUE_FALSE_CHOICE_LABELS[style].join(" / "),
+}));
 
 const FORM_VIEWS = ["edit", "preview"] as const;
 type FormView = (typeof FORM_VIEWS)[number];
@@ -297,6 +310,10 @@ export default function QuestionFormFields({
               <TrueFalseStatementFields value={value} onChange={onChange} />
             )}
 
+            {value.type === QuestionTypeDto.true_false && (
+              <TrueFalseSingleFields value={value} onChange={onChange} />
+            )}
+
             <div>
               <span className="mb-1 block text-xs font-medium text-text-muted">
                 Giải thích (tuỳ chọn)
@@ -415,6 +432,64 @@ function TrueFalseStatementFields({
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Câu Đúng/Sai (JP): nhận định nằm ở nội dung câu; chọn đáp án + kiểu nhãn. */
+function TrueFalseSingleFields({
+  value,
+  onChange,
+}: {
+  value: QuestionFormValue;
+  onChange: (patch: Partial<QuestionFormValue>) => void;
+}) {
+  const labels = TRUE_FALSE_CHOICE_LABELS[value.tfLabelStyle];
+  const answer = value.tfAnswerKey[0] ?? true;
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="mb-1 block text-xs font-medium text-text-muted">
+          Đáp án đúng
+        </span>
+        <div
+          role="radiogroup"
+          aria-label="Đáp án đúng"
+          className="grid grid-cols-2 gap-2 sm:flex"
+        >
+          {([true, false] as const).map((v, i) => (
+            <button
+              key={String(v)}
+              type="button"
+              role="radio"
+              aria-checked={answer === v}
+              onClick={() =>
+                onChange({ tfAnswerKey: [v, ...value.tfAnswerKey.slice(1)] })
+              }
+              className={`min-h-11 rounded-lg border px-4 text-sm font-medium sm:min-w-24 ${
+                answer === v
+                  ? "border-primary bg-primary text-text-inverse"
+                  : "border-border-default text-text-secondary hover:border-primary/50"
+              }`}
+            >
+              {labels[i]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <span className="mb-1 block text-xs font-medium text-text-muted">
+          Kiểu nhãn
+        </span>
+        <UpgradedSelect
+          value={value.tfLabelStyle}
+          onValueChange={(v) =>
+            onChange({ tfLabelStyle: v as TrueFalseLabelStyleDto })
+          }
+          options={TF_LABEL_STYLE_OPTIONS}
+          ariaLabel="Kiểu nhãn"
+        />
+      </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import type { TrueFalseLabelStyleDto } from "@/dtos/question.dto";
 export type AttemptStatusDto = "in_progress" | "submitted" | "timed_out";
 
 /** Thang điểm của Bài làm: `equal_100` = 100/N (JP/ENG), `absolute_it` = điểm tuyệt đối 0,25 / 1 (IT). */
@@ -17,12 +18,14 @@ export interface AttemptQuestionDto {
    * (trắc nghiệm 25, Đúng/Sai 100).
    */
   pointsPossible: number;
-  type: "single_choice" | "essay" | "true_false_group";
+  type: "single_choice" | "essay" | "true_false_group" | "true_false";
   slot: QuestionSlotDto;
   content: string;
   options: string[] | null;
   /** Kiểu ô tự luận (snapshot): short = một dòng, long/null = nhiều dòng. */
   essayInputSize?: "short" | "long" | null;
+  /** Kiểu nhãn Câu Đúng/Sai (snapshot); null = ○/×. */
+  tfLabelStyle?: TrueFalseLabelStyleDto | null;
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices: TrueFalseChoices | null;
