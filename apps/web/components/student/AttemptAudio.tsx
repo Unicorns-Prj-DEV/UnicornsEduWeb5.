@@ -11,7 +11,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Headphones, Loader2, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import type { AttemptAudioPlayDto, AttemptAudioView } from "@/dtos/attempt.dto";
-import { audioPlaysLeft } from "@/lib/attempt-audio";
+import { audioPlaysLeft, needsRestrictedPlayer } from "@/lib/attempt-audio";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 import QuestionAudio from "./QuestionAudio";
 
@@ -47,7 +47,9 @@ export default function AttemptAudio({
   label?: string;
 }) {
   const play = useContext(PlayAudioContext);
-  if (audio.maxPlays === null || !play) {
+  // Có giới hạn lượt mà không có hàm phát (ngoài trang làm bài) thì không
+  // xin được URL — rơi về trình phát gốc (url null → cảnh báo).
+  if (!needsRestrictedPlayer(audio) || (audio.maxPlays !== null && !play)) {
     return <QuestionAudio url={audio.url} label={label} />;
   }
   return <LimitedAudio audio={audio} label={label} play={play} />;
@@ -60,7 +62,7 @@ function LimitedAudio({
 }: {
   audio: AttemptAudioView;
   label: string;
-  play: PlayAudio;
+  play: PlayAudio | null;
 }) {
   const ref = useRef<HTMLAudioElement>(null);
   const [playsUsed, setPlaysUsed] = useState(audio.playsUsed);
@@ -69,10 +71,15 @@ function LimitedAudio({
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState({ current: 0, duration: 0 });
 
-  const left = audioPlaysLeft({ ...audio, playsUsed }) ?? 0;
+  const unlimited = audio.maxPlays === null;
+  const left = audioPlaysLeft({ ...audio, playsUsed });
 
   const start = useMutation({
-    mutationFn: () => play(audio.id),
+    // Không giới hạn lượt (chỉ cấm tua): URL có sẵn, không gọi server.
+    mutationFn: async (): Promise<AttemptAudioPlayDto> =>
+      unlimited || !play
+        ? { url: audio.url, maxPlays: null, playsUsed: 0 }
+        : play(audio.id),
     onSuccess: (result) => {
       setPlaysUsed(result.playsUsed);
       if (!result.url) {
@@ -98,7 +105,7 @@ function LimitedAudio({
       else el.pause();
       return;
     }
-    if (left > 0) start.mutate();
+    if (left === null || left > 0) start.mutate();
   };
 
   const exhausted = !src && left === 0;
@@ -154,7 +161,14 @@ function LimitedAudio({
           <Headphones className="size-3.5 shrink-0" aria-hidden />
           {exhausted
             ? "Đã hết lượt nghe"
-            : `Còn ${left}/${audio.maxPlays} lượt nghe${audio.allowSeek ? "" : " · không tua được"}`}
+            : [
+                left === null
+                  ? null
+                  : `Còn ${left}/${audio.maxPlays} lượt nghe`,
+                audio.allowSeek ? null : "không tua được",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
         </p>
       </div>
       <audio

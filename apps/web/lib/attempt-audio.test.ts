@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { audioPlaysLeft, openAudio } from "./attempt-audio";
+import {
+  audioPlaysLeft,
+  needsRestrictedPlayer,
+  openAudio,
+} from "./attempt-audio";
 
 const limited = {
   id: "au-1",
@@ -37,5 +41,21 @@ describe("openAudio", () => {
   it("không có URL → không có audio", () => {
     expect(openAudio(null)).toBeNull();
     expect(openAudio(undefined)).toBeNull();
+  });
+});
+
+describe("needsRestrictedPlayer", () => {
+  const open = { ...limited, url: "u", maxPlays: null, allowSeek: true };
+
+  it("không giới hạn + cho tua → trình phát gốc", () => {
+    expect(needsRestrictedPlayer(open)).toBe(false);
+  });
+
+  it("không giới hạn nhưng không cho tua → trình phát riêng (không thanh tua)", () => {
+    expect(needsRestrictedPlayer({ ...open, allowSeek: false })).toBe(true);
+  });
+
+  it("có giới hạn lượt → trình phát riêng", () => {
+    expect(needsRestrictedPlayer({ ...open, maxPlays: 1 })).toBe(true);
   });
 });

@@ -13,3 +13,11 @@ export function openAudio(
   if (!url) return null;
   return { id: url, url, maxPlays: null, allowSeek: true, playsUsed: 0 };
 }
+
+/**
+ * Trình phát gốc (`<audio controls>`) luôn có thanh tua — chỉ dùng khi audio
+ * vừa không giới hạn lượt vừa cho tua. Còn lại dùng trình phát riêng.
+ */
+export function needsRestrictedPlayer(audio: AttemptAudioView): boolean {
+  return audio.maxPlays !== null || !audio.allowSeek;
+}
