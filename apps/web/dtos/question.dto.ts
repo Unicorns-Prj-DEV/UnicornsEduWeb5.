@@ -85,6 +85,19 @@ export const ESSAY_INPUT_SIZE_LABELS: Record<EssayInputSizeDto, string> = {
   long: "Ô dài (nhiều dòng)",
 };
 
+/** Lựa chọn dropdown kiểu ô tự luận. */
+export const ESSAY_INPUT_SIZE_OPTIONS = (
+  Object.keys(ESSAY_INPUT_SIZE_LABELS) as EssayInputSizeDto[]
+).map((size) => ({ value: size, label: ESSAY_INPUT_SIZE_LABELS[size] }));
+
+/** Lựa chọn dropdown kiểu nhãn Câu Đúng/Sai, vd "○ / ×". */
+export const TF_LABEL_STYLE_OPTIONS = (
+  Object.keys(TRUE_FALSE_CHOICE_LABELS) as TrueFalseLabelStyleDto[]
+).map((style) => ({
+  value: style,
+  label: TRUE_FALSE_CHOICE_LABELS[style].join(" / "),
+}));
+
 /** Nhãn nhận định của câu Đúng/Sai. */
 export const TRUE_FALSE_STATEMENT_LABELS = ["a", "b", "c", "d"] as const;
 
@@ -200,6 +213,12 @@ export interface AiQuestionItem {
   tfAnswerKey?: boolean[];
   explanation?: string;
   answerGuide?: string;
+  /** Câu điền vào ô trống: đáp án hợp lệ từng ô `[[___]]`. */
+  blankAnswerKey?: string[][];
+  /** Câu tự luận (JP): ô một dòng / nhiều dòng. */
+  essayInputSize?: EssayInputSizeDto;
+  /** Câu Đúng/Sai (JP): kiểu nhãn. */
+  tfLabelStyle?: TrueFalseLabelStyleDto;
   difficulty: string;
 }
 
@@ -223,6 +242,9 @@ export interface BulkCreateQuestionInput {
     tfAnswerKey?: boolean[];
     explanation?: string;
     answerGuide?: string;
+    blankAnswerKey?: string[][];
+    essayInputSize?: EssayInputSizeDto;
+    tfLabelStyle?: TrueFalseLabelStyleDto;
     difficultyLevelId: string;
     skills?: QuestionSkillDto[];
   }>;

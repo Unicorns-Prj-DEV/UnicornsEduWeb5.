@@ -13,13 +13,14 @@ import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
 import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
 import { appendBlankMarker } from "@/lib/fill-blank";
 import {
-  ESSAY_INPUT_SIZE_LABELS,
+  ESSAY_INPUT_SIZE_OPTIONS,
   type EssayInputSizeDto,
   QUESTION_TYPE_LABELS,
   QuestionSkillDto,
   QuestionTypeDto,
   TRUE_FALSE_CHOICE_LABELS,
   TRUE_FALSE_STATEMENT_LABELS,
+  TF_LABEL_STYLE_OPTIONS,
   type TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
@@ -77,17 +78,6 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   sharedMaterialId: "",
   audio: null,
 };
-
-const ESSAY_INPUT_SIZE_OPTIONS = (
-  Object.keys(ESSAY_INPUT_SIZE_LABELS) as EssayInputSizeDto[]
-).map((size) => ({ value: size, label: ESSAY_INPUT_SIZE_LABELS[size] }));
-
-const TF_LABEL_STYLE_OPTIONS = (
-  Object.keys(TRUE_FALSE_CHOICE_LABELS) as TrueFalseLabelStyleDto[]
-).map((style) => ({
-  value: style,
-  label: TRUE_FALSE_CHOICE_LABELS[style].join(" / "),
-}));
 
 const FORM_VIEWS = ["edit", "preview"] as const;
 type FormView = (typeof FORM_VIEWS)[number];

@@ -1,11 +1,20 @@
 "use client";
 
 import {
+  DEFAULT_TRUE_FALSE_LABEL_STYLE,
+  ESSAY_INPUT_SIZE_OPTIONS,
+  type EssayInputSizeDto,
   QuestionSkillDto,
   QuestionTypeDto,
+  TF_LABEL_STYLE_OPTIONS,
   TRUE_FALSE_STATEMENT_LABELS,
+  type TrueFalseLabelStyleDto,
   questionTypeLabel,
+  trueFalseChoiceLabels,
 } from "@/dtos/question.dto";
+import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
+import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
+import { appendBlankMarker, numberBlanks } from "@/lib/fill-blank";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { useState, useMemo, useCallback, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +39,7 @@ import {
   unreviewedCount,
   validateAiJson,
 } from "@/lib/ai-import-review.helpers";
+import { buildAiImportPrompt } from "@/lib/ai-import-prompt";
 import MathContent from "@/components/ui/MathContent";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { Badge } from "@/components/ui/badge";
@@ -148,103 +158,26 @@ export default function AiImportModal({
     [difficultyLevels],
   );
 
-  const prompt = useMemo(() => {
-    const courseName = course?.name ?? "N/A";
-    const diffList = difficultyNames.length
-      ? difficultyNames.map((name) => `  - ${name}`).join("\n")
-      : "  (chưa có level)";
-    const hasEssay = allowedTypes.includes(QuestionTypeDto.essay);
-    const hasTf = allowedTypes.includes(QuestionTypeDto.true_false_group);
-    const typeList = allowedTypes.map((t) => `"${t}"`).join(" hoặc ");
-    const second = hasTf
-      ? `{"type":"true_false_group","content":"Câu 2 (đoạn dẫn)","options":["nhận định a","nhận định b","nhận định c","nhận định d"],"tfAnswerKey":[true,false,true,false],"explanation":"...","difficulty":"Thông hiểu"}`
-      : `{"type":"essay","content":"Câu 2","answerGuide":"...","difficulty":"Thông hiểu"}`;
-    const schemaExtra = [
-      hasTf
-        ? `true_false_group (Đúng/Sai):
-  type, content (đoạn dẫn chung), options (ĐÚNG 4 nhận định a–d),
-  tfAnswerKey (mảng 4 true/false theo thứ tự a–d), explanation (tuỳ chọn), difficulty
-  KHÔNG có correctIndex`
-        : "",
-      hasEssay
-        ? `essay:
-  type, content, answerGuide (barem chấm), difficulty
-  KHÔNG có options, KHÔNG có correctIndex`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-    return `Bạn là trợ lý soạn câu hỏi cho khoá ${courseName} của Unicorns Edu.
-
-NHIỆM VỤ
-Sinh ${questionCount} câu hỏi về: ${selectedChapterTitle || "(chọn chuyên đề)"}.
-
-ĐẦU RA — CHỈ MỘT JSON ARRAY THUẦN
-- In ra đúng một mảng JSON: ký tự đầu là [ và ký tự cuối là ].
-- Không markdown, không rào \`\`\`json, không lời dẫn, không giải thích.
-
-CẤU TRÚC BẮT BUỘC (đọc kỹ)
-Mỗi phần tử của mảng phải là OBJECT JSON {...}, KHÔNG phải chuỗi.
-
-ĐÚNG — mảng các object (dán thẳng vào hệ thống):
-[
-  {"type":"single_choice","content":"Câu 1","options":["A","B","C","D"],"correctIndex":0,"explanation":"...","difficulty":"Nhận biết"},
-  ${second}
-]
-
-SAI — tuyệt đối không làm thế này:
-[
-  "{"type":"single_choice",...}",
-  "{"type":"${hasTf ? "true_false_group" : "essay"}",...}"
-]
-Lỗi trên là bọc mỗi câu trong dấu ngoặc kép → JSON.parse sẽ hỏng.
-KHÔNG JSON.stringify từng câu. KHÔNG xuất từng dòng object rời rồi bọc vào array string.
-
-SCHEMA MỖI OBJECT
-single_choice:
-  type, content, options (mảng 2–6 chuỗi), correctIndex (số nguyên 0-based),
-  explanation (tuỳ chọn), difficulty
-
-${schemaExtra}
-
-QUY TẮC TỪNG TRƯỜNG
-- type          ${typeList}
-- content       chuỗi không rỗng
-- options       single_choice: 2–6 phương án; không thêm A./B./1./2. đầu dòng${hasTf ? "\n                true_false_group: đúng 4 nhận định; không thêm a)/b) đầu dòng\n- tfAnswerKey   chỉ true_false_group; 4 giá trị true/false" : ""}
-- correctIndex  chỉ single_choice; số nguyên; 0 ≤ correctIndex < options.length
-- explanation   tuỳ chọn${hasEssay ? "\n- answerGuide   essay; ý chính để gia sư chấm" : ""}
-- difficulty    bắt buộc; khớp TUYỆT ĐỐI một trong:
-${diffList}
-Không thêm trường nào khác.
-
-CODE / BẢNG
-- Đoạn code: HTML <pre><code class="language-python">…</code></pre> (hoặc language-cpp), escape < > &.
-- Cùng đoạn code viết bằng Python và C++ đặt cạnh nhau: <div data-code-parallel><pre><code class="language-python">…</code></pre><pre><code class="language-cpp">…</code></pre></div>.
-- Bảng: HTML <table><tr><th>…</th></tr><tr><td>…</td></tr></table>.
-- Ảnh: <img src="https://…">, chỉ dùng link ảnh có sẵn trong đề.
-
-CÔNG THỨC TOÁN
-- LaTeX giữa hai dấu $, ví dụ: $y = x^3 - 3x + 2$.
-- Trong chuỗi JSON, gạch chéo ngược nhân đôi:
-  đúng   "$\\\\frac{1}{2}$"
-  sai    "$\\frac{1}{2}$"
-
-TỶ LỆ ĐỘ KHÓ
-Phân bổ hợp lý giữa các mức độ khó.
-
-TỰ KIỂM TRA (bắt buộc trước khi trả lời)
-1. JSON.parse(output) thành công.
-2. output là Array; mỗi phần tử là object (typeof item === "object"), không phải string.
-3. single_choice: có options hợp lệ + correctIndex trong khoảng.
-${hasTf ? "4. true_false_group: đúng 4 options + tfAnswerKey 4 phần tử boolean." : "4. essay: không có options, không có correctIndex."}
-5. Mọi difficulty khớp danh sách trên.`;
-  }, [
-    allowedTypes,
-    course?.name,
-    difficultyNames,
-    questionCount,
-    selectedChapterTitle,
-  ]);
+  const essayInputSizes = appConfig?.essayInputSizes ?? false;
+  const prompt = useMemo(
+    () =>
+      buildAiImportPrompt({
+        courseName: course?.name ?? "N/A",
+        topic: selectedChapterTitle,
+        questionCount,
+        difficultyNames,
+        allowedTypes,
+        essayInputSizes,
+      }),
+    [
+      allowedTypes,
+      course?.name,
+      difficultyNames,
+      essayInputSizes,
+      questionCount,
+      selectedChapterTitle,
+    ],
+  );
 
   const markViewed = (index: number) => {
     setReviewed((prev) => {
@@ -341,6 +274,9 @@ ${hasTf ? "4. true_false_group: đúng 4 options + tfAnswerKey 4 phần tử boo
           tfAnswerKey: item.tfAnswerKey,
           explanation: item.explanation,
           answerGuide: item.answerGuide,
+          blankAnswerKey: item.blankAnswerKey,
+          essayInputSize: item.essayInputSize,
+          tfLabelStyle: item.tfLabelStyle,
           difficultyLevelId: item.difficultyLevelId,
           ...(appConfig?.questionSkills && { skills }),
         })),
@@ -703,6 +639,7 @@ ${hasTf ? "4. true_false_group: đúng 4 options + tfAnswerKey 4 phần tử boo
                     index={currentQuestionIndex}
                     viewed={reviewed.has(currentQuestionIndex)}
                     difficultyLevels={difficultyLevels}
+                    essayInputSizes={essayInputSizes}
                     onUpdate={(patch) =>
                       updateItem(currentQuestionIndex, patch)
                     }
@@ -793,6 +730,7 @@ function QuestionReviewCard({
   index,
   viewed,
   difficultyLevels,
+  essayInputSizes,
   onUpdate,
   onRemove,
 }: {
@@ -801,6 +739,8 @@ function QuestionReviewCard({
   index: number;
   viewed: boolean;
   difficultyLevels: CourseDifficultyLevel[];
+  /** Hồ sơ có kiểu ô tự luận ngắn/dài (JP). */
+  essayInputSizes: boolean;
   onUpdate: (patch: Partial<ValidatedAiQuestion>) => void;
   onRemove: () => void;
 }) {
@@ -865,7 +805,14 @@ function QuestionReviewCard({
           />
           {item.content.trim() ? (
             <div className="mt-2 rounded-md bg-bg-secondary/40 p-2">
-              <MathContent content={item.content} className="text-sm" />
+              <MathContent
+                content={
+                  item.type === QuestionTypeDto.fill_blank
+                    ? numberBlanks(item.content)
+                    : item.content
+                }
+                className="text-sm"
+              />
             </div>
           ) : null}
         </div>
@@ -1007,6 +954,48 @@ function QuestionReviewCard({
           </div>
         )}
 
+        {item.type === QuestionTypeDto.true_false && (
+          <TrueFalseReviewFields item={item} onUpdate={onUpdate} />
+        )}
+
+        {item.type === QuestionTypeDto.fill_blank && (
+          <FillBlankAnswerFields
+            content={item.content}
+            blankAnswerKey={item.blankAnswerKey ?? []}
+            onChange={(blankAnswerKey) => onUpdate({ blankAnswerKey })}
+            onInsertBlank={() =>
+              onUpdate({ content: appendBlankMarker(item.content) })
+            }
+          />
+        )}
+
+        {item.type === QuestionTypeDto.ordering && (
+          <OrderingCardFields
+            cards={item.options ?? []}
+            onChange={(options) => onUpdate({ options })}
+          />
+        )}
+
+        {item.type === QuestionTypeDto.essay && essayInputSizes && (
+          <div>
+            <label
+              htmlFor={`${fieldId}-essay-size`}
+              className="mb-1 block text-xs font-medium text-text-muted"
+            >
+              Kiểu ô trả lời
+            </label>
+            <UpgradedSelect
+              id={`${fieldId}-essay-size`}
+              value={item.essayInputSize ?? "long"}
+              onValueChange={(value) =>
+                onUpdate({ essayInputSize: value as EssayInputSizeDto })
+              }
+              options={ESSAY_INPUT_SIZE_OPTIONS}
+              ariaLabel="Kiểu ô trả lời"
+            />
+          </div>
+        )}
+
         {item.type !== "essay" && (
           <div>
             <label
@@ -1083,6 +1072,62 @@ function QuestionReviewCard({
             Xóa câu này
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Câu Đúng/Sai một nhận định: nhận định ở nội dung; chọn đáp án + kiểu nhãn. */
+function TrueFalseReviewFields({
+  item,
+  onUpdate,
+}: {
+  item: ValidatedAiQuestion;
+  onUpdate: (patch: Partial<ValidatedAiQuestion>) => void;
+}) {
+  const labels = trueFalseChoiceLabels(item.tfLabelStyle);
+  const answer = item.tfAnswerKey?.length === 1 ? item.tfAnswerKey[0] : null;
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div>
+        <span className="mb-1 block text-xs font-medium text-text-muted">
+          Đáp án đúng
+        </span>
+        <div
+          role="radiogroup"
+          aria-label="Đáp án đúng"
+          className="grid grid-cols-2 gap-2"
+        >
+          {([true, false] as const).map((v, i) => (
+            <button
+              key={String(v)}
+              type="button"
+              role="radio"
+              aria-checked={answer === v}
+              onClick={() => onUpdate({ tfAnswerKey: [v] })}
+              className={`min-h-11 rounded-lg border px-4 text-sm font-medium ${
+                answer === v
+                  ? "border-primary bg-primary text-text-inverse"
+                  : "border-border-default text-text-secondary hover:border-primary/50"
+              }`}
+            >
+              {labels[i]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <span className="mb-1 block text-xs font-medium text-text-muted">
+          Kiểu nhãn
+        </span>
+        <UpgradedSelect
+          value={item.tfLabelStyle ?? DEFAULT_TRUE_FALSE_LABEL_STYLE}
+          onValueChange={(value) =>
+            onUpdate({ tfLabelStyle: value as TrueFalseLabelStyleDto })
+          }
+          options={TF_LABEL_STYLE_OPTIONS}
+          ariaLabel="Kiểu nhãn"
+        />
       </div>
     </div>
   );

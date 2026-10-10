@@ -10,7 +10,12 @@ import {
 } from '@nestjs/common';
 import { ActionHistoryService } from 'src/action-history/action-history.service';
 import { QuestionService } from './question.service';
-import { QuestionSkillDto, QuestionTypeDto } from 'src/dtos/question.dto';
+import {
+  EssayInputSizeDto,
+  QuestionSkillDto,
+  QuestionTypeDto,
+  TrueFalseLabelStyleDto,
+} from 'src/dtos/question.dto';
 
 /** Typed wrapper around expect.objectContaining to avoid no-unsafe-assignment */
 function contains<T>(obj: T): T {
@@ -441,6 +446,78 @@ describe('QuestionService', () => {
 
       await expect(service.bulkCreate(dto, actor)).rejects.toThrow(
         'Câu 1: Câu hỏi phải chọn ít nhất một kỹ năng.',
+      );
+      expect(mockPrisma.question.create).not.toHaveBeenCalled();
+    });
+
+    it('JP: saves every question type with its type-specific fields', async () => {
+      const dto = {
+        ...baseBulkDto,
+        questions: [
+          {
+            type: QuestionTypeDto.true_false as const,
+            content: '<p>日本の首都は東京です。</p>',
+            tfAnswerKey: [true],
+            tfLabelStyle: TrueFalseLabelStyleDto.dung_sai,
+            difficultyLevelId: 'd1',
+            skills: [QuestionSkillDto.reading],
+          },
+          {
+            type: QuestionTypeDto.fill_blank as const,
+            content: '<p>[[___]]に起きて、[[___]]に寝ます。</p>',
+            blankAnswerKey: [['七時', '7時'], ['十一時']],
+            difficultyLevelId: 'd1',
+            skills: [QuestionSkillDto.grammar],
+          },
+          {
+            type: QuestionTypeDto.ordering as const,
+            content: '<p>正しい順に並べてください。</p>',
+            options: ['わたしは', '毎朝', 'コーヒーを', '飲みます'],
+            difficultyLevelId: 'd1',
+            skills: [QuestionSkillDto.grammar],
+          },
+          {
+            type: QuestionTypeDto.essay as const,
+            content: '<p>名前を書いてください。</p>',
+            essayInputSize: EssayInputSizeDto.short,
+            difficultyLevelId: 'd1',
+            skills: [QuestionSkillDto.writing],
+          },
+        ],
+      };
+      mockPrisma.question.create.mockResolvedValue({ id: 'q' });
+
+      await service.bulkCreate(dto, actor);
+
+      const data = mockPrisma.question.create.mock.calls.map(
+        ([arg]: [{ data: Record<string, unknown> }]) => arg.data,
+      );
+      expect(data[0]).toMatchObject({
+        tfAnswerKey: [true],
+        tfLabelStyle: 'dung_sai',
+      });
+      expect(data[1]).toMatchObject({
+        blankAnswerKey: [['七時', '7時'], ['十一時']],
+      });
+      expect(data[2]).toMatchObject({
+        options: ['わたしは', '毎朝', 'コーヒーを', '飲みます'],
+      });
+      expect(data[3]).toMatchObject({ essayInputSize: 'short' });
+    });
+
+    it('rejects tfLabelStyle on a non true_false bulk item', async () => {
+      const dto = {
+        ...baseBulkDto,
+        questions: [
+          {
+            ...baseBulkDto.questions[1],
+            tfLabelStyle: TrueFalseLabelStyleDto.dung_sai,
+          },
+        ],
+      };
+
+      await expect(service.bulkCreate(dto, actor)).rejects.toThrow(
+        'Câu 1: Chỉ Câu Đúng/Sai có kiểu nhãn.',
       );
       expect(mockPrisma.question.create).not.toHaveBeenCalled();
     });

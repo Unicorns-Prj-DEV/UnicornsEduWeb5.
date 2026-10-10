@@ -147,14 +147,14 @@ export class CreateQuestionDto {
 
   @ApiPropertyOptional({
     description:
-      'single_choice: 2–6 phương án; true_false_group: đúng 4 nhận định a–d (HTML).',
+      'single_choice: 2–6 phương án; true_false_group: đúng 4 nhận định a–d (HTML); ordering: 2–12 thẻ theo đúng thứ tự.',
     type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @ArrayMinSize(2)
-  @ArrayMaxSize(6)
+  @ArrayMaxSize(12)
   options?: string[];
 
   @ApiPropertyOptional({
@@ -275,7 +275,7 @@ export class UpdateQuestionDto {
   @IsArray()
   @IsString({ each: true })
   @ArrayMinSize(2)
-  @ArrayMaxSize(6)
+  @ArrayMaxSize(12)
   options?: string[];
 
   @ApiPropertyOptional({
@@ -386,14 +386,15 @@ export class BulkCreateQuestionItemDto {
   content: string;
 
   @ApiPropertyOptional({
-    description: 'Array of option strings. Required for single_choice.',
+    description:
+      'single_choice: 2–6 phương án; true_false_group: đúng 4 nhận định a–d; ordering: 2–12 thẻ theo đúng thứ tự.',
     type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @ArrayMinSize(2)
-  @ArrayMaxSize(6)
+  @ArrayMaxSize(12)
   options?: string[];
 
   @ApiPropertyOptional({
@@ -445,6 +446,37 @@ export class BulkCreateQuestionItemDto {
   @IsIn(Object.values(QuestionSkillDto), { each: true })
   @ArrayMaxSize(7)
   skills?: QuestionSkillDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Kiểu ô nhập câu tự luận (chỉ essay, JP): short = một dòng, long = nhiều dòng. Bỏ trống = ô dài.',
+    enum: EssayInputSizeDto,
+  })
+  @IsOptional()
+  @IsIn(Object.values(EssayInputSizeDto))
+  essayInputSize?: EssayInputSizeDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Kiểu nhãn Câu Đúng/Sai (chỉ true_false, JP): maru_batsu = ○/× (mặc định), dung_sai = Đúng/Sai, true_false = True/False.',
+    enum: TrueFalseLabelStyleDto,
+  })
+  @IsOptional()
+  @IsIn(Object.values(TrueFalseLabelStyleDto))
+  tfLabelStyle?: TrueFalseLabelStyleDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Câu điền vào ô trống (chỉ fill_blank, JP): đáp án hợp lệ của từng ô `[[___]]` theo thứ tự trong `content`, mỗi ô ≥1 đáp án.',
+    type: 'array',
+    items: { type: 'array', items: { type: 'string' } },
+    example: [['九時', '9時'], ['五時']],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @Validate(BlankAcceptedAnswersConstraint, { each: true })
+  blankAnswerKey?: string[][];
 }
 
 export class BulkCreateQuestionDto {

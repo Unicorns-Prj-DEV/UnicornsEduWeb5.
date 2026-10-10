@@ -351,6 +351,9 @@ export class QuestionService {
             explanation: item.explanation ?? undefined,
             answerGuide: item.answerGuide ?? undefined,
             skills: item.skills ?? [],
+            essayInputSize: item.essayInputSize ?? undefined,
+            tfLabelStyle: item.tfLabelStyle ?? undefined,
+            blankAnswerKey: item.blankAnswerKey ?? undefined,
           },
         });
         await this.actionHistory.recordCreate(tx, {

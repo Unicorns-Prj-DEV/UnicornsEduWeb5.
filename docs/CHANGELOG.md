@@ -21,6 +21,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- **Nhập từ AI đủ mọi loại câu JP**: prompt, kiểm tra JSON, màn soát và lưu hỗ trợ thêm Câu Đúng/Sai một nhận định (`tfAnswerKey: [bool]`, `tfLabelStyle`), Câu điền vào ô trống (`[[___]]` + `blankAnswerKey`), Câu sắp xếp (thẻ theo đúng thứ tự) và kiểu ô tự luận (`essayInputSize`). Prompt sinh theo bảng spec từng loại (`apps/web/lib/ai-import-prompt.ts`) — hồ sơ không có loại nào thì AI không thấy loại đó. `POST /questions/bulk` nhận và lưu `essayInputSize`, `tfLabelStyle`, `blankAnswerKey`. Chưa có: nhập cả Bộ câu hỏi (tư liệu + audio) từ AI.
+
+### Fixed
+
+- **Câu sắp xếp > 6 thẻ bị `400`**: DTO `options` của `POST/PATCH /questions` và bulk giới hạn 6 phần tử, chặn trước quy tắc 2–12 thẻ. Nâng lên 12; số phương án trắc nghiệm vẫn 2–6 theo quy tắc hình dạng câu.
+
 ### Changed
 
 - **Ảnh trong câu hỏi / Bộ câu hỏi lưu ở bucket private:** editor nội dung, giải thích, hướng dẫn trả lời, nhận định Đúng/Sai (`QuestionFormFields`) và phần đầu bộ (`SharedMaterialFormDialog`) bỏ ô dán URL — nút ảnh mở chọn file (JPEG/PNG/WEBP ≤ 5MB, chọn nhiều được), dán / kéo-thả ảnh cũng tải lên; toast Sonner khi đang tải / lỗi. Endpoint `POST /question-images` (multipart `file` + `courseId`, quyền như ghi câu hỏi của khoá) lưu vào bucket private `question-images` với path `{courseId}/{uuid}.{ext}`. HTML chỉ giữ `<img data-question-image="{path}">`; interceptor toàn cục `ContentImageInterceptor` bỏ `src` của ảnh bucket ở mọi request ghi và ký signed URL 6 giờ vào `src` ở mọi response — mọi đường đọc (ngân hàng, tiết, bài làm, xem lại, ôn nhẹ) đều thấy ảnh. Editor khác (tiết lý thuyết, nội dung lớp) vẫn chèn ảnh bằng URL. Cần tạo bucket private `question-images` trên Supabase. ADR `docs/adr/2026-10-10-question-image-bucket.md`.
