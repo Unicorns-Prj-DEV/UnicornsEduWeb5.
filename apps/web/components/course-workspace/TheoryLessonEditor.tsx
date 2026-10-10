@@ -20,7 +20,9 @@ import {
   overLimitMessage,
 } from "@/dtos/content-limits";
 import { cn } from "@/lib/utils";
-import { Layers } from "lucide-react";
+import { ChevronDown, Headphones, Layers } from "lucide-react";
+import { questionExcerpt } from "@/lib/question-excerpt";
+import SetContentPreview from "@/components/admin/question-bank/SetContentPreview";
 
 type QuizLink = { questionId: string; question: { sharedMaterial?: { id: string } | null } };
 
@@ -67,6 +69,8 @@ export function TheoryLessonEditor({
   // Câu lẻ và Bộ câu hỏi chọn cho bài ôn — bộ vào / ra bài ôn theo cả bộ.
   const [quizIds, setQuizIds] = useState<string[]>([]);
   const [quizSetIds, setQuizSetIds] = useState<string[]>([]);
+  /** Bộ đang mở xem (phần đầu bộ + câu); một bộ một lúc cho gọn. */
+  const [openSetId, setOpenSetId] = useState<string | null>(null);
   const fieldId = useId();
   const selectedQuizIdSet = useMemo(() => new Set(quizIds), [quizIds]);
   const [quizSeeded, setQuizSeeded] = useState(false);
@@ -243,32 +247,59 @@ export function TheoryLessonEditor({
           Chọn câu lẻ hoặc cả bộ từ ngân hàng câu hỏi của khoá học. Không sinh bài làm, không tính điểm.
         </p>
         {selectableSets.length > 0 ? (
-          <div className="mb-2 max-h-40 space-y-1.5 overflow-y-auto rounded-md border border-info/30 bg-info/5 p-2">
+          <div className="mb-2 max-h-[28rem] space-y-1.5 overflow-y-auto rounded-md border border-info/30 bg-info/5 p-2">
             {selectableSets.map((set) => {
               const isSelected = quizSetIds.includes(set.id);
+              const isOpen = openSetId === set.id;
               return (
-                <label
-                  key={set.id}
-                  className={cn(
-                    "flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors sm:min-h-0",
-                    isSelected ? "bg-info/10" : "hover:bg-bg-secondary/50",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    disabled={!canEdit}
-                    onChange={() => setQuizSetIds((prev) => toggle(prev, set.id))}
-                    className="accent-primary"
-                  />
-                  <Layers className="size-3.5 shrink-0 text-info" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-text-primary">
-                    {set.title}
-                  </span>
-                  <span className="shrink-0 text-text-muted">
-                    Bộ · {set.questionCount} câu
-                  </span>
-                </label>
+                <div key={set.id} className="space-y-1.5">
+                  <div
+                    className={cn(
+                      "flex items-center gap-1 rounded-md transition-colors",
+                      isSelected ? "bg-info/10" : "hover:bg-bg-secondary/50",
+                    )}
+                  >
+                    <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5 text-xs sm:min-h-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={!canEdit}
+                        onChange={() => setQuizSetIds((prev) => toggle(prev, set.id))}
+                        className="accent-primary"
+                      />
+                      <Layers className="size-3.5 shrink-0 text-info" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate text-text-primary">
+                        {set.title}
+                      </span>
+                      {set.audio ? (
+                        <Headphones
+                          className="size-3.5 shrink-0 text-text-muted"
+                          aria-label="Bộ có audio"
+                        />
+                      ) : null}
+                      <span className="shrink-0 text-text-muted">
+                        Bộ · {set.questionCount} câu
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setOpenSetId(isOpen ? null : set.id)}
+                      aria-expanded={isOpen}
+                      className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-info hover:bg-info/10 sm:min-h-8"
+                    >
+                      {isOpen ? "Ẩn bộ" : "Xem bộ"}
+                      <ChevronDown
+                        className={cn("size-3.5 transition-transform", isOpen && "rotate-180")}
+                        aria-hidden
+                      />
+                    </button>
+                  </div>
+                  {isOpen ? (
+                    <div className="pb-1 pl-2">
+                      <SetContentPreview courseId={courseId} set={set} />
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>
@@ -296,7 +327,7 @@ export function TheoryLessonEditor({
                     className="mt-0.5 accent-primary"
                   />
                   <span className="min-w-0 flex-1">
-                    <MathContent content={q.content.slice(0, 100)} className="text-xs" />
+                    <span className="text-text-primary">{questionExcerpt(q.content)}</span>
                     <span className="ml-1 text-text-muted">
                       ({questionTypeLabel(q.type)})
                     </span>

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   audioPlaysLeft,
-  needsRestrictedPlayer,
+  formatAudioTime,
+  listenLimitNote,
   openAudio,
 } from "./attempt-audio";
 
@@ -44,18 +45,33 @@ describe("openAudio", () => {
   });
 });
 
-describe("needsRestrictedPlayer", () => {
-  const open = { ...limited, url: "u", maxPlays: null, allowSeek: true };
-
-  it("không giới hạn + cho tua → trình phát gốc", () => {
-    expect(needsRestrictedPlayer(open)).toBe(false);
+describe("formatAudioTime", () => {
+  it("phút:giây, giây luôn hai chữ số", () => {
+    expect(formatAudioTime(0)).toBe("0:00");
+    expect(formatAudioTime(15.7)).toBe("0:15");
+    expect(formatAudioTime(125)).toBe("2:05");
   });
 
-  it("không giới hạn nhưng không cho tua → trình phát riêng (không thanh tua)", () => {
-    expect(needsRestrictedPlayer({ ...open, allowSeek: false })).toBe(true);
+  it("chưa biết thời lượng (NaN / Infinity) → 0:00", () => {
+    expect(formatAudioTime(Number.NaN)).toBe("0:00");
+    expect(formatAudioTime(Number.POSITIVE_INFINITY)).toBe("0:00");
+  });
+});
+
+describe("listenLimitNote", () => {
+  it("không giới hạn, cho tua → không nhắc", () => {
+    expect(listenLimitNote({ maxPlays: null, allowSeek: true })).toBeNull();
   });
 
-  it("có giới hạn lượt → trình phát riêng", () => {
-    expect(needsRestrictedPlayer({ ...open, maxPlays: 1 })).toBe(true);
+  it("giới hạn lượt và cấm tua → nhắc cả hai", () => {
+    expect(listenLimitNote({ maxPlays: 2, allowSeek: false })).toBe(
+      "Học sinh: nghe tối đa 2 lần · không tua được",
+    );
+  });
+
+  it("chỉ cấm tua", () => {
+    expect(listenLimitNote({ maxPlays: null, allowSeek: false })).toBe(
+      "Học sinh: không tua được",
+    );
   });
 });

@@ -11,9 +11,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Headphones, Loader2, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import type { AttemptAudioPlayDto, AttemptAudioView } from "@/dtos/attempt.dto";
-import { audioPlaysLeft, needsRestrictedPlayer } from "@/lib/attempt-audio";
+import { audioPlaysLeft, formatAudioTime } from "@/lib/attempt-audio";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
-import QuestionAudio from "./QuestionAudio";
 
 type PlayAudio = (audioId: string) => Promise<AttemptAudioPlayDto>;
 
@@ -35,9 +34,10 @@ export function AttemptAudioProvider({
 }
 
 /**
- * Audio trong bài làm. Không giới hạn → trình phát thường. Có giới hạn → nút
- * phát tự làm: mỗi lần nghe từ đầu xin URL mới (server trừ lượt); tạm dừng rồi
- * nghe tiếp không tốn lượt. Không cho tua thì chỉ hiện thanh tiến độ.
+ * Trình phát audio duy nhất (làm bài, ôn nhẹ, xem lại, soạn đề). Không giới
+ * hạn lượt → URL có sẵn, tải metadata để hiện thời lượng. Có giới hạn → mỗi
+ * lần nghe từ đầu xin URL mới (server trừ lượt); tạm dừng rồi nghe tiếp không
+ * tốn lượt. Không cho tua thì chỉ hiện thanh tiến độ.
  */
 export default function AttemptAudio({
   audio,
@@ -47,15 +47,32 @@ export default function AttemptAudio({
   label?: string;
 }) {
   const play = useContext(PlayAudioContext);
-  // Có giới hạn lượt mà không có hàm phát (ngoài trang làm bài) thì không
-  // xin được URL — rơi về trình phát gốc (url null → cảnh báo).
-  if (!needsRestrictedPlayer(audio) || (audio.maxPlays !== null && !play)) {
-    return <QuestionAudio url={audio.url} label={label} />;
+  // Có giới hạn lượt mà không có hàm phát (ngoài trang làm bài) thì không xin
+  // được URL — phát như audio thường bằng URL đang có.
+  const view =
+    audio.maxPlays !== null && !play
+      ? { ...audio, maxPlays: null, playsUsed: 0 }
+      : audio;
+  if (view.maxPlays === null && !view.url) {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-warning">
+        <Headphones className="size-4 shrink-0" aria-hidden />
+        Không tải được audio — tải lại trang để thử lại.
+      </p>
+    );
   }
-  return <LimitedAudio audio={audio} label={label} play={play} />;
+  // Đổi file (soạn đề tải audio khác) → dựng lại trình phát với URL mới.
+  return (
+    <AudioPlayer
+      key={view.url ?? view.id}
+      audio={view}
+      label={label}
+      play={play}
+    />
+  );
 }
 
-function LimitedAudio({
+function AudioPlayer({
   audio,
   label,
   play,
@@ -66,20 +83,23 @@ function LimitedAudio({
 }) {
   const ref = useRef<HTMLAudioElement>(null);
   const [playsUsed, setPlaysUsed] = useState(audio.playsUsed);
-  /** URL của lần nghe đang dở (null = chưa nghe / đã nghe hết lần trước). */
-  const [src, setSrc] = useState<string | null>(null);
+  const unlimited = audio.maxPlays === null;
+  /**
+   * URL đang gắn vào trình phát. Không giới hạn: luôn là URL có sẵn. Có giới
+   * hạn: URL của lần nghe đang dở (null = chưa nghe / đã nghe hết lần trước).
+   */
+  const [src, setSrc] = useState<string | null>(unlimited ? audio.url : null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState({ current: 0, duration: 0 });
 
-  const unlimited = audio.maxPlays === null;
   const left = audioPlaysLeft({ ...audio, playsUsed });
 
   const start = useMutation({
-    // Không giới hạn lượt (chỉ cấm tua): URL có sẵn, không gọi server.
-    mutationFn: async (): Promise<AttemptAudioPlayDto> =>
-      unlimited || !play
-        ? { url: audio.url, maxPlays: null, playsUsed: 0 }
-        : play(audio.id),
+    // Chỉ chạy khi có giới hạn lượt — wrapper bảo đảm lúc đó có `play`.
+    mutationFn: async (): Promise<AttemptAudioPlayDto> => {
+      if (!play) throw new Error("Không phát được audio.");
+      return play(audio.id);
+    },
     onSuccess: (result) => {
       setPlaysUsed(result.playsUsed);
       if (!result.url) {
@@ -109,6 +129,7 @@ function LimitedAudio({
   };
 
   const exhausted = !src && left === 0;
+  const showTime = unlimited || Boolean(src);
   const progress = time.duration ? (time.current / time.duration) * 100 : 0;
 
   return (
@@ -157,11 +178,14 @@ function LimitedAudio({
             />
           </div>
         )}
-        <p className="flex items-center gap-1 text-xs text-text-muted">
+        <p className="flex items-center gap-1 text-xs tabular-nums text-text-muted">
           <Headphones className="size-3.5 shrink-0" aria-hidden />
           {exhausted
             ? "Đã hết lượt nghe"
             : [
+                showTime
+                  ? `${formatAudioTime(time.current)} / ${formatAudioTime(time.duration)}`
+                  : null,
                 left === null
                   ? null
                   : `Còn ${left}/${audio.maxPlays} lượt nghe`,
@@ -174,15 +198,25 @@ function LimitedAudio({
       <audio
         ref={ref}
         src={src ?? undefined}
-        preload="auto"
+        // Không giới hạn: chỉ tải metadata (thời lượng), chưa tải cả bài
+        // trên 4G. Có giới hạn: URL chỉ có khi bấm nghe → tải luôn.
+        preload={unlimited ? "metadata" : "auto"}
         playsInline
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        onEnded={() => {
+        onEnded={(e) => {
           setPlaying(false);
+          if (unlimited) {
+            // Giữ URL để nghe lại / tua; về đầu bài.
+            e.currentTarget.currentTime = 0;
+            return;
+          }
           setSrc(null);
           setTime({ current: 0, duration: 0 });
         }}
+        onLoadedMetadata={(e) =>
+          setTime({ current: 0, duration: e.currentTarget.duration || 0 })
+        }
         onTimeUpdate={(e) =>
           setTime({
             current: e.currentTarget.currentTime,

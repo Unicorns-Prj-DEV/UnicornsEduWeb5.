@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useCallback, useState } from "react";
+import { Fragment, useCallback, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, ChevronDown, ChevronUp, Layers, Plus, Trash2 } from "lucide-react";
-import { practiceLessonQuestionKeys } from "@/lib/query-keys";
+import { AlertTriangle, ChevronDown, ChevronUp, Headphones, Layers, Plus, Trash2 } from "lucide-react";
+import { practiceLessonQuestionKeys, sharedMaterialKeys } from "@/lib/query-keys";
 import * as classApi from "@/lib/apis/class.api";
+import * as sharedMaterialApi from "@/lib/apis/shared-material.api";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import {
   buildExamLayout,
@@ -21,6 +22,7 @@ import { ElectiveGroupSettings } from "@/components/admin/ElectiveGroupSettings"
 import { AddPracticeQuestionDialog } from "@/components/admin/practice-lesson/AddPracticeQuestionDialog";
 import { ExamStructureSummary } from "@/components/admin/practice-lesson/ExamStructureSummary";
 import { PracticeQuestionLinkItem } from "@/components/admin/practice-lesson/PracticeQuestionLinkItem";
+import SetHeaderPreview from "@/components/admin/question-bank/SetHeaderPreview";
 import type {
   QuestionLink,
   UpdateCourseLessonPayload,
@@ -123,6 +125,8 @@ const SET_ICON_BUTTON =
 function SetUnitHeader({
   title,
   count,
+  hasAudio,
+  preview,
   canEdit,
   canMoveUp,
   canMoveDown,
@@ -131,6 +135,9 @@ function SetUnitHeader({
 }: {
   title: string;
   count: number;
+  hasAudio: boolean;
+  /** Phần đầu bộ (chế độ Đầy đủ); null = chỉ thanh tên bộ. */
+  preview: ReactNode;
   canEdit: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -147,6 +154,12 @@ function SetUnitHeader({
             {count} câu
           </span>
         </p>
+        {hasAudio ? (
+          <Headphones
+            className="size-4 shrink-0 text-text-muted"
+            aria-label="Bộ có audio"
+          />
+        ) : null}
         {canEdit ? (
           <div className="flex shrink-0 items-center">
             <button
@@ -178,6 +191,7 @@ function SetUnitHeader({
           </div>
         ) : null}
       </div>
+      {preview ? <div className="mt-1">{preview}</div> : null}
     </li>
   );
 }
@@ -259,6 +273,13 @@ export function PracticeLessonQuestionsCard({
       toast.error(getMutationErrorMessage(error, "Không thể gỡ bộ khỏi đề.")),
   });
 
+  // Phần đầu bộ (văn bản, audio) — cùng key với ngân hàng câu hỏi.
+  const { data: sets = [] } = useQuery({
+    queryKey: sharedMaterialKeys.course(courseId),
+    queryFn: () => sharedMaterialApi.getSharedMaterials(courseId),
+    enabled: links.some((link) => link.question.sharedMaterial),
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-3" role="status" aria-label="Đang tải danh sách câu hỏi">
@@ -283,6 +304,7 @@ export function PracticeLessonQuestionsCard({
     ),
   );
   const ordered = units.flatMap((unit) => unit.links);
+  const setsById = new Map(sets.map((set) => [set.id, set]));
   const unitIndexOf = new Map(
     units.flatMap((unit, i) => unit.links.map((link) => [link.id, i] as const)),
   );
@@ -295,6 +317,10 @@ export function PracticeLessonQuestionsCard({
     },
   );
   const breakdown = itExamBreakdown(ordered);
+  // Vị trí trống trong phần đầu bộ hiện số câu trên màn này (khớp nhãn "Câu n").
+  const gapNumbers = new Map(
+    layout.map((view) => [view.question.questionId, view.number] as const),
+  );
   const showElectives =
     hasElectives && breakdown.elective1 + breakdown.elective2 > 0;
   // Nhóm sắp xếp: chỉ đổi chỗ trong cùng Phần/nhóm, vì vị trí giữa các nhóm do loại câu + slot quyết định.
@@ -477,6 +503,15 @@ export function PracticeLessonQuestionsCard({
                   <SetUnitHeader
                     title={setTitle}
                     count={unit.links.length}
+                    hasAudio={Boolean(setsById.get(unit.setId)?.audio)}
+                    preview={
+                      viewMode === "full" && setsById.get(unit.setId) ? (
+                        <SetHeaderPreview
+                          set={setsById.get(unit.setId)!}
+                          gapNumbers={gapNumbers}
+                        />
+                      ) : null
+                    }
                     canEdit={canEdit}
                     canMoveUp={canMoveUnit(unitIndex, -1)}
                     canMoveDown={canMoveUnit(unitIndex, 1)}
