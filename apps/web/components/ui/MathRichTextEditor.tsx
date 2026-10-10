@@ -1,6 +1,7 @@
 "use client";
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Mathematics from "@tiptap/extension-mathematics";
@@ -24,6 +25,12 @@ import {
   prepareBlockInsert,
   normalizeImageUrl,
 } from "@/components/ui/rich-text-extensions";
+import {
+  QUESTION_IMAGE_ACCEPT,
+  QUESTION_IMAGE_MAX_BYTES,
+  type QuestionImageRef,
+} from "@/dtos/question-image.dto";
+import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 
 export type MathRichTextEditorProps = {
   value: string;
@@ -34,7 +41,51 @@ export type MathRichTextEditorProps = {
   disabled?: boolean;
   /** Grow to fill a parent flex column; leftover page height becomes writing space. */
   fill?: boolean;
+  /**
+   * Có thì ảnh vào bucket: nút ảnh mở chọn file, dán / kéo-thả ảnh cũng tải
+   * lên; không có ô dán URL. Vắng thì chèn ảnh bằng URL https.
+   */
+  onUploadImage?: (file: File) => Promise<QuestionImageRef>;
 };
+
+const UPLOADABLE_IMAGE_TYPES = new Set(QUESTION_IMAGE_ACCEPT.split(","));
+
+function imageFilesOf(data: DataTransfer | null | undefined): File[] {
+  return Array.from(data?.files ?? []).filter((f) =>
+    UPLOADABLE_IMAGE_TYPES.has(f.type),
+  );
+}
+
+/** Tải lần lượt để ảnh vào đúng thứ tự đã chọn / dán; `pos` null = chỗ con trỏ. */
+async function uploadImagesInto(
+  editor: Editor,
+  upload: (file: File) => Promise<QuestionImageRef>,
+  files: File[],
+  pos: number | null,
+) {
+  for (const file of files) {
+    if (file.size > QUESTION_IMAGE_MAX_BYTES) {
+      toast.error(`Ảnh "${file.name}" vượt quá 5MB.`);
+      continue;
+    }
+    const toastId = toast.loading("Đang tải ảnh lên…");
+    try {
+      const { path, url } = await upload(file);
+      const image = { type: "image", attrs: { src: url, imagePath: path } };
+      if (pos === null) {
+        prepareBlockInsert(editor);
+        editor.chain().focus().insertContent(image).run();
+      } else {
+        editor.chain().focus().insertContentAt(pos, image).run();
+      }
+      toast.success("Đã chèn ảnh.", { id: toastId });
+    } catch (error) {
+      toast.error(getMutationErrorMessage(error, "Không tải được ảnh."), {
+        id: toastId,
+      });
+    }
+  }
+}
 
 const DEFAULT_MIN_HEIGHT = "min-h-[180px]";
 
@@ -79,14 +130,16 @@ function MathEditorToolbar({
   activeMathMode,
   onOpenMath,
   imagePanelOpen,
-  onToggleImagePanel,
+  onImageClick,
+  imageLabel,
 }: {
   editor: Editor;
   disabled: boolean;
   activeMathMode: MathLatexMode | null;
   onOpenMath: (mode: MathLatexMode) => void;
   imagePanelOpen: boolean;
-  onToggleImagePanel: () => void;
+  onImageClick: () => void;
+  imageLabel: string;
 }) {
   const inTable = editor.isActive("table");
   const codeLanguageActive = (language: string) =>
@@ -175,10 +228,11 @@ function MathEditorToolbar({
       <button
         type="button"
         disabled={disabled}
-        aria-label="Chèn ảnh"
+        aria-label={imageLabel}
+        title={imageLabel}
         aria-pressed={imagePanelOpen}
         className={toolbarBtnClass(imagePanelOpen, disabled)}
-        onClick={onToggleImagePanel}
+        onClick={onImageClick}
       >
         <ImagePlus className="size-3.5" />
       </button>
@@ -297,11 +351,24 @@ export default function MathRichTextEditor({
   ariaLabel = "Nội dung soạn thảo",
   disabled = false,
   fill = false,
+  onUploadImage,
 }: MathRichTextEditorProps) {
   const onChangeRef = useRef(onChange);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // editorProps tạo một lần → dán / thả gọi qua ref để luôn dùng bản mới nhất.
+  const dropImagesRef = useRef<
+    ((files: File[], pos: number | null) => void) | null
+  >(null);
   const lastEmittedHtmlRef = useRef(value);
   const [mathDraft, setMathDraft] = useState<MathDraft | null>(null);
   const [imagePanelOpen, setImagePanelOpen] = useState(false);
+
+  const takeImages = (view: EditorView, files: File[], pos: number | null) => {
+    const drop = dropImagesRef.current;
+    if (!drop || files.length === 0 || !view.editable) return false;
+    drop(files, pos);
+    return true;
+  };
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -330,6 +397,15 @@ export default function MathRichTextEditor({
     ],
     content: value || "",
     editorProps: {
+      handlePaste: (view, event) =>
+        takeImages(view, imageFilesOf(event.clipboardData), null),
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const pos =
+          view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ??
+          null;
+        return takeImages(view, imageFilesOf(event.dataTransfer), pos);
+      },
       // Bấm vào công thức có sẵn → mở panel sửa. `view.editable` false khi `disabled`.
       handleClickOn: (view, _pos, node, nodePos) => {
         const mode = MATH_NODE_MODE[node.type.name];
@@ -380,6 +456,13 @@ export default function MathRichTextEditor({
       editor.off("update", handleUpdate);
     };
   }, [editor]);
+
+  useEffect(() => {
+    dropImagesRef.current =
+      editor && onUploadImage
+        ? (files, pos) => void uploadImagesInto(editor, onUploadImage, files, pos)
+        : null;
+  }, [editor, onUploadImage]);
 
   const [, setToolbarTick] = useState(0);
   useEffect(() => {
@@ -455,6 +538,7 @@ export default function MathRichTextEditor({
     setImagePanelOpen(false);
   };
 
+
   const cancelMath = () => {
     setMathDraft(null);
     editor.commands.focus();
@@ -477,10 +561,31 @@ export default function MathRichTextEditor({
         disabled={disabled}
         activeMathMode={activeMathDraft?.pos === null ? activeMathDraft.mode : null}
         onOpenMath={openNewMath}
-        imagePanelOpen={imagePanelOpen && !disabled}
-        onToggleImagePanel={() => setImagePanelOpen((open) => !open)}
+        imagePanelOpen={!onUploadImage && imagePanelOpen && !disabled}
+        imageLabel={onUploadImage ? "Tải ảnh lên" : "Chèn ảnh"}
+        onImageClick={() =>
+          onUploadImage
+            ? fileInputRef.current?.click()
+            : setImagePanelOpen((open) => !open)
+        }
       />
-      {imagePanelOpen && !disabled ? (
+      {onUploadImage ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={QUESTION_IMAGE_ACCEPT}
+          multiple
+          hidden
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            event.target.value = "";
+            if (onUploadImage) {
+              void uploadImagesInto(editor, onUploadImage, files, null);
+            }
+          }}
+        />
+      ) : null}
+      {!onUploadImage && imagePanelOpen && !disabled ? (
         <ImageUrlPanel onSubmit={insertImage} onCancel={() => setImagePanelOpen(false)} />
       ) : null}
       {activeMathDraft ? (

@@ -6,6 +6,7 @@ import { Check, X } from "lucide-react";
 import ClassTabList from "@/components/class-timeline/ClassTabList";
 import QuestionPreview from "@/components/admin/question/QuestionPreview";
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
+import { useQuestionImageUpload } from "@/lib/hooks/useQuestionImageUpload";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
 import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
@@ -128,6 +129,7 @@ export default function QuestionFormFields({
   const typeOptions = Object.values(QuestionTypeDto)
     .filter((t) => allowedTypes.includes(t) || t === value.type)
     .map((t) => ({ value: t, label: QUESTION_TYPE_LABELS[t] }));
+  const uploadImage = useQuestionImageUpload(courseId || undefined);
   const { data: modules = [] } = useCourseModules(courseId || undefined);
   const { data: difficultyLevels = [] } = useCourseDifficultyLevels(
     courseId || undefined,
@@ -277,6 +279,7 @@ export default function QuestionFormFields({
                 value={value.content}
                 onChange={(next) => onChange({ content: next })}
                 ariaLabel="Nội dung câu hỏi"
+                onUploadImage={uploadImage}
                 placeholder="Nhập nội dung câu hỏi..."
                 minHeight="min-h-[120px]"
               />
@@ -345,7 +348,11 @@ export default function QuestionFormFields({
             )}
 
             {value.type === QuestionTypeDto.true_false_group && (
-              <TrueFalseStatementFields value={value} onChange={onChange} />
+              <TrueFalseStatementFields
+                value={value}
+                onChange={onChange}
+                uploadImage={uploadImage}
+              />
             )}
 
             {value.type === QuestionTypeDto.true_false && (
@@ -378,6 +385,7 @@ export default function QuestionFormFields({
                 value={value.explanation}
                 onChange={(next) => onChange({ explanation: next })}
                 ariaLabel="Giải thích"
+                onUploadImage={uploadImage}
                 placeholder="Giải thích đáp án..."
                 minHeight="min-h-[80px]"
               />
@@ -413,6 +421,7 @@ export default function QuestionFormFields({
                   value={value.answerGuide}
                   onChange={(next) => onChange({ answerGuide: next })}
                   ariaLabel="Hướng dẫn trả lời"
+                  onUploadImage={uploadImage}
                   placeholder="Hướng dẫn cho câu tự luận..."
                   minHeight="min-h-[80px]"
                 />
@@ -429,9 +438,11 @@ export default function QuestionFormFields({
 function TrueFalseStatementFields({
   value,
   onChange,
+  uploadImage,
 }: {
   value: QuestionFormValue;
   onChange: (patch: Partial<QuestionFormValue>) => void;
+  uploadImage: ReturnType<typeof useQuestionImageUpload>;
 }) {
   const setStatement = (index: number, next: string) => {
     const statements = [...value.statements];
@@ -483,6 +494,7 @@ function TrueFalseStatementFields({
             value={value.statements[i] ?? ""}
             onChange={(next) => setStatement(i, next)}
             ariaLabel={`Nhận định ${label}`}
+            onUploadImage={uploadImage}
             placeholder={`Nhận định ${label}...`}
             minHeight="min-h-[60px]"
           />

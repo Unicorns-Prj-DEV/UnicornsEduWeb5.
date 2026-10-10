@@ -19,6 +19,7 @@ import {
   useConfirmDialog,
 } from "@/components/ui/ConfirmDialog";
 import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
+import { useQuestionImageUpload } from "@/lib/hooks/useQuestionImageUpload";
 import AudioUploadField from "@/components/admin/question/AudioUploadField";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { invalidateQuestionScopedQueries } from "@/lib/query-invalidation";
@@ -74,6 +75,7 @@ export default function SharedMaterialFormDialog({
   const queryClient = useQueryClient();
   const { data: appConfig } = useAppConfig();
   const audioEnabled = appConfig?.questionAudio ?? false;
+  const uploadImage = useQuestionImageUpload(courseId);
   const { data: modules = [] } = useCourseModules(courseId);
   // Bộ đang sửa: bộ truyền vào, hoặc bộ vừa tạo trong form này.
   const [saved, setSaved] = useState(material);
@@ -214,6 +216,7 @@ export default function SharedMaterialFormDialog({
                   setForm((prev) => ({ ...prev, content: next }))
                 }
                 ariaLabel="Phần đầu bộ"
+                onUploadImage={uploadImage}
                 placeholder="Dán đoạn văn hoặc chèn ảnh..."
                 minHeight="min-h-[200px]"
               />
