@@ -448,7 +448,7 @@ function StudentAttemptInProgress({
         {!closed && (
           <aside
             aria-label="Thời gian và danh sách câu"
-            className="contents lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain"
+            className="contents lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-3rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain"
           >
             <StudentAttemptTimer
               endsAt={endsAt}

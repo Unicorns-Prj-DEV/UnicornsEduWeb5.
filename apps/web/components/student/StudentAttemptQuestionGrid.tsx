@@ -63,7 +63,7 @@ export default function StudentAttemptQuestionGrid({
     <section
       ref={ref}
       className={cn(
-        "z-10 rounded-2xl border border-border-default bg-bg-surface/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg-surface/80",
+        "z-20 rounded-2xl border border-border-default bg-bg-surface/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg-surface/80",
         className,
       )}
       aria-label="Danh sách câu hỏi"

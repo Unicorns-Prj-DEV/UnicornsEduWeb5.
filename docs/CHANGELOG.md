@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Trang lượt làm của học sinh ẩn navbar** (cả đang làm và xem lại): nội dung, timer và lưới câu lên sát mép trên; thoát bằng link tên đề. Lưới câu mobile `z-20` để audio của bộ trượt xuống dưới thay vì đè lên lưới.
 - **Một audio player cho mọi chỗ.** Bỏ `<audio controls>` gốc; mọi audio (làm bài, ôn nhẹ, xem lại, xem trước, ô tải audio) dùng chung player của `AttemptAudio`: nút phát, thời gian "m:ss / m:ss", thanh tua khi được tua; audio có Giới hạn nghe vẫn trừ lượt qua `POST …/audio/:audioId/play` và hiện "Còn n/max lượt nghe · không tua được". `QuestionAudio` thành wrapper không giới hạn.
 - **Tiêu đề phần đầu Bộ câu hỏi phía học sinh:** bộ có audio → "Nghe rồi trả lời câu a–b" (icon tai nghe); không audio → "Đọc đoạn sau rồi trả lời câu a–b". Bỏ chữ "tư liệu".
 - **Người soạn xem cả bộ.** Tiết thực hành chế độ "Đầy đủ" hiện phần đầu bộ (văn bản, ảnh, audio) dưới thanh tên bộ, vị trí trống đánh theo số câu trong tiết kèm dòng "Khi làm bài, số câu đánh lại theo thứ tự của từng học sinh."; chế độ "Gọn" chỉ thanh tên bộ + icon tai nghe. Editor ôn nhẹ: nút "Xem bộ" mở phần đầu bộ + các câu của bộ. Người soạn nghe không giới hạn, có dòng nhắc "Học sinh: nghe tối đa N lần · không tua được".
