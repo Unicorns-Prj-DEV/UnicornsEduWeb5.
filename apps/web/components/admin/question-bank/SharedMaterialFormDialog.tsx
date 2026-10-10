@@ -26,7 +26,7 @@ import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 import { DeleteQuestionSetButton } from "./DeleteQuestionSetButton";
 import SetQuestionList from "./SetQuestionList";
 import { formatLessonUsage } from "./lesson-usage";
-import { questionExcerpt } from "./question-excerpt";
+import { questionExcerpt } from "@/lib/question-excerpt";
 import { useCourseModules } from "@/lib/hooks/useCourseModules";
 import type { AudioRef } from "@/dtos/audio-asset.dto";
 import {

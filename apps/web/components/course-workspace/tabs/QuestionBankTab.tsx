@@ -38,6 +38,7 @@ import type { SharedMaterial } from "@/dtos/shared-material.dto";
 import { useSharedMaterials } from "@/lib/hooks/useSharedMaterials";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { resolveQuestionBankEmptyModuleCopy } from "@/lib/question-bank-empty-module";
+import { numberBlanks } from "@/lib/fill-blank";
 
 const PAGE_SIZE = 20;
 
@@ -366,7 +367,7 @@ export function QuestionBankTab({
                   </button>
                 ) : null}
                 <MathContent
-                  content={q.content}
+                  content={numberBlanks(q.content)}
                   className="line-clamp-4 pr-10 text-sm text-text-primary"
                 />
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
@@ -408,7 +409,7 @@ export function QuestionBankTab({
                   >
                     <TableCell className="max-w-xs">
                       <MathContent
-                        content={q.content}
+                        content={numberBlanks(q.content)}
                         className="line-clamp-2 text-sm"
                       />
                     </TableCell>

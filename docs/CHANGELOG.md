@@ -194,6 +194,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Ngân hàng câu hỏi lộ dấu soạn `[[#…]]` / `[[___]]`:** thẻ Bộ câu hỏi in nguyên dấu vị trí trống trong phần đầu bộ, còn danh sách câu trong bộ và bảng câu lẻ in nguyên dấu ô trống của câu điền. Nay thẻ bộ hiện vị trí trống thành `（　　）` (chưa có số câu), ô trống câu điền hiện `【1】`, `【2】`… như học sinh thấy. `questionExcerpt` chuyển sang `apps/web/lib/question-excerpt.ts` (có test).
 - **Công thức chèn bằng nút Σ không hiện khi hiển thị:** Tiptap Mathematics lưu công thức thành phần tử rỗng `<span data-type="inline-math" data-latex="…">` / `<div data-type="block-math" data-latex="…">`, nhưng `renderMathInHtml` (dùng bởi `MathContent`) chỉ render delimiter `$…$` / `\(…\)` / `$$…$$` / `\[…\]` → học sinh và màn danh sách câu hỏi thấy chỗ trống. Nay `renderMathInHtml` render cả node Tiptap (giá trị attribute có `>` vẫn đúng; thay bằng placeholder trước để các pass delimiter không quét lại HTML KaTeX), có test.
 
 - **Thanh toán khoản đã chọn lỗi khi có giáo án:** `PATCH /staff/:id/payment-status/pay-selected` validate `items[].id` bằng `@IsUUID('4')`, nhưng giáo án (`lesson_output`) dùng id ngắn `UNILOT-<10 hex>` → bấm **Chọn tất cả** rồi **Thanh toán N khoản đã chọn** trên `/admin/staffs/:id` bị 400. Nay id được kiểm theo `sourceType`: `lesson_output` phải đúng format `UNILOT-…`, các nguồn khác vẫn UUID v4.

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/ResponsiveDialog";
 import { questionTypeLabel } from "@/dtos/question.dto";
 import { MoveQuestionConfirmDialog } from "./MoveQuestionConfirmDialog";
-import { questionExcerpt } from "./question-excerpt";
+import { questionExcerpt } from "@/lib/question-excerpt";
 
 /** Chọn một câu lẻ có sẵn của khoá để chuyển vào bộ (kèm xác nhận số tiết). */
 export function MoveQuestionIntoSetDialog({

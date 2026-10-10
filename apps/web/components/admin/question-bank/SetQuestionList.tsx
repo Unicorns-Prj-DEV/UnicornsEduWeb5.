@@ -23,7 +23,7 @@ import { questionTypeLabel, type Question } from "@/dtos/question.dto";
 import type { SharedMaterial } from "@/dtos/shared-material.dto";
 import { MoveQuestionConfirmDialog } from "./MoveQuestionConfirmDialog";
 import { MoveQuestionIntoSetDialog } from "./MoveQuestionIntoSetDialog";
-import { questionExcerpt } from "./question-excerpt";
+import { questionExcerpt } from "@/lib/question-excerpt";
 
 const ICON_BUTTON =
   "inline-flex size-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-40 sm:size-9";

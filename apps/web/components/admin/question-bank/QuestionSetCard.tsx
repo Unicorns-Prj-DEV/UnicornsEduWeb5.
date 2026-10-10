@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import MathContent from "@/components/ui/MathContent";
 import { questionTypeLabel } from "@/dtos/question.dto";
+import { numberMaterialGaps } from "@/lib/material-gaps";
 import type { SharedMaterial } from "@/dtos/shared-material.dto";
-import { questionExcerpt } from "./question-excerpt";
+import { questionExcerpt } from "@/lib/question-excerpt";
 
 /**
  * Một Bộ câu hỏi trong ngân hàng: phần đầu bộ tóm tắt; mở ra xem các câu theo
@@ -49,7 +50,8 @@ export default function QuestionSetCard({
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-text-primary">{set.title}</p>
             <MathContent
-              content={set.content}
+              // Tóm tắt chưa có số câu → vị trí trống hiện ô không số.
+              content={numberMaterialGaps(set.content, new Map())}
               className="mt-1 line-clamp-2 text-sm text-text-secondary [&_img]:hidden"
             />
           </div>
