@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveUnit, practiceUnits } from "./practice-units";
+import { moveUnit, practiceUnits, segmentsByUnit } from "./practice-units";
 
 const link = (
   id: string,
@@ -50,5 +50,21 @@ describe("moveUnit", () => {
       "x",
       "y",
     ]);
+  });
+});
+
+describe("segmentsByUnit", () => {
+  it("gom các mục liền cùng mục vào một đoạn, giữ thứ tự", () => {
+    const views = ["x", "a", "b", "c", "y"];
+    const unitOf = new Map([["x", 0], ["a", 1], ["b", 1], ["c", 1], ["y", 2]]);
+    expect(segmentsByUnit(views, (v) => unitOf.get(v)!)).toEqual([
+      { unitIndex: 0, items: ["x"] },
+      { unitIndex: 1, items: ["a", "b", "c"] },
+      { unitIndex: 2, items: ["y"] },
+    ]);
+  });
+
+  it("danh sách rỗng → không đoạn nào", () => {
+    expect(segmentsByUnit([], () => 0)).toEqual([]);
   });
 });

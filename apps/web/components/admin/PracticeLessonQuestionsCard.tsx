@@ -13,7 +13,7 @@ import {
   itExamBreakdown,
   orderExamQuestions,
 } from "@/lib/exam-layout";
-import { moveUnit, practiceUnits } from "@/lib/practice-units";
+import { moveUnit, practiceUnits, segmentsByUnit } from "@/lib/practice-units";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -121,8 +121,11 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
 const SET_ICON_BUTTON =
   "inline-flex size-11 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-40 sm:size-8";
 
-/** Đầu khối Bộ câu hỏi trong tiết: đổi chỗ / gỡ cả bộ. */
-function SetUnitHeader({
+/**
+ * Khung Bộ câu hỏi trong tiết: nền xanh bọc thanh tên bộ (đổi chỗ / gỡ cả
+ * bộ), phần đầu bộ và các câu của bộ — nhìn là biết câu nào thuộc bộ.
+ */
+function SetUnitCard({
   title,
   count,
   hasAudio,
@@ -132,6 +135,7 @@ function SetUnitHeader({
   canMoveDown,
   onMove,
   onRemove,
+  children,
 }: {
   title: string;
   count: number;
@@ -143,10 +147,12 @@ function SetUnitHeader({
   canMoveDown: boolean;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
+  /** Các câu của bộ (mỗi câu một `<li>`). */
+  children: ReactNode;
 }) {
   return (
-    <li className="list-none pt-1">
-      <div className="flex items-center gap-2 rounded-md border border-info/30 bg-info/5 px-3 py-1.5">
+    <li className="list-none space-y-2 rounded-lg border border-info/30 bg-info/5 p-2">
+      <div className="flex items-center gap-2 px-1">
         <Layers className="size-4 shrink-0 text-info" aria-hidden />
         <p className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">
           Bộ: {title}
@@ -191,7 +197,8 @@ function SetUnitHeader({
           </div>
         ) : null}
       </div>
-      {preview ? <div className="mt-1">{preview}</div> : null}
+      {preview}
+      <ul className="space-y-2">{children}</ul>
     </li>
   );
 }
@@ -379,6 +386,60 @@ export function PracticeLessonQuestionsCard({
     if (ok) removeSet.mutate(setId);
   };
 
+
+  type View = (typeof layout)[number];
+  const renderHeaders = (view: View) => (
+    <>
+      {view.partHeader ? (
+        <li className="list-none">
+          <SectionHeader
+            title={PART_TITLES[view.partHeader] ?? view.partHeader}
+            count={partCounts[view.partHeader] ?? 0}
+          />
+        </li>
+      ) : null}
+      {view.groupHeader ? (
+        <li className="list-none pt-1">
+          <div className="flex items-baseline justify-between gap-2 rounded-md bg-info/10 px-3 py-1.5">
+            <p className="text-xs font-semibold text-info">{view.groupHeader}</p>
+            <span className="shrink-0 text-[11px] text-text-muted">
+              {groupCounts[view.question.slot] ?? 0} câu
+            </span>
+          </div>
+        </li>
+      ) : null}
+    </>
+  );
+  const renderItem = (view: View) => {
+    const unitIndex = unitIndexOf.get(view.question.id)!;
+    return (
+      <PracticeQuestionLinkItem
+        key={view.question.id}
+        link={view.question}
+        label={`Câu ${view.number}`}
+        lessonId={lessonId}
+        courseId={courseId}
+        canEdit={canEdit}
+        assigned={assigned}
+        hasElectives={hasElectives}
+        isAbsolute={isAbsolute}
+        weighted={weighted}
+        compact={viewMode === "compact"}
+        canMoveUp={canMoveUnit(unitIndex, -1)}
+        canMoveDown={canMoveUnit(unitIndex, 1)}
+        onMove={(direction) => void move(unitIndex, direction)}
+        confirm={confirm}
+        onSaved={invalidate}
+      />
+    );
+  };
+  const renderView = (view: View) => (
+    <Fragment key={view.question.id}>
+      {renderHeaders(view)}
+      {renderItem(view)}
+    </Fragment>
+  );
+
   return (
     <div className="space-y-4">
       {assigned ? (
@@ -472,44 +533,25 @@ export function PracticeLessonQuestionsCard({
         </div>
       ) : (
         <ul className="space-y-2">
-          {layout.map((view) => {
-            const link = view.question;
-            const unitIndex = unitIndexOf.get(link.id)!;
-            const unit = units[unitIndex];
-            const setTitle = link.question.sharedMaterial?.title ?? "Bộ câu hỏi";
-            return (
-              <Fragment key={link.id}>
-                {view.partHeader ? (
-                  <li className="list-none">
-                    <SectionHeader
-                      title={PART_TITLES[view.partHeader] ?? view.partHeader}
-                      count={partCounts[view.partHeader] ?? 0}
-                    />
-                  </li>
-                ) : null}
-                {view.groupHeader ? (
-                  <li className="list-none pt-1">
-                    <div className="flex items-baseline justify-between gap-2 rounded-md bg-info/10 px-3 py-1.5">
-                      <p className="text-xs font-semibold text-info">
-                        {view.groupHeader}
-                      </p>
-                      <span className="shrink-0 text-[11px] text-text-muted">
-                        {groupCounts[link.slot] ?? 0} câu
-                      </span>
-                    </div>
-                  </li>
-                ) : null}
-                {unit.setId && unit.links[0].id === link.id ? (
-                  <SetUnitHeader
+          {segmentsByUnit(layout, (view) => unitIndexOf.get(view.question.id)!).map(
+            ({ unitIndex, items }) => {
+              const unit = units[unitIndex];
+              const set = unit.setId ? setsById.get(unit.setId) : undefined;
+              if (!unit.setId) return items.map(renderView);
+              const [first, ...rest] = items;
+              const setTitle =
+                first.question.question.sharedMaterial?.title ?? "Bộ câu hỏi";
+              return (
+                <Fragment key={unit.setId}>
+                  {/* Tiêu đề phần / nhóm của câu đầu bộ đứng ngoài khung bộ. */}
+                  {renderHeaders(first)}
+                  <SetUnitCard
                     title={setTitle}
                     count={unit.links.length}
-                    hasAudio={Boolean(setsById.get(unit.setId)?.audio)}
+                    hasAudio={Boolean(set?.audio)}
                     preview={
-                      viewMode === "full" && setsById.get(unit.setId) ? (
-                        <SetHeaderPreview
-                          set={setsById.get(unit.setId)!}
-                          gapNumbers={gapNumbers}
-                        />
+                      viewMode === "full" && set ? (
+                        <SetHeaderPreview set={set} gapNumbers={gapNumbers} />
                       ) : null
                     }
                     canEdit={canEdit}
@@ -517,28 +559,14 @@ export function PracticeLessonQuestionsCard({
                     canMoveDown={canMoveUnit(unitIndex, 1)}
                     onMove={(direction) => void move(unitIndex, direction)}
                     onRemove={() => void requestRemoveSet(unit.setId!, setTitle)}
-                  />
-                ) : null}
-                <PracticeQuestionLinkItem
-                  link={link}
-                  label={`Câu ${view.number}`}
-                  lessonId={lessonId}
-                  courseId={courseId}
-                  canEdit={canEdit}
-                  assigned={assigned}
-                  hasElectives={hasElectives}
-                  isAbsolute={isAbsolute}
-                  weighted={weighted}
-                  compact={viewMode === "compact"}
-                  canMoveUp={canMoveUnit(unitIndex, -1)}
-                  canMoveDown={canMoveUnit(unitIndex, 1)}
-                  onMove={(direction) => void move(unitIndex, direction)}
-                  confirm={confirm}
-                  onSaved={invalidate}
-                />
-              </Fragment>
-            );
-          })}
+                  >
+                    {renderItem(first)}
+                    {rest.map(renderView)}
+                  </SetUnitCard>
+                </Fragment>
+              );
+            },
+          )}
         </ul>
       )}
 

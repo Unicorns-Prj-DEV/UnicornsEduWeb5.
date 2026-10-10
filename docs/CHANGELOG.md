@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Tiết thực hành: Bộ câu hỏi thành một khung.** Thanh tên bộ, phần đầu bộ và các câu của bộ nằm chung trong khung nền xanh (`SetUnitCard`), câu lẻ ở ngoài — nhìn là biết câu nào thuộc bộ.
 - **Trang lượt làm của học sinh ẩn navbar** (cả đang làm và xem lại): nội dung, timer và lưới câu lên sát mép trên; thoát bằng link tên đề. Lưới câu mobile `z-20` để audio của bộ trượt xuống dưới thay vì đè lên lưới.
 - **Một audio player cho mọi chỗ.** Bỏ `<audio controls>` gốc; mọi audio (làm bài, ôn nhẹ, xem lại, xem trước, ô tải audio) dùng chung player của `AttemptAudio`: nút phát, thời gian "m:ss / m:ss", thanh tua khi được tua; audio có Giới hạn nghe vẫn trừ lượt qua `POST …/audio/:audioId/play` và hiện "Còn n/max lượt nghe · không tua được". `QuestionAudio` thành wrapper không giới hạn.
 - **Tiêu đề phần đầu Bộ câu hỏi phía học sinh:** bộ có audio → "Nghe rồi trả lời câu a–b" (icon tai nghe); không audio → "Đọc đoạn sau rồi trả lời câu a–b". Bỏ chữ "tư liệu".

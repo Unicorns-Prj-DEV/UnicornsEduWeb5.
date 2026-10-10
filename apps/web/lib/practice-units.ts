@@ -52,3 +52,27 @@ export function moveUnit<L>(
   [next[index], next[target]] = [next[target], next[index]];
   return next.flatMap((unit) => unit.links);
 }
+
+/** Một đoạn liền của danh sách hiển thị thuộc cùng một mục. */
+export interface UnitSegment<T> {
+  unitIndex: number;
+  items: T[];
+}
+
+/**
+ * Cắt danh sách hiển thị (đã theo thứ tự tiết) thành đoạn liền cùng mục — để
+ * bọc cả Bộ câu hỏi (phần đầu bộ + các câu) trong một khung.
+ */
+export function segmentsByUnit<T>(
+  items: T[],
+  unitOf: (item: T) => number,
+): UnitSegment<T>[] {
+  const segments: UnitSegment<T>[] = [];
+  for (const item of items) {
+    const unitIndex = unitOf(item);
+    const last = segments.at(-1);
+    if (last && last.unitIndex === unitIndex) last.items.push(item);
+    else segments.push({ unitIndex, items: [item] });
+  }
+  return segments;
+}
