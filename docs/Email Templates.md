@@ -17,7 +17,7 @@ Mọi email đều kèm bản `text` thuần cho client không đọc HTML.
 ## Layout chung (`EmailLayout`)
 
 - Thẻ trắng max 600px trên nền xám nhạt, thanh màu 6px phía trên theo tone.
-- Header thương hiệu: logo tròn 40px (`assets/logo_mark_sm.png`, CID `brand-logo@unicorns-edu`) + «Unicorns Edu / Học Tin cùng Chuyên tin». Không có logo thì chỉ hiện chữ.
+- Header thương hiệu: logo tròn 40px (`assets/logo_mark_sm.png`, CID `brand-logo@unicorns-edu`) + «UniEdu / Học Tin cùng Chuyên tin». Không có logo thì chỉ hiện chữ.
 - Hero: khung nền nhạt theo tone, icon emoji trong vòng tròn trắng, eyebrow in hoa, tiêu đề h1.
 - Footer: dòng hỗ trợ + host truy cập (`siteUrl`), bên dưới là bản quyền và «Email gửi tự động».
 - Primitive dùng lại: `EmailParagraph`, `EmailButton`, `EmailLinkFallback`, `EmailCallout`, `EmailDetailList`, `EmailAmountHighlight`, `EmailMutedNote`. Helper: `formatVnd`, `formatHoursDuration`.

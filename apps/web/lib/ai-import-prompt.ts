@@ -123,7 +123,7 @@ export function buildAiImportPrompt(input: AiImportPromptInput): string {
       ? `\nTrộn các loại câu hợp lý với nội dung (không bắt buộc đủ mọi loại).`
       : "";
 
-  return `Bạn là trợ lý soạn câu hỏi cho khoá ${input.courseName} của Unicorns Edu.
+  return `Bạn là trợ lý soạn câu hỏi cho khoá ${input.courseName} của UniEdu.
 
 NHIỆM VỤ
 Sinh ${input.questionCount} câu hỏi về: ${input.topic || "(chọn chuyên đề)"}.${mixNote}

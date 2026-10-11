@@ -28,7 +28,7 @@ sequenceDiagram
 
 Cấu hình env:
 - `UNIOJ_API_KEY`: API Key lấy từ hồ sơ Profile UNIOJ (Base64url key).
-- `UNIOJ_BASE_URL`: Mặc định `https://oj.uniedu.vn`. Giá trị này phải là origin của OJ, không phải URL backend Unicorns. Nếu cấu hình nhầm về `localhost`/API local, backend sẽ bỏ qua và dùng `https://oj.uniedu.vn`.
+- `UNIOJ_BASE_URL`: Mặc định `https://oj.uniedu.vn`. Giá trị này phải là origin của OJ, không phải URL backend Uni. Nếu cấu hình nhầm về `localhost`/API local, backend sẽ bỏ qua và dùng `https://oj.uniedu.vn`.
 
 ### 2.1 Lấy JSON dữ liệu tiến độ học tập
 - **Endpoint**: `GET /unioj/report`
@@ -51,7 +51,7 @@ Cấu hình env:
   - `days` (Không bắt buộc): Khoảng thời gian thống kê.
 - **Phản hồi**:
   File PDF (`application/pdf`). Frontend gọi endpoint này bằng shared Axios client với `responseType: "blob"`, nhận file qua backend proxy, tạo object URL nội bộ của trình duyệt rồi mới preview/download. Trình duyệt không nhúng trực tiếp `https://oj.uniedu.vn`, nên không bị chặn bởi `X-Frame-Options: deny` của OJ.
-- **Lưu ý upstream**: nếu UNIOJ trả `503` với message `pdf rendering is not available on this site`, site OJ hiện không bật renderer PDF. Khi đó backend không thể proxy PDF từ OJ; cần yêu cầu OJ bật renderer hoặc bổ sung luồng tự render PDF từ JSON báo cáo trong backend Unicorns.
+- **Lưu ý upstream**: nếu UNIOJ trả `503` với message `pdf rendering is not available on this site`, site OJ hiện không bật renderer PDF. Khi đó backend không thể proxy PDF từ OJ; cần yêu cầu OJ bật renderer hoặc bổ sung luồng tự render PDF từ JSON báo cáo trong backend Uni.
 
 ## 3. Giao diện Frontend (`apps/web`)
 

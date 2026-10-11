@@ -85,7 +85,7 @@ Hệ thống sinh prompt theo khoá đang mở, không hard-code. Các tham số
 Hai tham số người dùng chỉnh trên panel: **số câu cần sinh** và **chuyên đề**. Chuyên đề lấy từ danh sách Chuyên đề hiện có của khoá; nếu chưa có, người dùng gõ tên mới và chọn mục **Tạo chuyên đề “…”** ngay trong dropdown. Chuyên đề được chọn ở bước lấy prompt cũng là nơi các câu hỏi sẽ được gắn khi lưu.
 
 ```
-Bạn là trợ lý soạn câu hỏi cho khoá {{TÊN KHOÁ}} của Unicorns Edu.
+Bạn là trợ lý soạn câu hỏi cho khoá {{TÊN KHOÁ}} của UniEdu.
 
 NHIỆM VỤ
 Sinh {{SỐ CÂU}} câu hỏi về: {{CHUYÊN ĐỀ}}.

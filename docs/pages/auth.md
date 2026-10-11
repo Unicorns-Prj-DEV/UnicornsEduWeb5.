@@ -41,7 +41,7 @@
 - Register công khai: **disabled** — `/auth/register` redirect login; API trả `403`.
 - Reset password thành công: toast success, delay 2s rồi redirect `/auth/login`.
 - Forgot password thành công: luôn trả generic success message, không redirect, không tiết lộ email có tồn tại hay chưa.
-- Forgot/reset/setup password hiển thị đầy đủ logo mark + tên **Unicorns Edu**; email reset password dùng React Email chung layout với các email khác (xem [Email Templates.md](../Email%20Templates.md)), có CTA, fallback link, cảnh báo «Không phải bạn yêu cầu?», và link cũ vô hiệu sau khi mật khẩu đổi.
+- Forgot/reset/setup password hiển thị đầy đủ logo mark + tên **UniEdu**; email reset password dùng React Email chung layout với các email khác (xem [Email Templates.md](../Email%20Templates.md)), có CTA, fallback link, cảnh báo «Không phải bạn yêu cầu?», và link cũ vô hiệu sau khi mật khẩu đổi.
 - Verify email thành công: `/verify-email?token=...` tự gọi backend `GET /auth/verify`, hiển thị success/error và CTA quay về login.
 - Khi user đang đăng nhập nhưng chưa verify email:
   - chỉ được ở Home (`/`)
@@ -104,7 +104,7 @@ export default async function SomePage() {
   - body optional: `{ email?: string }`
   - không truyền email: gửi lại email xác minh tới email hiện tại
   - có truyền email: cập nhật email tài khoản hiện tại, reset `emailVerified=false`, rồi gửi mail xác minh tới email mới
-  - email xác minh gửi qua React Email (`apps/api/src/mail/templates/email-verification.email.tsx`): layout chung [Email Templates.md](../Email%20Templates.md), nút CTA «Xác thực email», fallback link, ghi chú hết hạn **24 giờ** (khớp JWT verify token), subject `[Unicorns Edu] Xác thực email tài khoản`
+  - email xác minh gửi qua React Email (`apps/api/src/mail/templates/email-verification.email.tsx`): layout chung [Email Templates.md](../Email%20Templates.md), nút CTA «Xác thực email», fallback link, ghi chú hết hạn **24 giờ** (khớp JWT verify token), subject `[UniEdu] Xác thực email tài khoản`
   - endpoint này là `@Public()` ở lớp global JWT guard nhưng tự xác thực cookie trong controller; nếu không có session hợp lệ vẫn trả `401`.
   - nếu SMTP chưa cấu hình hoặc provider từ chối đăng nhập SMTP, backend trả `503` với thông báo cấu hình thay vì `500`. Với Gmail, `SMTP_PASS` phải là App Password 16 ký tự, không phải mật khẩu đăng nhập Google thường; backend chấp nhận cả dạng Google hiển thị có khoảng trắng (`abcd efgh ijkl mnop`) và sẽ bỏ khoảng trắng trước khi gửi qua SMTP.
   - `GET /auth/verify?token=...`

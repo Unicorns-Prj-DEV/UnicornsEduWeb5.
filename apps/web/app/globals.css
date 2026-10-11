@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Unicorns Edu 5.0 – Theme Tokens (per docs/UI-Schema.md)
+   UniEdu 5.0 – Theme Tokens (per docs/UI-Schema.md)
    Runtime switch via [data-theme] on <html>
    ========================================================================== */
 
@@ -237,7 +237,7 @@
   }
 }
 
-/* Video.js Unicorns Theme Customization */
+/* Video.js Uni Theme Customization */
 .video-js.vjs-theme-unicorns {
   font-family: inherit;
   color: #ffffff;

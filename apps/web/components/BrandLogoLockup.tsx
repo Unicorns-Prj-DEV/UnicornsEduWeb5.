@@ -82,7 +82,7 @@ export function BrandLogoLockup({
           wordmarkClassName,
         )}
       >
-        <span className="text-text-primary">Unicorns </span>
+        <span className="text-text-primary">Uni</span>
         <span className="text-primary">Edu</span>
       </span>
     </span>

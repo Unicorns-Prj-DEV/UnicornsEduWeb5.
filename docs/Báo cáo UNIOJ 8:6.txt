@@ -6,7 +6,7 @@ Ngày báo cáo: 08 tháng 06 năm 2026
 Giai đoạn báo cáo: Tháng 4 – Tháng 6 năm 2026
 
 1. Tóm tắt nhanh
-Trong giai đoạn qua, nhóm đã hoàn thành 5 nhóm công việc chính trên hệ thống UNIOJ (trang luyện thi và quản lý bài tập của Unicorns Edu). Toàn bộ phần phát triển này đã được lưu vào mã nguồn chính thức và sẵn sàng vận hành.
+Trong giai đoạn qua, nhóm đã hoàn thành 5 nhóm công việc chính trên hệ thống UNIOJ (trang luyện thi và quản lý bài tập của UniEdu). Toàn bộ phần phát triển này đã được lưu vào mã nguồn chính thức và sẵn sàng vận hành.
 
 2. Chi tiết công việc đã hoàn thành
 2.1. Cải thiện giao diện website
@@ -18,7 +18,7 @@ Trang Thành viên (/users/):
   - Bảng xếp hạng mới, dễ đọc hơn.
   - Hiển thị số người đang online.
   - Ô tìm kiếm thành viên theo tên.
-  - Giao diện thống nhất với các trang liên quan (Đóng góp, Tổ chức, Unicorns Edu).
+  - Giao diện thống nhất với các trang liên quan (Đóng góp, Tổ chức, UniEdu).
 Các trang khác: Cải thiện giao diện trang đề bài, cuộc thi và danh sách bài nộp.
 Kết quả: Website có giao diện đồng bộ, chuyên nghiệp hơn so với trước.
 

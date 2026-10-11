@@ -1,4 +1,4 @@
-# Database Schema – Unicorns Edu (apps/api)
+# Database Schema – UniEdu (apps/api)
 
 Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `apps/api/prisma/schema/*.prisma`, dùng làm **context chuẩn cho model** khi làm việc với backend.
 

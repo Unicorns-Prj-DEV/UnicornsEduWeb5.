@@ -565,7 +565,7 @@ export default function LessonOutputEditorForm({
                   value={source}
                   onChange={(event) => setSource(event.target.value)}
                   className={fieldInputClass()}
-                  placeholder="codeforces, Unicorns, …"
+                  placeholder="codeforces, Uni, …"
                   autoComplete="off"
                   required
                 />

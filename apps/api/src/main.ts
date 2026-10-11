@@ -69,8 +69,8 @@ async function bootstrap() {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Unicorns Edu API')
-    .setDescription('API backend cho Unicorns Edu 5.0')
+    .setTitle('UniEdu API')
+    .setDescription('API backend cho UniEdu 5.0')
     .setVersion('1.0')
     .addCookieAuth('access_token', {
       description: 'Access token for authentication',
