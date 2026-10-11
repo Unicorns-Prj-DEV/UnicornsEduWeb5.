@@ -61,7 +61,7 @@ export function TuitionReceiptEmail(props: TuitionReceiptEmailProps) {
       tone="success"
       icon="🧾"
       eyebrow="Nạp ví thành công"
-      title="Unicorns Edu đã nhận học phí"
+      title="UniEdu đã nhận học phí"
       logoSrc={brandLogoSrc ?? null}
       siteUrl={siteUrl ?? null}
     >
@@ -135,7 +135,7 @@ function ReceiptDocument({
                 <td style={{ padding: '0 10px', verticalAlign: 'middle' }}>
                   <Img
                     src={logoMainSrc}
-                    alt="Unicorns Edu"
+                    alt="UniEdu"
                     height={isPdf ? 56 : 44}
                     style={{ display: 'block' }}
                   />
@@ -180,7 +180,7 @@ function ReceiptDocument({
           textAlign: 'center',
         }}
       >
-        Unicorns Edu — Học Tin cùng Chuyên tin
+        UniEdu — Học Tin cùng Chuyên tin
       </Text>
 
       <table

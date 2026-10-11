@@ -28,7 +28,7 @@ export function LoginVerificationEmail({
 }: LoginVerificationEmailProps) {
   return (
     <EmailLayout
-      preview={`Xác minh đăng nhập Unicorns Edu, hiệu lực ${expiresInMinutes} phút`}
+      preview={`Xác minh đăng nhập UniEdu, hiệu lực ${expiresInMinutes} phút`}
       icon="🛡️"
       eyebrow="Bảo mật tài khoản"
       title="Xác minh đăng nhập"

@@ -1,5 +1,14 @@
-import type { QuestionTypeDto } from "@/dtos/question.dto";
-import type { QuestionSlotDto, TrueFalseChoices } from "@/dtos/attempt.dto";
+import type { AudioRef } from "./audio-asset.dto";
+import type {
+  QuestionTypeDto,
+  QuestionTypeValue,
+  TrueFalseLabelStyleDto,
+} from "@/dtos/question.dto";
+import type {
+  BlankAnswers,
+  QuestionSlotDto,
+  TrueFalseChoices,
+} from "@/dtos/attempt.dto";
 
 export type LessonKind = "theory" | "practice";
 
@@ -80,6 +89,17 @@ export interface QuestionLinkQuestion {
   tfAnswerKey: boolean[];
   explanation: string | null;
   answerGuide: string | null;
+  essayInputSize?: "short" | "long" | null;
+  tfLabelStyle?: TrueFalseLabelStyleDto | null;
+  blankAnswerKey?: string[][] | null;
+  /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
+  sharedMaterialId?: string | null;
+  /** Vị trí trong bộ — trong tiết, câu của bộ theo thứ tự này. */
+  setPosition?: number | null;
+  sharedMaterial?: { id: string; title: string } | null;
+  /** Audio nhúng (JP) — giữ khi sửa câu từ màn xếp đề. */
+  audioId?: string | null;
+  audio?: AudioRef | null;
 }
 
 export interface QuestionLink {
@@ -95,6 +115,8 @@ export interface QuestionLink {
 export interface QuestionLinkSummary {
   totalQuestions: number;
   totalPoints: number;
+  /** Tổng trọng số (null tính là 1) — hồ sơ JP. */
+  totalWeight: number;
   /** Lý do đề sai form nhóm tự chọn (IT); null khi hợp lệ. */
   formWarning: string | null;
 }
@@ -119,13 +141,29 @@ export interface LessonQuizQuestion {
   order: number;
   question: {
     id: string;
-    type: string;
+    type: QuestionTypeValue;
     content: string;
     options: string[] | null;
     correctIndex: number | null;
     tfAnswerKey?: boolean[];
     explanation: string | null;
     answerGuide: string | null;
+    /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
+    essayInputSize?: "short" | "long" | null;
+    /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+    tfLabelStyle?: TrueFalseLabelStyleDto | null;
+    /** Đáp án hợp lệ từng ô — học sinh làm bài nhận null. */
+    blankAnswerKey?: string[][] | null;
+    /** Số ô trống (câu điền vào ô trống). */
+    blankCount?: number | null;
+    /** Audio nhúng (JP): signed URL ngắn hạn. */
+    audioUrl?: string | null;
+    /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
+    sharedMaterial?: {
+      id: string;
+      content: string;
+      audioUrl?: string | null;
+    } | null;
   };
 }
 
@@ -137,17 +175,35 @@ export interface LessonQuizAnswer {
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices?: TrueFalseChoices | null;
+  blankAnswers?: BlankAnswers | null;
+  orderAnswer?: string[] | null;
   createdAt: string;
   updatedAt: string;
   question: {
     id: string;
-    type: string;
+    type: QuestionTypeValue;
     content: string;
     options: string[] | null;
     correctIndex: number | null;
     tfAnswerKey?: boolean[];
     explanation: string | null;
     answerGuide: string | null;
+    /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
+    essayInputSize?: "short" | "long" | null;
+    /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+    tfLabelStyle?: TrueFalseLabelStyleDto | null;
+    /** Đáp án hợp lệ từng ô — học sinh làm bài nhận null. */
+    blankAnswerKey?: string[][] | null;
+    /** Số ô trống (câu điền vào ô trống). */
+    blankCount?: number | null;
+    /** Audio nhúng (JP): signed URL ngắn hạn. */
+    audioUrl?: string | null;
+    /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
+    sharedMaterial?: {
+      id: string;
+      content: string;
+      audioUrl?: string | null;
+    } | null;
   };
 }
 
@@ -156,6 +212,8 @@ export interface SubmitQuizAnswerPayload {
   choiceIndex?: number | null;
   essayAnswer?: string | null;
   tfChoices?: TrueFalseChoices | null;
+  blankAnswers?: BlankAnswers | null;
+  orderAnswer?: string[] | null;
 }
 
 /** Tiết học từ khoá — dùng cho panel chọn nội dung lớp. */

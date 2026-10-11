@@ -1030,6 +1030,26 @@ export async function removePracticeLessonQuestion(
   await api.delete(contentApiPaths.lessonQuestion(lessonId, linkId));
 }
 
+/** Thêm cả Bộ câu hỏi vào tiết — tiết lấy nguyên bộ. */
+export async function addPracticeLessonQuestionSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.post(contentApiPaths.lessonQuestionSets(lessonId), {
+    sharedMaterialId,
+  });
+}
+
+/** Gỡ cả Bộ câu hỏi khỏi tiết. */
+export async function removePracticeLessonQuestionSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.delete(
+    contentApiPaths.lessonQuestionSet(lessonId, sharedMaterialId),
+  );
+}
+
 export async function reorderPracticeLessonQuestions(
   lessonId: string,
   linkIds: string[],
@@ -1078,6 +1098,23 @@ export async function unlinkQuizQuestion(
   questionId: string,
 ): Promise<void> {
   await api.delete(contentApiPaths.lessonQuiz(lessonId, questionId));
+}
+
+/** Thêm nguyên Bộ câu hỏi vào bài ôn nhẹ. */
+export async function addLessonQuizSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.post(contentApiPaths.lessonQuizSets(lessonId), {
+    sharedMaterialId,
+  });
+}
+
+export async function removeLessonQuizSet(
+  lessonId: string,
+  sharedMaterialId: string,
+): Promise<void> {
+  await api.delete(contentApiPaths.lessonQuizSet(lessonId, sharedMaterialId));
 }
 
 export async function getExamLibrary(

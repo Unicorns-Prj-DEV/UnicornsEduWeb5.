@@ -8,18 +8,27 @@ import { ChevronLeft, Send } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAttempt,
+  playAttemptAudio,
   saveAttemptAnswers,
   submitAttempt,
 } from "@/lib/apis/attempt.api";
 import type {
   AttemptDetailDto,
   AttemptQuestionDto,
+  BlankAnswers,
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
 import { formatScore } from "@/lib/attempt-score";
 import { refetchIntervalUntilClose } from "@/lib/assignment-window";
 import { formatDateTime } from "@/lib/class.helpers";
-import { buildExamLayout, isElectiveConflict } from "@/lib/exam-layout";
+import {
+  buildExamLayout,
+  isElectiveConflict,
+  materialHeaders,
+  materialSegments,
+} from "@/lib/exam-layout";
+import { AttemptAudioProvider } from "@/components/student/AttemptAudio";
+import MaterialBlock from "@/components/student/MaterialBlock";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
 import {
   answeredQuestionCount,
@@ -30,6 +39,8 @@ import {
 } from "@/lib/attempt-autosave.helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { useStickyBottom } from "@/hooks/use-sticky-bottom";
 import StudentAttemptTimer from "@/components/student/StudentAttemptTimer";
 import StudentAttemptQuestion from "@/components/student/StudentAttemptQuestion";
 import StudentAttemptQuestionGrid from "@/components/student/StudentAttemptQuestionGrid";
@@ -84,6 +95,8 @@ export default function StudentAttemptPage() {
           choiceIndex: q.choiceIndex,
           essayAnswer: q.essayAnswer,
           tfChoices: q.tfChoices,
+          blankAnswers: q.blankAnswers,
+          orderAnswer: q.orderAnswer,
           markedForReview: q.markedForReview ?? false,
         })),
       }),
@@ -106,6 +119,8 @@ export default function StudentAttemptPage() {
             choiceIndex: q.choiceIndex,
             essayAnswer: q.essayAnswer,
             tfChoices: q.tfChoices,
+            blankAnswers: q.blankAnswers,
+            orderAnswer: q.orderAnswer,
             markedForReview: q.markedForReview ?? false,
           })),
         });
@@ -126,6 +141,11 @@ export default function StudentAttemptPage() {
     },
     onError: () => toast.error("Không nộp được bài. Thử lại."),
   });
+
+  const playAudio = useCallback(
+    (audioId: string) => playAttemptAudio(classId, attemptId, audioId),
+    [classId, attemptId],
+  );
 
   const handleExpire = useCallback(() => {
     if (autoSubmitted.current) return;
@@ -218,6 +238,8 @@ export default function StudentAttemptPage() {
       choiceIndex?: number | null;
       essayAnswer?: string | null;
       tfChoices?: TrueFalseChoices | null;
+      blankAnswers?: BlankAnswers | null;
+      orderAnswer?: string[] | null;
       markedForReview?: boolean;
     },
   ) => {
@@ -255,37 +277,39 @@ export default function StudentAttemptPage() {
   };
 
   return (
-    <StudentAttemptInProgress
-      closed={closed}
-      viewMode={viewMode}
-      dataTitle={data.title}
-      dataStatus={data.status}
-      attempt={data}
-      endsAt={data.endsAt}
-      questions={questions}
-      lobbyHref={lobbyHref}
-      hasUnsaved={hasUnsaved}
-      lastSavedAt={lastSavedAt}
-      unanswered={unanswered}
-      markedForReview={markedForReview}
-      answeredCount={answeredCount}
-      savePending={saveMutation.isPending}
-      saveQueued={saveQueued}
-      saveError={saveMutation.isError}
-      submitPending={submitMutation.isPending}
-      onExpire={handleExpire}
-      onChangeQuestion={updateQuestion}
-      onRetrySave={() => retrySave(questions)}
-      onRequestSubmit={async () => {
-        const ok = await flushSaveBeforeReview();
-        if (!ok) return;
-        setViewMode("review");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }}
-      onBackToTaking={() => setViewMode("taking")}
-      onConfirmSubmit={() => submitMutation.mutate()}
-      onGoLobby={() => router.push(lobbyHref)}
-    />
+    <AttemptAudioProvider play={playAudio}>
+      <StudentAttemptInProgress
+        closed={closed}
+        viewMode={viewMode}
+        dataTitle={data.title}
+        dataStatus={data.status}
+        attempt={data}
+        endsAt={data.endsAt}
+        questions={questions}
+        lobbyHref={lobbyHref}
+        hasUnsaved={hasUnsaved}
+        lastSavedAt={lastSavedAt}
+        unanswered={unanswered}
+        markedForReview={markedForReview}
+        answeredCount={answeredCount}
+        savePending={saveMutation.isPending}
+        saveQueued={saveQueued}
+        saveError={saveMutation.isError}
+        submitPending={submitMutation.isPending}
+        onExpire={handleExpire}
+        onChangeQuestion={updateQuestion}
+        onRetrySave={() => retrySave(questions)}
+        onRequestSubmit={async () => {
+          const ok = await flushSaveBeforeReview();
+          if (!ok) return;
+          setViewMode("review");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onBackToTaking={() => setViewMode("taking")}
+        onConfirmSubmit={() => submitMutation.mutate()}
+        onGoLobby={() => router.push(lobbyHref)}
+      />
+    </AttemptAudioProvider>
   );
 }
 
@@ -350,6 +374,8 @@ function StudentAttemptInProgress({
       choiceIndex?: number | null;
       essayAnswer?: string | null;
       tfChoices?: TrueFalseChoices | null;
+      blankAnswers?: BlankAnswers | null;
+      orderAnswer?: string[] | null;
       markedForReview?: boolean;
     },
   ) => void;
@@ -386,8 +412,19 @@ function StudentAttemptInProgress({
     attempt.electiveGroupNames,
   );
   const labelOf = (n: number) => layout[n - 1]?.shortLabel ?? String(n);
+  const materials = materialHeaders(questions, (q) => q.sharedMaterial);
+  const gapNumbers = new Map(
+    layout.map((view) => [view.question.questionId, view.number]),
+  );
   const electiveConflict = !closed && isElectiveConflict(questions);
   const isIt = attempt.scoring === "absolute_it";
+  // Mobile: timer + lưới câu dính đầu trang → audio của bộ dính ngay dưới lưới.
+  // Desktop: hai thanh đó ở cột phải → audio dính sát mép trên như timer.
+  const gridRef = useRef<HTMLElement>(null);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const gridBottom = useStickyBottom(gridRef, !closed && !isDesktop);
+  const materialAudioTop =
+    gridBottom === null ? "0px" : `calc(${gridBottom}px + 0.5rem)`;
 
   return (
     <div className="space-y-4 pb-28">
@@ -411,7 +448,7 @@ function StudentAttemptInProgress({
         {!closed && (
           <aside
             aria-label="Thời gian và danh sách câu"
-            className="contents lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain"
+            className="contents lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-3rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain"
           >
             <StudentAttemptTimer
               endsAt={endsAt}
@@ -422,6 +459,7 @@ function StudentAttemptInProgress({
               questions={questions}
               labels={layout.map((v) => v.shortLabel)}
               className="sticky top-[3.75rem] lg:static"
+              ref={gridRef}
             />
           </aside>
         )}
@@ -516,31 +554,52 @@ function StudentAttemptInProgress({
           )}
 
           <div className="space-y-3">
-            {layout.map((view, idx) => (
-              <div key={view.question.questionId} className="space-y-3">
-                {view.partHeader ? (
-                  <h2 className="pt-2 text-base font-bold tracking-wide text-text-primary">
-                    {view.partHeader}
-                  </h2>
-                ) : null}
-                {view.groupHeader ? (
-                  <h3 className="text-sm font-semibold text-primary">
-                    {view.groupHeader}
-                  </h3>
-                ) : null}
-                <StudentAttemptQuestion
-                  question={view.question}
-                  index={idx}
-                  number={view.number}
-                  scoring={attempt.scoring}
-                  disabled={questionsDisabled}
-                  reveal={closed && attempt.resultsReleased}
-                  onChange={(val) =>
-                    onChangeQuestion(view.question.questionId, val)
-                  }
-                />
-              </div>
-            ))}
+            {materialSegments(materials).map(({ header, indices }) => {
+              const first = layout[indices[0]];
+              const questionsOf = indices.map((idx) => {
+                const view = layout[idx];
+                return (
+                  <StudentAttemptQuestion
+                    key={view.question.questionId}
+                    question={view.question}
+                    index={idx}
+                    number={view.number}
+                    scoring={attempt.scoring}
+                    disabled={questionsDisabled}
+                    reveal={closed && attempt.resultsReleased}
+                    onChange={(val) =>
+                      onChangeQuestion(view.question.questionId, val)
+                    }
+                  />
+                );
+              });
+              return (
+                <div key={first.question.questionId} className="space-y-3">
+                  {first.partHeader ? (
+                    <h2 className="pt-2 text-base font-bold tracking-wide text-text-primary">
+                      {first.partHeader}
+                    </h2>
+                  ) : null}
+                  {first.groupHeader ? (
+                    <h3 className="text-sm font-semibold text-primary">
+                      {first.groupHeader}
+                    </h3>
+                  ) : null}
+                  {header ? (
+                    <MaterialBlock
+                      header={header}
+                      gapNumbers={gapNumbers}
+                      stickyTop={materialAudioTop}
+                      className="space-y-3"
+                    >
+                      {questionsOf}
+                    </MaterialBlock>
+                  ) : (
+                    questionsOf
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {!closed && !isReview && (

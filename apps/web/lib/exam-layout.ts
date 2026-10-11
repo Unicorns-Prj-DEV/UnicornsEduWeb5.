@@ -1,9 +1,12 @@
 import type {
+  AttemptAudioView,
   AttemptQuestionDto,
   AttemptScoringDto,
   QuestionSlotDto,
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
+import type { QuestionTypeValue } from "@/dtos/question.dto";
+import { assertNever } from "@/lib/assert-never";
 
 /**
  * Bố cục đề theo form tốt nghiệp THPT Tin (CONTEXT.md — Phần của đề, Nhóm tự chọn).
@@ -56,15 +59,15 @@ export function buildExamLayout<Q extends LayoutQuestion>(
     }));
   }
 
-  const hasPart2 = questions.some((q) => q.type === "true_false_group");
+  const hasPart2 = questions.some((q) => itExamPart(q.type) === "II");
   let part1 = 0;
   let required2 = 0;
   const electiveCount: Record<string, number> = { elective_1: 0, elective_2: 0 };
   const seen = new Set<string>();
 
   return questions.map((question) => {
-    const isPart2 = question.type === "true_false_group";
-    const partKey = isPart2 ? "II" : "I";
+    const partKey = itExamPart(question.type);
+    const isPart2 = partKey === "II";
     const partHeader =
       !seen.has(partKey) && (hasPart2 || isPart2)
         ? `PHẦN ${partKey}`
@@ -136,8 +139,27 @@ export function isElectiveConflict(
 
 type OrderableQuestion = Pick<AttemptQuestionDto, "type" | "slot">;
 
+/**
+ * Phần của đề IT theo loại câu. Loại câu ngoài hồ sơ IT không lên đề IT — xếp
+ * Phần I như trước; thêm loại câu mới thì tsc buộc chọn phần ở đây.
+ */
+export function itExamPart(type: QuestionTypeValue): "I" | "II" {
+  switch (type) {
+    case "true_false_group":
+      return "II";
+    case "single_choice":
+    case "essay":
+    case "true_false":
+    case "fill_blank":
+    case "ordering":
+      return "I";
+    default:
+      return assertNever(type, "question type");
+  }
+}
+
 function examRank(q: OrderableQuestion): number {
-  if (q.type !== "true_false_group") return 0;
+  if (itExamPart(q.type) === "I") return 0;
   if (q.slot === "elective_1") return 2;
   if (q.slot === "elective_2") return 3;
   return 1;
@@ -170,7 +192,7 @@ export interface ItExamBreakdown {
 export function itExamBreakdown(questions: OrderableQuestion[]): ItExamBreakdown {
   const count = { part1: 0, required2: 0, elective1: 0, elective2: 0 };
   for (const q of questions) {
-    if (q.type !== "true_false_group") count.part1 += 1;
+    if (itExamPart(q.type) === "I") count.part1 += 1;
     else if (q.slot === "elective_1") count.elective1 += 1;
     else if (q.slot === "elective_2") count.elective2 += 1;
     else count.required2 += 1;
@@ -180,4 +202,75 @@ export function itExamBreakdown(questions: OrderableQuestion[]): ItExamBreakdown
     (count.required2 + Math.max(count.elective1, count.elective2)) *
       IT_POINTS.true_false_group;
   return { ...count, maxPoints };
+}
+
+export interface MaterialHeader {
+  /** HTML tư liệu (bản chụp lúc start). */
+  content: string;
+  /** Audio của tư liệu; vắng/null = tư liệu không có audio. */
+  audio?: AttemptAudioView | null;
+  /** Dải số câu (đánh số liên tục từ 1) dựa vào tư liệu: "Câu 2–4". */
+  firstNumber: number;
+  lastNumber: number;
+}
+
+/**
+ * Tư liệu dùng chung hiện MỘT lần trước câu đầu của khối (API đã xếp câu cùng
+ * tư liệu liền nhau). Phần tử i = tư liệu cần hiện trước câu i, hoặc null.
+ */
+export function materialHeaders<Q>(
+  questions: Q[],
+  materialOf: (
+    q: Q,
+  ) =>
+    | { id: string; content: string; audio?: AttemptAudioView | null }
+    | null
+    | undefined,
+): (MaterialHeader | null)[] {
+  return questions.map((q, i) => {
+    const material = materialOf(q);
+    if (!material) return null;
+    if (i > 0 && materialOf(questions[i - 1])?.id === material.id) return null;
+    let last = i;
+    while (
+      last + 1 < questions.length &&
+      materialOf(questions[last + 1])?.id === material.id
+    ) {
+      last += 1;
+    }
+    return {
+      content: material.content,
+      ...(material.audio !== undefined && { audio: material.audio }),
+      firstNumber: i + 1,
+      lastNumber: last + 1,
+    };
+  });
+}
+
+export interface MaterialSegment {
+  /** Tư liệu của khối; null = một câu lẻ. */
+  header: MaterialHeader | null;
+  /** Chỉ số (trong danh sách câu) các câu của đoạn, liền nhau. */
+  indices: number[];
+}
+
+/**
+ * Chia danh sách câu thành đoạn theo `materialHeaders`: mỗi bộ là một đoạn gồm
+ * mọi câu của khối, câu lẻ là đoạn riêng — để khối bộ bọc chung một phần tử
+ * (trình phát audio của bộ dính trong phạm vi khối).
+ */
+export function materialSegments(
+  headers: (MaterialHeader | null)[],
+): MaterialSegment[] {
+  const segments: MaterialSegment[] = [];
+  let i = 0;
+  while (i < headers.length) {
+    const header = headers[i];
+    const end = header ? header.lastNumber - 1 : i;
+    const indices: number[] = [];
+    for (let k = i; k <= end; k += 1) indices.push(k);
+    segments.push({ header, indices });
+    i = end + 1;
+  }
+  return segments;
 }

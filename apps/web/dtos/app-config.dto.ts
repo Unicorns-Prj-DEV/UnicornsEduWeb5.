@@ -7,7 +7,13 @@ export type LmsProfile = "it" | "jp" | "eng";
  */
 export type LmsScoring = "equal_100" | "absolute_it";
 
-export type LmsQuestionType = "single_choice" | "essay" | "true_false_group";
+export type LmsQuestionType =
+  | "single_choice"
+  | "essay"
+  | "true_false_group"
+  | "true_false"
+  | "fill_blank"
+  | "ordering";
 
 export interface AppConfig {
   profile: LmsProfile;
@@ -15,4 +21,14 @@ export interface AppConfig {
   optionCount: { min: number; max: number; default: number };
   scoring: LmsScoring;
   electiveGroups: boolean;
+  /** Câu hỏi có gắn Kỹ năng (JP) — bắt buộc khi tạo/sửa. */
+  questionSkills: boolean;
+  /** Chia 100 theo trọng số câu-trong-tiết (JP); `points` trên link là trọng số. */
+  questionWeights: boolean;
+  /** Câu tự luận chọn được kiểu ô ngắn/dài (JP). */
+  essayInputSizes: boolean;
+  /** Ngân hàng câu hỏi có Tư liệu dùng chung (JP). */
+  sharedMaterials: boolean;
+  /** Audio tư liệu cho câu / tư liệu dùng chung (JP). */
+  questionAudio: boolean;
 }

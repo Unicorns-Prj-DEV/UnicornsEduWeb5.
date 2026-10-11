@@ -4,7 +4,9 @@ import {
   buildExamLayout,
   isElectiveConflict,
   itExamBreakdown,
+  itExamPart,
   orderExamQuestions,
+  materialHeaders,
 } from "./exam-layout";
 
 type Q = {
@@ -114,5 +116,46 @@ describe("itExamBreakdown", () => {
       ...Array.from({ length: 6 }, () => ({ type: "true_false_group", slot: "required" }) as const),
     ];
     expect(itExamBreakdown(qs).maxPoints).toBe(975);
+  });
+});
+
+describe("materialHeaders — Tư liệu dùng chung", () => {
+  const R = { id: "r", content: "<p>読解</p>" };
+  const L = { id: "l", content: "<p>聴解</p>" };
+  const of = (m: typeof R | null) => ({ sharedMaterial: m });
+
+  it("hiện tư liệu một lần trước câu đầu khối, kèm dải số câu", () => {
+    const headers = materialHeaders(
+      [of(null), of(R), of(R), of(R), of(null), of(L), of(L)],
+      (q) => q.sharedMaterial,
+    );
+    expect(headers).toEqual([
+      null,
+      { content: "<p>読解</p>", firstNumber: 2, lastNumber: 4 },
+      null,
+      null,
+      null,
+      { content: "<p>聴解</p>", firstNumber: 6, lastNumber: 7 },
+      null,
+    ]);
+  });
+
+  it("tư liệu chỉ một câu vẫn hiện", () => {
+    expect(materialHeaders([of(R)], (q) => q.sharedMaterial)).toEqual([
+      { content: "<p>読解</p>", firstNumber: 1, lastNumber: 1 },
+    ]);
+  });
+});
+
+describe("itExamPart", () => {
+  it("nhóm Đúng/Sai vào Phần II, trắc nghiệm vào Phần I", () => {
+    expect(itExamPart("true_false_group")).toBe("II");
+    expect(itExamPart("single_choice")).toBe("I");
+  });
+
+  it("loại câu ngoài hồ sơ IT giữ ở Phần I như trước", () => {
+    for (const type of ["essay", "true_false", "fill_blank", "ordering"] as const) {
+      expect(itExamPart(type)).toBe("I");
+    }
   });
 });

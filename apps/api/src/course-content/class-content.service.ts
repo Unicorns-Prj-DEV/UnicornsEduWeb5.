@@ -21,6 +21,7 @@ import {
   ClassContentHiddenReason,
   LessonKind,
   ClassTimelineItemKind,
+  QuestionType,
   StudentClassStatus,
 } from 'generated/enums';
 import {
@@ -33,7 +34,7 @@ import {
   PRACTICE_MODULE_NOT_ADDED_MESSAGE,
   CourseContentSupportService,
 } from './course-content-support.service';
-import { normalizeTrueFalseChoices } from '../attempt/grading';
+import { isAnswered } from '../attempt/grading';
 import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
 import { groupClassContentByModule } from './class-content-groups';
 
@@ -568,6 +569,13 @@ export class ClassContentService extends CourseContentSupportService {
         choiceIndex: number | null;
         essayAnswer: string | null;
         tfChoices: unknown;
+        blankAnswers: unknown;
+        orderAnswer: string[];
+        question: {
+          type: QuestionType;
+          blankAnswerKey: unknown;
+          options: unknown;
+        };
       }[]
     > =
       studentIds.length === 0 || quizQuestionCount === 0
@@ -584,6 +592,11 @@ export class ClassContentService extends CourseContentSupportService {
               choiceIndex: true,
               essayAnswer: true,
               tfChoices: true,
+              blankAnswers: true,
+              orderAnswer: true,
+              question: {
+                select: { type: true, blankAnswerKey: true, options: true },
+              },
             },
           });
 
@@ -594,12 +607,16 @@ export class ClassContentService extends CourseContentSupportService {
     );
     const answersByStudent = new Map<string, Set<string>>();
     for (const answer of answers) {
-      // Câu Đúng/Sai chỉ tính đã làm khi đủ cả 4 nhận định.
-      const hasAnswer =
-        answer.choiceIndex != null ||
-        Boolean(answer.essayAnswer?.trim()) ||
-        normalizeTrueFalseChoices(answer.tfChoices).every((c) => c !== null);
-      if (!hasAnswer) continue;
+      if (
+        !isAnswered({
+          ...answer,
+          type: answer.question.type,
+          blankAnswerKey: answer.question.blankAnswerKey,
+          options: answer.question.options,
+        })
+      ) {
+        continue;
+      }
       const pairKey = `${answer.lessonId}:${answer.questionId}`;
       if (!requiredQuizPairs.has(pairKey)) continue;
       const studentAnswers =

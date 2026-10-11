@@ -1,4 +1,4 @@
-# Database Schema – Unicorns Edu (apps/api)
+# Database Schema – UniEdu (apps/api)
 
 Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `apps/api/prisma/schema/*.prisma`, dùng làm **context chuẩn cho model** khi làm việc với backend.
 
@@ -46,6 +46,9 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `modules` (chuyên đề — nhóm tiết học bên trong khoá học)
 - `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề của khoá — tiết riêng lớp cũ đã lưu trữ)
 - `class_modules` (chuyên đề lớp đã thêm — nguồn đồng bộ tiết lý thuyết vào lớp)
+- `shared_materials` (phần đầu Bộ câu hỏi — hồ sơ JP; câu trong bộ theo `questions.set_position`)
+- `audio_assets` (Audio tư liệu — hồ sơ JP; file trong bucket private `question-audio`)
+- `attempt_audio_plays` (số lần đã nghe từng audio trong một lượt làm — Giới hạn nghe)
 - `lesson_quizzes` (liên kết câu hỏi từ ngân hàng vào bài tập ôn nhẹ của tiết lý thuyết)
 - `lesson_quiz_answers` (trả lời bài tập ôn nhẹ — không sinh Attempt, không tính điểm)
 - `class_theory_lesson_views` (lượt mở trang tiết lý thuyết của học sinh trong phạm vi lớp)
@@ -471,7 +474,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `duration_minutes` — snapshot thời lượng lần giao lúc bắt đầu; sửa lịch lớp sau đó không đổi đồng hồ lượt đang chạy.
 - `status` (`AttemptStatus`): `in_progress` | `submitted` | `timed_out`. Hết giờ → `timed_out`, chốt câu đã trả lời và chấm MCQ, **không huỷ**. `endsAt` là trường tính (`started_at + duration_minutes`), không lưu cột. Cron `@nestjs/schedule` `EVERY_MINUTE` (`AttemptExpiryJob` → `AttemptService.finalizeExpiredInProgress`) quét `in_progress` đã quá `endsAt` và gọi cùng `gradeAndClose` với GET/nộp — học sinh đóng tab không làm lượt kẹt. Claim bằng `updateMany` `WHERE id AND status = in_progress` trong transaction: trùng nút Nộp không double-grade. Job log số lượt đã chốt; 0 bản ghi không nổ. `ScheduleModule.forRoot` tắt cron khi `NODE_ENV=test`.
 - Unique partial: tối đa một `in_progress` trên `(assignment_id, student_id)`. Làm lại = tạo lượt mới; lượt cũ giữ nguyên.
-- `attempt_answers`: một hàng / câu. Lúc `start` snapshot toàn bộ đề: `type`, `content`, `options`, `correct_index`, `explanation`, `answer_guide`, `difficulty_label`, thứ tự, và `points_possible`. `points_possible` = chia 100 đều N câu (Hamilton: phần dư +1 từ câu đầu); **không** lấy `question_links.points`. Chấm MCQ/tự luận chỉ đọc snapshot, không join `questions` live. `onDelete: Restrict` với `questions`. Không cascade theo `question_links`.
+- `attempt_answers`: một hàng / câu. Lúc `start` snapshot toàn bộ đề: `type`, `content`, `options`, `correct_index`, `explanation`, `answer_guide`, `difficulty_label`, thứ tự, và `points_possible`. `points_possible` = chia 100 đều N câu (Hamilton: phần dư +1 từ câu đầu); **không** lấy `question_links.points` — trừ hồ sơ JP: chia 100 theo trọng số `question_links.points` (null = 1, Hamilton theo phần lẻ lớn nhất), ADR `docs/adr/2026-10-09-jp-weighted-scoring.md`. Chấm MCQ/tự luận chỉ đọc snapshot, không join `questions` live. `onDelete: Restrict` với `questions`. Không cascade theo `question_links`.
 - Chấm tự động chỉ `single_choice` (so `choice_index` với snapshot `correct_index`). Tự luận để `points_awarded`/`is_correct` null (`has_ungraded_essay`).
 - `attempt_answers.feedback` (`TEXT`, nullable) — nhận xét của gia sư cho câu tự luận đó; chỉ có sau khi chấm. Ticket #63.
 - `attempt_answers.marked_for_review` (`BOOLEAN`, default `false`) — học sinh đánh dấu quay lại xem trước nộp trong lượt `in_progress`; autosave qua `PATCH .../answers`; không ảnh hưởng chấm điểm.
@@ -480,6 +483,12 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `attempts.scoring` (`AttemptScoring`, default `equal_100`): snapshot hồ sơ lúc start. `equal_100` = thang 100/N như trên; `absolute_it` = điểm tuyệt đối đơn vị 1/100 điểm: trắc nghiệm `points_possible = 25` (0,25đ), nhóm Đúng/Sai `points_possible = 100` (1đ, bậc thang 1 ý → 10, 2 → 25, 3 → 50, 4 → 100). Bài cũ giữ `equal_100`.
   - `attempts.elective_voided` (`BOOLEAN`, default `false`): học sinh có ít nhất một nhận định được chọn ở **cả hai** nhóm tự chọn → mọi câu `elective_1`/`elective_2` chấm 0.
   - `attempt_answers.slot` (`QuestionSlot`): snapshot vị trí câu lúc start (từ `question_links.slot`).
+  - `attempt_answers.essay_input_size` (`EssayInputSize?`): snapshot kiểu ô tự luận lúc start (`null` = ô dài).
+  - `attempt_answers.shared_material_id` (`UUID?`, không FK) + `shared_material_content` (`TEXT?`): snapshot Tư liệu dùng chung lúc start (JP). Các câu cùng tư liệu đứng liền nhau trong `order`; Đảo câu xáo cả khối. Sửa tư liệu không đổi bài đã bắt đầu.
+  - `attempt_answers.audio_id` + `shared_material_audio_id` (`UUID?`, không FK): snapshot audio của câu và của tư liệu lúc start (JP). URL ký mới mỗi lần tải bài; audio có Giới hạn nghe thì lượt đang làm không nhận URL sẵn (xin qua endpoint phát, xem `attempt_audio_plays`).
+  - `attempt_answers.tf_label_style` (`TrueFalseLabelStyle?`): snapshot kiểu nhãn Câu Đúng/Sai lúc start (`null` = ○/×). Câu `true_false` lưu lựa chọn ở `tf_choices[0]`.
+  - `attempt_answers.blank_answer_key` (`JSONB?`, `string[][]`): snapshot đáp án hợp lệ từng ô của câu `fill_blank` lúc start; `blank_answers` (`JSONB?`, `(string|null)[]`): chữ học sinh gõ vào từng ô. Chấm từng ô: điểm = `round(points_possible × số ô đúng / số ô)`, `is_correct` = đúng mọi ô. Sửa đáp án ô ở ngân hàng → chấm lại như `correct_index`/`tf_answer_key`, nhưng chỉ cập nhật snapshot có **cùng số ô** (thêm/bớt ô sau khi lượt bắt đầu không chấm lại).
+  - Câu `ordering` (sắp xếp): `options` = thẻ **đã xáo** (luôn xáo lúc start, kể cả khi tắt Đảo câu; không bao giờ trùng thứ tự đúng trừ khi mọi thẻ cùng chữ), `option_order[i]` = vị trí gốc của thẻ hiển thị thứ i → thứ tự đúng = thẻ xếp theo `option_order`. `order_answer` (`TEXT[]`, mặc định `{}`): chữ thẻ theo thứ tự học sinh xếp (so theo chữ nên thẻ trùng chữ đổi chỗ vẫn đúng). Chấm cả chuỗi: khớp toàn bộ = đủ điểm, ngược lại 0; đã làm = dùng hết thẻ. Sửa thẻ ở ngân hàng → tính lại `option_order` cho snapshot cùng bộ thẻ (khác bộ thẻ thì bỏ qua) rồi chấm lại.
   - `attempt_answers.tf_answer_key` (`BOOLEAN[]`): snapshot đáp án 4 nhận định; `tf_choices` (`JSONB`, `(boolean|null)[4]`): lựa chọn của học sinh.
   - Sửa đáp án câu ở ngân hàng (`correct_index` / `tf_answer_key`) → cập nhật snapshot các `attempt_answers` của lượt đã nộp và chấm lại im lặng (`auto_graded_score`), không thông báo. Snapshot đã đảo đáp án được đổi sang thứ tự hiển thị qua `option_order` (`remapAnswerKey`); phương án đúng mới không có trong snapshot (thêm phương án sau khi lượt bắt đầu) → `correct_index = null` (không ai đúng).
   - `attempt_answers.option_order` (`INT[]`, default `{}`): hoán vị lúc đảo đáp án — `option_order[i]` = chỉ số gốc của phương án hiển thị thứ i. Rỗng = không đảo. `options`, `correct_index`, `tf_answer_key`, `choice_index`, `tf_choices` trong snapshot đều theo **thứ tự hiển thị**, nên chấm điểm không cần biết hoán vị.
@@ -644,7 +653,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.6c-c `lesson_quizzes` / `lesson_quiz_answers` (Bài tập ôn nhẹ)
 
 - `lesson_quizzes`: câu hỏi ngân hàng gắn vào một tiết lý thuyết. Unique `(lesson_id, question_id)`. FK `lesson_id` cascade; `question_id` restrict.
-- `lesson_quiz_answers`: trả lời ôn nhẹ theo `(lesson_id, question_id, student_id)`. Không sinh Attempt, không tính điểm. Câu Đúng/Sai lưu lựa chọn ở `tf_choices` (`JSONB`, `(boolean|null)[4]`).
+- `lesson_quiz_answers`: trả lời ôn nhẹ theo `(lesson_id, question_id, student_id)`. Không sinh Attempt, không tính điểm. Câu Đúng/Sai lưu lựa chọn ở `tf_choices` (`JSONB`, `(boolean|null)[4]`). Câu điền vào ô trống lưu chữ gõ ở `blank_answers` (`JSONB?`, `(string|null)[]`). Câu sắp xếp lưu chữ thẻ theo thứ tự xếp ở `order_answer` (`TEXT[]`, mặc định `{}`).
 - Đổi tên in-place từ `lecture_quizzes` / `lecture_quiz_answers` (`lecture_id` → `lesson_id`) ở `20260921000000_rename_three_level_content`.
 
 ### 4.6d `questions` (Ngân hàng câu hỏi)
@@ -655,18 +664,48 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `course_id` (FK → `courses.id`, cascade)
   - `module_id` (FK → `modules.id`, cascade)
   - `difficulty_level_id` (FK → `course_difficulty_levels.id`, restrict)
-  - `type` (`QuestionType`): `single_choice` | `essay` | `true_false_group`. Hồ sơ IT không cho tạo `essay`.
+  - `type` (`QuestionType`): `single_choice` | `essay` | `true_false_group` | `true_false` | `fill_blank` | `ordering`. Hồ sơ IT không cho tạo `essay`; `true_false` (Câu Đúng/Sai một nhận định), `fill_blank` (Câu điền vào ô trống) và `ordering` (Câu sắp xếp: 2–12 thẻ không rỗng trong `options` theo **đúng thứ tự**, thẻ trùng chữ hợp lệ; không `correct_index`/`tf_answer_key`) chỉ hồ sơ JP.
   - `content` (`TEXT`): nội dung câu hỏi (HTML từ TipTap; có thể chứa bảng, ảnh, `<pre><code class="language-*">`, `<div data-code-parallel>`). Web sanitize (DOMPurify) trước khi render.
   - `options` (`JSONB`, nullable): `single_choice` — 2–6 phương án; `true_false_group` — đúng 4 nhận định a–d (HTML)
-  - `tf_answer_key` (`BOOLEAN[]`, default `{}`): đáp án 4 nhận định (true = Đúng), chỉ cho `true_false_group`
+  - `tf_answer_key` (`BOOLEAN[]`, default `{}`): đáp án 4 nhận định (true = Đúng) cho `true_false_group`; đúng 1 phần tử cho `true_false` (nhận định nằm ở `content`, không có `options`)
+  - `tf_label_style` (`TrueFalseLabelStyle?`: `maru_batsu` | `dung_sai` | `true_false`): kiểu nhãn hai lựa chọn của Câu Đúng/Sai (○/×, Đúng/Sai, True/False) — chỉ câu `true_false`. `null` = ○/×. Không xáo; chấm cả câu (đúng = đủ điểm, sai/bỏ trống = 0).
+  - `blank_answer_key` (`JSONB?`, `string[][]`): đáp án hợp lệ từng ô của câu `fill_blank` (chỉ loại này). Ô trống là dấu `[[___]]` trong `content`, thứ tự xuất hiện = số ô; số phần tử phải bằng số dấu (1–10 ô, mỗi ô 1–10 đáp án ≤ 200 ký tự). So khớp: bỏ khoảng trắng đầu/cuối (kể cả khoảng trắng toàn góc), số/chữ Latin toàn góc = nửa góc, không phân biệt hoa/thường; kana và kanji **không** tự coi là nhau (nhập thành nhiều đáp án). Không có `options`/`correct_index`/`tf_answer_key`; không xáo.
   - `correct_index` (`INT`, nullable): chỉ số 0-based của đáp án đúng — cần cho `single_choice`
   - `explanation` (`TEXT`, nullable): giải thích sau khi trả lời (HTML)
   - `answer_guide` (`TEXT`, nullable): hướng dẫn cho câu tự luận (HTML)
+  - `skills` (`QuestionSkill[]`, default `{}`): Kỹ năng — chỉ hồ sơ JP, chọn nhiều: `kanji` | `vocabulary` | `grammar` | `reading` | `listening` | `conversation` | `writing`. JP bắt buộc ≥1 khi tạo/sửa (câu cũ rỗng chỉ bị đòi khi sửa; nhập hàng loạt chưa bắt buộc); IT/ENG luôn rỗng.
+  - `shared_material_id` (`UUID?` → `shared_materials.id`, `ON DELETE NO ACTION`): Bộ câu hỏi (JP) — tối đa một; phải cùng khoá **và cùng chuyên đề** với bộ. Index `(shared_material_id)`.
+  - `set_position` (`INT?`): vị trí của câu trong bộ (0-based) — câu mới vào bộ xếp cuối bộ. CHECK `questions_set_position_check`: có `shared_material_id` ⇔ có `set_position`. Làm bài / xem lại / ôn nhẹ xếp câu trong khối bộ theo `set_position`.
+  - `audio_id` (`UUID?` → `audio_assets.id`, `ON DELETE SET NULL`): audio nhúng của câu (JP) — tối đa một; phải cùng khoá.
+  - `essay_input_size` (`EssayInputSize?`: `short` | `long`): kiểu ô nhập câu tự luận — chỉ hồ sơ JP, chỉ câu `essay`. `null` = ô dài (câu cũ, hồ sơ khác); form JP mặc định `short` cho câu mới. Chỉ đổi giao diện làm bài/ôn nhẹ (ô ngắn một dòng, tự xuống dòng), không giới hạn độ dài, không ảnh hưởng chấm.
   - `deleted_at` (`TIMESTAMPTZ`, nullable): soft-delete timestamp
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
 - Indexes: `(course_id)`, `(module_id)`, `(difficulty_level_id)`
 - Quan hệ: `courses` (1-N), `modules` (1-N), `course_difficulty_levels` (1-N), `question_links` (1-N)
 - Table: `questions` (via `@@map`)
+
+### 4.6d-sm `shared_materials` (phần đầu Bộ câu hỏi — hồ sơ JP)
+
+- Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `module_id` (→ `modules.id`, `ON DELETE CASCADE`; chuyên đề của bộ — đổi chuyên đề thì mọi câu trong bộ đổi theo), `title` (≤ 200, để chọn/lọc), `content` (`TEXT`, HTML TipTap; có thể chứa **vị trí trống** `[[#<questionId>]]` nối tới câu gắn tư liệu — web đổi thành số câu trong lượt làm `（27）`, câu vắng/đã gỡ hiện `（　　）`), `deleted_at` (`TIMESTAMPTZ?`, xoá mềm), `created_at`, `updated_at`.
+- Quan hệ: `questions.shared_material_id` (1-N). Xoá bộ = xoá mềm: `deleted_at` của bộ và mọi câu chưa xoá trong bộ được đặt, link `question_links` / `lesson_quizzes` của câu trong bộ bị gỡ; dòng bộ và `questions.shared_material_id` giữ nguyên để lượt đã làm còn xem lại. Bộ đã xoá không hiện trong danh sách, không gắn câu / thêm vào tiết được (migration `20261010110000_shared_material_soft_delete`).
+- Index `(course_id)`, `(module_id)`. Migration `20261009050000_shared_material`; chuyên đề + thứ tự trong bộ: `20261009080000_question_set` (tách tư liệu dùng ở nhiều chuyên đề thành bộ riêng từng chuyên đề, tách audio tham chiếu nhiều nơi thành bản riêng, thứ tự trong bộ theo thời gian tạo câu). ADR `docs/adr/2026-10-09-question-set.md` (thay một phần `2026-10-09-shared-material.md`). Bộ trong tiết: `question_links` vật chất hoá theo từng câu của bộ (câu của một bộ liền nhau trong tiết); migration `20261010090000_question_set_lesson_links` bổ sung link câu thiếu và đánh số lại `order` để bộ liền khối. Bài ôn nhẹ (`lesson_quizzes`) theo cùng luật; migration `20261010100000_question_set_lesson_quizzes`.
+- `audio_id` (`UUID?` → `audio_assets.id`, `ON DELETE SET NULL`): audio dùng chung cho cả nhóm câu (bài nghe). Migration `20261009060000_audio_asset`.
+
+### 4.6d-au `audio_assets` (Audio tư liệu — hồ sơ JP)
+
+- Fields: `id` (UUID), `course_id` (→ `courses.id`, `ON DELETE CASCADE`), `storage_path` (object path trong bucket private `question-audio`, dạng `{courseId}/{id}.{mp3|m4a|aac|wav}`), `mime_type`, `size_bytes` (≤ 20MB), `original_name` (≤ 200), `created_at`.
+- **Bất biến:** thay audio = tải asset mới và đổi `audio_id`; file cũ giữ lại để bài làm đã bắt đầu (snapshot `audio_id`) vẫn nghe được.
+- Gắn vào: `questions.audio_id` (audio nhúng của câu) và `shared_materials.audio_id` (audio dùng chung) — tối đa một mỗi nơi, phải cùng khoá. Mỗi asset thuộc đúng một chỗ (migration `20261009080000_question_set` tách bản dùng chung thành bản riêng cùng file storage).
+- Học sinh chỉ nhận signed URL ngắn hạn (6 giờ) qua endpoint đã kiểm quyền xem câu; không lộ `storage_path`.
+- **Giới hạn nghe** (cấu hình duy nhất sửa được trên asset, `PATCH /audio-assets/:id/limits`): `max_plays` (`INT?`, `null` = không giới hạn, cho phép 1 hoặc 2), `allow_seek` (`BOOLEAN`, default `true`). Đọc live — đổi giới hạn áp luôn cho lượt đang làm. Không áp khi xem lại sau nộp và ôn nhẹ.
+- Index `(course_id)`. Migration `20261009060000_audio_asset`; giới hạn nghe: `20261009070000_audio_play_limit`.
+
+### 4.6d-ap `attempt_audio_plays` (Lần nghe trong lượt làm — hồ sơ JP)
+
+- Fields: `id` (UUID), `attempt_id` (→ `attempts.id`, `ON DELETE CASCADE`), `audio_id` (→ `audio_assets.id`, `ON DELETE CASCADE`), `play_count` (`INT`, default 0), `updated_at`.
+- Unique `(attempt_id, audio_id)`. Chỉ ghi cho audio có `max_plays`.
+- Bấm phát = tạo hàng nếu chưa có (`skipDuplicates`) rồi `UPDATE ... SET play_count = play_count + 1 WHERE play_count < max_plays` — nguyên tử, hai tab bấm cùng lúc không vượt giới hạn; 0 hàng cập nhật = hết lượt (`409`). Tải lại trang không hồi lượt.
+- Migration `20261009070000_audio_play_limit`.
 
 ### 4.6e `question_links` (Liên kết câu hỏi — tiết luyện tập)
 
@@ -905,7 +944,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
 - `ClassContentHiddenReason`: `manual`, `module_removed` — lý do ẩn mềm `class_content_items` (`20261005120000_class_module_order_and_hidden_reason`)
 - `ClassTimelineItemKind`: `session` | `class_survey` | `content_item` — loại mục trên timeline lớp (`class_timeline_items`)
-- `QuestionType`: `single_choice | essay | true_false_group` — phân loại câu hỏi trong ngân hàng câu hỏi (`true_false_group`: nhóm 4 nhận định Đúng/Sai, hồ sơ IT)
+- `QuestionType`: `single_choice | essay | true_false_group | true_false | fill_blank | ordering` — phân loại câu hỏi trong ngân hàng câu hỏi (`true_false_group`: nhóm 4 nhận định Đúng/Sai, hồ sơ IT; `true_false`: Câu Đúng/Sai một nhận định, hồ sơ JP; `fill_blank`: Câu điền vào ô trống, hồ sơ JP; `ordering`: Câu sắp xếp, hồ sơ JP)
+- `TrueFalseLabelStyle`: `maru_batsu | dung_sai | true_false` — kiểu nhãn Câu Đúng/Sai (JP)
 - `QuestionSlot`: `required | elective_1 | elective_2` — vị trí câu trong đề thực hành
 - `AttemptScoring`: `equal_100 | absolute_it` — thang điểm của Bài làm
 - `AttemptStatus`: `in_progress | submitted | timed_out` — trạng thái lượt làm bài

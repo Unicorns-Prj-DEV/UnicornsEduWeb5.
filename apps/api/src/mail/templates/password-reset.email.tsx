@@ -26,7 +26,7 @@ export function PasswordResetEmail({
 }: PasswordResetEmailProps) {
   return (
     <EmailLayout
-      preview="Đặt lại mật khẩu Unicorns Edu của bạn"
+      preview="Đặt lại mật khẩu UniEdu của bạn"
       icon="🔑"
       eyebrow="Bảo mật tài khoản"
       title="Đặt lại mật khẩu"
@@ -35,7 +35,7 @@ export function PasswordResetEmail({
     >
       <EmailParagraph>Xin chào,</EmailParagraph>
       <EmailParagraph>
-        Unicorns Edu nhận được yêu cầu đổi mật khẩu cho tài khoản{' '}
+        UniEdu nhận được yêu cầu đổi mật khẩu cho tài khoản{' '}
         <strong style={{ color: EMAIL_COLORS.text }}>{recipientEmail}</strong>.
         Bấm nút bên dưới để tạo mật khẩu mới.
       </EmailParagraph>

@@ -135,6 +135,18 @@ describe("review gate helpers", () => {
       }),
     ).toBe("Còn 2 câu chưa review");
   });
+
+  it("hồ sơ JP: chưa chọn kỹ năng thì chưa lưu được", () => {
+    expect(
+      importDisabledReason({
+        remainingUnreviewed: 0,
+        moduleId: "ch-1",
+        validCount: 4,
+        isPending: false,
+        skillsMissing: true,
+      }),
+    ).toBe("Chọn kỹ năng trước khi lưu");
+  });
 });
 
 describe("formatQuestionErrors", () => {
@@ -191,5 +203,127 @@ describe("validateAiJson — hồ sơ IT (Đúng/Sai, không tự luận)", () =
       IT_TYPES,
     );
     expect(items[0]._valid).toBe(false);
+  });
+});
+
+describe("validateAiJson — loại câu JP", () => {
+  const JP_TYPES = [
+    QuestionTypeDto.single_choice,
+    QuestionTypeDto.essay,
+    QuestionTypeDto.true_false,
+    QuestionTypeDto.fill_blank,
+    QuestionTypeDto.ordering,
+  ];
+  const one = (record: Record<string, unknown>) =>
+    validateAiJson(JSON.stringify([{ difficulty: "Nhận biết", ...record }]), DIFFS, JP_TYPES)
+      .items[0]!;
+
+  it("accepts a true_false statement with one key and a label style", () => {
+    const item = one({
+      type: "true_false",
+      content: "日本の首都は東京です。",
+      tfAnswerKey: [true],
+      tfLabelStyle: "dung_sai",
+    });
+    expect(item._errors).toEqual([]);
+    expect(item.tfAnswerKey).toEqual([true]);
+    expect(item.tfLabelStyle).toBe("dung_sai");
+  });
+
+  it("rejects a true_false with options or a 4-item key", () => {
+    const item = one({
+      type: "true_false",
+      content: "東京は大きい。",
+      options: ["a", "b"],
+      tfAnswerKey: [true, false, true, false],
+    });
+    expect(item._valid).toBe(false);
+    expect(item._errors).toContain("true_false không được có options");
+    expect(item._errors).toContain("tfAnswerKey phải là mảng 1 giá trị true/false");
+  });
+
+  it("rejects an unknown tfLabelStyle and tfLabelStyle outside true_false", () => {
+    expect(
+      one({ type: "true_false", content: "x", tfAnswerKey: [false], tfLabelStyle: "yes_no" })
+        ._errors,
+    ).toContain('tfLabelStyle phải là "maru_batsu", "dung_sai" hoặc "true_false"');
+    expect(
+      one({ type: "essay", content: "x", tfLabelStyle: "dung_sai" })._errors,
+    ).toContain("Chỉ câu true_false mới có tfLabelStyle");
+  });
+
+  it("accepts a fill_blank whose blanks match blankAnswerKey", () => {
+    const item = one({
+      type: "fill_blank",
+      content: "[[___]]に起きて、[[___]]に寝ます。",
+      blankAnswerKey: [["七時", "7時"], ["十一時"]],
+    });
+    expect(item._errors).toEqual([]);
+    expect(item.blankAnswerKey).toEqual([["七時", "7時"], ["十一時"]]);
+  });
+
+  it("rejects a fill_blank whose blank count differs from blankAnswerKey", () => {
+    const item = one({
+      type: "fill_blank",
+      content: "[[___]]に起きます。",
+      blankAnswerKey: [["七時"], ["八時"]],
+    });
+    expect(item._errors).toContain(
+      "blankAnswerKey có 2 ô nhưng content có 1 ô [[___]]",
+    );
+  });
+
+  it("rejects a fill_blank without any blank or with an empty answer", () => {
+    expect(
+      one({ type: "fill_blank", content: "ありません。", blankAnswerKey: [] })._errors,
+    ).toContain("fill_blank cần ít nhất một ô [[___]] trong content");
+    expect(
+      one({ type: "fill_blank", content: "[[___]]です。", blankAnswerKey: [["", " "]] })
+        ._errors,
+    ).toContain("blankAnswerKey[0]: cần 1–10 đáp án không rỗng");
+  });
+
+  it("accepts ordering cards in the correct order and rejects correctIndex", () => {
+    const ok = one({
+      type: "ordering",
+      content: "正しい順に並べてください。",
+      options: ["わたしは", "毎朝", "コーヒーを", "飲みます"],
+    });
+    expect(ok._errors).toEqual([]);
+    const bad = one({
+      type: "ordering",
+      content: "並べてください。",
+      options: ["a"],
+      correctIndex: 0,
+    });
+    expect(bad._errors).toContain("options: cần 2–12 thẻ cho ordering");
+    expect(bad._errors).toContain("ordering không được có correctIndex");
+  });
+
+  it("accepts essayInputSize only on essay", () => {
+    expect(one({ type: "essay", content: "名前は？", essayInputSize: "short" })._errors).toEqual(
+      [],
+    );
+    expect(
+      one({ type: "essay", content: "名前は？", essayInputSize: "tiny" })._errors,
+    ).toContain('essayInputSize phải là "short" hoặc "long"');
+    expect(
+      one({ ...validChoice(), essayInputSize: "short" })._errors,
+    ).toContain("Chỉ câu essay mới có essayInputSize");
+  });
+
+  it("keeps type-specific fields through revalidation", () => {
+    const item = one({
+      type: "fill_blank",
+      content: "[[___]]です。",
+      blankAnswerKey: [["猫"]],
+    });
+    const next = revalidateAiQuestion(
+      { ...item, difficultyLevelId: "lvl-1", blankAnswerKey: [["猫", "ねこ"]] },
+      DIFFS,
+      JP_TYPES,
+    );
+    expect(next._errors).toEqual([]);
+    expect(next.blankAnswerKey).toEqual([["猫", "ねこ"]]);
   });
 });

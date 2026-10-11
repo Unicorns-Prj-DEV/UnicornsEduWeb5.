@@ -13,13 +13,13 @@ import { formatVnDateTime } from "@/lib/formatters";
 
 const CONSENT_MARKDOWN = `# ĐIỀU KHOẢN ĐỒNG Ý TẠO TÀI KHOẢN, THU THẬP VÀ XỬ LÝ DỮ LIỆU CÁ NHÂN
 
-_Áp dụng đối với nền tảng quản lý gia sư thuộc hệ thống UNICORNS EDU_
+_Áp dụng đối với nền tảng quản lý gia sư thuộc hệ thống UNIEDU_
 
 ---
 
 ## LỜI MỞ ĐẦU
 
-UNICORNS EDU cam kết bảo vệ dữ liệu cá nhân của người dùng theo quy định pháp luật Việt Nam hiện hành. Điều khoản này quy định cụ thể về phạm vi thu thập, mục đích sử dụng, lưu trữ, xử lý và bảo mật dữ liệu cá nhân đối với người dùng đăng ký tài khoản trên nền tảng quản lý gia sư của UNICORNS EDU.
+UNIEDU cam kết bảo vệ dữ liệu cá nhân của người dùng theo quy định pháp luật Việt Nam hiện hành. Điều khoản này quy định cụ thể về phạm vi thu thập, mục đích sử dụng, lưu trữ, xử lý và bảo mật dữ liệu cá nhân đối với người dùng đăng ký tài khoản trên nền tảng quản lý gia sư của UNIEDU.
 
 Người dùng khi tạo tài khoản đồng nghĩa với việc đã đọc, hiểu và đồng ý toàn bộ nội dung điều khoản này.
 
@@ -29,7 +29,7 @@ Người dùng khi tạo tài khoản đồng nghĩa với việc đã đọc, h
 
 ## Điều 1. Giải thích thuật ngữ
 
-1. **“UNICORNS EDU”** là đơn vị quản lý, sở hữu và vận hành hệ thống nền tảng quản lý gia sư.
+1. **“UNIEDU”** là đơn vị quản lý, sở hữu và vận hành hệ thống nền tảng quản lý gia sư.
 
 2. **“Người dùng”** bao gồm gia sư, ứng viên gia sư, cộng tác viên hoặc cá nhân đăng ký tài khoản trên hệ thống.
 
@@ -39,7 +39,7 @@ Người dùng khi tạo tài khoản đồng nghĩa với việc đã đọc, h
 
 ## Điều 2. Phạm vi áp dụng
 
-Điều khoản này áp dụng đối với toàn bộ cá nhân sử dụng nền tảng thuộc hệ thống UNICORNS EDU.
+Điều khoản này áp dụng đối với toàn bộ cá nhân sử dụng nền tảng thuộc hệ thống UNIEDU.
 
 ---
 
@@ -47,7 +47,7 @@ Người dùng khi tạo tài khoản đồng nghĩa với việc đã đọc, h
 
 ## Điều 3. Mục đích thu thập dữ liệu
 
-UNICORNS EDU thu thập dữ liệu cá nhân nhằm:
+UNIEDU thu thập dữ liệu cá nhân nhằm:
 
 - Tạo và quản lý tài khoản người dùng;
 - Xác minh danh tính gia sư;
@@ -90,7 +90,7 @@ Dữ liệu được thu thập trực tiếp từ người dùng thông qua:
 
 ## Điều 6. Cam kết bảo mật
 
-UNICORNS EDU cam kết:
+UNIEDU cam kết:
 
 - Không tiết lộ dữ liệu cá nhân trái phép;
 - Không bán hoặc trao đổi dữ liệu cá nhân vì mục đích thương mại;
@@ -107,11 +107,11 @@ Dữ liệu cá nhân được lưu trữ:
 
 ## Điều 8. Chia sẻ dữ liệu
 
-UNICORNS EDU chỉ chia sẻ dữ liệu trong các trường hợp:
+UNIEDU chỉ chia sẻ dữ liệu trong các trường hợp:
 
 - Có sự đồng ý của người dùng;
 - Theo yêu cầu của cơ quan nhà nước có thẩm quyền;
-- Để bảo vệ quyền và lợi ích hợp pháp của UNICORNS EDU.
+- Để bảo vệ quyền và lợi ích hợp pháp của UNIEDU.
 
 ---
 
@@ -140,9 +140,9 @@ Người dùng cam kết:
 
 # CHƯƠNG V - ĐIỀU KHOẢN CUỐI CÙNG
 
-## Điều 11. Quyền của UNICORNS EDU
+## Điều 11. Quyền của UNIEDU
 
-UNICORNS EDU có quyền:
+UNIEDU có quyền:
 
 - Xác minh thông tin người dùng;
 - Từ chối xét duyệt hồ sơ;
@@ -151,13 +151,13 @@ UNICORNS EDU có quyền:
 
 ## Điều 12. Sửa đổi điều khoản
 
-UNICORNS EDU có quyền sửa đổi điều khoản này nhằm phù hợp với quy định pháp luật và nhu cầu vận hành hệ thống.
+UNIEDU có quyền sửa đổi điều khoản này nhằm phù hợp với quy định pháp luật và nhu cầu vận hành hệ thống.
 
 ---
 
 # XÁC NHẬN ĐỒNG Ý
 
-- [ ] Tôi xác nhận đã đọc, hiểu và đồng ý với toàn bộ điều khoản thu thập và xử lý dữ liệu cá nhân của UNICORNS EDU.
+- [ ] Tôi xác nhận đã đọc, hiểu và đồng ý với toàn bộ điều khoản thu thập và xử lý dữ liệu cá nhân của UNIEDU.
 
 - [ ] Tôi cam kết toàn bộ thông tin cung cấp là chính xác, trung thực và hợp pháp.
 `;
@@ -280,7 +280,7 @@ export default function DataConsentSection({
           />
           <span>
             Tôi xác nhận đã đọc, hiểu và đồng ý với toàn bộ điều khoản thu thập
-            và xử lý dữ liệu cá nhân của UNICORNS EDU.
+            và xử lý dữ liệu cá nhân của UNIEDU.
           </span>
         </label>
         <label className="flex items-start gap-3 text-sm leading-6 text-text-primary">

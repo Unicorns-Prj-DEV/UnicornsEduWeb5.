@@ -101,10 +101,37 @@ export function insertCodeParallel(editor: Editor) {
     .run();
 }
 
-/** Bảng, ảnh (URL https), code song song — ghép thêm sau StarterKit + Mathematics. */
+/**
+ * Ảnh: URL https hoặc ảnh trong bucket private (`data-question-image` = path;
+ * `src` là signed URL API ký mỗi lần trả, API bỏ `src` khi lưu). Ảnh bucket
+ * có thể về không `src` (storage lỗi) — vẫn giữ node để không mất path.
+ */
+export const QUESTION_IMAGE_ATTR = "data-question-image";
+
+const RichImage = Image.extend({
+  parseHTML() {
+    return [
+      { tag: 'img[src]:not([src^="data:"])' },
+      { tag: `img[${QUESTION_IMAGE_ATTR}]` },
+    ];
+  },
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      imagePath: {
+        default: null,
+        parseHTML: (el) => el.getAttribute(QUESTION_IMAGE_ATTR),
+        renderHTML: (attrs) =>
+          attrs.imagePath ? { [QUESTION_IMAGE_ATTR]: attrs.imagePath } : {},
+      },
+    };
+  },
+});
+
+/** Bảng, ảnh, code song song — ghép thêm sau StarterKit + Mathematics. */
 export const RICH_TEXT_EXTENSIONS = [
   TableKit.configure({ table: { resizable: false } }),
-  Image.configure({ inline: false, allowBase64: false }),
+  RichImage.configure({ inline: false, allowBase64: false }),
   CodeParallel,
 ];
 

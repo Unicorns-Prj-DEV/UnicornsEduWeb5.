@@ -148,6 +148,15 @@ export const questionKeys = {
   detail: (id: string) => [...questionKeys.all, "detail", id] as const,
 };
 
+export const sharedMaterialKeys = {
+  all: ["shared-material"] as const,
+  course: (courseId: string) =>
+    [...sharedMaterialKeys.all, "course", courseId] as const,
+  usage: (id: string) => [...sharedMaterialKeys.all, "usage", id] as const,
+  questionUsage: (questionId: string) =>
+    [...sharedMaterialKeys.all, "question-usage", questionId] as const,
+};
+
 export const practiceLessonQuestionKeys = {
   all: ["practice-lesson-question"] as const,
   list: (lessonId: string) =>

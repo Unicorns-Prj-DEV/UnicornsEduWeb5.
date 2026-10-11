@@ -6,11 +6,19 @@ import MathContent from "@/components/ui/MathContent";
 import type {
   AttemptQuestionDto,
   AttemptScoringDto,
+  BlankAnswers,
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
+import FillBlankInputs from "@/components/student/FillBlankInputs";
+import OrderingCards from "@/components/student/OrderingCards";
+import { numberBlanks } from "@/lib/fill-blank";
 import { formatScoreValue } from "@/lib/attempt-score";
 import TrueFalseStatements from "@/components/student/TrueFalseStatements";
+import TrueFalseChoice from "@/components/student/TrueFalseChoice";
 import { CONTENT_LIMITS, overLimitMessage } from "@/dtos/content-limits";
+import EssayAnswerInput from "@/components/student/EssayAnswerInput";
+import { assertNever } from "@/lib/assert-never";
+import AttemptAudio from "@/components/student/AttemptAudio";
 
 export default function StudentAttemptQuestion({
   question,
@@ -35,6 +43,8 @@ export default function StudentAttemptQuestion({
     choiceIndex?: number | null;
     essayAnswer?: string | null;
     tfChoices?: TrueFalseChoices | null;
+    blankAnswers?: BlankAnswers | null;
+    orderAnswer?: string[] | null;
     markedForReview?: boolean;
   }) => void;
 }) {
@@ -68,7 +78,11 @@ export default function StudentAttemptQuestion({
         <div className="min-w-0 flex-1 text-sm font-medium text-text-primary">
           <span className="mr-1 text-primary">Câu {number ?? index + 1}.</span>
           <MathContent
-            content={question.content}
+            content={
+              question.type === "fill_blank"
+                ? numberBlanks(question.content)
+                : question.content
+            }
             className="inline [&>p:first-child]:inline"
           />
           {hidePoints ? null : (
@@ -106,60 +120,18 @@ export default function StudentAttemptQuestion({
           </span>
         ) : null}
       </div>
-
-      {isMcq ? (
-        <div className="space-y-2">
-          {options.map((opt, i) => (
-            <label
-              key={i}
-              className={cn(
-                "flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm",
-                disabled ? "cursor-default" : "cursor-pointer",
-                question.choiceIndex === i
-                  ? "border-primary bg-primary/5 text-text-primary"
-                  : "border-border-default text-text-secondary",
-              )}
-            >
-              <input
-                type="radio"
-                name={`q-${question.questionId}`}
-                checked={question.choiceIndex === i}
-                disabled={disabled}
-                onChange={() => onChange({ choiceIndex: i })}
-                className="accent-primary"
-              />
-              <span className="mr-1 font-medium text-text-muted">
-                {String.fromCharCode(65 + i)}.
-              </span>
-              <MathContent content={opt} className="text-sm" />
-            </label>
-          ))}
+      {question.audio ? (
+        <div className="mb-3">
+          <AttemptAudio audio={question.audio} />
         </div>
-      ) : isTrueFalse ? (
-        <TrueFalseStatements
-          name={`q-${question.questionId}`}
-          statements={options}
-          choices={question.tfChoices}
-          answerKey={reveal ? question.tfAnswerKey : undefined}
-          disabled={disabled}
-          reveal={reveal}
-          neutralWhenBlank={question.slot !== "required"}
-          onChange={(tfChoices) => onChange({ tfChoices })}
-        />
-      ) : (
-        <textarea
-          value={question.essayAnswer ?? ""}
-          disabled={disabled}
-          onChange={(e) => onChange({ essayAnswer: e.target.value })}
-          aria-label="Nhập câu trả lời"
-          placeholder="Nhập câu trả lời..."
-          rows={5}
-          aria-invalid={
-            (question.essayAnswer?.length ?? 0) > CONTENT_LIMITS.essayAnswer
-          }
-          className="w-full rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-        />
-      )}
+      ) : null}
+
+      <AnswerArea
+        question={question}
+        disabled={disabled}
+        reveal={reveal}
+        onChange={onChange}
+      />
       {isEssay &&
         (question.essayAnswer?.length ?? 0) > CONTENT_LIMITS.essayAnswer && (
           <p className="mt-1 text-xs text-error">
@@ -203,4 +175,114 @@ export default function StudentAttemptQuestion({
       )}
     </div>
   );
+}
+
+type AnswerChange = Parameters<
+  React.ComponentProps<typeof StudentAttemptQuestion>["onChange"]
+>[0];
+
+/** Vùng trả lời theo loại câu. */
+function AnswerArea({
+  question,
+  disabled,
+  reveal,
+  onChange,
+}: {
+  question: AttemptQuestionDto;
+  disabled: boolean;
+  reveal: boolean;
+  onChange: (val: AnswerChange) => void;
+}) {
+  const options = question.options ?? [];
+  switch (question.type) {
+    case "single_choice":
+      return (
+        <div className="space-y-2">
+          {options.map((opt, i) => (
+            <label
+              key={i}
+              className={cn(
+                "flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm",
+                disabled ? "cursor-default" : "cursor-pointer",
+                question.choiceIndex === i
+                  ? "border-primary bg-primary/5 text-text-primary"
+                  : "border-border-default text-text-secondary",
+              )}
+            >
+              <input
+                type="radio"
+                name={`q-${question.questionId}`}
+                checked={question.choiceIndex === i}
+                disabled={disabled}
+                onChange={() => onChange({ choiceIndex: i })}
+                className="accent-primary"
+              />
+              <span className="mr-1 font-medium text-text-muted">
+                {String.fromCharCode(65 + i)}.
+              </span>
+              <MathContent content={opt} className="text-sm" />
+            </label>
+          ))}
+        </div>
+      );
+    case "true_false_group":
+      return (
+        <TrueFalseStatements
+          name={`q-${question.questionId}`}
+          statements={options}
+          choices={question.tfChoices}
+          answerKey={reveal ? question.tfAnswerKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
+          neutralWhenBlank={question.slot !== "required"}
+          onChange={(tfChoices) => onChange({ tfChoices })}
+        />
+      );
+    case "true_false":
+      return (
+        <TrueFalseChoice
+          choices={question.tfChoices}
+          labelStyle={question.tfLabelStyle}
+          answerKey={reveal ? question.tfAnswerKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
+          onChange={(tfChoices) => onChange({ tfChoices })}
+        />
+      );
+    case "fill_blank":
+      return (
+        <FillBlankInputs
+          name={`q-${question.questionId}`}
+          count={question.blankCount ?? 0}
+          answers={question.blankAnswers}
+          answerKey={reveal ? question.blankAnswerKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
+          onChange={(blankAnswers) => onChange({ blankAnswers })}
+        />
+      );
+    case "ordering":
+      return (
+        <OrderingCards
+          cards={options}
+          orderAnswer={question.orderAnswer}
+          orderingKey={reveal ? question.orderingKey : undefined}
+          disabled={disabled}
+          reveal={reveal}
+          onChange={(orderAnswer) => onChange({ orderAnswer })}
+        />
+      );
+    case "essay":
+      return (
+        <EssayAnswerInput
+          value={question.essayAnswer}
+          size={question.essayInputSize}
+          disabled={disabled}
+          className="rounded-xl"
+          onChange={(essayAnswer) => onChange({ essayAnswer })}
+        />
+      );
+    default:
+      return assertNever(question.type, "question type");
+  }
 }

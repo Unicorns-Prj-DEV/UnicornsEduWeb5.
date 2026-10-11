@@ -302,7 +302,7 @@ curl -sS \
 
 Flat achievement list for public `/thanh-tich` and homepage marquee.
 
-- **Default (gated):** pass CMS published student `sourceIds`; empty/missing `sourceIds` returns `{ data: [], total: 0 }` (no roster leak). Use for publish-gated surfaces, e.g. **"Tự Hào Unicorns"** homepage showcase.
+- **Default (gated):** pass CMS published student `sourceIds`; empty/missing `sourceIds` returns `{ data: [], total: 0 }` (no roster leak). Use for publish-gated surfaces, e.g. **"Tự Hào Uni"** homepage showcase.
 - **`includeUnpublished=true` (ungated):** ignores `sourceIds`/publish gate entirely, returns achievements for **all** students. Use for the `/thanh-tich` by-level browse list, which is meant to show every achievement regardless of CMS publish status. `sourceIds` is ignored when this flag is set.
 
 ### Request

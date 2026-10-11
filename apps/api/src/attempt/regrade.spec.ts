@@ -126,6 +126,135 @@ describe('regradeQuestionAnswerKey', () => {
     );
   });
 
+  it('Câu Đúng/Sai (JP): đổi đáp án Đúng→Sai chấm lại cả câu', async () => {
+    const tx = makeTx([
+      {
+        id: 'att-jp',
+        scoring: AttemptScoring.equal_100,
+        answers: [
+          // Snapshot đã có đáp án mới (Sai); học sinh chọn Sai, trước đó bị chấm sai.
+          answer({
+            id: 'j1',
+            type: QuestionType.true_false,
+            pointsPossible: 50,
+            choiceIndex: null,
+            correctIndex: null,
+            tfChoices: [false],
+            tfAnswerKey: [false],
+            isCorrect: false,
+            pointsAwarded: 0,
+          }),
+        ],
+      },
+    ]);
+
+    await regradeQuestionAnswerKey(tx as never, 'q', { tfAnswerKey: [false] });
+
+    expect(tx.attemptAnswer.updateMany).toHaveBeenCalledWith({
+      where: { questionId: 'q', optionOrder: { isEmpty: true } },
+      data: { tfAnswerKey: [false] },
+    });
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'j1' },
+      data: { isCorrect: true, pointsAwarded: 50 },
+    });
+    expect(tx.attempt.update).toHaveBeenCalledWith({
+      where: { id: 'att-jp' },
+      data: { autoGradedScore: 50, autoGradedMax: 50, electiveVoided: false },
+    });
+  });
+
+  it('câu điền ô trống: thêm đáp án hợp lệ → chấm lại; snapshot khác số ô giữ nguyên', async () => {
+    const newKey = [['から'], ['まで', 'までに']];
+    const tx = makeTx(
+      [
+        {
+          id: 'att-fb',
+          scoring: AttemptScoring.equal_100,
+          answers: [
+            // Snapshot đã có đáp án mới; học sinh gõ "までに", trước bị chấm 1/2.
+            answer({
+              id: 'f1',
+              type: QuestionType.fill_blank,
+              pointsPossible: 40,
+              choiceIndex: null,
+              correctIndex: null,
+              blankAnswerKey: newKey,
+              blankAnswers: ['から', 'までに'],
+              isCorrect: false,
+              pointsAwarded: 20,
+            }),
+          ],
+        },
+      ],
+      [
+        { id: 'same', blankAnswerKey: [['から'], ['まで']] },
+        { id: 'fewer', blankAnswerKey: [['から']] },
+      ],
+    );
+
+    await regradeQuestionAnswerKey(tx as never, 'q', {
+      blankAnswerKey: newKey,
+    });
+
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'same' },
+      data: { blankAnswerKey: newKey },
+    });
+    expect(tx.attemptAnswer.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'fewer' } }),
+    );
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'f1' },
+      data: { isCorrect: true, pointsAwarded: 40 },
+    });
+  });
+
+  it('câu sắp xếp: đổi thứ tự đúng cùng bộ thẻ → chấm lại; khác bộ thẻ giữ nguyên', async () => {
+    const newKey = ['b', 'c', 'a'];
+    const tx = makeTx(
+      [
+        {
+          id: 'att-ord',
+          scoring: AttemptScoring.equal_100,
+          answers: [
+            // Snapshot đã ghi optionOrder mới: hiển thị [c, a, b] → đúng = b, c, a.
+            answer({
+              id: 'o1',
+              type: QuestionType.ordering,
+              pointsPossible: 40,
+              choiceIndex: null,
+              correctIndex: null,
+              options: ['c', 'a', 'b'],
+              optionOrder: [1, 2, 0],
+              orderAnswer: ['b', 'c', 'a'],
+              isCorrect: false,
+              pointsAwarded: 0,
+            }),
+          ],
+        },
+      ],
+      [
+        { id: 'same', options: ['c', 'a', 'b'], optionOrder: [2, 0, 1] },
+        { id: 'edited', options: ['c', 'a', 'x'], optionOrder: [2, 0, 1] },
+      ],
+    );
+
+    await regradeQuestionAnswerKey(tx as never, 'q', { orderingKey: newKey });
+
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'same' },
+      data: { optionOrder: [1, 2, 0] },
+    });
+    expect(tx.attemptAnswer.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'edited' } }),
+    );
+    expect(tx.attemptAnswer.update).toHaveBeenCalledWith({
+      where: { id: 'o1' },
+      data: { isCorrect: true, pointsAwarded: 40 },
+    });
+  });
+
   it('snapshot đã đảo đáp án → đổi đáp án mới sang thứ tự hiển thị của lượt', async () => {
     // Lượt x: hiển thị [c, a, d, b]; lượt y: Đúng/Sai hiển thị [d, c, b, a].
     const tx = makeTx(

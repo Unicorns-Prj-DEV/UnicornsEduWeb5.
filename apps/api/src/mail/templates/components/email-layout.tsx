@@ -277,7 +277,7 @@ export function EmailLayout({
                   lineHeight: 1.6,
                 }}
               >
-                Cần hỗ trợ? Liên hệ trung tâm Unicorns Edu qua kênh bạn vẫn trao
+                Cần hỗ trợ? Liên hệ trung tâm UniEdu qua kênh bạn vẫn trao
                 đổi hằng ngày.
                 {siteUrl ? (
                   <>
@@ -309,7 +309,7 @@ export function EmailLayout({
               textAlign: 'center',
             }}
           >
-            © {year} Unicorns Edu · Học Tin cùng Chuyên tin
+            © {year} UniEdu · Học Tin cùng Chuyên tin
             <br />
             Email gửi tự động, vui lòng không trả lời thư này.
           </Text>
@@ -333,7 +333,7 @@ function BrandMark({ logoSrc }: { logoSrc: string | null }) {
             <td valign="middle" style={{ paddingRight: '12px' }}>
               <Img
                 src={logoSrc}
-                alt="Unicorns Edu"
+                alt="UniEdu"
                 width="40"
                 height="40"
                 style={{ display: 'block', borderRadius: '999px' }}
@@ -350,7 +350,7 @@ function BrandMark({ logoSrc }: { logoSrc: string | null }) {
                 lineHeight: '20px',
               }}
             >
-              Unicorns Edu
+              UniEdu
             </Text>
             <Text
               style={{

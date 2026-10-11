@@ -1,8 +1,8 @@
-# Unicorns Edu 5.0 – UI Schema
+# UniEdu 5.0 – UI Schema
 
 ## 1. Design Philosophy
 
-Unicorns Edu 5.0 uses a tokenized color system built for product clarity, operational trust, and long-term maintainability.
+UniEdu 5.0 uses a tokenized color system built for product clarity, operational trust, and long-term maintainability.
 
 - Modern and clean through neutral-first surfaces and restrained accent usage.
 - Trustworthy through stable blue brand anchors across all themes.

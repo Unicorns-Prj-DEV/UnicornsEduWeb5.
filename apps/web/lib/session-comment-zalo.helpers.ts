@@ -284,7 +284,7 @@ export function buildSessionCommentZaloText(
     "5️⃣ Tutorial các buổi học",
     tutorial || "—",
     "",
-    "— Unicorns Edu",
+    "— UniEdu",
   );
 
   return lines.join("\n");

@@ -15,6 +15,23 @@ jest.mock('../../generated/client', () => ({
     },
   },
 }));
+jest.mock('../storage/supabase-storage', () => ({
+  tryGetSupabaseAdminClient: () => ({
+    storage: {
+      from: () => ({
+        createSignedUrls: (paths: string[]) =>
+          Promise.resolve({
+            data: paths.map((path) => ({
+              path,
+              signedUrl: `signed:${path}`,
+              error: null,
+            })),
+            error: null,
+          }),
+      }),
+    },
+  }),
+}));
 jest.mock('../course-content/course-content.service', () => ({
   CourseContentService: class CourseContentServiceMock {},
 }));
@@ -202,7 +219,12 @@ describe('AttemptService', () => {
     expect(prisma.attempt.create).not.toHaveBeenCalled();
   });
 
-  it('start chia 100/N (bỏ points tay trên link) và snapshot đề', async () => {
+  it('start ENG chia 100/N (bỏ trọng số trên link) và snapshot đề', async () => {
+    const engService = new AttemptService(
+      prisma as never,
+      topicService as never,
+      { config: lmsProfileConfig('eng'), isIt: false } as never,
+    );
     prisma.attempt.findFirst.mockResolvedValue(null);
     prisma.questionLink.findMany.mockResolvedValue([
       {
@@ -250,7 +272,7 @@ describe('AttemptService', () => {
     ]);
     prisma.attempt.create.mockResolvedValue(makeAttempt());
 
-    await service.start('cls-1', 'cci-1', 'stu-1');
+    await engService.start('cls-1', 'cci-1', 'stu-1');
     const createArg = prisma.attempt.create.mock.calls[0][0];
     const createdAnswers = createArg.data.answers.create;
     expect(
@@ -271,6 +293,41 @@ describe('AttemptService', () => {
       type: QuestionType.essay,
       answerGuide: 'barem',
     });
+  });
+
+  it('start JP chia 100 theo trọng số câu-trong-tiết (null = 1)', async () => {
+    prisma.attempt.findFirst.mockResolvedValue(null);
+    const link = (
+      questionId: string,
+      order: number,
+      points: number | null,
+    ) => ({
+      questionId,
+      order,
+      points,
+      question: {
+        type: QuestionType.single_choice,
+        content: `${questionId}?`,
+        options: ['a', 'b'],
+        correctIndex: 0,
+        explanation: null,
+        answerGuide: null,
+        difficultyLevel: { name: 'NB' },
+      },
+    });
+    prisma.questionLink.findMany.mockResolvedValue([
+      link('q1', 0, null),
+      link('q2', 1, 2),
+      link('q3', 2, 1),
+    ]);
+    prisma.attempt.create.mockResolvedValue(makeAttempt());
+
+    await service.start('cls-1', 'cci-1', 'stu-1');
+    const createdAnswers =
+      prisma.attempt.create.mock.calls[0][0].data.answers.create;
+    expect(
+      createdAnswers.map((a: { pointsPossible: number }) => a.pointsPossible),
+    ).toEqual([25, 50, 25]);
   });
 
   it('submit grades MCQ and leaves essay ungraded without cancelling', async () => {
@@ -1050,6 +1107,104 @@ describe('AttemptService', () => {
       expect(result.questions[0].correctCount).toBe(1);
       expect(result.questions[0].sampleCount).toBe(1);
       expect(result.questions[1].correctCount).toBe(1);
+    });
+  });
+
+  describe('playAudio (giới hạn nghe)', () => {
+    const audioAnswer = (over: Record<string, unknown> = {}) =>
+      makeAttempt({
+        answers: [
+          {
+            ...makeAttempt().answers[0],
+            audioId: null,
+            sharedMaterialAudioId: 'au-1',
+          },
+        ],
+        ...over,
+      });
+    const limitedAudio = {
+      id: 'au-1',
+      storagePath: 'course-1/au-1.mp3',
+      originalName: 'bai-nghe.mp3',
+      maxPlays: 2,
+      allowSeek: false,
+    };
+
+    beforeEach(() => {
+      prisma.audioAsset = {
+        findMany: jest.fn().mockResolvedValue([limitedAudio]),
+      };
+      prisma.attemptAudioPlay = {
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ playCount: 1 }),
+        findMany: jest.fn().mockResolvedValue([]),
+      };
+      prisma.attempt.findUnique.mockResolvedValue(audioAnswer());
+    });
+
+    it('bấm phát: đếm một lần và trả URL', async () => {
+      const result = await service.playAudio('cls-1', 'att-1', 'stu-1', 'au-1');
+      expect(prisma.attemptAudioPlay.updateMany).toHaveBeenCalledWith({
+        where: { attemptId: 'att-1', audioId: 'au-1', playCount: { lt: 2 } },
+        data: { playCount: { increment: 1 } },
+      });
+      expect(result).toEqual({
+        url: 'signed:course-1/au-1.mp3',
+        maxPlays: 2,
+        playsUsed: 1,
+      });
+    });
+
+    it('hết lượt: server từ chối (tải lại trang không hồi lượt)', async () => {
+      prisma.attemptAudioPlay.updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        service.playAudio('cls-1', 'att-1', 'stu-1', 'au-1'),
+      ).rejects.toThrow('Đã hết lượt nghe audio này.');
+    });
+
+    it('audio không giới hạn: không đếm', async () => {
+      prisma.audioAsset.findMany.mockResolvedValue([
+        { ...limitedAudio, maxPlays: null },
+      ]);
+      const result = await service.playAudio('cls-1', 'att-1', 'stu-1', 'au-1');
+      expect(prisma.attemptAudioPlay.updateMany).not.toHaveBeenCalled();
+      expect(result.url).toBe('signed:course-1/au-1.mp3');
+    });
+
+    it('audio không thuộc lượt làm → 404', async () => {
+      await expect(
+        service.playAudio('cls-1', 'att-1', 'stu-1', 'au-khac'),
+      ).rejects.toThrow('Audio không thuộc lượt làm này.');
+    });
+
+    it('lượt đã nộp → từ chối, không đếm', async () => {
+      prisma.attempt.findUnique.mockResolvedValue(
+        audioAnswer({ status: AttemptStatus.submitted }),
+      );
+      await expect(
+        service.playAudio('cls-1', 'att-1', 'stu-1', 'au-1'),
+      ).rejects.toThrow('Lượt làm đã kết thúc');
+      expect(prisma.attemptAudioPlay.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('chi tiết lượt đang làm giấu URL audio giới hạn, kèm số lần đã nghe', async () => {
+      prisma.attemptAudioPlay.findMany.mockResolvedValue([
+        { audioId: 'au-1', playCount: 1 },
+      ]);
+      prisma.attempt.findUnique.mockResolvedValue(
+        makeAttempt({
+          answers: [{ ...makeAttempt().answers[0], audioId: 'au-1' }],
+        }),
+      );
+      const detail = await service.get('cls-1', 'att-1', 'stu-1');
+      expect(detail.questions[0].audio).toEqual({
+        id: 'au-1',
+        url: null,
+        maxPlays: 2,
+        allowSeek: false,
+        playsUsed: 1,
+      });
     });
   });
 });

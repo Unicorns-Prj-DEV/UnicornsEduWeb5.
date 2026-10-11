@@ -27,7 +27,7 @@ export function BrandLogo({ className, priority, sizes }: BrandLogoProps) {
   return (
     <Image
       src={src}
-      alt="Unicorns Edu"
+      alt="UniEdu"
       width={src.width}
       height={src.height}
       priority={priority}

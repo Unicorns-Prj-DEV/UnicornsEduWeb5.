@@ -13,10 +13,13 @@ import QuestionFormDialog from "@/components/admin/question/QuestionFormDialog";
 import { QuestionSlotSelect } from "@/components/admin/ElectiveGroupSettings";
 import type { QuestionLink } from "@/dtos/course-content.dto";
 import type { QuestionSlotDto } from "@/dtos/attempt.dto";
+import { numberBlanks } from "@/lib/fill-blank";
+import { itExamPart } from "@/lib/exam-layout";
 import {
   QuestionTypeDto,
   TRUE_FALSE_STATEMENT_LABELS,
   questionTypeLabel,
+  trueFalseChoiceLabels,
 } from "@/dtos/question.dto";
 
 const ASSIGNED_CONFIRM = {
@@ -67,6 +70,7 @@ export function PracticeQuestionLinkItem({
   assigned,
   hasElectives,
   isAbsolute,
+  weighted,
   compact,
   canMoveUp,
   canMoveDown,
@@ -84,6 +88,8 @@ export function PracticeQuestionLinkItem({
   hasElectives: boolean;
   /** Điểm tuyệt đối (IT): điểm theo loại câu, không sửa điểm từng câu. */
   isAbsolute: boolean;
+  /** Hồ sơ JP: `points` là trọng số (≥ 1, trống = 1), đề chia 100 theo trọng số. */
+  weighted: boolean;
   /** Chế độ xem gọn: cắt ngắn đề bài, ẩn phương án/lời giải. */
   compact: boolean;
   canMoveUp: boolean;
@@ -115,12 +121,19 @@ export function PracticeQuestionLinkItem({
 
   const savePoints = async () => {
     const points = pointsDraft === "" ? null : parseInt(pointsDraft, 10);
-    if (points !== null && (isNaN(points) || points < 0)) {
-      toast.error("Điểm phải là số nguyên >= 0");
+    const minPoints = weighted ? 1 : 0;
+    if (points !== null && (isNaN(points) || points < minPoints)) {
+      toast.error(
+        weighted
+          ? "Trọng số phải là số nguyên >= 1"
+          : "Điểm phải là số nguyên >= 0",
+      );
       return;
     }
     const ok = await confirmIfAssigned(
-      "Thay đổi điểm sẽ ảnh hưởng đến lần giao đang chạy. Tiếp tục?",
+      weighted
+        ? "Trọng số mới chỉ áp cho bài làm bắt đầu sau khi lưu; bài đã bắt đầu giữ điểm cũ. Tiếp tục?"
+        : "Thay đổi điểm sẽ ảnh hưởng đến lần giao đang chạy. Tiếp tục?",
     );
     if (!ok) return;
     setEditingPoints(false);
@@ -170,11 +183,19 @@ export function PracticeQuestionLinkItem({
   };
 
   const { question } = link;
+  // Câu của bộ: đổi chỗ / gỡ theo cả bộ ở đầu khối, không lẻ từng câu.
+  const inSet = Boolean(question.sharedMaterialId);
   const isChoice = question.type === QuestionTypeDto.single_choice;
   const isTrueFalse = question.type === QuestionTypeDto.true_false_group;
+  const singleTfKey =
+    question.type === QuestionTypeDto.true_false
+      ? question.tfAnswerKey?.[0]
+      : undefined;
   const options = Array.isArray(question.options) ? question.options : [];
   const solution =
-    isChoice || isTrueFalse ? question.explanation : question.answerGuide;
+    question.type === QuestionTypeDto.essay
+      ? question.answerGuide
+      : question.explanation;
 
   return (
     <li className="rounded-lg border border-border-default bg-bg-surface shadow-xs transition-colors hover:border-border-focus/40">
@@ -186,37 +207,45 @@ export function PracticeQuestionLinkItem({
           {questionTypeLabel(question.type)}
         </Badge>
         {isAbsolute ? (
-          <Badge variant="outline">{isTrueFalse ? "1 điểm" : "0,25 điểm"}</Badge>
+          <Badge variant="outline">
+            {itExamPart(question.type) === "II" ? "1 điểm" : "0,25 điểm"}
+          </Badge>
         ) : null}
         {canEdit ? (
           <div className="ml-auto flex items-center">
-            <IconButton
-              label="Đưa câu lên trên"
-              disabled={!canMoveUp}
-              onClick={() => onMove(-1)}
-            >
-              <ChevronUp className="size-4" />
-            </IconButton>
-            <IconButton
-              label="Đưa câu xuống dưới"
-              disabled={!canMoveDown}
-              onClick={() => onMove(1)}
-            >
-              <ChevronDown className="size-4" />
-            </IconButton>
+            {inSet ? null : (
+              <>
+                <IconButton
+                  label="Đưa câu lên trên"
+                  disabled={!canMoveUp}
+                  onClick={() => onMove(-1)}
+                >
+                  <ChevronUp className="size-4" />
+                </IconButton>
+                <IconButton
+                  label="Đưa câu xuống dưới"
+                  disabled={!canMoveDown}
+                  onClick={() => onMove(1)}
+                >
+                  <ChevronDown className="size-4" />
+                </IconButton>
+              </>
+            )}
             <IconButton
               label="Sửa câu hỏi trong ngân hàng"
               onClick={() => void openQuestionForm()}
             >
               <Pencil className="size-4" />
             </IconButton>
-            <IconButton
-              label="Xóa câu hỏi khỏi đề"
-              tone="danger"
-              onClick={() => void remove()}
-            >
-              <Trash2 className="size-4" />
-            </IconButton>
+            {inSet ? null : (
+              <IconButton
+                label="Xóa câu hỏi khỏi đề"
+                tone="danger"
+                onClick={() => void remove()}
+              >
+                <Trash2 className="size-4" />
+              </IconButton>
+            )}
           </div>
         ) : null}
       </div>
@@ -229,7 +258,13 @@ export function PracticeQuestionLinkItem({
               "max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
           )}
         >
-          <MathContent content={question.content} />
+          <MathContent
+            content={
+              question.type === QuestionTypeDto.fill_blank
+                ? numberBlanks(question.content)
+                : question.content
+            }
+          />
         </div>
 
         {!compact && isChoice && options.length > 0 ? (
@@ -314,10 +349,50 @@ export function PracticeQuestionLinkItem({
           </p>
         ) : null}
 
+        {typeof singleTfKey === "boolean" ? (
+          <p className="mt-1.5 text-xs text-text-muted">
+            Đáp án:{" "}
+            <span
+              className={cn(
+                "font-semibold",
+                singleTfKey ? "text-success" : "text-error",
+              )}
+            >
+              {trueFalseChoiceLabels(question.tfLabelStyle)[singleTfKey ? 0 : 1]}
+            </span>
+          </p>
+        ) : null}
+
+        {question.type === QuestionTypeDto.ordering &&
+        (question.options?.length ?? 0) > 0 ? (
+          <p className="mt-1.5 text-xs text-text-muted">
+            Thứ tự đúng:{" "}
+            <span className="font-semibold text-success">
+              {(question.options ?? []).join(" → ")}
+            </span>
+          </p>
+        ) : null}
+
+        {question.type === QuestionTypeDto.fill_blank &&
+        question.blankAnswerKey?.length ? (
+          <ol className="mt-1.5 space-y-0.5 text-xs text-text-muted">
+            {question.blankAnswerKey.map((answers, i) => (
+              <li key={i}>
+                【{i + 1}】{" "}
+                <span className="font-semibold text-success">
+                  {answers.join(" / ")}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
         {!compact && solution ? (
           <details className="mt-2 rounded-md border border-border-default/60 bg-bg-secondary/40 px-2 py-1.5">
             <summary className="cursor-pointer text-xs font-medium text-text-secondary">
-              {isChoice || isTrueFalse ? "Lời giải" : "Barem / ý cần có"}
+              {question.type === QuestionTypeDto.essay
+                ? "Barem / ý cần có"
+                : "Lời giải"}
             </summary>
             <div className="mt-1.5 text-sm text-text-secondary">
               <MathContent content={solution} />
@@ -338,7 +413,7 @@ export function PracticeQuestionLinkItem({
               <span className="inline-flex items-center gap-1">
                 <input
                   type="number"
-                  min={0}
+                  min={weighted ? 1 : 0}
                   value={pointsDraft}
                   onChange={(e) => setPointsDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -346,8 +421,8 @@ export function PracticeQuestionLinkItem({
                     if (e.key === "Escape") setEditingPoints(false);
                   }}
                   className="w-16 rounded border border-border-default bg-bg-surface px-1.5 py-0.5 text-xs text-text-primary focus:border-border-focus focus:outline-none"
-                  aria-label="Điểm của câu hỏi"
-                  placeholder="điểm"
+                  aria-label={weighted ? "Trọng số của câu" : "Điểm của câu hỏi"}
+                  placeholder={weighted ? "1" : "điểm"}
                 />
                 <button
                   type="button"
@@ -374,7 +449,11 @@ export function PracticeQuestionLinkItem({
                 }}
                 className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[11px] font-medium text-text-secondary hover:bg-primary/10 hover:text-primary disabled:pointer-events-none"
               >
-                {link.points != null ? `${link.points} điểm` : "Chưa đặt điểm"}
+                {weighted
+                  ? `Trọng số ${link.points ?? 1}`
+                  : link.points != null
+                    ? `${link.points} điểm`
+                    : "Chưa đặt điểm"}
               </button>
             )}
           </div>

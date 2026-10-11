@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -18,6 +19,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CourseContentService } from 'src/course-content/course-content.service';
 import type {
   AssignmentLobbyDto,
+  AttemptAudioPlayDto,
   AttemptDetailDto,
   AttemptQuestionDto,
   EssayGradingQueueDto,
@@ -28,17 +30,33 @@ import type {
   PracticeStatsStudentRowDto,
   SaveAttemptAnswerItemDto,
 } from 'src/dtos/attempt.dto';
-import { ATTEMPT_TOTAL_POINTS, splitTotalPoints } from './split-total-points';
 import {
-  IT_SINGLE_CHOICE_POINTS,
-  IT_TRUE_FALSE_POINTS,
+  ATTEMPT_TOTAL_POINTS,
+  questionWeight,
+  splitTotalPoints,
+  splitTotalPointsByWeight,
+} from './split-total-points';
+import {
   autoGradedMaxOf,
   gradeAnswers,
+  itQuestionPoints,
   normalizeTrueFalseChoices,
+  tfChoicesOf,
 } from './grading';
+import { blankFieldsOf, parseBlankAnswerKey } from './fill-blank';
 import { assertExamForm, examGroupRank, orderExamLinks } from './exam-form';
-import { shuffleQuestionOptions, shuffleWithinGroups } from './shuffle';
+import {
+  orderingKeyOf,
+  groupByMaterial,
+  setSlotOf,
+  shuffleMaterialBlocks,
+  shuffleOrderingCards,
+  shuffleQuestionOptions,
+  shuffleWithinGroups,
+} from './shuffle';
 import { assignmentCloseAt, isAssignmentClosed } from './assignment-window';
+import { resolveAudioRefs } from 'src/question/audio-asset.service';
+import { attemptAudioView } from './audio-play';
 
 /** Include chấm/đọc bài: chỉ snapshot trên AttemptAnswer, không join Question live. */
 type AttemptWithAnswers = Prisma.AttemptGetPayload<{
@@ -125,7 +143,9 @@ export class AttemptService {
     }
     const rawLinks = await this.prisma.questionLink.findMany({
       where: { lessonId, question: { deletedAt: null } },
-      include: { question: { include: { difficultyLevel: true } } },
+      include: {
+        question: { include: { difficultyLevel: true, sharedMaterial: true } },
+      },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
     });
     if (rawLinks.length === 0) {
@@ -140,20 +160,27 @@ export class AttemptService {
       assertExamForm(examLinks);
     }
     // Đảo câu: đề IT giữ khung Phần I → bắt buộc → TC1 → TC2, xáo trong nhóm.
+    // Hồ sơ khác: Bộ câu hỏi là một khối liền nhau theo thứ tự bộ, xáo cả khối.
     const shuffle = item.shuffleQuestions;
-    const links = shuffle
-      ? shuffleWithinGroups(examLinks, (link) =>
-          isIt ? examGroupRank(link) : 0,
-        )
-      : examLinks;
+    const materialOf = (link: (typeof examLinks)[number]) =>
+      setSlotOf(link.question);
+    const links = isIt
+      ? shuffle
+        ? shuffleWithinGroups(examLinks, (link) => examGroupRank(link))
+        : examLinks
+      : shuffle
+        ? shuffleMaterialBlocks(examLinks, materialOf)
+        : groupByMaterial(examLinks, materialOf);
     const pointsByIndex =
       scoring === AttemptScoring.absolute_it
-        ? links.map((link) =>
-            link.question.type === QuestionType.true_false_group
-              ? IT_TRUE_FALSE_POINTS
-              : IT_SINGLE_CHOICE_POINTS,
-          )
-        : splitTotalPoints(ATTEMPT_TOTAL_POINTS, links.length);
+        ? links.map((link) => itQuestionPoints(link.question.type))
+        : this.lmsProfile.config.questionWeights
+          ? // JP: chia 100 theo trọng số câu-trong-tiết, chốt vào snapshot.
+            splitTotalPointsByWeight(
+              ATTEMPT_TOTAL_POINTS,
+              links.map((link) => questionWeight(link.points)),
+            )
+          : splitTotalPoints(ATTEMPT_TOTAL_POINTS, links.length);
 
     const startedAt = new Date();
     try {
@@ -167,12 +194,24 @@ export class AttemptService {
           scoring,
           answers: {
             create: links.map((link, index) => {
-              const shuffled = shuffle
-                ? shuffleQuestionOptions(link.question)
-                : null;
+              // Câu sắp xếp luôn xáo thẻ (kể cả khi tắt Đảo câu) — không thì lộ đáp án.
+              const shuffled =
+                link.question.type === QuestionType.ordering
+                  ? {
+                      ...shuffleOrderingCards(
+                        Array.isArray(link.question.options)
+                          ? (link.question.options as string[])
+                          : [],
+                      ),
+                      correctIndex: null,
+                      tfAnswerKey: [],
+                    }
+                  : shuffle
+                    ? shuffleQuestionOptions(link.question)
+                    : null;
               return {
                 questionId: link.questionId,
-                order: isIt || shuffle ? index : (link.order ?? index),
+                order: index,
                 pointsPossible: pointsByIndex[index],
                 slot: link.slot,
                 tfAnswerKey: shuffled?.tfAnswerKey ?? link.question.tfAnswerKey,
@@ -189,14 +228,26 @@ export class AttemptService {
                 optionOrder: shuffled?.optionOrder ?? [],
                 explanation: link.question.explanation,
                 answerGuide: link.question.answerGuide,
+                essayInputSize: link.question.essayInputSize,
+                tfLabelStyle: link.question.tfLabelStyle,
+                blankAnswerKey:
+                  link.question.blankAnswerKey === null
+                    ? Prisma.JsonNull
+                    : (link.question.blankAnswerKey as Prisma.InputJsonValue),
                 difficultyLabel: link.question.difficultyLevel.name,
+                sharedMaterialId: link.question.sharedMaterialId,
+                sharedMaterialContent:
+                  link.question.sharedMaterial?.content ?? null,
+                audioId: link.question.audioId,
+                sharedMaterialAudioId:
+                  link.question.sharedMaterial?.audioId ?? null,
               };
             }),
           },
         },
         include: this.attemptInclude(),
       });
-      return this.toDetail(created, false);
+      return await this.toDetail(created, false);
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -223,6 +274,51 @@ export class AttemptService {
   ): Promise<AttemptDetailDto> {
     const attempt = await this.loadOwned(classId, attemptId, studentId);
     return this.finalizeIfExpired(attempt);
+  }
+
+  /**
+   * Học sinh bấm phát audio trong lượt đang làm. Audio có giới hạn: trừ một lượt
+   * nguyên tử ở DB (tải lại trang không hồi lượt), hết lượt → 409.
+   */
+  async playAudio(
+    classId: string,
+    attemptId: string,
+    studentId: string,
+    audioId: string,
+  ): Promise<AttemptAudioPlayDto> {
+    const attempt = await this.loadOwned(classId, attemptId, studentId);
+    if (
+      attempt.status !== AttemptStatus.in_progress ||
+      this.isExpired(attempt)
+    ) {
+      throw new ConflictException('Lượt làm đã kết thúc.');
+    }
+    const inSnapshot = attempt.answers.some(
+      (a) => a.audioId === audioId || a.sharedMaterialAudioId === audioId,
+    );
+    const ref = inSnapshot
+      ? (await resolveAudioRefs(this.prisma, [audioId])).get(audioId)
+      : undefined;
+    if (!ref) throw new NotFoundException('Audio không thuộc lượt làm này.');
+    if (ref.maxPlays === null) {
+      return { url: ref.url, maxPlays: null, playsUsed: 0 };
+    }
+    await this.prisma.attemptAudioPlay.createMany({
+      data: [{ attemptId, audioId }],
+      skipDuplicates: true,
+    });
+    const { count } = await this.prisma.attemptAudioPlay.updateMany({
+      where: { attemptId, audioId, playCount: { lt: ref.maxPlays } },
+      data: { playCount: { increment: 1 } },
+    });
+    if (count === 0) {
+      throw new ConflictException('Đã hết lượt nghe audio này.');
+    }
+    const { playCount } = await this.prisma.attemptAudioPlay.findUniqueOrThrow({
+      where: { attemptId_audioId: { attemptId, audioId } },
+      select: { playCount: true },
+    });
+    return { url: ref.url, maxPlays: ref.maxPlays, playsUsed: playCount };
   }
 
   async saveAnswers(
@@ -253,6 +349,19 @@ export class AttemptService {
                 : {}),
               ...(item.tfChoices !== undefined
                 ? { tfChoices: normalizeTrueFalseChoices(item.tfChoices) }
+                : {}),
+              ...(item.blankAnswers !== undefined
+                ? {
+                    blankAnswers:
+                      item.blankAnswers === null
+                        ? Prisma.JsonNull
+                        : item.blankAnswers.map((a) =>
+                            typeof a === 'string' ? a : null,
+                          ),
+                  }
+                : {}),
+              ...(item.orderAnswer !== undefined
+                ? { orderAnswer: item.orderAnswer ?? [] }
                 : {}),
               ...(item.markedForReview !== undefined
                 ? { markedForReview: item.markedForReview }
@@ -883,10 +992,39 @@ export class AttemptService {
     };
   }
 
-  private toDetail(
+  private async toDetail(
     attempt: AttemptWithAnswers,
     reveal: boolean,
-  ): AttemptDetailDto {
+  ): Promise<AttemptDetailDto> {
+    // Audio theo bản chụp; URL ký mới mỗi lần tải bài (signed URL ngắn hạn).
+    const audio = await resolveAudioRefs(
+      this.prisma,
+      attempt.answers.flatMap((a) => [a.audioId, a.sharedMaterialAudioId]),
+    );
+    const limited = [...audio.values()].some((a) => a.maxPlays !== null);
+    const plays = limited
+      ? await this.prisma.attemptAudioPlay.findMany({
+          where: { attemptId: attempt.id },
+          select: { audioId: true, playCount: true },
+        })
+      : [];
+    const playsOf = new Map(plays.map((p) => [p.audioId, p.playCount]));
+    const inProgress = attempt.status === AttemptStatus.in_progress;
+    const audioOf = (id: string | null) => {
+      const ref = id ? audio.get(id) : undefined;
+      return ref
+        ? attemptAudioView(
+            {
+              id: ref.id,
+              url: ref.url,
+              maxPlays: ref.maxPlays,
+              allowSeek: ref.allowSeek,
+            },
+            playsOf.get(ref.id) ?? 0,
+            inProgress,
+          )
+        : null;
+    };
     const endsAt = this.endsAt(attempt);
     // Đã nộp nhưng chưa tới hạn lần giao: không lộ điểm/đáp án.
     const closeAt = assignmentCloseAt(attempt.assignment);
@@ -901,18 +1039,40 @@ export class AttemptService {
         slot: ans.slot,
         content: ans.content,
         options: Array.isArray(ans.options) ? (ans.options as string[]) : null,
+        essayInputSize: ans.essayInputSize,
         choiceIndex: ans.choiceIndex,
-        tfChoices:
-          ans.type === QuestionType.true_false_group
-            ? normalizeTrueFalseChoices(ans.tfChoices)
+        tfChoices: tfChoicesOf(ans.type, ans.tfChoices),
+        tfLabelStyle: ans.tfLabelStyle,
+        ...blankFieldsOf(ans.type, ans.blankAnswerKey, ans.blankAnswers),
+        orderAnswer:
+          ans.type === QuestionType.ordering ? ans.orderAnswer : null,
+        sharedMaterial:
+          ans.sharedMaterialId && ans.sharedMaterialContent !== null
+            ? {
+                id: ans.sharedMaterialId,
+                content: ans.sharedMaterialContent,
+                audio: audioOf(ans.sharedMaterialAudioId),
+              }
             : null,
+        audio: audioOf(ans.audioId),
         essayAnswer: ans.essayAnswer,
         markedForReview: ans.markedForReview,
       };
       if (reveal && resultsReleased) {
         base.correctIndex = ans.correctIndex;
         base.tfAnswerKey =
-          ans.type === QuestionType.true_false_group ? ans.tfAnswerKey : null;
+          ans.type === QuestionType.true_false_group ||
+          ans.type === QuestionType.true_false
+            ? ans.tfAnswerKey
+            : null;
+        base.blankAnswerKey =
+          ans.type === QuestionType.fill_blank
+            ? parseBlankAnswerKey(ans.blankAnswerKey)
+            : null;
+        base.orderingKey =
+          ans.type === QuestionType.ordering
+            ? orderingKeyOf(base.options ?? [], ans.optionOrder)
+            : null;
         base.isCorrect = ans.isCorrect;
         base.pointsAwarded = ans.pointsAwarded;
         base.explanation = ans.explanation;

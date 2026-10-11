@@ -174,7 +174,7 @@ export class MailService {
       ),
     );
     const text = [
-      'Xác thực email tài khoản Unicorns Edu',
+      'Xác thực email tài khoản UniEdu',
       `Email: ${props.recipientEmail}`,
       `Liên kết xác thực (hiệu lực ${props.expiresInHours} giờ):`,
       props.verificationLink,
@@ -185,7 +185,7 @@ export class MailService {
     await this.sendMailOrThrow({
       from: this.mailFrom,
       to: email,
-      subject: '[Unicorns Edu] Xác thực email tài khoản',
+      subject: '[UniEdu] Xác thực email tài khoản',
       text,
       html,
       ...(inlineLogo.attachments.length
@@ -222,7 +222,7 @@ export class MailService {
       ),
     );
     const text = [
-      'Đổi mật khẩu tài khoản Unicorns Edu',
+      'Đổi mật khẩu tài khoản UniEdu',
       `Email: ${props.recipientEmail}`,
       `Liên kết đổi mật khẩu (hiệu lực ${props.expiresInHours} giờ):`,
       props.resetLink,
@@ -233,7 +233,7 @@ export class MailService {
     await this.sendMailOrThrow({
       from: this.mailFrom,
       to: email,
-      subject: '[Unicorns Edu] Đổi mật khẩu tài khoản',
+      subject: '[UniEdu] Đổi mật khẩu tài khoản',
       text,
       html,
       ...(inlineLogo.attachments.length
@@ -267,9 +267,9 @@ export class MailService {
       ),
     );
     const text = [
-      'Xác minh đăng nhập Unicorns Edu',
+      'Xác minh đăng nhập UniEdu',
       '',
-      'Bạn đã yêu cầu đăng nhập vào tài khoản Unicorns Edu.',
+      'Bạn đã yêu cầu đăng nhập vào tài khoản UniEdu.',
       `Liên kết xác minh (hiệu lực ${LOGIN_VERIFICATION_EXPIRES_MINUTES} phút):`,
       verifyUrl,
       '',
@@ -279,7 +279,7 @@ export class MailService {
     await this.sendMailOrThrow({
       from: this.mailFrom,
       to: email,
-      subject: '[Unicorns Edu] Xác minh đăng nhập',
+      subject: '[UniEdu] Xác minh đăng nhập',
       text,
       html,
       ...(inlineLogo.attachments.length
@@ -334,7 +334,7 @@ export class MailService {
     await this.sendMailOrThrow({
       from: this.mailFrom,
       to: params.to,
-      subject: `[Unicorns Edu] Xác nhận nạp thẳng — ${props.studentName} — ${this.formatVnd(props.amount)} VND`,
+      subject: `[UniEdu] Xác nhận nạp thẳng — ${props.studentName} — ${this.formatVnd(props.amount)} VND`,
       text,
       html,
       ...(inlineLogo.attachments.length
@@ -440,7 +440,7 @@ export class MailService {
     await this.sendMailOrThrow({
       from: this.mailFrom,
       to,
-      subject: `[Unicorns Edu] Biên lai nạp ví — ${studentName} — ${orderCode}`,
+      subject: `[UniEdu] Biên lai nạp ví — ${studentName} — ${orderCode}`,
       text: plainText,
       html,
       ...(attachments.length ? { attachments } : {}),
@@ -476,7 +476,7 @@ export class MailService {
     const receiverName =
       this.configService.get<string>('RECEIPT_RECEIVER_NAME')?.trim() ||
       this.configService.get<string>('SEPAY_TRANSFER_ACCOUNT_NAME')?.trim() ||
-      'Unicorns Edu';
+      'UniEdu';
 
     const receiverBankName =
       this.configService.get<string>('RECEIPT_RECEIVER_BANK_NAME')?.trim() ||
@@ -634,7 +634,7 @@ export class MailService {
       'Nếu Quý phụ huynh không thực hiện giao dịch này, vui lòng liên hệ trung tâm ngay.',
       '',
       'Trân trọng,',
-      'Unicorns Edu',
+      'UniEdu',
     ]
       .filter((x) => x !== null)
       .join('\n');

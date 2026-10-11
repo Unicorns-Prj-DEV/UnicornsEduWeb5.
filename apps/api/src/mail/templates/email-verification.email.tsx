@@ -25,7 +25,7 @@ export function EmailVerificationEmail({
 }: EmailVerificationEmailProps) {
   return (
     <EmailLayout
-      preview="Xác thực email tài khoản Unicorns Edu của bạn"
+      preview="Xác thực email tài khoản UniEdu của bạn"
       icon="📩"
       eyebrow="Kích hoạt tài khoản"
       title="Xác thực email tài khoản"
@@ -37,7 +37,7 @@ export function EmailVerificationEmail({
         Bạn vừa đăng ký hoặc yêu cầu xác minh email cho tài khoản{' '}
         <strong style={{ color: EMAIL_COLORS.text }}>{recipientEmail}</strong>.
         Bấm nút bên dưới để hoàn tất xác thực và mở đầy đủ tính năng trên
-        Unicorns Edu.
+        UniEdu.
       </EmailParagraph>
 
       <EmailButton href={verificationLink}>Xác thực email</EmailButton>

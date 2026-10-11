@@ -22,7 +22,14 @@ export class AppConfigResponseDto implements LmsProfileConfig {
   profile!: LmsProfile;
 
   @ApiProperty({
-    enum: ['single_choice', 'essay', 'true_false_group'],
+    enum: [
+      'single_choice',
+      'essay',
+      'true_false_group',
+      'true_false',
+      'fill_blank',
+      'ordering',
+    ],
     isArray: true,
     example: ['single_choice', 'true_false_group'],
   })
@@ -40,4 +47,32 @@ export class AppConfigResponseDto implements LmsProfileConfig {
 
   @ApiProperty({ description: 'Tiết thực hành có nhóm tự chọn hay không' })
   electiveGroups!: boolean;
+
+  @ApiProperty({
+    description: 'Câu hỏi có gắn Kỹ năng (JP) — bắt buộc khi tạo/sửa',
+  })
+  questionSkills!: boolean;
+
+  @ApiProperty({
+    description:
+      'Chia 100 theo trọng số câu-trong-tiết (`points`, mặc định 1) thay vì chia đều (JP)',
+  })
+  questionWeights!: boolean;
+
+  @ApiProperty({
+    description: 'Câu tự luận chọn được kiểu ô ngắn/dài (JP)',
+  })
+  essayInputSizes!: boolean;
+
+  @ApiProperty({
+    description:
+      'Ngân hàng câu hỏi có Tư liệu dùng chung — nhiều câu dựa vào một đoạn văn/ảnh (JP)',
+  })
+  sharedMaterials!: boolean;
+
+  @ApiProperty({
+    description:
+      'Tư liệu có audio: tải lên cho tư liệu dùng chung và từng câu (JP)',
+  })
+  questionAudio!: boolean;
 }

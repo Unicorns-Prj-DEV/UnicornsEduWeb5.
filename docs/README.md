@@ -1,4 +1,4 @@
-# Tài liệu dự án Unicorns Edu 5.0
+# Tài liệu dự án UniEdu 5.0
 
 Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng thái codebase đã được đối chiếu với repo hiện tại.
 

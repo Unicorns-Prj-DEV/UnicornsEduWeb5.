@@ -2,7 +2,7 @@
   "instances": [
     {
       "id": "it",
-      "label": "Unicorns IT",
+      "label": "Uni IT",
       "enabled": true,
       "deploy_dir": "/root/UnicornsEdu",
       "compose_project": "unicorns-it",
@@ -12,7 +12,7 @@
     },
     {
       "id": "eng",
-      "label": "Unicorns ENG (Tiếng Anh)",
+      "label": "Uni ENG (Tiếng Anh)",
       "enabled": true,
       "deploy_dir": "/root/UnicornsEduEng",
       "compose_project": "unicorns-eng",
@@ -22,7 +22,7 @@
     },
     {
       "id": "jp",
-      "label": "Unicorns JP (Tiếng Nhật)",
+      "label": "Uni JP (Tiếng Nhật)",
       "enabled": true,
       "deploy_dir": "/root/UnicornsEduJP",
       "compose_project": "unicorns-jp",

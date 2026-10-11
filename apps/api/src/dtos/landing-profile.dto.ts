@@ -143,7 +143,7 @@ export class StudentLandingAchievementsQueryDto {
   @ApiPropertyOptional({
     default: false,
     description:
-      'When true, ignores `sourceIds`/publish gate and returns achievements for ALL students (level-list surface, e.g. /thanh-tich by-level browse). Keep false for publish-gated surfaces (e.g. "Tự Hào Unicorns" showcase).',
+      'When true, ignores `sourceIds`/publish gate and returns achievements for ALL students (level-list surface, e.g. /thanh-tich by-level browse). Keep false for publish-gated surfaces (e.g. "Tự Hào Uni" showcase).',
   })
   @IsOptional()
   @Type(() => Boolean)

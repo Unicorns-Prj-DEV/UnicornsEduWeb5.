@@ -4,8 +4,11 @@ import {
   autoGradedMaxOf,
   gradeAnswers,
   gradeTrueFalse,
+  isAnswered,
   isElectiveVoided,
+  itQuestionPoints,
   normalizeTrueFalseChoices,
+  tfChoicesOf,
 } from './grading';
 
 const KEY = [true, false, true, false];
@@ -53,6 +56,74 @@ function standardExam(opts: {
     ...opts.e2.map((c) => tf(c, QuestionSlot.elective_2)),
   ];
 }
+
+function single(
+  choice: boolean | null,
+  key = true,
+  pointsPossible = 34,
+): GradableAnswer {
+  return {
+    id: `t-${seq++}`,
+    type: QuestionType.true_false,
+    slot: QuestionSlot.required,
+    pointsPossible,
+    choiceIndex: null,
+    correctIndex: null,
+    tfChoices: choice === null ? null : [choice],
+    tfAnswerKey: [key],
+  };
+}
+
+describe('Câu Đúng/Sai (true_false) — chấm cả câu', () => {
+  it('đúng thì đủ điểm câu, sai hoặc bỏ trống thì 0', () => {
+    const answers = [single(true), single(false), single(null)];
+    const result = gradeAnswers(answers, AttemptScoring.equal_100);
+    expect(result.patches.map((p) => [p.isCorrect, p.pointsAwarded])).toEqual([
+      [true, 34],
+      [false, 0],
+      [false, 0],
+    ]);
+    expect(result.autoGradedScore).toBe(34);
+    expect(result.autoGradedMax).toBe(102);
+    expect(result.hasUngradedEssay).toBe(false);
+  });
+
+  it('đáp án Sai: chọn Sai là đúng', () => {
+    const [patch] = gradeAnswers(
+      [single(false, false)],
+      AttemptScoring.equal_100,
+    ).patches;
+    expect(patch).toMatchObject({ isCorrect: true, pointsAwarded: 34 });
+  });
+
+  it('chọn một lựa chọn là tính đã trả lời', () => {
+    const base = {
+      type: QuestionType.true_false,
+      choiceIndex: null,
+      essayAnswer: null,
+    };
+    expect(isAnswered({ ...base, tfChoices: [false] })).toBe(true);
+    expect(isAnswered({ ...base, tfChoices: [null] })).toBe(false);
+    expect(isAnswered({ ...base, tfChoices: null })).toBe(false);
+  });
+});
+
+describe('tfChoicesOf — lựa chọn trả về client theo loại câu', () => {
+  it('Câu Đúng/Sai 1 phần tử, nhóm 4 phần tử, loại khác null', () => {
+    expect(
+      tfChoicesOf(QuestionType.true_false, [true, null, null, null]),
+    ).toEqual([true]);
+    expect(tfChoicesOf(QuestionType.true_false, null)).toEqual([null]);
+    expect(tfChoicesOf(QuestionType.true_false_group, [false])).toEqual([
+      false,
+      null,
+      null,
+      null,
+    ]);
+    expect(tfChoicesOf(QuestionType.single_choice, [true])).toBeNull();
+    expect(tfChoicesOf(QuestionType.essay, null)).toBeNull();
+  });
+});
 
 describe('normalizeTrueFalseChoices', () => {
   it('pads to 4 and drops non-boolean', () => {
@@ -185,5 +256,135 @@ describe('autoGradedMaxOf', () => {
     });
     expect(autoGradedMaxOf(answers, AttemptScoring.absolute_it)).toBe(1000);
     expect(autoGradedMaxOf(answers, AttemptScoring.equal_100)).toBe(1200);
+  });
+});
+
+describe('Câu điền vào ô trống', () => {
+  const KEY3 = [['から'], ['まで'], ['学校', 'がっこう']];
+  function fb(blankAnswers: (string | null)[] | null): GradableAnswer {
+    return {
+      id: `fb-${seq++}`,
+      type: QuestionType.fill_blank,
+      slot: QuestionSlot.required,
+      pointsPossible: 30,
+      choiceIndex: null,
+      correctIndex: null,
+      tfChoices: null,
+      tfAnswerKey: [],
+      blankAnswerKey: KEY3,
+      blankAnswers,
+    };
+  }
+
+  it('câu 3 ô đúng 2 ô được 2/3 điểm câu', () => {
+    const r = gradeAnswers(
+      [fb(['から', 'まで', '大学'])],
+      AttemptScoring.equal_100,
+    );
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 20 });
+  });
+
+  it('đủ ô đúng (theo luật chuẩn hoá, khai nhiều đáp án) là đúng cả câu', () => {
+    const r = gradeAnswers(
+      [fb([' から　', 'まで', 'がっこう'])],
+      AttemptScoring.equal_100,
+    );
+    expect(r.patches[0]).toMatchObject({ isCorrect: true, pointsAwarded: 30 });
+  });
+
+  it('ô bỏ trống được 0', () => {
+    const r = gradeAnswers([fb([null, '', '  '])], AttemptScoring.equal_100);
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 0 });
+  });
+
+  it('chỉ tính đã làm khi điền đủ mọi ô', () => {
+    const base = {
+      type: QuestionType.fill_blank,
+      choiceIndex: null,
+      essayAnswer: null,
+      tfChoices: null,
+      blankAnswerKey: KEY3,
+    };
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', null] })).toBe(
+      false,
+    );
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', '　'] })).toBe(
+      false,
+    );
+    expect(isAnswered({ ...base, blankAnswers: ['から', 'まで', 'x'] })).toBe(
+      true,
+    );
+  });
+});
+
+describe('Câu sắp xếp', () => {
+  // Thứ tự đúng: の・本・の・机 ; hiển thị [本, の, 机, の] = gốc [1, 0, 3, 2].
+  function ord(orderAnswer: string[]) {
+    return {
+      id: 'o',
+      type: QuestionType.ordering,
+      slot: QuestionSlot.required,
+      pointsPossible: 50,
+      choiceIndex: null,
+      correctIndex: null,
+      tfChoices: null,
+      tfAnswerKey: [],
+      options: ['本', 'の', '机', 'の'],
+      optionOrder: [1, 0, 3, 2],
+      orderAnswer,
+    };
+  }
+
+  it('khớp toàn bộ chuỗi thẻ thì đủ điểm', () => {
+    const r = gradeAnswers(
+      [ord(['の', '本', 'の', '机'])],
+      AttemptScoring.equal_100,
+    );
+    expect(r.patches[0]).toMatchObject({ isCorrect: true, pointsAwarded: 50 });
+  });
+
+  it('sai một vị trí là 0, không chấm từng phần', () => {
+    const r = gradeAnswers(
+      [ord(['本', 'の', 'の', '机'])],
+      AttemptScoring.equal_100,
+    );
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 0 });
+  });
+
+  it('chưa dùng hết thẻ là 0 và chưa trả lời', () => {
+    const r = gradeAnswers([ord(['の', '本', 'の'])], AttemptScoring.equal_100);
+    expect(r.patches[0]).toMatchObject({ isCorrect: false, pointsAwarded: 0 });
+    const base = {
+      type: QuestionType.ordering,
+      choiceIndex: null,
+      essayAnswer: null,
+      tfChoices: null,
+      options: ['本', 'の', '机', 'の'],
+    };
+    expect(isAnswered({ ...base, orderAnswer: ['の', '本', 'の'] })).toBe(
+      false,
+    );
+    expect(isAnswered({ ...base, orderAnswer: [] })).toBe(false);
+    expect(isAnswered({ ...base, orderAnswer: ['本', 'の', 'の', '机'] })).toBe(
+      true,
+    );
+  });
+});
+
+describe('itQuestionPoints', () => {
+  it('IT: trắc nghiệm 0,25đ, nhóm Đúng/Sai 1đ (đơn vị 1/100)', () => {
+    expect(itQuestionPoints(QuestionType.single_choice)).toBe(25);
+    expect(itQuestionPoints(QuestionType.true_false_group)).toBe(100);
+  });
+
+  it('loại câu ngoài hồ sơ IT giữ thang trắc nghiệm như trước', () => {
+    for (const type of [
+      QuestionType.essay,
+      QuestionType.true_false,
+      QuestionType.fill_blank,
+      QuestionType.ordering,
+    ]) {
+      expect(itQuestionPoints(type)).toBe(25);
+    }
   });
 });

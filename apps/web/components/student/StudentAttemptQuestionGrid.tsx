@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { cn } from "@/lib/utils";
 import type { AttemptQuestionDto } from "@/dtos/attempt.dto";
 import { getAttemptQuestionVisualStatus } from "@/lib/attempt-autosave.helpers";
@@ -42,12 +43,15 @@ export default function StudentAttemptQuestionGrid({
   questions,
   labels,
   className,
+  ref,
 }: {
   questions: AttemptQuestionDto[];
   /** Nhãn từng ô (đề IT: "1".."24", "II.1", "TC1·3"…). Mặc định 1..n. */
   labels?: string[];
   /** Vị trí (sticky/top…) do trang quyết định. */
   className?: string;
+  /** Trang đo chiều cao để thanh dính khác xếp ngay bên dưới. */
+  ref?: Ref<HTMLElement>;
 }) {
   const scrollToQuestion = (questionId: string) => {
     document
@@ -57,8 +61,9 @@ export default function StudentAttemptQuestionGrid({
 
   return (
     <section
+      ref={ref}
       className={cn(
-        "z-10 rounded-2xl border border-border-default bg-bg-surface/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg-surface/80",
+        "z-20 rounded-2xl border border-border-default bg-bg-surface/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg-surface/80",
         className,
       )}
       aria-label="Danh sách câu hỏi"

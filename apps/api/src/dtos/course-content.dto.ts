@@ -11,12 +11,15 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
   Max,
   MaxLength,
   Min,
+  Validate,
   ValidateIf,
 } from 'class-validator';
 import { LessonKind } from 'generated/enums';
+import { BlankAnswerConstraint } from './attempt.dto';
 import { CONTENT_LIMITS, HTTP_URL_OPTIONS } from './content-limits';
 
 /** Product cap for practice lần giao duration (12 hours). Matches FE + schema docs. */
@@ -345,7 +348,8 @@ export class QuestionLinkCreateDto {
   order?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Điểm của câu hỏi',
+    description:
+      'Điểm của câu hỏi. Hồ sơ JP: trọng số câu-trong-tiết (≥ 1, null = 1), đề chia 100 theo trọng số lúc bắt đầu làm bài',
     nullable: true,
   })
   @IsOptional()
@@ -371,7 +375,8 @@ export class QuestionLinkUpdateDto {
   order?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Điểm của câu hỏi',
+    description:
+      'Điểm của câu hỏi. Hồ sơ JP: trọng số câu-trong-tiết (≥ 1, null = 1), đề chia 100 theo trọng số lúc bắt đầu làm bài',
     nullable: true,
   })
   @IsOptional()
@@ -387,6 +392,14 @@ export class QuestionLinkUpdateDto {
   @IsOptional()
   @IsIn(['required', 'elective_1', 'elective_2'])
   slot?: 'required' | 'elective_1' | 'elective_2';
+}
+
+export class QuestionSetLinkCreateDto {
+  @ApiProperty({
+    description: 'ID Bộ câu hỏi (shared material) cần thêm cả bộ',
+  })
+  @IsUUID()
+  sharedMaterialId: string;
 }
 
 export class ReorderQuestionLinksDto {
@@ -415,6 +428,16 @@ export interface QuestionLinkResponseDto {
     content: string;
     options: unknown;
     tfAnswerKey: boolean[];
+    essayInputSize: 'short' | 'long' | null;
+    tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
+    /** Đáp án hợp lệ từng ô (câu điền vào ô trống, JP). */
+    blankAnswerKey: string[][] | null;
+    sharedMaterialId: string | null;
+    /** Audio nhúng (JP) — giữ khi sửa câu từ màn xếp đề. */
+    audioId: string | null;
+    audio: { id: string; originalName: string } | null;
+    /** Tư liệu dùng chung (JP) — badge trong danh sách câu của đề. */
+    sharedMaterial: { id: string; title: string } | null;
   };
 }
 
@@ -461,6 +484,30 @@ export class LessonQuizAnswerDto {
   @IsArray()
   @ArrayMaxSize(4)
   tfChoices?: (boolean | null)[] | null;
+  @ApiPropertyOptional({
+    description:
+      'Câu điền vào ô trống (JP): chữ học sinh gõ vào từng ô; null/rỗng = bỏ trống.',
+    nullable: true,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @Validate(BlankAnswerConstraint, { each: true })
+  blankAnswers?: (string | null)[] | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: [String],
+    description:
+      'Câu sắp xếp (JP): chữ thẻ theo thứ tự học sinh xếp; [] = chưa xếp.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  orderAnswer?: string[] | null;
 }
 
 export interface LessonQuizResponseDto {
@@ -477,12 +524,30 @@ export interface LessonQuizResponseDto {
     tfAnswerKey: boolean[];
     explanation: string | null;
     answerGuide: string | null;
+    /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
+    essayInputSize: 'short' | 'long' | null;
+    /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
+    tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
+    /** Đáp án hợp lệ từng ô — học sinh nhận null (chỉ biết `blankCount`). */
+    blankAnswerKey: string[][] | null;
+    /** Số ô trống (câu điền vào ô trống); loại khác = null / không có. */
+    blankCount?: number | null;
+    /** Audio nhúng (JP): signed URL ngắn hạn; null = không có. */
+    audioUrl: string | null;
+    /** Tư liệu dùng chung (JP); câu cùng tư liệu đứng liền nhau. */
+    sharedMaterial: {
+      id: string;
+      content: string;
+      audioUrl: string | null;
+    } | null;
   };
 }
 
 export interface QuestionLinkSummaryDto {
   totalQuestions: number;
   totalPoints: number;
+  /** Tổng trọng số (null tính là 1) — hồ sơ JP chia 100 theo trọng số. */
+  totalWeight: number;
   /** Lý do đề sai form nhóm tự chọn (IT), null khi hợp lệ. Đề sai form bị chặn lúc bắt đầu làm bài. */
   formWarning: string | null;
 }
@@ -495,6 +560,10 @@ export interface LessonQuizAnswerResponseDto {
   choiceIndex: number | null;
   essayAnswer: string | null;
   tfChoices: (boolean | null)[] | null;
+  /** Chữ học sinh gõ vào từng ô (câu điền vào ô trống). */
+  blankAnswers: (string | null)[] | null;
+  /** Chữ thẻ theo thứ tự học sinh xếp (câu sắp xếp). */
+  orderAnswer: string[];
   createdAt: Date;
   updatedAt: Date;
 }
