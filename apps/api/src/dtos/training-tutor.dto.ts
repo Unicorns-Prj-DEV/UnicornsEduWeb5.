@@ -36,8 +36,13 @@ export interface TrainingTutorClassDto {
   name: string;
 }
 
-export interface TrainingTutorDetailDto extends TrainingTutorSummaryDto {
+/** Dòng danh sách: hồ sơ + Lớp đang dạy (Lớp đã nghỉ chỉ có ở hồ sơ chi tiết). */
+export interface TrainingTutorListItemDto extends TrainingTutorSummaryDto {
   currentClasses: TrainingTutorClassDto[];
+}
+
+export interface TrainingTutorDetailDto extends TrainingTutorListItemDto {
+  /** Lớp đã nghỉ: lớp từng dạy nay không còn dạy, không phân biệt lý do. */
   pastClasses: TrainingTutorClassDto[];
   taughtSessionCount: number;
 }

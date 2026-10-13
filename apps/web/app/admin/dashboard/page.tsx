@@ -1,5 +1,6 @@
 "use client";
 
+import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -353,6 +354,7 @@ function getPersonnelCostFromBreakdown(dashboard: AdminDashboardDto) {
 
 function formatPendingPayrollNote(
   breakdown: AdminDashboardSummary["pendingPayrollBreakdown"] | undefined,
+  giftedLessonPlanEnabled: boolean,
 ) {
   const b = breakdown ?? {
     sessionAmount: 0,
@@ -364,7 +366,11 @@ function formatPendingPayrollNote(
     assistantAmount: 0,
     trainingManagerAmount: 0,
   };
-  return `Gia sư: ${formatCurrency(b.sessionAmount)} - ${LESSON_PLAN_LABEL}: ${formatCurrency(b.lessonAmount)} - SALE&CSKH: ${formatCurrency(b.customerCareAmount)} - Thưởng: ${formatCurrency(b.bonusAmount)} - Trợ cấp khác: ${formatCurrency(b.extraAllowanceAmount)} - Lương cứng: ${formatCurrency(b.fixedSalaryAmount ?? 0)} - Trợ lí: ${formatCurrency(b.assistantAmount)} - QL lớp: ${formatCurrency(b.trainingManagerAmount)} · Mọi khoản pending/unpaid mọi thời điểm (không lọc theo kỳ).`;
+  // Giáo án học sinh giỏi chỉ có trên IT.
+  const lessonSegment = giftedLessonPlanEnabled
+    ? ` - ${LESSON_PLAN_LABEL}: ${formatCurrency(b.lessonAmount)}`
+    : "";
+  return `Gia sư: ${formatCurrency(b.sessionAmount)}${lessonSegment} - SALE&CSKH: ${formatCurrency(b.customerCareAmount)} - Thưởng: ${formatCurrency(b.bonusAmount)} - Trợ cấp khác: ${formatCurrency(b.extraAllowanceAmount)} - Lương cứng: ${formatCurrency(b.fixedSalaryAmount ?? 0)} - Trợ lí: ${formatCurrency(b.assistantAmount)} - QL lớp: ${formatCurrency(b.trainingManagerAmount)} · Mọi khoản pending/unpaid mọi thời điểm (không lọc theo kỳ).`;
 }
 
 function getOtherCostFromBreakdown(dashboard: AdminDashboardDto) {
@@ -446,6 +452,7 @@ export default function AdminDashboardTabPage() {
   const routeBase = resolveAdminLikeRouteBase(pathname);
   const quickViewYearLabelId = useId();
 
+  const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const fullProfileQuery = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
@@ -712,7 +719,10 @@ export default function AdminDashboardTabPage() {
       key: "pending-payroll",
       label: "Trợ cấp chờ thanh toán",
       value: snapshotDashboard.summary.pendingPayrollTotal ?? 0,
-      note: formatPendingPayrollNote(snapshotDashboard.summary.pendingPayrollBreakdown),
+      note: formatPendingPayrollNote(
+        snapshotDashboard.summary.pendingPayrollBreakdown,
+        giftedLessonPlanEnabled !== false,
+      ),
     },
     {
       key: "personnel-cost",
@@ -968,12 +978,18 @@ export default function AdminDashboardTabPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={buildAdminLikePath(routeBase, "monthly-report")}
+                className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+              >
+                Báo cáo tháng
+              </Link>
               <Link
                 href={buildAdminLikePath(routeBase, "dashboard/statistics")}
                 className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
-                Thống kê theo tháng
+                Thống kê năm
               </Link>
               <button
                 type="button"

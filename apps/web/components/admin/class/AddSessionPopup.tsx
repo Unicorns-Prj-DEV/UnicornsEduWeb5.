@@ -58,7 +58,6 @@ import {
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
   SessionUnsavedChangesDialog,
-  TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
@@ -310,7 +309,6 @@ export default function AddSessionPopup({
   const [tutorialError, setTutorialError] = useState("");
   const [recordingUrlError, setRecordingUrlError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [teacherPaymentStatus, setTeacherPaymentStatus] = useState<string>("unpaid");
   const [selectedTeacherId, setSelectedTeacherId] = useState(() => resolveSelectedTeacherId({
       defaultTeacherId,
@@ -344,7 +342,6 @@ export default function AddSessionPopup({
       homework,
       tutorial,
       recordingUrl,
-      isTrialLesson,
       teacherPaymentStatus,
       teacherId: selectedTeacherId,
       manualAllowanceGrossOverride,
@@ -360,7 +357,6 @@ export default function AddSessionPopup({
       date,
       endTime,
       homework,
-      isTrialLesson,
       lessonContent,
       manualAllowanceGrossOverride,
       recordingUrl,
@@ -408,12 +404,6 @@ export default function AddSessionPopup({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (isTrialLesson) {
-      setManualAllowanceGrossOverride(null);
-    }
-  }, [isTrialLesson]);
-
   const attendanceSummary = useMemo(() => {
     return attendanceItems.reduce(
       (acc, item) => ({
@@ -424,6 +414,7 @@ export default function AddSessionPopup({
         present: 0,
         excused: 0,
         absent: 0,
+        trial: 0,
       },
     );
   }, [attendanceItems]);
@@ -576,7 +567,7 @@ export default function AddSessionPopup({
     chargeableAttendanceCount,
   ]);
 
-  const coefficientForPreview = isTrialLesson ? 0 : 1;
+  const coefficientForPreview = 1;
 
   const expectedAllowanceGrossPreview = useMemo(() => {
     if (allowanceRawBasePreview == null || !classPricing) return null;
@@ -792,12 +783,11 @@ export default function AddSessionPopup({
       }
     }
 
-    const coeffNum = isTrialLesson ? 0 : 1;
+    const coeffNum = 1;
 
     if (
       canEditAllowance &&
-      manualAllowanceGrossOverride !== null &&
-      !isTrialLesson
+      manualAllowanceGrossOverride !== null
     ) {
       if (
         !Number.isFinite(manualAllowanceGrossOverride) ||
@@ -822,8 +812,7 @@ export default function AddSessionPopup({
       coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
       ...(canEditAllowance &&
-      manualAllowanceGrossOverride !== null &&
-      !isTrialLesson
+      manualAllowanceGrossOverride !== null
         ? {
             allowanceAmount: grossAllowanceToRawBaseVnd(
               manualAllowanceGrossOverride,
@@ -963,11 +952,6 @@ export default function AddSessionPopup({
                       </div>
                     )}
 
-                    <TrialLessonToggle
-                      checked={isTrialLesson}
-                      onChange={setIsTrialLesson}
-                    />
-
                     {(canEditAllowance || showAllowancePreview) && classPricing ? (
                       <SessionTeacherAllowanceEstimateCard
                         amount={finalAllowancePreview}
@@ -985,12 +969,6 @@ export default function AddSessionPopup({
                           canEditAllowance
                             ? null
                             : "Ước tính trước khấu trừ vận hành/thuế. Số chính thức chốt khi lưu buổi theo điểm danh."
-                        }
-                        editLocked={isTrialLesson}
-                        editLockedReason={
-                          isTrialLesson
-                            ? "Buổi dạy thử không tính trợ cấp."
-                            : null
                         }
                         onManualGrossChange={setManualAllowanceGrossOverride}
                         onClearManualOverride={() =>
@@ -1077,6 +1055,7 @@ export default function AddSessionPopup({
                           present={attendanceSummary.present}
                           excused={attendanceSummary.excused}
                           absent={attendanceSummary.absent}
+                          trial={attendanceSummary.trial}
                         />
                       </>
                     )}

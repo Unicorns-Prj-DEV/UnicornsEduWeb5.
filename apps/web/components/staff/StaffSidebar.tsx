@@ -18,6 +18,10 @@ import UserAvatar from "@/components/ui/UserAvatar";
 import { UserProfileDialogTrigger } from "@/components/user-profile/UserProfileDialog";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
+import {
+  isGiftedLessonPlanRoute,
+  useGiftedLessonPlanEnabled,
+} from "@/lib/gifted-lesson-plan";
 
 type MenuVisibility = {
   hasStaffProfile: boolean;
@@ -219,6 +223,13 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
       label: "Dashboard",
       icon: <IconHome />,
       isActive: (pathname) => pathname === "/staff",
+      isVisible: () => true,
+    },
+    {
+      href: "/staff/monthly-report",
+      label: "Báo cáo tháng",
+      icon: <IconMonthlyReport />,
+      isActive: (pathname) => pathname.startsWith("/staff/monthly-report"),
       isVisible: () => true,
     },
     {
@@ -488,6 +499,13 @@ function IconCommunication() {
   );
 }
 
+function IconMonthlyReport() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+}
 function IconHistory() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -571,7 +589,10 @@ export default function StaffSidebar() {
         ...DEFAULT_MENU_ITEMS.filter((item) => item.href !== "/staff/profile"),
       ]
     : DEFAULT_MENU_ITEMS;
+  const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const menuItems = dedupeMenuItems(baseMenuItems).filter((item) =>
+    // Giáo án học sinh giỏi chỉ có trên IT.
+    !(giftedLessonPlanEnabled === false && isGiftedLessonPlanRoute(item.href)) &&
     item.isVisible({
       hasStaffProfile,
       canAccessClassWorkspace,

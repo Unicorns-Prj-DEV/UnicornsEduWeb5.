@@ -142,7 +142,8 @@ model WalletTransactionsHistory {
   note                          String?
   date                          DateTime                         @default(now()) @db.Date
   createdAt                     DateTime                         @default(now()) @map("created_at") @db.Timestamptz(6)
-  studentTransactionAttendances Attendance?
+  studentTransactionAttendances Attendance?                      @relation("AttendanceTransaction")
+  trialCatchUpAttendance        Attendance?                      @relation("AttendanceTrialCatchUpTransaction")
   student                       StudentInfo                      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   sepayWalletOrder              StudentWalletSepayOrder?
   directTopUpRequest            StudentWalletDirectTopUpRequest?

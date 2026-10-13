@@ -1,3 +1,7 @@
+import type {
+  StudentCustomerSource,
+  StudentDropOutReasonGroup,
+} from 'generated/enums';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -1101,4 +1105,108 @@ export interface StaffDashboardDto {
   accountant?: StaffDashboardAccountantSectionDto;
   accountantExpense?: StaffDashboardExpenseSectionDto;
   training?: StaffDashboardTrainingSectionDto;
+}
+
+export class GetAdminMonthlyReportQueryDto {
+  @ApiProperty({ description: 'Report month in 01-12 format.', example: '09' })
+  @Matches(/^(0[1-9]|1[0-2])$/, { message: 'month must use 01-12 format.' })
+  month: string;
+
+  @ApiProperty({ description: 'Report year in YYYY format.', example: '2026' })
+  @Matches(/^\d{4}$/, { message: 'year must use YYYY format.' })
+  year: string;
+}
+
+/** Nhóm lý do nghỉ, cộng `unclassified` cho học sinh nghỉ chưa có nhóm. */
+export type MonthlyReportDropOutGroupKey =
+  | StudentDropOutReasonGroup
+  | 'unclassified';
+
+export interface MonthlyReportKpiDto {
+  /** Tổng nạp ví hợp lệ (QR completed + nạp thẳng approved) trong tháng. */
+  totalTopUpInMonth: number;
+  topUpTransactionCount: number;
+  /** Học sinh đang học tại lúc xem (snapshot). */
+  activeStudents: number;
+  newStudents: number;
+  droppedStudents: number;
+  netChange: number;
+  newStillActive: number;
+}
+
+export interface MonthlyReportCourseDto {
+  courseId: string;
+  courseName: string;
+}
+
+export interface MonthlyReportMatrixCellDto {
+  /** `null` = chưa gán nguồn khách. */
+  customerSource: StudentCustomerSource | null;
+  /** `null` = Chưa xếp lớp. */
+  courseId: string | null;
+  newCount: number;
+  earlyDropCount: number;
+  /** Số học sinh trong ô đã có tổng nạp > 0. */
+  paidCount: number;
+  /** Tổng nạp từ lần nạp đầu tới hết tháng báo cáo. */
+  totalTopUp: number;
+}
+
+export interface MonthlyReportDropOutGroupCountDto {
+  group: MonthlyReportDropOutGroupKey;
+  count: number;
+}
+
+export interface MonthlyReportCustomerCareRowDto {
+  /** `null` = học sinh chưa có CSKH phụ trách. */
+  staffId: string | null;
+  staffName: string;
+  activeStudents: number;
+  newStudents: number;
+  droppedStudents: number;
+  netChange: number;
+  earlyDropCount: number;
+  totalTopUpInMonth: number;
+  topUpTransactionCount: number;
+  droppedByGroup: MonthlyReportDropOutGroupCountDto[];
+}
+
+export interface MonthlyReportNewStudentDto {
+  studentId: string;
+  fullName: string;
+  customerCareStaffName: string | null;
+  className: string | null;
+  courseId: string | null;
+  courseName: string | null;
+  customerSource: StudentCustomerSource | null;
+  firstTopUpAt: string;
+  totalTopUp: number;
+  /** Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ. */
+  isEarlyDrop: boolean;
+  dropOutDate: string | null;
+  dropOutReasonGroup: StudentDropOutReasonGroup | null;
+}
+
+export interface MonthlyReportDroppedStudentDto {
+  studentId: string;
+  fullName: string;
+  customerCareStaffName: string | null;
+  className: string | null;
+  dropOutDate: string;
+  dropOutReasonGroup: StudentDropOutReasonGroup | null;
+  dropOutReason: string | null;
+}
+
+export interface AdminMonthlyReportDto {
+  month: string;
+  year: string;
+  generatedAt: string;
+  kpi: MonthlyReportKpiDto;
+  /** Chỉ các khoá có ít nhất một học sinh mới, theo tên. */
+  courses: MonthlyReportCourseDto[];
+  matrix: MonthlyReportMatrixCellDto[];
+  droppedByGroup: MonthlyReportDropOutGroupCountDto[];
+  customerCare: MonthlyReportCustomerCareRowDto[];
+  newStudents: MonthlyReportNewStudentDto[];
+  droppedStudents: MonthlyReportDroppedStudentDto[];
 }

@@ -79,7 +79,6 @@ import {
   SessionFormDialogHeader,
   SessionTeacherAllowanceEstimateCard,
   SessionUnsavedChangesDialog,
-  TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
@@ -907,6 +906,7 @@ export default function SessionHistoryTable({
   const [editingSession, setEditingSession] = useState<SessionItem | null>(
     null,
   );
+  const isLegacyTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
   const [sessionToDelete, setSessionToDelete] = useState<SessionItem | null>(
     null,
   );
@@ -921,7 +921,6 @@ export default function SessionHistoryTable({
   const [homeworkError, setHomeworkError] = useState("");
   const [tutorialError, setTutorialError] = useState("");
   const [editPaymentStatus, setEditPaymentStatus] = useState("unpaid");
-  const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [editTeacherId, setEditTeacherId] = useState("");
   const [teachersList, setTeachersList] = useState<SessionTeacherOption[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(false);
@@ -946,7 +945,6 @@ export default function SessionHistoryTable({
   const canEditAllowance = allowAllowanceEdit ?? allowFinancialEdits;
   const canEditAttendanceTuition =
     allowAttendanceTuitionEdits ?? allowFinancialEdits;
-  const showTrialLessonToggle = !readOnlySessionDetails;
   const showTeacherInput =
     allowTeacherSelection && (teachersList.length > 0 || teachersLoading);
   const teacherFieldClass = isWideEditor
@@ -1249,8 +1247,6 @@ export default function SessionHistoryTable({
     setEditPaymentStatus(
       status === "paid" ? "paid" : status === "deposit" ? "deposit" : "unpaid",
     );
-    const coeff = Number(session.coefficient ?? 1);
-    setIsTrialLesson(Number.isFinite(coeff) && coeff === 0);
     loadTeachersForEdit(session);
     loadAttendanceForEdit(session);
   };
@@ -1290,7 +1286,6 @@ export default function SessionHistoryTable({
       homework: editHomework,
       tutorial: editTutorial,
       recordingUrl: editRecordingUrl,
-      isTrialLesson,
       teacherPaymentStatus: editPaymentStatus,
       teacherId: editTeacherId,
       manualAllowanceGrossOverride,
@@ -1312,7 +1307,6 @@ export default function SessionHistoryTable({
       editStartTime,
       editTeacherId,
       editTutorial,
-      isTrialLesson,
       manualAllowanceGrossOverride,
     ],
   );
@@ -1433,7 +1427,8 @@ export default function SessionHistoryTable({
               : {}),
           }))
         : [];
-    const coeffNum = showTrialLessonToggle ? (isTrialLesson ? 0 : 1) : undefined;
+    // Hệ số buổi giữ nguyên khi sửa (buổi Dạy thử cũ có hệ số 0); học thử giờ là trạng thái điểm danh.
+    const coeffNum = isLegacyTrialLesson ? 0 : undefined;
     if (
       canEditAllowance &&
       manualAllowanceGrossOverride !== null &&
@@ -1579,6 +1574,7 @@ export default function SessionHistoryTable({
           present: 0,
           excused: 0,
           absent: 0,
+          trial: 0,
         },
       ),
     [attendanceItems],
@@ -1603,14 +1599,11 @@ export default function SessionHistoryTable({
         ["accountant", "accountant_income"].includes(role),
       ));
   const coefficientForAllowancePreview = useMemo(() => {
-    if (showTrialLessonToggle) {
-      return isTrialLesson ? 0 : 1;
-    }
     const s = editingSession?.coefficient;
     const c = typeof s === "number" ? s : Number(s);
     if (Number.isFinite(c) && c >= 0 && c <= 1) return c;
     return 1;
-  }, [editingSession?.coefficient, isTrialLesson, showTrialLessonToggle]);
+  }, [editingSession?.coefficient]);
 
   const selectedTeacherId =
     editTeacherId.trim() || editingSession?.teacherId || "";
@@ -1736,17 +1729,11 @@ export default function SessionHistoryTable({
     previewBlockCount,
   ]);
 
-  useEffect(() => {
-    if (isTrialLesson) {
-      setManualAllowanceGrossOverride(null);
-    }
-  }, [isTrialLesson]);
-
   const isAllowancePaymentLocked =
     isSessionPaymentLockedStatus(editPaymentStatus);
-  const isAllowanceEditLocked = isTrialLesson || isAllowancePaymentLocked;
-  const allowanceEditLockedReason = isTrialLesson
-    ? "Buổi dạy thử không tính trợ cấp."
+  const isAllowanceEditLocked = isLegacyTrialLesson || isAllowancePaymentLocked;
+  const allowanceEditLockedReason = isLegacyTrialLesson
+    ? "Buổi dạy thử (dữ liệu cũ) không tính trợ cấp."
     : isAllowancePaymentLocked
       ? "Buổi đã thanh toán hoặc ghi cọc — không chỉnh trợ cấp."
       : null;
@@ -2996,14 +2983,6 @@ export default function SessionHistoryTable({
                         </div>
                       ) : null}
 
-                      {showTrialLessonToggle ? (
-                        <TrialLessonToggle
-                          checked={isTrialLesson}
-                          onChange={setIsTrialLesson}
-                          disabled={readOnlySessionDetails}
-                          className={fullWidthFieldClass}
-                        />
-                      ) : null}
 
                       {allowPaymentStatusEdit ? (
                         <label
@@ -3141,6 +3120,7 @@ export default function SessionHistoryTable({
                               present={attendanceSummary.present}
                               excused={attendanceSummary.excused}
                               absent={attendanceSummary.absent}
+                              trial={attendanceSummary.trial}
                             />
                           </>
                         )}

@@ -35,9 +35,28 @@ describe('UserDeviceService', () => {
         refreshToken: 'stale-refresh',
         userId: 'user-1',
         deviceId: 'device-1',
-        roleType: 'staff',
       }),
     ).resolves.toBeNull();
+  });
+
+  it('does not hand a revoked student device the session of another live device', async () => {
+    // Thiết bị A đã bị force-logout (không còn row); học sinh đang đăng nhập máy B.
+    prisma.userDevice.findUnique.mockResolvedValue(null);
+    prisma.userDevice.findFirst.mockResolvedValue({
+      id: 'device-b',
+      userId: 'student-1',
+      tokenHash: 'b-hash',
+      lastActiveAt: new Date(),
+    });
+
+    await expect(
+      service.assertLiveRefreshDevice({
+        refreshToken: 'device-a-refresh',
+        userId: 'student-1',
+        deviceId: 'device-a',
+      }),
+    ).resolves.toBeNull();
+    expect(prisma.userDevice.findFirst).not.toHaveBeenCalled();
   });
 
   it('accepts a refresh token that matches the live device hash', async () => {
@@ -56,7 +75,6 @@ describe('UserDeviceService', () => {
         refreshToken,
         userId: 'user-1',
         deviceId: 'device-1',
-        roleType: 'staff',
       }),
     ).resolves.toEqual(device);
   });
@@ -74,7 +92,9 @@ describe('UserDeviceService', () => {
 
   it('writes lastActiveAt when the throttle window has elapsed', async () => {
     prisma.userDevice.updateMany.mockResolvedValue({ count: 1 });
-    const lastActiveAt = new Date(Date.now() - LAST_ACTIVE_TOUCH_INTERVAL_MS - 1);
+    const lastActiveAt = new Date(
+      Date.now() - LAST_ACTIVE_TOUCH_INTERVAL_MS - 1,
+    );
 
     await expect(
       service.touchDeviceIfStale({

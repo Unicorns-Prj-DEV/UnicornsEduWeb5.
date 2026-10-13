@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
-import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
+import { useStudentLogout } from "@/hooks/use-student-logout";
 import { AUTH_FULL_PROFILE_QUERY_KEY } from "@/lib/profile-full-query";
 import { SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
@@ -16,8 +14,6 @@ import { cn } from "@/lib/utils";
 import { UserRound, WalletCards, type LucideIcon } from "lucide-react";
 
 export default function StudentHeader() {
-  const { push } = useRouter();
-  const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const { data: fullProfile } = useQuery({
@@ -26,17 +22,7 @@ export default function StudentHeader() {
     staleTime: 60 * 1000,
   });
 
-  const logoutMutation = useMutation({
-    mutationFn: () => authApi.studentLogout(),
-    onSuccess: async () => {
-      clearLogoutScopedQueries(queryClient);
-      toast.success("Đã đăng xuất");
-      push("/auth/login");
-    },
-    onError: () => {
-      toast.error("Đăng xuất thất bại");
-    },
-  });
+  const logoutMutation = useStudentLogout();
 
   const avatarSrc = fullProfile?.avatarUrl || undefined;
   const displayName =

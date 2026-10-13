@@ -1,15 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
 import { animate, stagger } from "animejs";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Role } from "@/dtos/Auth.dto";
-import { useAuth } from "@/context/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 import * as authApi from "@/lib/apis/auth.api";
-import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
+import { useStudentLogout } from "@/hooks/use-student-logout";
 import { SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
@@ -92,14 +89,11 @@ function resolveActiveHref(pathname: string) {
 
 export default function StudentSidebar() {
   const pathname = usePathname();
-  const { push } = useRouter();
-  const queryClient = useQueryClient();
   const navListRef = useRef<HTMLUListElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const { setUser } = useAuth();
   const [activeHrefState, setActiveHrefState] = useState<string | null>(null);
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (pathname !== prevPathname) {
@@ -157,23 +151,7 @@ export default function StudentSidebar() {
       : "translateX(-100%)"
     : "translateX(0)";
 
-  const logoutMutation = useMutation({
-    mutationFn: authApi.studentLogout,
-    onSuccess: async () => {
-      await clearLogoutScopedQueries(queryClient);
-      setUser({
-        id: "",
-        accountHandle: "",
-        roleType: Role.guest,
-        requiresPasswordSetup: false,
-        avatarUrl: null,
-      });
-      push("/");
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const logoutMutation = useStudentLogout("/");
 
   const avatarInitial =
     fullProfile?.studentInfo?.fullName?.trim()?.charAt(0)?.toUpperCase() ??

@@ -233,6 +233,7 @@ describe('ClassService', () => {
       mockStaffOperationsAccess as never,
       mockActionHistoryService as never,
       mockCalendarService as never,
+      { reconcile: jest.fn() } as never,
     );
     jest
       .spyOn(
@@ -1090,7 +1091,7 @@ describe('ClassService', () => {
       );
       expect(mockTx.attendance.update).toHaveBeenCalledWith({
         where: { id: 'att-unpaid' },
-        data: { tuitionFee: 240000 },
+        data: { tuitionFee: 240000, trialCatchUpFee: null },
       });
       expect(mockTx.attendance.update).not.toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'att-paid' } }),

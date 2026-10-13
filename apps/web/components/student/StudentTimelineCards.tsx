@@ -12,12 +12,13 @@ import { formatVnWeekday } from "@/lib/formatters";
 type TimelineSession = NonNullable<ClassTimelineItemDto["session"]>;
 type TimelineSurvey = NonNullable<ClassTimelineItemDto["survey"]>;
 
-/** Nhãn tiếng Việt cho `AttendanceStatus` (present | excused | absent). */
+/** Nhãn tiếng Việt cho `AttendanceStatus` (present | excused | absent | trial). */
 export function attendanceStatusLabel(status: string | null): string | null {
   if (!status) return null;
   if (status === "present") return "Có mặt";
   if (status === "excused") return "Vắng có phép";
   if (status === "absent") return "Vắng mặt";
+  if (status === "trial") return "Học thử";
   return status;
 }
 

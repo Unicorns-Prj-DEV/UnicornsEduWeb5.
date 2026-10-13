@@ -80,6 +80,8 @@ model StudentInfo {
   dropOutDate               DateTime?                         @map("drop_out_date") @db.Date
   /// Lý do nghỉ học, bắt buộc khi chuyển sang nghỉ; giữ lại khi học sinh học lại.
   dropOutReason             String?                           @map("drop_out_reason") @db.VarChar(500)
+  /// Nhóm lý do nghỉ, bắt buộc cùng lý do khi chuyển sang nghỉ; null = Chưa phân loại.
+  dropOutReasonGroup        StudentDropOutReasonGroup?        @map("drop_out_reason_group")
   createdAt                 DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
   userId                    String?                           @unique @map("user_id")

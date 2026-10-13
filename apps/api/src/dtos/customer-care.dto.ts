@@ -1,4 +1,8 @@
-import { PaymentStatus, StudentStatus } from 'generated/enums';
+import {
+  PaymentStatus,
+  StudentDropOutReasonGroup,
+  StudentStatus,
+} from 'generated/enums';
 
 export interface CustomerCareStudentClassDto {
   id: string;
@@ -99,17 +103,21 @@ export interface CustomerCareBulkPaymentStatusUpdateResultDto {
   updatedCount: number;
 }
 
-/** Học sinh nghỉ trong tháng điền bù mà chưa có lý do nghỉ. */
+/** Học sinh nghỉ từ mốc nhắc mà còn thiếu lý do hoặc nhóm lý do nghỉ. */
 export interface CustomerCareMissingDropOutReasonDto {
   studentId: string;
   fullName: string;
   /** Ngày nghỉ học, dạng `YYYY-MM-DD`. */
   dropOutDate: string;
+  /** Lý do hiện có (để điền sẵn); null khi còn thiếu. */
+  dropOutReason: string | null;
+  /** Nhóm lý do hiện có; null = Chưa phân loại. */
+  dropOutReasonGroup: StudentDropOutReasonGroup | null;
 }
 
 export interface CustomerCareMissingDropOutReasonListDto {
-  /** Tháng cần điền bù lý do nghỉ, dạng `YYYY-MM`. */
-  monthKey: string;
+  /** Mốc ngày nghỉ bắt đầu nhắc, dạng `YYYY-MM-DD`. */
+  since: string;
   items: CustomerCareMissingDropOutReasonDto[];
 }
 

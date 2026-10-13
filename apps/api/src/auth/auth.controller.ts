@@ -615,7 +615,13 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Login request created, verification email sent.',
+    description:
+      'Login request created, verification email sent. Body includes `maskedEmail` (`...abcd@domain`).',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      '`NOT_STUDENT_ACCOUNT`, or `EMAIL_NOT_VERIFIED` — an email-verification mail is sent on the same click and `maskedEmail` is included when sending succeeded.',
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials.' })
   @ApiResponse({
@@ -782,6 +788,18 @@ export class AuthController {
     @Req() req: GoogleAuthRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
+    if (
+      req.user.roleType === UserRole.student &&
+      !(await this.authService.prepareStudentDeviceForGoogleLogin(req.user.id))
+    ) {
+      return res.redirect(
+        this.buildFrontendRedirectUrl(
+          '/auth/login',
+          new URLSearchParams({ error: 'device_blocked' }),
+        ),
+      );
+    }
+
     const rememberMe = true;
     const tokenPair = await this.authService.issueTokenPairForUser(
       req.user.id,

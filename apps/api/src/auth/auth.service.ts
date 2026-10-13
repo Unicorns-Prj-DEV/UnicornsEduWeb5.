@@ -33,6 +33,7 @@ import { createSignedStorageUrl } from 'src/storage/supabase-storage';
 import { STAFF_DATA_CONSENT_VERSION } from './constants';
 import { UserDeviceService } from './user-device.service';
 import type { DeviceInfo } from './user-device.service';
+import { maskEmailAddress } from 'src/common/mask-email.util';
 
 type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
@@ -212,6 +213,17 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Học sinh bắt buộc đi luồng `student/login` (magic link + một thiết bị).
+    // Không chặn ở đây thì gọi thẳng /auth/login là tạo thêm thiết bị tùy ý.
+    if (user.roleType === UserRole.student) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'STUDENT_LOGIN_REQUIRED',
+        message:
+          'Tài khoản học sinh cần đăng nhập qua xác minh email. Vui lòng đăng nhập lại.',
+      });
     }
 
     return {
@@ -430,7 +442,6 @@ export class AuthService {
       refreshToken,
       userId: payload.id,
       deviceId: payload.deviceId,
-      roleType: payload.roleType,
     });
     if (!device) {
       return null;
@@ -1090,7 +1101,12 @@ export class AuthService {
     deviceInfo?: DeviceInfo,
     ipAddress?: string,
     emailLinkOrigin?: PublicRequestOrigin,
-  ): Promise<{ requestId: string; activateSecret: string; message: string }> {
+  ): Promise<{
+    requestId: string;
+    activateSecret: string;
+    message: string;
+    maskedEmail: string;
+  }> {
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [{ accountHandle }, { email: accountHandle }],
@@ -1123,11 +1139,19 @@ export class AuthService {
     }
 
     if (!user.emailVerified) {
+      // Bấm Đăng nhập một lần là gửi luôn mail xác minh email; FE hiện
+      // `maskedEmail` để người dùng biết mail đi tới hộp thư nào.
+      const maskedEmail = await this.sendLoginEmailVerification(
+        user.email,
+        emailLinkOrigin,
+      );
       throw new BadRequestException({
         statusCode: 400,
         error: 'EMAIL_NOT_VERIFIED',
-        message:
-          'Email chưa được xác minh. Vui lòng xác minh email trước khi đăng nhập.',
+        message: maskedEmail
+          ? 'Email chưa được xác minh. Đã gửi email xác minh, vui lòng kiểm tra hộp thư rồi đăng nhập lại.'
+          : 'Email chưa được xác minh. Vui lòng xác minh email trước khi đăng nhập.',
+        ...(maskedEmail ? { maskedEmail } : {}),
       });
     }
 
@@ -1185,7 +1209,43 @@ export class AuthService {
       activateSecret,
       message:
         'Đã gửi email xác minh. Vui lòng kiểm tra hộp thư và bấm liên kết để hoàn tất đăng nhập.',
+      maskedEmail: maskEmailAddress(user.email),
     };
+  }
+
+  /**
+   * Gửi mail xác minh email cho học sinh chưa xác minh khi bấm Đăng nhập.
+   * Trả email đã che khi gửi được; `null` khi không có email hoặc gửi lỗi
+   * (FE khi đó chỉ toast lỗi).
+   */
+  private async sendLoginEmailVerification(
+    email: string,
+    emailLinkOrigin?: PublicRequestOrigin,
+  ): Promise<string | null> {
+    const targetEmail = email.trim().toLowerCase();
+    const maskedEmail = maskEmailAddress(targetEmail);
+    if (!maskedEmail) {
+      return null;
+    }
+
+    try {
+      const token = await this.generateEmailVerificationToken(
+        targetEmail,
+        'email-verify',
+      );
+      await this.mailService.sendVerificationEmail(
+        targetEmail,
+        token,
+        emailLinkOrigin,
+      );
+      return maskedEmail;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send email verification on login to ${targetEmail}`,
+        error instanceof Error ? error.stack : error,
+      );
+      return null;
+    }
   }
 
   async studentLoginPoll(requestId: string): Promise<{ verified: boolean }> {
@@ -1244,6 +1304,19 @@ export class AuthService {
       throw new UnauthorizedException('Invalid activation secret');
     }
 
+    // Claim nguyên tử: hai lần activate song song (poll chồng nhau) chỉ một lần
+    // đi tiếp, tránh sinh hai UserDevice cho cùng học sinh.
+    const claimed = await this.prisma.loginRequest.deleteMany({
+      where: { id: request.id, verified: true },
+    });
+    if (claimed.count !== 1) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'LOGIN_REQUEST_ALREADY_USED',
+        message: 'Yêu cầu đăng nhập đã được sử dụng.',
+      });
+    }
+
     // Remove any existing devices for this student (single-device rule)
     await this.userDeviceService.removeAllDevicesForUser(request.userId);
     this.authIdentityCacheService.invalidateHasActiveDevice(request.userId);
@@ -1281,9 +1354,6 @@ export class AuthService {
       rememberMe,
       device.id,
     );
-
-    // Cleanup the login request
-    await this.prisma.loginRequest.delete({ where: { id: request.id } });
 
     return tokenPair;
   }
@@ -1410,6 +1480,21 @@ export class AuthService {
     this.invalidateAuthIdentityCache(userId);
 
     return { message: 'Đã đăng xuất' };
+  }
+
+  /**
+   * Google đã chứng minh quyền sở hữu email (tương đương magic link), nhưng
+   * luật một thiết bị vẫn phải áp: còn thiết bị sống → từ chối; không còn →
+   * dọn các row idle để học sinh chỉ có đúng một UserDevice sau khi đăng nhập.
+   * @returns false nếu học sinh đang đăng nhập ở thiết bị khác.
+   */
+  async prepareStudentDeviceForGoogleLogin(userId: string): Promise<boolean> {
+    if (await this.userDeviceService.hasActiveDevice(userId)) {
+      return false;
+    }
+    await this.userDeviceService.removeAllDevicesForUser(userId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(userId);
+    return true;
   }
 
   async touchStudentDevice(deviceTokenHash: string) {

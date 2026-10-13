@@ -12,7 +12,7 @@ import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { SidebarThemePicker } from "@/components/shell";
 import {
   isRestrictedByEmailVerification,
-  OPEN_EMAIL_VERIFICATION_MODAL_EVENT,
+  openEmailVerificationModal,
 } from "@/lib/email-verification-access";
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 
@@ -105,9 +105,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
                     return;
                   }
                   event.preventDefault();
-                  window.dispatchEvent(
-                    new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT),
-                  );
+                  openEmailVerificationModal({ kind: "status" });
                 }}
                 className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary sm:size-10"
               >
@@ -131,9 +129,7 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
                     return;
                   }
                   event.preventDefault();
-                  window.dispatchEvent(
-                    new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT),
-                  );
+                  openEmailVerificationModal({ kind: "status" });
                 }}
                 className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary font-semibold text-text-primary ring-2 ring-border-default transition hover:bg-primary hover:text-text-inverse hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ue-border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
                 aria-label="Về trang chính theo vai trò"

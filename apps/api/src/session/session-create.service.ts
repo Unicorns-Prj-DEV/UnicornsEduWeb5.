@@ -24,6 +24,7 @@ import { SessionLedgerService } from './session-ledger.service';
 import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
+import { SessionTrialCatchUpService } from './session-trial-catch-up.service';
 import { SessionValidationService } from './session-validation.service';
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
@@ -74,6 +75,7 @@ export class SessionCreateService {
     private readonly sessionSnapshotService: SessionSnapshotService,
     private readonly sessionScheduleRulesService: SessionScheduleRulesService,
     private readonly actionHistoryService: ActionHistoryService,
+    private readonly sessionTrialCatchUpService: SessionTrialCatchUpService,
   ) {}
 
   async createSession(data: SessionCreateDto, actor?: ActionHistoryActor) {
@@ -399,6 +401,18 @@ export class SessionCreateService {
           if (isOneTimeClass) {
             await lockOneTimeClassCharges(tx, data.classId);
           }
+          await this.sessionTrialCatchUpService.assertTrialAttendanceAllowed(
+            tx,
+            {
+              classId: data.classId,
+              isOneTimeClass,
+              sessionDate,
+              sessionStartTime: sessionStartTime ?? null,
+              trialStudentIds: resolvedAttendanceInput
+                .filter((item) => item.status === AttendanceStatus.trial)
+                .map((item) => item.studentId),
+            },
+          );
           const oneTimeAlreadyChargedStudentIds = isOneTimeClass
             ? await findOneTimeChargedStudentIds(tx, {
                 classId: data.classId,
@@ -625,6 +639,14 @@ export class SessionCreateService {
             createdSession.attendance.map(
               (attendanceItem) => attendanceItem.id,
             ),
+          );
+
+          await this.sessionTrialCatchUpService.reconcile(
+            tx,
+            createdSession.attendance.map((attendanceItem) => ({
+              studentId: attendanceItem.studentId,
+              classId: data.classId,
+            })),
           );
 
           if (actor) {

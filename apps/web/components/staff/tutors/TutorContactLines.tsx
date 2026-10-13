@@ -2,7 +2,11 @@ import { Mail, Phone } from "lucide-react";
 import type { TrainingTutorSummary } from "@/dtos/training-tutor.dto";
 
 /** SĐT + email bấm được; ẩn khi không có cả hai. */
-export default function TutorContactLines({ tutor }: { tutor: TrainingTutorSummary }) {
+export default function TutorContactLines({
+  tutor,
+}: {
+  tutor: TrainingTutorSummary;
+}) {
   if (!tutor.email && !tutor.phone) return null;
   return (
     <div className="space-y-1 text-xs text-text-secondary">

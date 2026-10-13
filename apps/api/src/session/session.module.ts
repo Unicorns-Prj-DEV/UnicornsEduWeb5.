@@ -12,6 +12,7 @@ import { SessionReportingService } from './session-reporting.service';
 import { SessionValidationService } from './session-validation.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionLedgerService } from './session-ledger.service';
+import { SessionTrialCatchUpService } from './session-trial-catch-up.service';
 import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
@@ -29,6 +30,7 @@ import { MissedTeachingExplanationService } from './missed-teaching-explanation.
     SessionValidationService,
     SessionStudentBalanceService,
     SessionLedgerService,
+    SessionTrialCatchUpService,
     SessionRosterService,
     SessionSnapshotService,
     SessionScheduleRulesService,
@@ -36,6 +38,7 @@ import { MissedTeachingExplanationService } from './missed-teaching-explanation.
   ],
   exports: [
     SessionService,
+    SessionTrialCatchUpService,
     SessionScheduleRulesService,
     MissedTeachingExplanationService,
   ],

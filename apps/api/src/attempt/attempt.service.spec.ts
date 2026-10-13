@@ -141,6 +141,7 @@ describe('AttemptService', () => {
       classContentItem: { findFirst: jest.fn() },
       studentClass: { findMany: jest.fn() },
       questionLink: { findMany: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn(async (arg: unknown) => {
         if (typeof arg === 'function') {
           return (arg as (tx: typeof prisma) => Promise<unknown>)(prisma);
@@ -843,6 +844,75 @@ describe('AttemptService', () => {
     const lobby = await service.getLobby('cls-1', 'cci-1', 'stu-1');
     expect(lobby.closed).toBe(true);
     expect(lobby.attempts[0].autoGradedScore).toBe(50);
+  });
+
+  it('lobby sau hạn: cộng điểm tự luận đã chấm vào tổng điểm', async () => {
+    topicService.getPracticeAssignmentForStudent.mockResolvedValue(
+      pastAssignment,
+    );
+    const row = makeAttempt();
+    prisma.attempt.findMany.mockResolvedValue([
+      makeAttempt({
+        status: AttemptStatus.submitted,
+        autoGradedScore: 50,
+        autoGradedMax: 50,
+        answers: [
+          { ...row.answers[0], pointsAwarded: 50 },
+          { ...row.answers[1], pointsAwarded: 30 },
+        ],
+      }),
+    ]);
+    const lobby = await service.getLobby('cls-1', 'cci-1', 'stu-1');
+    expect(lobby.attempts[0].essayScore).toBe(30);
+    expect(lobby.attempts[0].score).toBe(80);
+    expect(lobby.attempts[0].scoreMax).toBe(100);
+  });
+
+  it('lobby trước hạn: ẩn cả điểm tự luận', async () => {
+    const row = makeAttempt();
+    prisma.attempt.findMany.mockResolvedValue([
+      makeAttempt({
+        status: AttemptStatus.submitted,
+        autoGradedScore: 50,
+        autoGradedMax: 50,
+        answers: [row.answers[0], { ...row.answers[1], pointsAwarded: 30 }],
+      }),
+    ]);
+    const lobby = await service.getLobby('cls-1', 'cci-1', 'stu-1');
+    expect(lobby.attempts[0].essayScore).toBeNull();
+    expect(lobby.attempts[0].score).toBeNull();
+  });
+
+  it('chi tiết sau hạn: trả điểm tổng gồm tự luận và nhận xét gia sư', async () => {
+    topicService.getPracticeAssignmentForStudent.mockResolvedValue(
+      pastAssignment,
+    );
+    const row = makeAttempt();
+    prisma.attempt.findUnique.mockResolvedValue(
+      makeAttempt({
+        assignment: pastAssignment,
+        status: AttemptStatus.submitted,
+        submittedAt: new Date(),
+        autoGradedScore: 50,
+        autoGradedMax: 50,
+        answers: [
+          { ...row.answers[0], isCorrect: true, pointsAwarded: 50 },
+          {
+            ...row.answers[1],
+            pointsAwarded: 40,
+            feedback: 'Lập luận tốt',
+          },
+        ],
+      }),
+    );
+
+    const result = await service.get('cls-1', 'att-1', 'stu-1');
+    expect(result.resultsReleased).toBe(true);
+    expect(result.essayScore).toBe(40);
+    expect(result.score).toBe(90);
+    expect(result.questions[1].pointsAwarded).toBe(40);
+    expect(result.questions[1].feedback).toBe('Lập luận tốt');
+    expect(result.questions[0].feedback).toBeNull();
   });
 
   it('lobby delegates openAt/expiry to CourseContentService', async () => {

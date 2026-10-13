@@ -39,6 +39,7 @@ import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
 import { forceLogoutStudent } from "@/lib/apis/auth.api";
 import { formatVnDate } from "@/lib/formatters";
+import { formatDropOutReasonGroup } from "@/lib/student-drop-out-reason";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -714,6 +715,12 @@ export default function AdminStudentDetailPage() {
                                     <StudentDetailRow label="Năm sinh" value={student.birthYear ?? "—"} />
                                     <StudentDetailRow label="Ngày tạo hồ sơ" value={formatDate(student.createdAt)} />
                                     <StudentDetailRow label="Ngày ngừng theo dõi" value={formatDate(student.dropOutDate)} />
+                                    {student.status === "inactive" || student.dropOutReasonGroup ? (
+                                        <StudentDetailRow
+                                            label="Nhóm lý do nghỉ"
+                                            value={formatDropOutReasonGroup(student.dropOutReasonGroup)}
+                                        />
+                                    ) : null}
                                     {student.dropOutReason ? (
                                         <StudentDetailRow label="Lý do nghỉ học" value={student.dropOutReason} />
                                     ) : null}

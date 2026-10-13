@@ -34,6 +34,7 @@
   - nếu user đã có `passwordHash`: backend set cookie và redirect về `/auth/post-login`; trang này gọi `GET /auth/session` rồi chuyển tiếp theo cùng rule login thường (`preferredRedirect`, role workspace entrypoint, hoặc `next` hợp lệ)
   - nếu user chưa có `passwordHash`: backend set cookie và redirect tới `/auth/setup-password?source=google`
   - trường hợp account mới vẫn có `roleType = guest` vẫn được coi là session hợp lệ để hoàn tất setup password, không bị đá về login chỉ vì role là `guest`
+- Google OAuth với tài khoản học sinh: Google thay cho magic link (đã chứng minh email) nhưng vẫn áp luật một thiết bị — còn thiết bị sống → redirect `/auth/login?error=device_blocked` (màn «đang đăng nhập ở thiết bị khác»); không còn → xoá row idle cũ rồi tạo đúng một `UserDevice`.
 - Google OAuth với email **chưa có** trong DB: redirect `/auth/login?error=registration_disabled`; frontend hiển thị toast hướng dẫn liên hệ quản trị viên.
 - Setup password thành công:
   - ưu tiên redirect về `next` hợp lệ nếu route đó bị gate chặn trước đó
@@ -45,8 +46,13 @@
 - Verify email thành công: `/verify-email?token=...` tự gọi backend `GET /auth/verify`, hiển thị success/error và CTA quay về login.
 - Khi user đang đăng nhập nhưng chưa verify email:
   - chỉ được ở Home (`/`)
-  - bấm avatar hoặc vào route cá nhân/role route sẽ mở popup “Vui lòng xác minh email”
-  - popup hỗ trợ 2 case: chưa có email thì nhập email mới; đã có email thì hiển thị email masked và gửi lại mail xác minh; backend chấp nhận `refresh_token` session hợp lệ cho `POST /auth/resend-verification` để user không bị kẹt khi `access_token` đã hết hạn.
+  - popup dùng chung cho mọi role: `components/auth/EmailVerificationDialog.tsx` (gắn trong `app/providers.tsx`), mở bằng `openEmailVerificationModal({ kind })` ở `lib/email-verification-access.ts`:
+    - `send` — bấm «Xác minh email» (trang `/user-profile` bị chặn) → gửi mail **ngay**, không cần bấm lần hai.
+    - `sent` — nơi khác đã gửi xong (sau Đăng nhập, nút «Xác minh email →→» trong hồ sơ) → chỉ hiện màn «đã gửi».
+    - `status` — bấm avatar / vào route cá nhân, role route → nếu phiên này đã gửi thì hiện màn «đã gửi», chưa thì hiện email đã che + nút «Gửi email xác minh» (một lần bấm).
+  - màn «đã gửi»: «Đã gửi thành công tới `...abcd@domain`» (4 ký tự cuối trước `@` + tên miền), nút **Gửi lại** (chờ 60 giây, lần gửi gần nhất lưu `sessionStorage` nên chuyển trang không reset) và **Đóng**. Gửi lỗi chỉ toast, không mở popup.
+  - chưa có email: popup nhập email, gửi xong chuyển sang màn «đã gửi»; đóng khi đã gõ email thì hỏi xác nhận bỏ.
+  - backend chấp nhận `refresh_token` session hợp lệ cho `POST /auth/resend-verification` để user không bị kẹt khi `access_token` đã hết hạn.
 
 ## Lấy user trong Server Component
 
@@ -89,6 +95,7 @@ export default async function SomePage() {
   - `POST /auth/login` body: `{ accountHandle, password, rememberMe? }`
     - Validation: `password` tối thiểu **6 ký tự** (`@MinLength(6)`). Nếu không đạt, API trả **400** (trước khi kiểm tra credentials); sai mật khẩu hợp lệ về độ dài thì **401**.
     - `accountHandle`: có thể là **email** hoặc **account handle** (username); backend tìm user theo accountHandle trước, không có thì theo email.
+    - Tài khoản `roleType=student` (đúng mật khẩu) → `400` `error: STUDENT_LOGIN_REQUIRED`: học sinh bắt buộc đi `POST /auth/student/login` (magic link + một thiết bị), không tạo `UserDevice` qua endpoint này.
     - refresh token policy: mặc định 7 ngày, nếu `rememberMe=true` thì 30 ngày.
     - rate limit: `20` request / `5 phút` / IP.
   - `POST /auth/register` — **disabled**; luôn trả `403 Forbidden` với message đăng ký công khai không được hỗ trợ. Rate limit vẫn áp dụng nếu endpoint bị gọi.
@@ -134,10 +141,10 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
 - `POST /auth/student/login` body: `{ accountHandle, password, rememberMe? }`
   - Validate credentials, kiểm tra đã `emailVerified`.
   - Nếu `roleType !== student` → trả `400` với `error: NOT_STUDENT_ACCOUNT`.
-  - Nếu email chưa xác minh → trả `400` với `error: EMAIL_NOT_VERIFIED`.
+  - Nếu email chưa xác minh → gửi luôn mail xác minh email (token `email-verify`, như `resend-verification`) rồi trả `400` với `error: EMAIL_NOT_VERIFIED`, kèm `maskedEmail` (`...abcd@domain`) khi gửi được. Gửi lỗi hoặc không có email → không có `maskedEmail`. Sai mật khẩu thì không gửi gì.
   - Nếu student đã có device active → trả `409` với `error: DEVICE_ACTIVE`.
   - Tạo `login_requests` record, gửi magic link email tới student (React Email `login-verification.email.tsx`: thời điểm yêu cầu, hiệu lực 10 phút, cảnh báo «Không phải bạn đăng nhập?»). Link mở `/auth/verify-login` trên origin public. Thứ tự: `FRONTEND_URL` nếu là HTTPS public; nếu giá trị đó còn là localhost thì `https://` + `VPS_PUBLIC_HOST`, rồi origin của `BACKEND_URL` (bỏ hậu tố `/api`), rồi `Host` + `X-Forwarded-Proto` khi host là `*.uniedu.vn` hoặc `*.unicornsedu.com`. Production không gửi link `localhost`. Host lạ bị từ chối.
-  - Response: `{ requestId, activateSecret, message }`. `activateSecret` là one-time secret dùng ở bước activate; frontend lưu trong memory, không lưu localStorage.
+  - Response: `{ requestId, activateSecret, message, maskedEmail }` (`maskedEmail` từ `src/common/mask-email.util.ts`). `activateSecret` là one-time secret dùng ở bước activate; frontend lưu trong memory, không lưu localStorage.
   - Rate limit: `5` request / `60s` / IP.
 
 - `POST /auth/student/login/poll` body: `{ requestId }`
@@ -161,12 +168,14 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
 - `POST /auth/student/activate` body: `{ requestId, activateSecret, rememberMe? }`
   - Sau khi poll xác nhận `verified = true`.
   - Xác minh `activateSecret` khớp hash trong `login_requests`.
+  - Claim nguyên tử: `DELETE login_requests WHERE id AND verified` — lần activate thứ hai của cùng request (poll chồng nhau) → `409` `error: LOGIN_REQUEST_ALREADY_USED`, không tạo thêm device. FE chỉ cho một request poll bay cùng lúc và chỉ activate một lần mỗi `requestId`.
   - Xóa mọi device cũ của student (single-device rule).
   - Tạo `user_devices` record mới, cấp JWT (`deviceId` = id thiết bị), lưu SHA-256 refresh JWT vào `token_hash`, set cookies.
   - Response: `{ message }`.
 
 - `POST /auth/student/logout`
   - Student tự đăng xuất. Xóa tất cả device records, invalidate refresh token.
+  - FE dùng chung hook `apps/web/hooks/use-student-logout.ts` (`StudentHeader`, `StudentSidebar`): reset `AuthContext` về guest trước khi điều hướng, tránh trang login thấy session cũ rồi đá ngược về `/student`.
   - Response: `{ message }`.
 
 - `POST /auth/admin/students/:id/force-logout`

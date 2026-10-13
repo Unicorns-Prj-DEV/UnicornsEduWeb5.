@@ -1,5 +1,6 @@
 export type SessionPaymentStatus = "paid" | "unpaid" | "deposit" | string;
-export type SessionAttendanceStatus = "present" | "excused" | "absent";
+/** `trial` = Học thử: không trừ ví, không tính sĩ số trợ cấp; thu bù gấp đôi ở buổi học/phép kế tiếp cùng lớp. */
+export type SessionAttendanceStatus = "present" | "excused" | "absent" | "trial";
 
 export interface SessionClassRef {
   id: string;

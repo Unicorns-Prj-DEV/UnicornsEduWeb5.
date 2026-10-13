@@ -68,6 +68,10 @@ describe('SessionCreateService', () => {
     linkMakeupEventToSession: jest.fn(),
   };
 
+  const trialCatchUpService = {
+    assertTrialAttendanceAllowed: jest.fn(),
+    reconcile: jest.fn(),
+  };
   const actionHistoryService = {
     recordCreate: jest.fn(),
   };
@@ -113,6 +117,7 @@ describe('SessionCreateService', () => {
       snapshotService as never,
       scheduleRulesService as never,
       actionHistoryService as never,
+      trialCatchUpService as never,
     );
   });
 
@@ -925,6 +930,10 @@ describe('SessionCreateService time requirements', () => {
       findUnique: jest.fn(),
     },
   };
+  const trialCatchUpService = {
+    assertTrialAttendanceAllowed: jest.fn(),
+    reconcile: jest.fn(),
+  };
   const noop = {
     resolveActor: jest.fn(),
     assertTeacherAssignedToClass: jest.fn(),
@@ -949,6 +958,7 @@ describe('SessionCreateService time requirements', () => {
       noop as never,
       noop as never,
       noop as never,
+      trialCatchUpService as never,
     );
   }
 

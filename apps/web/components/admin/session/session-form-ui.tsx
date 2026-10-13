@@ -522,7 +522,14 @@ export function SessionFormDialogHeader({
   );
 }
 
-const STATUS_ORDER: SessionAttendanceStatus[] = ["present", "excused", "absent"];
+const STATUS_ORDER: SessionAttendanceStatus[] = ["present", "excused", "absent", "trial"];
+
+const STATUS_TITLES: Record<SessionAttendanceStatus, string> = {
+  present: "Học",
+  excused: "Phép",
+  absent: "Vắng",
+  trial: "Học thử (không trừ ví; thu bù gấp đôi ở buổi học kế tiếp)",
+};
 
 type QuickPickProps = {
   value: SessionAttendanceStatus;
@@ -558,9 +565,7 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disable
                 ? "text-text-muted cursor-not-allowed"
                 : "text-text-muted hover:bg-bg-tertiary/80"
             }`}
-            title={
-              status === "present" ? "Học" : status === "excused" ? "Phép" : "Vắng"
-            }
+            title={STATUS_TITLES[status]}
             aria-pressed={active}
           >
             {status === "present" ? (
@@ -570,6 +575,10 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disable
             ) : status === "excused" ? (
               <span className={`text-xs font-bold ${disabled ? "text-warning/50" : "text-warning"}`} aria-hidden>
                 p
+              </span>
+            ) : status === "trial" ? (
+              <span className={`text-xs font-bold ${disabled ? "text-primary/50" : "text-primary"}`} aria-hidden>
+                T
               </span>
             ) : (
               <svg className={`size-4 ${disabled ? "text-error/50" : "text-error"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -587,9 +596,10 @@ type SummaryProps = {
   present: number;
   excused: number;
   absent: number;
+  trial?: number;
 };
 
-export function AttendanceInlineSummary({ present, excused, absent }: SummaryProps) {
+export function AttendanceInlineSummary({ present, excused, absent, trial = 0 }: SummaryProps) {
   return (
     <p className="text-sm text-text-secondary">
       <span className="font-medium text-success">Học: {present}</span>
@@ -597,6 +607,12 @@ export function AttendanceInlineSummary({ present, excused, absent }: SummaryPro
       <span className="font-medium text-warning">Phép: {excused}</span>
       <span className="mx-2 text-text-muted/70">·</span>
       <span className="font-medium text-error">Vắng: {absent}</span>
+      {trial > 0 ? (
+        <>
+          <span className="mx-2 text-text-muted/70">·</span>
+          <span className="font-medium text-primary">Học thử: {trial}</span>
+        </>
+      ) : null}
     </p>
   );
 }
@@ -749,42 +765,6 @@ export function SessionAttendanceEditor({
         </table>
       </div>
     </>
-  );
-}
-
-type TrialLessonToggleProps = {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  disabled?: boolean;
-  className?: string;
-};
-
-export function TrialLessonToggle({
-  checked,
-  onChange,
-  disabled = false,
-  className = "",
-}: TrialLessonToggleProps) {
-  return (
-    <label
-      className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-        checked
-          ? "border-primary/35 bg-primary/8"
-          : "border-border-default bg-bg-secondary/35"
-      } ${disabled ? "cursor-not-allowed opacity-70" : "hover:border-primary/25"} ${className}`.trim()}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-        className="size-5 shrink-0 rounded border-border-default text-primary focus:ring-border-focus"
-      />
-      <span className="text-sm font-semibold text-text-primary">Dạy thử</span>
-      <span className="text-xs text-text-muted">
-        {checked ? "Không tính trợ cấp buổi (hệ số = 0)" : "Buổi học chính thức"}
-      </span>
-    </label>
   );
 }
 

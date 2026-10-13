@@ -18,6 +18,7 @@ import {
   StaffRole,
   StudentClassStatus,
   StudentCustomerSource,
+  StudentDropOutReasonGroup,
   StudentStatus,
   StudentWalletDirectTopUpRequestStatus,
   UserRole,
@@ -87,6 +88,7 @@ import {
 import { MailService } from 'src/mail/mail.service';
 import { NotificationService } from 'src/notification/notification.service';
 import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
+import { MANUAL_TOP_UP_NOTE_PREFIX } from 'src/common/manual-top-up-note';
 
 const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
@@ -470,6 +472,7 @@ export class StudentService {
       goal: student.goal,
       dropOutDate: student.dropOutDate,
       dropOutReason: student.dropOutReason,
+      dropOutReasonGroup: student.dropOutReasonGroup,
       customerSource: student.customerSource,
       customerSourceNote: student.customerSourceNote,
       customerCare: student.customerCareServices
@@ -990,34 +993,51 @@ export class StudentService {
   }
 
   /**
-   * Lý do nghỉ học cần lưu khi học sinh ở trạng thái nghỉ sau thao tác. Chuyển
-   * sang nghỉ học bắt buộc có lý do; học sinh đã nghỉ thì chỉ cập nhật khi có
-   * lý do mới. Học sinh học lại giữ nguyên lý do cũ (không bao giờ xoá ở đây).
+   * Lý do + nhóm lý do nghỉ cần lưu khi học sinh ở trạng thái nghỉ sau thao
+   * tác. Chuyển sang nghỉ học bắt buộc có cả hai; học sinh đã nghỉ thì chỉ cập
+   * nhật field có gửi lên. Học sinh học lại giữ nguyên cả hai (không xoá ở đây).
    */
   private resolveDropOutReasonWrite(params: {
     currentStatus: StudentStatus;
     nextStatus: StudentStatus | undefined;
     reason: string | undefined;
-  }): { dropOutReason?: string } {
+    group: StudentDropOutReasonGroup | undefined;
+  }): {
+    dropOutReason?: string;
+    dropOutReasonGroup?: StudentDropOutReasonGroup;
+  } {
     if (
       (params.nextStatus ?? params.currentStatus) !== StudentStatus.inactive
     ) {
       return {};
     }
 
+    const markingInactive = params.currentStatus !== StudentStatus.inactive;
+    const write: {
+      dropOutReason?: string;
+      dropOutReasonGroup?: StudentDropOutReasonGroup;
+    } = {};
+
     const normalized = params.reason?.trim() ?? '';
     if (normalized) {
-      return { dropOutReason: normalized };
-    }
-    if (params.currentStatus !== StudentStatus.inactive) {
+      write.dropOutReason = normalized;
+    } else if (markingInactive) {
       throw new BadRequestException(
         'Chuyển học sinh sang nghỉ học phải nhập lý do nghỉ.',
       );
-    }
-    if (params.reason !== undefined) {
+    } else if (params.reason !== undefined) {
       throw new BadRequestException('Lý do nghỉ học không được để trống.');
     }
-    return {};
+
+    if (params.group) {
+      write.dropOutReasonGroup = params.group;
+    } else if (markingInactive) {
+      throw new BadRequestException(
+        'Chuyển học sinh sang nghỉ học phải chọn nhóm lý do nghỉ.',
+      );
+    }
+
+    return write;
   }
 
   private buildUpdateData(dto: UpdateStudentBodyDto) {
@@ -2624,7 +2644,8 @@ export class StudentService {
     }
 
     if (
-      dto.drop_out_reason !== undefined &&
+      (dto.drop_out_reason !== undefined ||
+        dto.drop_out_reason_group !== undefined) &&
       (dto.status ?? student.status) !== StudentStatus.inactive
     ) {
       throw new BadRequestException('Chỉ học sinh nghỉ học mới có lý do nghỉ.');
@@ -2637,6 +2658,7 @@ export class StudentService {
         currentStatus: student.status,
         nextStatus: dto.status,
         reason: dto.drop_out_reason,
+        group: dto.drop_out_reason_group,
       }),
     };
     const shouldSyncCustomerCare =
@@ -2720,6 +2742,7 @@ export class StudentService {
       currentStatus: student.status,
       nextStatus: dto.status,
       reason: dto.reason,
+      group: dto.drop_out_reason_group,
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -2780,7 +2803,7 @@ export class StudentService {
       data.amount,
       {
         allowNegativeBalance: true,
-        topupNotePrefix: 'Nạp tiền thủ công từ trang chi tiết học sinh.',
+        topupNotePrefix: MANUAL_TOP_UP_NOTE_PREFIX,
         withdrawNotePrefix:
           'Điều chỉnh giảm số dư thủ công từ trang chi tiết học sinh.',
         auditDescription: 'Điều chỉnh số dư học sinh',

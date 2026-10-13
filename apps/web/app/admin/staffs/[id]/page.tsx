@@ -1,5 +1,6 @@
 "use client";
 
+import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   keepPreviousData,
@@ -392,6 +393,7 @@ export default function AdminStaffDetailPage({
   const selectedMonthLabel = `Tháng ${Number.parseInt(selectedMonthValue, 10)}/${selectedYear}`;
 
   const queryClient = useQueryClient();
+  const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const {
     data: sessionsInCurrentMonth = [],
     isLoading: isSessionsLoading,
@@ -773,7 +775,12 @@ export default function AdminStaffDetailPage({
   const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
-  const otherRoleSummaries = incomeSummary?.otherRoleSummaries ?? [];
+  // Giáo án học sinh giỏi chỉ có trên IT — JP/ENG không hiện thu nhập role giáo án.
+  const otherRoleSummaries = (incomeSummary?.otherRoleSummaries ?? []).filter(
+    (item) =>
+      giftedLessonPlanEnabled !== false ||
+      (item.role !== "lesson_plan" && item.role !== "lesson_plan_head"),
+  );
   const fixedSalaryPayables = incomeSummary?.fixedSalaryPayables ?? [];
   const showAssistantDualRoleHelper =
     hasAssistantAndCustomerCareRoles(staff?.roles) &&

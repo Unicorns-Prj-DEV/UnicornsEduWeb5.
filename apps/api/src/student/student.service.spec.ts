@@ -40,6 +40,7 @@ import {
   StaffRole,
   StudentWalletDirectTopUpRequestStatus,
   StudentCustomerSource,
+  StudentDropOutReasonGroup,
   StudentStatus,
   UserRole,
   WalletTransactionType,
@@ -1575,6 +1576,7 @@ describe('StudentService', () => {
         {
           status: StudentStatus.inactive,
           reason: 'Gia đình báo nghỉ',
+          drop_out_reason_group: StudentDropOutReasonGroup.busy_schedule,
         },
         {
           userId: 'assistant-1',
@@ -1712,12 +1714,27 @@ describe('StudentService', () => {
       expect(mockPrisma.studentInfo.update).not.toHaveBeenCalled();
     });
 
-    it('stores the trimmed reason when marking a student inactive', async () => {
+    it('rejects marking a student inactive without a reason group', async () => {
+      mockCurrentStudent(StudentStatus.active);
+
+      await expect(
+        service.updateStudentStatus('student-1', {
+          status: StudentStatus.inactive,
+          reason: 'Chuyển trường',
+        }),
+      ).rejects.toThrow(
+        'Chuyển học sinh sang nghỉ học phải chọn nhóm lý do nghỉ.',
+      );
+      expect(mockPrisma.studentInfo.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the trimmed reason and group when marking a student inactive', async () => {
       mockCurrentStudent(StudentStatus.active);
 
       await service.updateStudentStatus('student-1', {
         status: StudentStatus.inactive,
         reason: '  Chuyển trường  ',
+        drop_out_reason_group: StudentDropOutReasonGroup.no_suitable_class,
       });
 
       expect(mockPrisma.studentInfo.update).toHaveBeenCalledWith({
@@ -1725,6 +1742,7 @@ describe('StudentService', () => {
         data: {
           status: StudentStatus.inactive,
           dropOutReason: 'Chuyển trường',
+          dropOutReasonGroup: StudentDropOutReasonGroup.no_suitable_class,
         },
       });
     });
@@ -1780,6 +1798,29 @@ describe('StudentService', () => {
         where: { id: 'student-1' },
         data: { dropOutReason: 'Gia đình chuyển nhà' },
       });
+    });
+
+    it('backfills only the group of a student who already left', async () => {
+      mockCurrentStudent(StudentStatus.inactive);
+
+      await service.updateStudentById('student-1', {
+        drop_out_reason_group: StudentDropOutReasonGroup.tuition,
+      });
+
+      expect(mockPrisma.studentInfo.update).toHaveBeenCalledWith({
+        where: { id: 'student-1' },
+        data: { dropOutReasonGroup: StudentDropOutReasonGroup.tuition },
+      });
+    });
+
+    it('rejects a reason group on a studying student', async () => {
+      mockCurrentStudent(StudentStatus.active);
+
+      await expect(
+        service.updateStudentById('student-1', {
+          drop_out_reason_group: StudentDropOutReasonGroup.other,
+        }),
+      ).rejects.toThrow('Chỉ học sinh nghỉ học mới có lý do nghỉ.');
     });
   });
 

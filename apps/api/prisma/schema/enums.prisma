@@ -47,6 +47,17 @@ enum StudentCustomerSource {
   other
 }
 
+/// Nhóm lý do nghỉ học. Null trên cột = Chưa phân loại (dữ liệu cũ), không phải giá trị enum.
+enum StudentDropOutReasonGroup {
+  exam_done
+  changed_direction
+  busy_schedule
+  no_suitable_class
+  trial_only
+  tuition
+  other
+}
+
 enum StudentClassStatus {
   active
   inactive
@@ -74,6 +85,8 @@ enum AttendanceStatus {
   present
   excused
   absent
+  /// Học thử: không trừ ví, không tính sĩ số trợ cấp; thu bù gấp đôi ở buổi present/excused kế tiếp cùng lớp.
+  trial
 }
 
 enum WalletTransactionType {

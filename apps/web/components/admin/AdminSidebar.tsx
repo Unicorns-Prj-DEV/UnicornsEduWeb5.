@@ -11,6 +11,10 @@ import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/dtos/Auth.dto";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import {
+  isGiftedLessonPlanRoute,
+  useGiftedLessonPlanEnabled,
+} from "@/lib/gifted-lesson-plan";
+import {
   getAccountantVisibleAdminHrefs,
   resolveAdminShellAccess,
 } from "@/lib/admin-shell-access";
@@ -264,7 +268,9 @@ export default function AdminSidebar() {
       : "/admin/dashboard";
   const accountantVisibleHrefs = getAccountantVisibleAdminHrefs(adminShellAccess);
 
-  const menuItems = isProfileLoading || isProfileError || !fullProfile
+  const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
+
+  const roleMenuItems = isProfileLoading || isProfileError || !fullProfile
     ? []
     : isAssistant || isAdmin
       ? MENU_ITEMS.filter((item) => isAdmin || !item.adminOnly)
@@ -273,6 +279,10 @@ export default function AdminSidebar() {
         : isLessonPlanHead
           ? MENU_ITEMS.filter((item) => item.href === "/admin/lesson-plans")
           : [];
+  // Giáo án học sinh giỏi chỉ có trên IT.
+  const menuItems = giftedLessonPlanEnabled === false
+    ? roleMenuItems.filter((item) => !isGiftedLessonPlanRoute(item.href))
+    : roleMenuItems;
 
   useEffect(() => {
     if (!isMobile) {

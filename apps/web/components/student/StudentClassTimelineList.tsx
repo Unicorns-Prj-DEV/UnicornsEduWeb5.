@@ -25,7 +25,9 @@ import {
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
 import StudentClassTimelineToc, {
+  StudentClassGroupedToc,
   type TimelineTocEntry,
+  type TimelineTocSection,
 } from "./StudentClassTimelineToc";
 import {
   StudentSessionTimelineCard,
@@ -33,7 +35,7 @@ import {
 } from "./StudentTimelineCards";
 import { replaceCourseWorkspaceUrl } from "@/lib/course-content-routes";
 import {
-  isLockedModuleItem,
+  buildModuleTocSections,
   moduleCardItems,
   moduleCardKey,
 } from "@/lib/student-module-cards";
@@ -246,28 +248,37 @@ function StudentClassTimelineListInner({
     "buoi-hoc": query.hasNextPage ? undefined : sessionRows.length,
   };
 
-  // Mục lục chỉ liệt kê mục của tab đang mở, đánh số từ 1.
-  const tocEntries = useMemo<TimelineTocEntry[]>(
+  // Tab Chuyên đề: mục lục nhóm theo chuyên đề, số tiết đánh lại từ 1 mỗi nhóm.
+  const moduleTocSections = useMemo<TimelineTocSection[]>(
     () =>
-      activeTab === "chuyen-de"
-        ? moduleEntries.map(({ item }, index) => ({
-            id: item.id,
-            index: index + 1,
-            title: item.title,
-            kind: "content_item",
-            lessonKind: item.lessonKind,
-            locked: isLockedModuleItem(item),
-          }))
-        : visibleSessionRows.map(({ item, index }) => ({
-            id: item.id,
-            index: index + 1,
-            title: item.title,
-            kind: item.kind,
-            lessonKind: item.lessonKind,
-            locked: false,
-          })),
-    [activeTab, moduleEntries, visibleSessionRows],
+      buildModuleTocSections(visibleGroups).map((section) => ({
+        ...section,
+        entries: section.entries.map((entry) => ({
+          ...entry,
+          kind: "content_item" as const,
+        })),
+      })),
+    [visibleGroups],
   );
+  // Tab Buổi học: mục lục phẳng, giữ số thứ tự gốc của thẻ.
+  const sessionTocEntries = useMemo<TimelineTocEntry[]>(
+    () =>
+      visibleSessionRows.map(({ item, index }) => ({
+        id: item.id,
+        index: index + 1,
+        title: item.title,
+        kind: item.kind,
+        lessonKind: item.lessonKind,
+        locked: false,
+      })),
+    [visibleSessionRows],
+  );
+  const tocCount =
+    activeTab === "chuyen-de" ? moduleEntries.length : sessionTocEntries.length;
+  // Sidebar mục lục chỉ có ở tab Chuyên đề trên màn rộng; tab Buổi học để
+  // video giữ trọn bề ngang, mục lục mở qua nút nổi.
+  const showModuleSidebar =
+    activeTab === "chuyen-de" && moduleTocSections.length > 0;
 
   const moduleKeyByItemId = useMemo(
     () =>
@@ -338,114 +349,138 @@ function StudentClassTimelineListInner({
           ) : null}
         </div>
         <div
-          id="student-class-tabpanel"
-          role="tabpanel"
-          aria-labelledby={`student-class-tab-${activeTab}`}
-          className="space-y-3"
+          className={
+            showModuleSidebar
+              ? "lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-6"
+              : undefined
+          }
         >
-          {activeTab === "chuyen-de" ? (
-            groupsQuery.isLoading ? (
-              [1, 2].map((i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-xl" />
-              ))
-            ) : groupsQuery.isError ? (
-              <p className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
-                Không tải được nội dung chuyên đề.
-              </p>
-            ) : !groups?.length ? (
-              <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-                {STUDENT_CLASS_TAB_EMPTY_MESSAGES["chuyen-de"]}
-              </div>
-            ) : !visibleGroups.length ? (
-              <SearchNoMatch search={search} />
-            ) : (
-              <StudentModuleCards
-                classId={classId}
-                groups={visibleGroups}
-                openKeys={displayedOpenKeys}
-                onToggle={toggleDisplayedModule}
-                registerRow={registerRow}
-                selectedId={selectedTocId}
+          {showModuleSidebar ? (
+            <aside className="sticky top-0 hidden max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm [overscroll-behavior:contain] lg:block">
+              <h2 className="mb-3 px-2.5 text-sm font-semibold text-text-primary">
+                Mục lục
+              </h2>
+              <StudentClassGroupedToc
+                sections={moduleTocSections}
+                activeId={selectedTocId}
+                onSelect={scrollToRow}
               />
-            )
+            </aside>
           ) : null}
-          {activeTab === "buoi-hoc" &&
-          sessionRows.length === 0 &&
-          !query.hasNextPage ? (
-            <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
-              {STUDENT_CLASS_TAB_EMPTY_MESSAGES["buoi-hoc"]}
-            </div>
-          ) : null}
-          {activeTab === "buoi-hoc" &&
-          sessionRows.length > 0 &&
-          visibleSessionRows.length === 0 &&
-          !query.hasNextPage ? (
-            <SearchNoMatch search={search} />
-          ) : null}
-          {activeTab === "buoi-hoc" &&
-            visibleSessionRows.map(({ item, index }) => {
-              // Số thứ tự + badge loại đứng đầu thẻ, cùng hàng với ngày giờ buổi
-              // học, để khung video chiếm trọn bề ngang thẻ.
-              const leading = (
-                <>
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                    {index + 1}
-                  </span>
-                  <TimelineKindBadge
-                    kind={item.kind}
-                    lessonKind={item.lessonKind}
-                    label={item.kindLabel}
-                  />
-                </>
-              );
-
-              // Thẻ không mở dialog: nội dung buổi học/khảo sát hiện đủ ngay trên
-              // thẻ, video phát tại chỗ. Mục lục scroll tới thẻ qua `registerRow`.
-              return (
-                <div
-                  key={item.id}
-                  ref={(el) => registerRow(item.id, el)}
-                  data-timeline-id={item.id}
-                  className={`w-full scroll-mt-24 rounded-xl border bg-bg-surface p-4 shadow-sm ${
-                    selectedTocId === item.id
-                      ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-bg-primary"
-                      : "border-border-default"
-                  }`}
-                >
-                  {item.kind === "session" && item.session ? (
-                    <StudentSessionTimelineCard
-                      session={item.session}
-                      leading={leading}
-                    />
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {leading}
-                      </div>
-                      {item.kind === "class_survey" && item.survey ? (
-                        <StudentSurveyTimelineCard survey={item.survey} />
-                      ) : null}
-                    </div>
-                  )}
+          <div
+            id="student-class-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`student-class-tab-${activeTab}`}
+            className="min-w-0 space-y-3"
+          >
+            {activeTab === "chuyen-de" ? (
+              groupsQuery.isLoading ? (
+                [1, 2].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                ))
+              ) : groupsQuery.isError ? (
+                <p className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+                  Không tải được nội dung chuyên đề.
+                </p>
+              ) : !groups?.length ? (
+                <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
+                  {STUDENT_CLASS_TAB_EMPTY_MESSAGES["chuyen-de"]}
                 </div>
-              );
-            })}
-          {activeTab === "buoi-hoc" && query.isFetchingNextPage ? (
-            <p className="text-center text-xs text-text-muted">
-              Đang tải thêm…
-            </p>
-          ) : null}
+              ) : !visibleGroups.length ? (
+                <SearchNoMatch search={search} />
+              ) : (
+                <StudentModuleCards
+                  classId={classId}
+                  groups={visibleGroups}
+                  openKeys={displayedOpenKeys}
+                  onToggle={toggleDisplayedModule}
+                  registerRow={registerRow}
+                  selectedId={selectedTocId}
+                />
+              )
+            ) : null}
+            {activeTab === "buoi-hoc" &&
+            sessionRows.length === 0 &&
+            !query.hasNextPage ? (
+              <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-8 text-center text-sm text-text-muted">
+                {STUDENT_CLASS_TAB_EMPTY_MESSAGES["buoi-hoc"]}
+              </div>
+            ) : null}
+            {activeTab === "buoi-hoc" &&
+            sessionRows.length > 0 &&
+            visibleSessionRows.length === 0 &&
+            !query.hasNextPage ? (
+              <SearchNoMatch search={search} />
+            ) : null}
+            {activeTab === "buoi-hoc" &&
+              visibleSessionRows.map(({ item, index }) => {
+                // Số thứ tự + badge loại đứng đầu thẻ, cùng hàng với ngày giờ buổi
+                // học, để khung video chiếm trọn bề ngang thẻ.
+                const leading = (
+                  <>
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                      {index + 1}
+                    </span>
+                    <TimelineKindBadge
+                      kind={item.kind}
+                      lessonKind={item.lessonKind}
+                      label={item.kindLabel}
+                    />
+                  </>
+                );
+
+                // Thẻ không mở dialog: nội dung buổi học/khảo sát hiện đủ ngay trên
+                // thẻ, video phát tại chỗ. Mục lục scroll tới thẻ qua `registerRow`.
+                return (
+                  <div
+                    key={item.id}
+                    ref={(el) => registerRow(item.id, el)}
+                    data-timeline-id={item.id}
+                    className={`w-full scroll-mt-24 rounded-xl border bg-bg-surface p-4 shadow-sm ${
+                      selectedTocId === item.id
+                        ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-bg-primary"
+                        : "border-border-default"
+                    }`}
+                  >
+                    {item.kind === "session" && item.session ? (
+                      <StudentSessionTimelineCard
+                        session={item.session}
+                        leading={leading}
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {leading}
+                        </div>
+                        {item.kind === "class_survey" && item.survey ? (
+                          <StudentSurveyTimelineCard survey={item.survey} />
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            {activeTab === "buoi-hoc" && query.isFetchingNextPage ? (
+              <p className="text-center text-xs text-text-muted">
+                Đang tải thêm…
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setTocOpen(true)}
-        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg lg:hidden"
-      >
-        <List className="size-4" aria-hidden />
-        Mục lục
-      </button>
+      {tocCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setTocOpen(true)}
+          className={`fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg ${
+            showModuleSidebar ? "lg:hidden" : ""
+          }`}
+        >
+          <List className="size-4" aria-hidden />
+          Mục lục
+        </button>
+      ) : null}
 
       {tocOpen ? (
         <ResponsiveDialog
@@ -458,7 +493,7 @@ function StudentClassTimelineListInner({
               id="student-timeline-toc-title"
               className="text-sm font-semibold text-text-primary"
             >
-              Mục lục ({tocEntries.length})
+              Mục lục ({tocCount})
             </h2>
             <button
               type="button"
@@ -470,11 +505,19 @@ function StudentClassTimelineListInner({
             </button>
           </div>
           <ResponsiveDialogBody className="p-3 sm:p-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain]">
-            <StudentClassTimelineToc
-              entries={tocEntries}
-              activeId={selectedTocId}
-              onSelect={scrollToRow}
-            />
+            {activeTab === "chuyen-de" ? (
+              <StudentClassGroupedToc
+                sections={moduleTocSections}
+                activeId={selectedTocId}
+                onSelect={scrollToRow}
+              />
+            ) : (
+              <StudentClassTimelineToc
+                entries={sessionTocEntries}
+                activeId={selectedTocId}
+                onSelect={scrollToRow}
+              />
+            )}
           </ResponsiveDialogBody>
         </ResponsiveDialog>
       ) : null}

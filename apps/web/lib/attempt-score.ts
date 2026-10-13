@@ -24,3 +24,24 @@ export function formatScore(
 ): string {
   return `${formatScoreValue(score, scoring)}/${formatScoreValue(max, scoring)}`;
 }
+
+/**
+ * Nhãn điểm một lượt làm cho học sinh: tổng = trắc nghiệm + tự luận đã chấm.
+ * Còn câu tự luận chưa chấm thì vẫn hiện phần đã có, kèm nhãn chờ chấm.
+ */
+export function attemptScoreLabel(
+  attempt: {
+    status: string;
+    score: number | null;
+    scoreMax: number;
+    scoring: AttemptScoringDto;
+    hasUngradedEssay: boolean;
+  },
+  resultsReleased: boolean,
+): string {
+  if (attempt.status === "in_progress") return "—";
+  if (!resultsReleased) return "Điểm công bố sau hạn";
+  if (attempt.score == null) return "—";
+  const total = `${formatScore(attempt.score, attempt.scoreMax, attempt.scoring)} điểm`;
+  return attempt.hasUngradedEssay ? `${total} · chờ chấm tự luận` : total;
+}

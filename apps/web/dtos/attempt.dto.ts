@@ -59,6 +59,8 @@ export interface AttemptQuestionDto {
   audio?: AttemptAudioView | null;
   isCorrect?: boolean | null;
   pointsAwarded?: number | null;
+  /** Nhận xét gia sư cho câu tự luận (sau khi công bố kết quả). */
+  feedback?: string | null;
   explanation?: string | null;
   answerGuide?: string | null;
 }
@@ -99,6 +101,10 @@ export interface AttemptDetailDto {
   autoGradedMax: number | null;
   /** Tổng điểm tối đa. `equal_100`: 100. `absolute_it`: câu bắt buộc + một nhóm tự chọn (đơn vị 1/100). */
   scoreMax: number;
+  /** Tổng điểm tự luận đã chấm; null = chưa công bố / không có tự luận. */
+  essayScore: number | null;
+  /** Tổng điểm = trắc nghiệm + tự luận đã chấm; null = chưa công bố. */
+  score: number | null;
   hasUngradedEssay: boolean;
   scoring: AttemptScoringDto;
   /** Học sinh làm cả hai nhóm tự chọn → phần tự chọn 0 điểm. */
@@ -118,6 +124,9 @@ export interface AttemptSummaryDto {
   submittedAt: string | null;
   autoGradedScore: number | null;
   autoGradedMax: number | null;
+  scoreMax: number;
+  essayScore: number | null;
+  score: number | null;
   hasUngradedEssay: boolean;
   scoring: AttemptScoringDto;
 }

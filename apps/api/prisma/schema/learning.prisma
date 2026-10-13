@@ -226,17 +226,17 @@ model CourseLessonPlanMember {
 
 /// Chuyên đề — nhóm tiết học bên trong một Khoá học. Chỉ tồn tại ở cấp khoá.
 model Module {
-  id           String        @id @default(uuid())
-  courseId     String        @map("course_id")
-  title        String
-  sortOrder    Int           @default(0) @map("sort_order")
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons      Lesson[]
-  questions    Question[] // back‑relation for question bank
+  id              String           @id @default(uuid())
+  courseId        String           @map("course_id")
+  title           String
+  sortOrder       Int              @default(0) @map("sort_order")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons         Lesson[]
+  questions       Question[] // back‑relation for question bank
   sharedMaterials SharedMaterial[]
-  classModules ClassModule[]
+  classModules    ClassModule[]
 
   @@index([courseId])
   @@map("modules")
@@ -437,6 +437,10 @@ model Attendance {
   /// Học phí dùng để tính hoa hồng đã chốt (paid/pending) khi `tuition_fee` bị dồn sang buổi khác.
   payrollBasisTuitionFee              Int?                       @map("payroll_basis_tuition_fee")
   transactionId                       String?                    @unique @map("transaction_id")
+  /// Phần thu bù học thử đã gộp vào `tuition_fee` của buổi này (null nếu buổi không phải buổi thu bù).
+  trialCatchUpFee                     Int?                       @map("trial_catch_up_fee")
+  /// Dòng ví `extend` thứ hai của buổi thu bù học thử.
+  trialCatchUpTransactionId           String?                    @unique @map("trial_catch_up_transaction_id")
   assistantManagerStaffId             String?                    @map("assistant_manager_staff_id")
   assistantPaymentStatus              PaymentStatus?             @map("assistant_payment_status")
   assistantTaxDeductionRatePercent    Decimal                    @default(0) @map("assistant_tax_deduction_rate_percent") @db.Decimal(5, 2)
@@ -444,7 +448,8 @@ model Attendance {
   customerCareStaff                   StaffInfo?                 @relation("AttendanceCustomerCare", fields: [customerCareStaffId], references: [id])
   session                             Session                    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student                             StudentInfo                @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  transaction                         WalletTransactionsHistory? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transaction                         WalletTransactionsHistory? @relation("AttendanceTransaction", fields: [transactionId], references: [id], onDelete: Cascade)
+  trialCatchUpTransaction             WalletTransactionsHistory? @relation("AttendanceTrialCatchUpTransaction", fields: [trialCatchUpTransactionId], references: [id], onDelete: SetNull)
   lessonPlanHeadCommissions           LessonPlanHeadCommission[]
 
   @@unique([sessionId, studentId])

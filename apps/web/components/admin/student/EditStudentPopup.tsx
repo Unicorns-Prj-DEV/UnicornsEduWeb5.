@@ -11,8 +11,10 @@ import AchievementListEditor from "@/components/shared/achievement/AchievementLi
 import StudentGalleryEditor from "@/components/shared/student-gallery/StudentGalleryEditor";
 import { CustomerSourceFields } from "@/components/admin/student/CustomerSourceFields";
 import {
+  STUDENT_DROP_OUT_REASON_GROUP_OPTIONS,
   STUDENT_DROP_OUT_REASON_MAX_LENGTH,
   type StudentCustomerSource,
+  type StudentDropOutReasonGroup,
   type StudentDetail,
   type StudentExamScheduleItem,
   type StudentGender,
@@ -89,6 +91,33 @@ function StudentReasonField({
         onChange={(event) => onChange(event.target.value)}
         className={REASON_TEXTAREA_CLASS}
         placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+function DropOutReasonGroupField({
+  required = false,
+  value,
+  onChange,
+}: {
+  required?: boolean;
+  value: StudentDropOutReasonGroup | "";
+  onChange: (value: StudentDropOutReasonGroup) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
+      <span>
+        Nhóm lý do nghỉ
+        {required ? <span className="text-error"> *</span> : null}
+      </span>
+      <UpgradedSelect
+        name="drop-out-reason-group"
+        value={value}
+        onValueChange={(nextValue) => onChange(nextValue as StudentDropOutReasonGroup)}
+        options={STUDENT_DROP_OUT_REASON_GROUP_OPTIONS}
+        placeholder={required ? "Chọn nhóm lý do nghỉ" : "Chưa phân loại"}
+        buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
       />
     </label>
   );
@@ -182,6 +211,9 @@ export default function EditStudentPopup({
   const [status, setStatus] = useState<StudentStatus>(student.status ?? "active");
   const [statusReason, setStatusReason] = useState("");
   const [dropOutReason, setDropOutReason] = useState(student.dropOutReason ?? "");
+  const [dropOutReasonGroup, setDropOutReasonGroup] = useState<StudentDropOutReasonGroup | "">(
+    student.dropOutReasonGroup ?? "",
+  );
   const currentStatus: StudentStatus = student.status ?? "active";
   const markingInactive = isMarkingStudentInactive(currentStatus, status);
   const [goal, setGoal] = useState(student.goal ?? "");
@@ -351,6 +383,7 @@ export default function EditStudentPopup({
       currentStatus,
       nextStatus: status,
       reason: statusChanging ? statusReason : dropOutReason,
+      group: dropOutReasonGroup,
     });
     if (reasonError) {
       toast.error(reasonError);
@@ -360,6 +393,11 @@ export default function EditStudentPopup({
     const savedDropOutReason = student.dropOutReason?.trim() ?? "";
     const editingDropOutReason =
       !statusChanging && status === "inactive" && trimmedDropOutReason !== savedDropOutReason;
+    const editingDropOutReasonGroup =
+      !statusChanging &&
+      status === "inactive" &&
+      dropOutReasonGroup !== "" &&
+      dropOutReasonGroup !== (student.dropOutReasonGroup ?? "");
     if (editingDropOutReason && !trimmedDropOutReason) {
       toast.error("Lý do nghỉ học không được để trống.");
       return;
@@ -401,6 +439,9 @@ export default function EditStudentPopup({
           goal: goal.trim() || undefined,
           drop_out_date: dropOutDate.trim() || undefined,
           ...(editingDropOutReason ? { drop_out_reason: trimmedDropOutReason } : {}),
+          ...(editingDropOutReasonGroup && dropOutReasonGroup
+            ? { drop_out_reason_group: dropOutReasonGroup }
+            : {}),
           ...(customerSource
             ? {
                 customer_source: customerSource,
@@ -422,6 +463,7 @@ export default function EditStudentPopup({
             student.id,
             status,
             statusReason.trim() || undefined,
+            dropOutReasonGroup || undefined,
           );
         }
         await studentApi.updateStudentExamSchedules(student.id, {
@@ -634,6 +676,14 @@ export default function EditStudentPopup({
                     buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   />
                 </label>
+
+                {status === "inactive" ? (
+                  <DropOutReasonGroupField
+                    required={markingInactive}
+                    value={dropOutReasonGroup}
+                    onChange={setDropOutReasonGroup}
+                  />
+                ) : null}
 
                 {markingInactive ? (
                   <StudentReasonField

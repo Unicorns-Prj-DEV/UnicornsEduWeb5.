@@ -383,7 +383,7 @@ describe('CustomerCareService', () => {
   });
 
   describe('missing drop-out reasons', () => {
-    it('lists assigned students who dropped out in 9/2026 without a reason', async () => {
+    it('lists assigned students who dropped out since 2026-09-01 missing a reason or group', async () => {
       mockPrisma.staffInfo.findFirst.mockResolvedValue({
         id: 'staff-1',
         roles: [StaffRole.customer_care],
@@ -394,6 +394,8 @@ describe('CustomerCareService', () => {
             id: 'student-1',
             fullName: 'Hoc Sinh A',
             dropOutDate: new Date('2026-09-15T00:00:00.000Z'),
+            dropOutReason: 'Lịch học thêm ở trường',
+            dropOutReasonGroup: null,
           },
         },
       ]);
@@ -401,12 +403,14 @@ describe('CustomerCareService', () => {
       const result = await service.getMyMissingDropOutReasons('user-1');
 
       expect(result).toEqual({
-        monthKey: '2026-09',
+        since: '2026-09-01',
         items: [
           {
             studentId: 'student-1',
             fullName: 'Hoc Sinh A',
             dropOutDate: '2026-09-15',
+            dropOutReason: 'Lịch học thêm ở trường',
+            dropOutReasonGroup: null,
           },
         ],
       });
@@ -416,11 +420,8 @@ describe('CustomerCareService', () => {
             staffId: 'staff-1',
             student: {
               status: StudentStatus.inactive,
-              dropOutReason: null,
-              dropOutDate: {
-                gte: new Date('2026-09-01T00:00:00.000Z'),
-                lt: new Date('2026-10-01T00:00:00.000Z'),
-              },
+              dropOutDate: { gte: new Date('2026-09-01T00:00:00.000Z') },
+              OR: [{ dropOutReason: null }, { dropOutReasonGroup: null }],
             },
           },
         }),
@@ -435,7 +436,7 @@ describe('CustomerCareService', () => {
 
       const result = await service.getMyMissingDropOutReasons('user-2');
 
-      expect(result).toEqual({ monthKey: '2026-09', items: [] });
+      expect(result).toEqual({ since: '2026-09-01', items: [] });
       expect(mockPrisma.customerCareService.findMany).not.toHaveBeenCalled();
     });
 

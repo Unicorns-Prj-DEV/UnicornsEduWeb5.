@@ -21,3 +21,8 @@ Access JWT sống ~15 phút. `StudentDeviceGuard` chỉ gắn `/auth/refresh`, c
 
 - Deploy: refresh cookie cũ (chưa có `deviceId` / `token_hash` là hash JWT) bị 401 trừ học sinh còn đúng một device live (một lần rebind). Staff/admin cần đăng nhập lại.
 - Không cache tình trạng thiết bị theo `deviceId`; identity cache 5s vẫn invalidate khi xóa device.
+
+## Amendment 2026-10-10
+
+- Bỏ nhánh fallback "thiết bị sống mới nhất" cho học sinh trong `assertLiveRefreshDevice`. Nhánh này bắt cả token **có** `deviceId` nhưng lệch hash / thiết bị đã xoá, nên cookie refresh của máy đã bị force-logout (hoặc token đã rotate) chiếm phiên của máy đang đăng nhập — luật một thiết bị vô hiệu. Refresh token không `deviceId` (≤ 30 ngày) đã hết hạn nên không còn cần rebind.
+- `POST /auth/login` từ chối học sinh (`STUDENT_LOGIN_REQUIRED`); Google OAuth cho học sinh áp luật một thiết bị (`device_blocked`).

@@ -91,6 +91,9 @@ export default function StudentAttemptQuestion({
                 ? `${formatScoreValue(question.pointsAwarded, scoring)}/`
                 : ""}
               {formatScoreValue(question.pointsPossible, scoring)} điểm
+              {reveal && isEssay && question.pointsAwarded == null
+                ? " · chờ chấm"
+                : ""}
             </span>
           )}
         </div>
@@ -160,6 +163,16 @@ export default function StudentAttemptQuestion({
             content={question.explanation}
             className="text-xs text-text-secondary"
           />
+        </div>
+      )}
+      {reveal && isEssay && question.feedback && (
+        <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+          <span className="text-xs font-semibold text-primary">
+            Nhận xét của gia sư:{" "}
+          </span>
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-text-secondary">
+            {question.feedback}
+          </p>
         </div>
       )}
       {reveal && question.type === "essay" && question.answerGuide && (
