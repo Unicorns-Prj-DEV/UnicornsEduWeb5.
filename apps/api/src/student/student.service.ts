@@ -2871,8 +2871,18 @@ export class StudentService {
     const classIdsToRemove = existingMemberships
       .map((membership) => membership.classId)
       .filter((classId) => !requestedClassIds.has(classId));
-    const classIdsToActivate = classIds.filter((classId) =>
-      existingClassIds.has(classId),
+    // Chỉ kích hoạt lại membership đã gỡ mềm; membership đang active giữ nguyên
+    // (không reset học phí riêng mỗi lần lưu danh sách lớp).
+    const activeClassIds = new Set(
+      existingMemberships
+        .filter(
+          (membership) => membership.status === StudentClassStatus.active,
+        )
+        .map((membership) => membership.classId),
+    );
+    const classIdsToActivate = classIds.filter(
+      (classId) =>
+        existingClassIds.has(classId) && !activeClassIds.has(classId),
     );
     const classIdsToAdd = classIds.filter(
       (classId) => !existingClassIds.has(classId),

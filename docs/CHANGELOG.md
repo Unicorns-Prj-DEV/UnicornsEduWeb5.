@@ -40,6 +40,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Popup Điều chỉnh danh sách lớp học (học sinh)**: không còn hiện lớp đã kết thúc hoặc đã gỡ học sinh là «Đang có». Lớp đã kết thúc vẫn được giữ membership khi lưu. Backend `PATCH /student/:id/classes` thôi reset học phí riêng của các lớp đang active mỗi lần lưu (chỉ reset khi kích hoạt lại membership đã gỡ). Docs: `pages/admin.md`.
+
 - **Học sinh không thấy điểm tự luận sau khi gia sư chấm**: lobby và trang lượt làm chỉ hiện `autoGradedScore` (trắc nghiệm). API thêm `score` (trắc nghiệm + tự luận đã chấm), `essayScore`, `scoreMax` cho lobby và `AttemptDetailDto`, cùng `feedback` câu tự luận (sau hạn công bố); FE hiện tổng điểm, «chờ chấm» và nhận xét gia sư. Chấm tự luận chạy trong transaction khoá dòng attempt (`SELECT … FOR UPDATE`) để `hasUngradedEssay` không kẹt khi hai gia sư chấm song song.
 - **Đăng xuất từ header học sinh bị đá ngược về `/student`**: hook chung `useStudentLogout` reset `AuthContext` về guest trước khi điều hướng.
 - **Câu sắp xếp > 6 thẻ bị `400`**: DTO `options` của `POST/PATCH /questions` và bulk giới hạn 6 phần tử, chặn trước quy tắc 2–12 thẻ. Nâng lên 12; số phương án trắc nghiệm vẫn 2–6 theo quy tắc hình dạng câu.
