@@ -48,6 +48,12 @@ import { toast } from "sonner";
 import { formatVnInteger } from "@/lib/formatters";
 import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import NewStudentDefinitionHint from "@/components/shared/NewStudentDefinitionHint";
+import { ChartColumn, FileChartColumn, FileDown, FileSpreadsheet } from "lucide-react";
+
+const toolbarButtonBaseClass =
+  "inline-flex min-h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
+const toolbarSecondaryClass = `${toolbarButtonBaseClass} border border-border-default bg-bg-surface text-text-primary hover:bg-bg-secondary`;
+const toolbarPrimaryClass = `${toolbarButtonBaseClass} bg-primary text-text-inverse hover:bg-primary-hover`;
 
 function formatCurrency(value: number) {
   return `${formatVnInteger(value)} đ`;
@@ -879,7 +885,7 @@ export default function AdminDashboardTabPage() {
     <div className="min-h-full bg-bg-primary p-4 sm:p-6">
       <div className="mx-auto w-full max-w-[1320px] space-y-4 rounded-xl border border-border-default bg-bg-surface p-4 sm:p-5">
         <section className="flex flex-col gap-3 border-b border-border-default pb-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col gap-2">
               <span className="text-xs text-text-muted">Bộ lọc theo thời gian</span>
 
@@ -978,41 +984,54 @@ export default function AdminDashboardTabPage() {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={buildAdminLikePath(routeBase, "monthly-report")}
-                className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                Báo cáo tháng
-              </Link>
-              <Link
-                href={buildAdminLikePath(routeBase, "dashboard/statistics")}
-                className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                Thống kê năm
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  if (exportFinancialPdfMutation.isPending) return;
-                  exportFinancialPdfMutation.mutate();
-                }}
-                disabled={exportFinancialPdfMutation.isPending}
-                className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {exportFinancialPdfMutation.isPending ? "Đang xuất…" : "Xuất PDF"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (exportFinancialExcelMutation.isPending) return;
-                  exportFinancialExcelMutation.mutate();
-                }}
-                disabled={exportFinancialExcelMutation.isPending}
-                className="inline-flex min-h-10 items-center rounded-md bg-primary px-3 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {exportFinancialExcelMutation.isPending ? "Đang xuất…" : "Xuất Excel"}
-              </button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <nav aria-label="Báo cáo liên quan" className="grid grid-cols-2 gap-2 sm:flex">
+                <Link
+                  href={buildAdminLikePath(routeBase, "monthly-report")}
+                  className={toolbarSecondaryClass}
+                >
+                  <FileChartColumn className="size-4 shrink-0" aria-hidden />
+                  Báo cáo tháng
+                </Link>
+                <Link
+                  href={buildAdminLikePath(routeBase, "dashboard/statistics")}
+                  className={toolbarSecondaryClass}
+                >
+                  <ChartColumn className="size-4 shrink-0" aria-hidden />
+                  Thống kê năm
+                </Link>
+              </nav>
+
+              <span aria-hidden className="hidden h-6 w-px bg-border-default sm:block" />
+
+              <div role="group" aria-label="Xuất báo cáo tài chính" className="grid grid-cols-2 gap-2 sm:flex">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (exportFinancialPdfMutation.isPending) return;
+                    exportFinancialPdfMutation.mutate();
+                  }}
+                  disabled={exportFinancialPdfMutation.isPending}
+                  aria-busy={exportFinancialPdfMutation.isPending}
+                  className={toolbarSecondaryClass}
+                >
+                  <FileDown className="size-4 shrink-0" aria-hidden />
+                  {exportFinancialPdfMutation.isPending ? "Đang xuất…" : "Xuất PDF"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (exportFinancialExcelMutation.isPending) return;
+                    exportFinancialExcelMutation.mutate();
+                  }}
+                  disabled={exportFinancialExcelMutation.isPending}
+                  aria-busy={exportFinancialExcelMutation.isPending}
+                  className={toolbarPrimaryClass}
+                >
+                  <FileSpreadsheet className="size-4 shrink-0" aria-hidden />
+                  {exportFinancialExcelMutation.isPending ? "Đang xuất…" : "Xuất Excel"}
+                </button>
+              </div>
             </div>
           </div>
         </section>
