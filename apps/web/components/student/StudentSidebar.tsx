@@ -193,14 +193,13 @@ export default function StudentSidebar() {
       >
         <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border-default px-2.5 py-1.5 sm:px-3">
           <div
-            className={`flex min-w-0 flex-1 items-center overflow-hidden transition-[justify-content] duration-300 ease-out ${compact ? "justify-center" : "justify-start"}`}
+            className={`flex min-w-0 flex-1 items-center overflow-hidden transition-[justify-content] duration-300 ease-out justify-center ${compact ? "" : "pl-[3.25rem] md:pl-11"}`}
           >
             <BrandLogoLockup
               variant="navbar"
               showWordmark={!compact}
               dense={compact}
-              className="w-full min-w-0 transition-[width,opacity] duration-300 ease-out"
-              wordmarkClassName="truncate"
+              className="w-full min-w-0 justify-center transition-[width,opacity] duration-300 ease-out"
             />
           </div>
           <button

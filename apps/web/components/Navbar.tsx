@@ -72,7 +72,6 @@ export function Navbar({ showHomeMenu = true }: { showHomeMenu?: boolean }) {
           <BrandLogoLockup
             variant="navbar"
             className="transition-opacity duration-200 group-hover:opacity-[0.97]"
-            wordmarkClassName="hidden min-[390px]:inline"
           />
         </button>
 

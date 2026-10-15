@@ -43,7 +43,7 @@ export default function StudentHeader() {
           href="/student"
           className="flex shrink-0 items-center gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         >
-          <BrandLogoLockup variant="navbar" showWordmark={true} wordmarkClassName="hidden md:inline" />
+          <BrandLogoLockup variant="navbar" showWordmark={true} />
         </Link>
 
         <div className="flex min-w-0 items-center gap-1 sm:gap-2">
