@@ -536,9 +536,18 @@ type QuickPickProps = {
   onChange: (next: SessionAttendanceStatus) => void;
   namePrefix: string;
   disabled?: boolean;
+  /** `false` với lớp bán một lần — không có học thử. */
+  allowTrial?: boolean;
 };
 
-export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disabled = false }: QuickPickProps) {
+export function AttendanceStatusQuickPick({
+  value,
+  onChange,
+  namePrefix,
+  disabled = false,
+  allowTrial = true,
+}: QuickPickProps) {
+  const statuses = allowTrial ? STATUS_ORDER : STATUS_ORDER.filter((status) => status !== "trial");
   return (
     <div
       className={`inline-flex shrink-0 gap-0.5 rounded-lg border border-border-default p-0.5 ${
@@ -547,7 +556,7 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disable
       role="group"
       aria-label="Trạng thái điểm danh"
     >
-      {STATUS_ORDER.map((status) => {
+      {statuses.map((status) => {
         const active = value === status;
         return (
           <button
@@ -631,6 +640,8 @@ type SessionAttendanceEditorProps = {
   namePrefix: string;
   disabled?: boolean;
   canEditTuition?: boolean;
+  /** `false` với lớp bán một lần — ẩn nút Học thử. */
+  allowTrial?: boolean;
   onStatusChange: (studentId: string, status: SessionAttendanceStatus) => void;
   onNotesChange: (studentId: string, html: string) => void;
   onTuitionChange?: (studentId: string, value: string) => void;
@@ -642,6 +653,7 @@ export function SessionAttendanceEditor({
   namePrefix,
   disabled = false,
   canEditTuition = false,
+  allowTrial = true,
   onStatusChange,
   onNotesChange,
   onTuitionChange,
@@ -658,6 +670,7 @@ export function SessionAttendanceEditor({
             notes={item.notes}
             namePrefix={`${namePrefix}-${item.studentId}`}
             disabled={disabled}
+            allowTrial={allowTrial}
             onStatusChange={(next) => onStatusChange(item.studentId, next)}
             onNotesChange={(html) => onNotesChange(item.studentId, html)}
             showTuitionField={canEditTuition}
@@ -718,6 +731,7 @@ export function SessionAttendanceEditor({
                       namePrefix={`${namePrefix}-d-${item.studentId}`}
                       value={item.status}
                       disabled={disabled}
+                      allowTrial={allowTrial}
                       onChange={(next) => onStatusChange(item.studentId, next)}
                     />
                   </div>
@@ -775,6 +789,7 @@ type SessionStudentAttendanceCommentRowProps = {
   notes: string;
   namePrefix: string;
   disabled?: boolean;
+  allowTrial?: boolean;
   onStatusChange: (next: SessionAttendanceStatus) => void;
   onNotesChange: (html: string) => void;
   showTuitionField?: boolean;
@@ -793,6 +808,7 @@ export function SessionStudentAttendanceCommentRow({
   notes,
   namePrefix,
   disabled = false,
+  allowTrial = true,
   onStatusChange,
   onNotesChange,
   showTuitionField = false,
@@ -812,6 +828,7 @@ export function SessionStudentAttendanceCommentRow({
           namePrefix={namePrefix}
           value={status}
           disabled={disabled}
+          allowTrial={allowTrial}
           onChange={onStatusChange}
         />
       </div>

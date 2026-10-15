@@ -3111,6 +3111,7 @@ export default function SessionHistoryTable({
                               namePrefix="edit-att"
                               disabled={readOnlySessionDetails}
                               canEditTuition={canEditAttendanceTuition}
+                              allowTrial={editingClassDetail?.pricingMode !== "one_time"}
                               onStatusChange={setAttendanceStatus}
                               onNotesChange={setAttendanceNotes}
                               onTuitionChange={setAttendanceTuitionFee}

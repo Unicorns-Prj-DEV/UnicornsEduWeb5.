@@ -146,7 +146,8 @@ export class SessionTrialCatchUpService {
 
   /**
    * Học thử chỉ hợp lệ khi: lớp không bán một lần, học sinh chưa có buổi học thử khác trên lớp,
-   * và chưa từng bị thu học phí trên lớp trước buổi này.
+   * và chưa từng học chính thức (present/excused, kể cả học phí 0đ) hay bị thu học phí
+   * trên lớp trước buổi này.
    */
   async assertTrialAttendanceAllowed(
     tx: Tx,
@@ -174,6 +175,7 @@ export class SessionTrialCatchUpService {
         },
         OR: [
           { status: AttendanceStatus.trial },
+          { status: { in: [...CHARGEABLE_STATUSES] } },
           { transactionId: { not: null } },
         ],
       },
@@ -197,7 +199,7 @@ export class SessionTrialCatchUpService {
           `${name} đã có một buổi học thử trên lớp này.`,
         );
       }
-      const chargedBefore =
+      const studiedBefore =
         compareSessionOrder(
           {
             sessionDate: row.session.date,
@@ -206,9 +208,9 @@ export class SessionTrialCatchUpService {
           },
           current,
         ) < 0;
-      if (chargedBefore) {
+      if (studiedBefore) {
         throw new BadRequestException(
-          `${name} đã đóng học phí trên lớp này nên không thể học thử.`,
+          `${name} đã học chính thức trên lớp này nên không thể học thử.`,
         );
       }
     }

@@ -40,6 +40,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Chặn học thử khi đã học chính thức**: `assertTrialAttendanceAllowed` nay chặn `400` «… đã học chính thức trên lớp này nên không thể học thử.» khi học sinh có buổi `present`/`excused` trên lớp **trước** buổi đang tạo/sửa, kể cả buổi học phí 0đ (trước đây chỉ chặn khi đã bị thu học phí, tức `transaction_id` khác null). Buổi `absent` không tính. Docs: `pages/admin.md`, `pages/staff.md`, ADR `2026-10-12-trial-attendance-catch-up-charge.md`.
+- **Điểm danh lớp bán một lần**: form thêm/sửa buổi không còn nút **T** (Học thử) khi lớp `pricing_mode = one_time` (trước đây nút vẫn bấm được, backend mới trả `400` lúc lưu). Prop `allowTrial` trên `AttendanceStatusQuickPick` / `SessionAttendanceEditor`. Docs: `pages/admin.md`, `pages/staff.md`.
 - **Ô tìm học sinh khi xếp lớp**: popup Thêm lớp, Sửa lớp, Sửa học sinh của lớp (admin + staff) chỉ gợi ý học sinh đang học (`status=active`), bỏ học sinh đã nghỉ. Docs: `pages/admin.md`.
 
 - **Popup Điều chỉnh danh sách lớp học (học sinh)**: không còn hiện lớp đã kết thúc hoặc đã gỡ học sinh là «Đang có». Lớp đã kết thúc vẫn được giữ membership khi lưu. Backend `PATCH /student/:id/classes` thôi reset học phí riêng của các lớp đang active mỗi lần lưu (chỉ reset khi kích hoạt lại membership đã gỡ). Docs: `pages/admin.md`.

@@ -13,7 +13,7 @@ Trước đây "Dạy thử" là toggle cấp buổi (`coefficient = 0`): cả b
 2. **Học thử:** không trừ ví, không tính vào sĩ số trợ cấp, không truy lĩnh trợ cấp cho gia sư về sau.
 3. **Thu bù:** buổi `present`/`excused` đầu tiên sau buổi thử, trên cùng lớp, trừ **gấp đôi** học phí của chính buổi đó. Lịch sử ví ghi **2 dòng `extend` riêng**; dòng thứ hai ghi rõ là thu bù học thử kèm ngày buổi thử. Doanh thu và hoa hồng tính cả hai lần, ghi vào ngày buổi thu bù, không tách nhãn trên dashboard. Buổi vắng không kích hoạt thu bù.
 4. **Thu bù dời theo buổi:** xoá buổi thu bù hoặc sửa học sinh thành vắng thì hoàn cả hai lần và thu bù chuyển sang buổi kế tiếp đủ điều kiện. Xoá buổi thử hoặc bỏ trạng thái học thử thì hoàn lần thu bù.
-5. **Giới hạn:** mỗi học sinh tối đa một lần học thử trên mỗi lớp, chỉ khi chưa từng bị thu học phí trên lớp đó. Lớp bán một lần không có học thử.
+5. **Giới hạn:** mỗi học sinh tối đa một lần học thử trên mỗi lớp, chỉ khi chưa từng học chính thức (`present`/`excused`, kể cả buổi học phí 0đ) hoặc bị thu học phí trên lớp đó ở buổi trước. Lớp bán một lần không có học thử.
 
 ## Considered options
 

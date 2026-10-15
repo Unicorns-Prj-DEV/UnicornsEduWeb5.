@@ -1046,6 +1046,7 @@ export default function AddSessionPopup({
                           items={previewAttendanceItems}
                           namePrefix="add-att"
                           canEditTuition={canEditAttendanceTuition}
+                          allowTrial={classPricingMode !== "one_time"}
                           onStatusChange={handleAttendanceStatusChange}
                           onNotesChange={handleAttendanceNotesChange}
                           onTuitionChange={handleAttendanceTuitionChange}
