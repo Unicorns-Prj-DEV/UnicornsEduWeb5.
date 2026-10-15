@@ -40,6 +40,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Ô tìm học sinh khi xếp lớp**: popup Thêm lớp, Sửa lớp, Sửa học sinh của lớp (admin + staff) chỉ gợi ý học sinh đang học (`status=active`), bỏ học sinh đã nghỉ. Docs: `pages/admin.md`.
+
 - **Popup Điều chỉnh danh sách lớp học (học sinh)**: không còn hiện lớp đã kết thúc hoặc đã gỡ học sinh là «Đang có». Lớp đã kết thúc vẫn được giữ membership khi lưu. Backend `PATCH /student/:id/classes` thôi reset học phí riêng của các lớp đang active mỗi lần lưu (chỉ reset khi kích hoạt lại membership đã gỡ). Docs: `pages/admin.md`.
 
 - **Học sinh không thấy điểm tự luận sau khi gia sư chấm**: lobby và trang lượt làm chỉ hiện `autoGradedScore` (trắc nghiệm). API thêm `score` (trắc nghiệm + tự luận đã chấm), `essayScore`, `scoreMax` cho lobby và `AttemptDetailDto`, cùng `feedback` câu tự luận (sau hạn công bố); FE hiện tổng điểm, «chờ chấm» và nhận xét gia sư. Chấm tự luận chạy trong transaction khoá dòng attempt (`SELECT … FOR UPDATE`) để `hasUngradedEssay` không kẹt khi hai gia sư chấm song song.
