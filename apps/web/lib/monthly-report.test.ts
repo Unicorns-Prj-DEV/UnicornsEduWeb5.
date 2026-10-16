@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  INTERVENABLE_DROP_OUT_GROUPS,
   MONTHLY_REPORT_NONE_KEY,
   buildMonthlyReportMatrix,
   formatMillions,
   formatSignedCount,
-  sumDropOutGroups,
 } from "./monthly-report";
 
 describe("buildMonthlyReportMatrix", () => {
@@ -47,18 +45,5 @@ describe("monthly report formatters", () => {
     expect(formatSignedCount(3)).toBe("+3");
     expect(formatSignedCount(-2)).toBe("−2");
     expect(formatSignedCount(0)).toBe("0");
-  });
-
-  it("sums only the requested drop-out groups", () => {
-    expect(
-      sumDropOutGroups(
-        [
-          { group: "trial_only", count: 2 },
-          { group: "exam_done", count: 5 },
-          { group: "tuition", count: 1 },
-        ],
-        INTERVENABLE_DROP_OUT_GROUPS,
-      ),
-    ).toBe(3);
   });
 });

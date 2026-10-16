@@ -16,7 +16,6 @@ function student(
     customerSource: 'tiktok',
     dropOutDate: null,
     dropOutReason: null,
-    dropOutReasonGroup: null,
     customerCareStaffId: 'cs-1',
     ...overrides,
   };
@@ -37,7 +36,6 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
         id: 'new-dropped',
         status: 'inactive',
         dropOutDate: new Date('2026-09-20T00:00:00.000Z'),
-        dropOutReasonGroup: 'trial_only',
         dropOutReason: 'Học thử không hợp',
       }),
       // Mới, chưa xếp lớp, không có nguồn, không có CSKH.
@@ -46,7 +44,7 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
         customerSource: null,
         customerCareStaffId: null,
       }),
-      // Cũ, nghỉ trong tháng, chưa phân loại.
+      // Cũ, nghỉ trong tháng.
       student({
         id: 'old-dropped',
         status: 'inactive',
@@ -58,7 +56,6 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
         id: 'old-dropped-august',
         status: 'inactive',
         dropOutDate: new Date('2026-08-30T00:00:00.000Z'),
-        dropOutReasonGroup: 'exam_done',
       }),
       // Cũ, còn học, có nạp trong tháng.
       student({ id: 'old-active', customerCareStaffId: 'cs-2' }),
@@ -171,18 +168,9 @@ describe('buildAdminMonthlyReport', () => {
     );
   });
 
-  it('groups dropped students by reason group with unclassified last', () => {
+  it('lists students dropped in the month by drop-out date', () => {
     const report = buildAdminMonthlyReport(buildInput());
-    const counts = Object.fromEntries(
-      report.droppedByGroup.map((row) => [row.group, row.count]),
-    );
 
-    expect(counts).toMatchObject({
-      trial_only: 1,
-      unclassified: 1,
-      exam_done: 0,
-    });
-    expect(report.droppedByGroup.at(-1)?.group).toBe('unclassified');
     expect(report.droppedStudents.map((row) => row.studentId)).toEqual([
       'old-dropped',
       'new-dropped',
@@ -229,7 +217,6 @@ describe('buildAdminMonthlyReport', () => {
     expect(report.newStudents[1]).toMatchObject({
       isEarlyDrop: true,
       dropOutDate: '2026-09-20',
-      dropOutReasonGroup: 'trial_only',
       courseName: 'BASIC',
     });
     expect(report.newStudents[2]).toMatchObject({

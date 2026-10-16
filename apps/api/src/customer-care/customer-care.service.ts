@@ -38,7 +38,7 @@ const DEFAULT_DAYS = 30;
 const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
 /**
- * Học sinh nghỉ từ ngày này trở đi mà thiếu lý do hoặc nhóm lý do nghỉ thì
+ * Học sinh nghỉ từ ngày này trở đi mà thiếu lý do nghỉ thì
  * CSKH phụ trách bị nhắc điền qua popup (không có cận trên).
  */
 const DROP_OUT_REASON_REMINDER_SINCE = '2026-09-01';
@@ -392,7 +392,7 @@ export class CustomerCareService {
 
   /**
    * Học sinh CSKH đang đăng nhập phụ trách, nghỉ từ mốc nhắc trở đi mà còn
-   * thiếu lý do hoặc nhóm lý do nghỉ. Người không có role CSKH (kể cả nhân sự
+   * thiếu lý do nghỉ. Người không có role CSKH (kể cả nhân sự
    * kiêm nhiều role khác) nhận danh sách rỗng; học sinh chưa có CSKH không
    * xuất hiện ở ai.
    */
@@ -411,7 +411,7 @@ export class CustomerCareService {
         student: {
           status: StudentStatus.inactive,
           dropOutDate: { gte: new Date(`${since}T00:00:00.000Z`) },
-          OR: [{ dropOutReason: null }, { dropOutReasonGroup: null }],
+          dropOutReason: null,
         },
       },
       select: {
@@ -421,7 +421,6 @@ export class CustomerCareService {
             fullName: true,
             dropOutDate: true,
             dropOutReason: true,
-            dropOutReasonGroup: true,
           },
         },
       },
@@ -438,7 +437,6 @@ export class CustomerCareService {
         fullName: student.fullName,
         dropOutDate: student.dropOutDate?.toISOString().slice(0, 10) ?? '',
         dropOutReason: student.dropOutReason,
-        dropOutReasonGroup: student.dropOutReasonGroup,
       })),
     };
   }

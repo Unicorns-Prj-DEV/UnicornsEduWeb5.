@@ -26,7 +26,6 @@ import {
 import {
   Gender,
   StudentCustomerSource,
-  StudentDropOutReasonGroup,
   StudentStatus,
   StudentWalletDirectTopUpRequestStatus,
   UserRole,
@@ -203,15 +202,6 @@ export class UpdateStudentBodyDto {
   drop_out_reason?: string;
 
   @ApiPropertyOptional({
-    enum: StudentDropOutReasonGroup,
-    description:
-      'Nhóm lý do nghỉ học. Bắt buộc khi status chuyển sang inactive; chỉ nhận khi học sinh đang/sẽ nghỉ học.',
-  })
-  @IsOptional()
-  @IsEnum(StudentDropOutReasonGroup)
-  drop_out_reason_group?: StudentDropOutReasonGroup;
-
-  @ApiPropertyOptional({
     example: 'UNISTAFF-c3d4e5f6a7',
     description: 'Assigned customer care staff ID. Set null to clear.',
     nullable: true,
@@ -371,15 +361,6 @@ export class UpdateStudentStatusDto {
   @IsString()
   @MaxLength(STUDENT_DROP_OUT_REASON_MAX_LENGTH)
   reason?: string;
-
-  @ApiPropertyOptional({
-    enum: StudentDropOutReasonGroup,
-    description:
-      'Nhóm lý do nghỉ học. Bắt buộc khi chuyển sang inactive; bỏ qua khi chuyển về active.',
-  })
-  @IsOptional()
-  @IsEnum(StudentDropOutReasonGroup)
-  drop_out_reason_group?: StudentDropOutReasonGroup;
 }
 
 export class UpdateStudentAccountBalanceCreateDto {

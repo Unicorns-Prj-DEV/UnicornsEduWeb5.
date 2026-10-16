@@ -1,4 +1,4 @@
-import type { StudentCustomerSource, StudentDropOutReasonGroup } from "./student.dto";
+import type { StudentCustomerSource } from "./student.dto";
 
 export interface AdminDashboardPeriod {
   month: string;
@@ -517,9 +517,6 @@ export interface StaffDashboardDto {
   training?: StaffDashboardTrainingSection;
 }
 
-/** Nhóm lý do nghỉ, cộng `unclassified` = Chưa phân loại. */
-export type MonthlyReportDropOutGroupKey = StudentDropOutReasonGroup | "unclassified";
-
 export interface MonthlyReportKpi {
   /** Tổng nạp ví hợp lệ trong tháng (QR hoàn tất + nạp thẳng đã duyệt). */
   totalTopUpInMonth: number;
@@ -548,11 +545,6 @@ export interface MonthlyReportMatrixCell {
   totalTopUp: number;
 }
 
-export interface MonthlyReportDropOutGroupCount {
-  group: MonthlyReportDropOutGroupKey;
-  count: number;
-}
-
 export interface MonthlyReportCustomerCareRow {
   staffId: string | null;
   staffName: string;
@@ -563,7 +555,6 @@ export interface MonthlyReportCustomerCareRow {
   earlyDropCount: number;
   totalTopUpInMonth: number;
   topUpTransactionCount: number;
-  droppedByGroup: MonthlyReportDropOutGroupCount[];
 }
 
 export interface MonthlyReportNewStudent {
@@ -578,7 +569,6 @@ export interface MonthlyReportNewStudent {
   totalTopUp: number;
   isEarlyDrop: boolean;
   dropOutDate: string | null;
-  dropOutReasonGroup: StudentDropOutReasonGroup | null;
 }
 
 export interface MonthlyReportDroppedStudent {
@@ -587,7 +577,6 @@ export interface MonthlyReportDroppedStudent {
   customerCareStaffName: string | null;
   className: string | null;
   dropOutDate: string;
-  dropOutReasonGroup: StudentDropOutReasonGroup | null;
   dropOutReason: string | null;
 }
 
@@ -598,7 +587,6 @@ export interface AdminMonthlyReport {
   kpi: MonthlyReportKpi;
   courses: MonthlyReportCourse[];
   matrix: MonthlyReportMatrixCell[];
-  droppedByGroup: MonthlyReportDropOutGroupCount[];
   customerCare: MonthlyReportCustomerCareRow[];
   newStudents: MonthlyReportNewStudent[];
   droppedStudents: MonthlyReportDroppedStudent[];

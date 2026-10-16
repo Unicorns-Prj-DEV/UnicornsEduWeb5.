@@ -142,7 +142,6 @@ export default function AdminMonthlyReportPage() {
                   Khác với «Học sinh mới» trên khối CSKH (tính theo ngày tạo hồ sơ).
                 </li>
                 <li>Tổng nạp là tiền nạp vào ví, không phải doanh thu ghi nhận theo buổi học.</li>
-                <li>Học sinh nghỉ trước khi có nhóm lý do hiện là «Chưa phân loại».</li>
                 <li>Số liệu tính lúc {formatVnDateTime(report.generatedAt)}; trạng thái học sinh có thể đổi sau đó.</li>
               </ul>
             </ReportSection>

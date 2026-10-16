@@ -5,12 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { CustomerCareMissingDropOutReason } from "@/dtos/customer-care.dto";
-import {
-  STUDENT_DROP_OUT_REASON_GROUP_OPTIONS,
-  STUDENT_DROP_OUT_REASON_MAX_LENGTH,
-  type StudentDropOutReasonGroup,
-} from "@/dtos/student.dto";
-import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { STUDENT_DROP_OUT_REASON_MAX_LENGTH } from "@/dtos/student.dto";
 import * as authApi from "@/lib/apis/auth.api";
 import * as customerCareApi from "@/lib/apis/customer-care.api";
 import * as studentApi from "@/lib/apis/student.api";
@@ -39,18 +34,11 @@ function DropOutReasonReminderRow({
 }) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState(item.dropOutReason ?? "");
-  const [group, setGroup] = useState<StudentDropOutReasonGroup | "">(
-    item.dropOutReasonGroup ?? "",
-  );
 
   const saveMutation = useMutation({
-    mutationFn: (payload: {
-      reason: string;
-      group: StudentDropOutReasonGroup;
-    }) =>
+    mutationFn: (nextReason: string) =>
       studentApi.updateStudentById(item.studentId, {
-        drop_out_reason: payload.reason,
-        drop_out_reason_group: payload.group,
+        drop_out_reason: nextReason,
       }),
     onSuccess: async () => {
       toast.success("Đã lưu lý do nghỉ.");
@@ -68,16 +56,15 @@ function DropOutReasonReminderRow({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const error = validateBackfilledDropOutReason({ reason, group });
-    if (error || !group) {
-      toast.error(error ?? "Chọn nhóm lý do nghỉ trước khi lưu.");
+    const error = validateBackfilledDropOutReason(reason);
+    if (error) {
+      toast.error(error);
       return;
     }
-    saveMutation.mutate({ reason: reason.trim(), group });
+    saveMutation.mutate(reason.trim());
   };
 
   const inputId = `drop-out-reason-${item.studentId}`;
-  const groupLabelId = `drop-out-reason-group-${item.studentId}`;
 
   return (
     <li className="rounded-lg border border-border-default bg-bg-secondary/40 p-3">
@@ -99,19 +86,6 @@ function DropOutReasonReminderRow({
         </Link>
       </div>
       <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2">
-        <span id={groupLabelId} className="sr-only">
-          Nhóm lý do nghỉ của {item.fullName}
-        </span>
-        <UpgradedSelect
-          labelId={groupLabelId}
-          value={group}
-          onValueChange={(value) =>
-            setGroup(value as StudentDropOutReasonGroup)
-          }
-          options={STUDENT_DROP_OUT_REASON_GROUP_OPTIONS}
-          placeholder="Chọn nhóm lý do nghỉ"
-          disabled={saveMutation.isPending}
-        />
         <div className="flex flex-col gap-2 sm:flex-row">
           <label htmlFor={inputId} className="sr-only">
             Lý do nghỉ của {item.fullName}
@@ -139,8 +113,8 @@ function DropOutReasonReminderRow({
 }
 
 /**
- * Nhắc CSKH điền lý do + nhóm lý do nghỉ cho học sinh mình phụ trách đã nghỉ từ
- * 01/09/2026 mà còn thiếu một trong hai. Áp dụng cả nhân sự kiêm nhiều role có
+ * Nhắc CSKH điền lý do nghỉ cho học sinh mình phụ trách đã nghỉ từ 01/09/2026
+ * mà còn thiếu lý do. Áp dụng cả nhân sự kiêm nhiều role có
  * CSKH. Panel nổi không có backdrop nên không chặn thao tác khác; "Đóng" ẩn tới
  * hết phiên đăng nhập (sessionStorage, xoá khi đăng xuất).
  */
@@ -197,11 +171,11 @@ export default function DropOutReasonReminder() {
           id="drop-out-reason-reminder-title"
           className="text-sm font-semibold text-text-primary"
         >
-          Còn {items.length} học sinh nghỉ chưa đủ lý do
+          Còn {items.length} học sinh nghỉ chưa có lý do
         </h2>
         <p className="mt-1 text-xs text-text-secondary">
-          Chọn nhóm và ghi lý do nghỉ cho từng học sinh bạn phụ trách. Lưu xong
-          học sinh tự biến khỏi danh sách.
+          Ghi lý do nghỉ cho từng học sinh bạn phụ trách. Lưu xong học sinh tự
+          biến khỏi danh sách.
         </p>
       </header>
 

@@ -1,16 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
-import type {
-  StudentCustomerSource,
-  StudentDropOutReasonGroup,
-  StudentStatus,
-} from 'generated/enums';
+import type { StudentCustomerSource, StudentStatus } from 'generated/enums';
 import type {
   AdminMonthlyReportDto,
   GetAdminMonthlyReportQueryDto,
   MonthlyReportCustomerCareRowDto,
-  MonthlyReportDropOutGroupCountDto,
-  MonthlyReportDropOutGroupKey,
   MonthlyReportMatrixCellDto,
   MonthlyReportNewStudentDto,
 } from '../dtos/dashboard.dto';
@@ -20,19 +14,6 @@ import {
   QUALIFYING_TOP_UP_WHERE_SQL,
 } from './first-wallet-top-up.sql';
 
-/** Thứ tự hiển thị nhóm lý do nghỉ; `unclassified` luôn ở cuối. */
-export const MONTHLY_REPORT_DROP_OUT_GROUP_ORDER: MonthlyReportDropOutGroupKey[] =
-  [
-    'busy_schedule',
-    'no_suitable_class',
-    'trial_only',
-    'tuition',
-    'exam_done',
-    'changed_direction',
-    'other',
-    'unclassified',
-  ];
-
 export interface MonthlyReportStudentInput {
   id: string;
   fullName: string;
@@ -40,7 +21,6 @@ export interface MonthlyReportStudentInput {
   customerSource: StudentCustomerSource | null;
   dropOutDate: Date | null;
   dropOutReason: string | null;
-  dropOutReasonGroup: StudentDropOutReasonGroup | null;
   customerCareStaffId: string | null;
 }
 
@@ -81,26 +61,6 @@ const UNASSIGNED_STAFF_NAME = 'Chưa có CSKH';
 
 function toDateKey(value: Date): string {
   return value.toISOString().slice(0, 10);
-}
-
-function groupKeyOf(
-  group: StudentDropOutReasonGroup | null,
-): MonthlyReportDropOutGroupKey {
-  return group ?? 'unclassified';
-}
-
-function countByGroup(
-  students: MonthlyReportStudentInput[],
-): MonthlyReportDropOutGroupCountDto[] {
-  const counts = new Map<MonthlyReportDropOutGroupKey, number>();
-  for (const student of students) {
-    const key = groupKeyOf(student.dropOutReasonGroup);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return MONTHLY_REPORT_DROP_OUT_GROUP_ORDER.map((group) => ({
-    group,
-    count: counts.get(group) ?? 0,
-  }));
 }
 
 /**
@@ -202,7 +162,6 @@ export function buildAdminMonthlyReport(
         earlyDropCount: ownedNew.filter(isEarlyDrop).length,
         totalTopUpInMonth,
         topUpTransactionCount,
-        droppedByGroup: countByGroup(ownedDropped),
       };
     })
     .sort(
@@ -230,9 +189,6 @@ export function buildAdminMonthlyReport(
           isEarlyDrop(student) && student.dropOutDate
             ? toDateKey(student.dropOutDate)
             : null,
-        dropOutReasonGroup: isEarlyDrop(student)
-          ? student.dropOutReasonGroup
-          : null,
       };
     })
     .sort(
@@ -268,7 +224,6 @@ export function buildAdminMonthlyReport(
       .map(([courseId, courseName]) => ({ courseId, courseName }))
       .sort((a, b) => a.courseName.localeCompare(b.courseName, 'vi')),
     matrix: [...cells.values()],
-    droppedByGroup: countByGroup(droppedStudents),
     customerCare,
     newStudents: newStudentRows,
     droppedStudents: droppedStudents.map((student) => ({
@@ -277,7 +232,6 @@ export function buildAdminMonthlyReport(
       customerCareStaffName: staffNameOf(student.customerCareStaffId),
       className: input.latestClassByStudent.get(student.id)?.className ?? null,
       dropOutDate: toDateKey(student.dropOutDate!),
-      dropOutReasonGroup: student.dropOutReasonGroup,
       dropOutReason: student.dropOutReason,
     })),
   };
@@ -311,7 +265,6 @@ export class MonthlyReportService {
           customerSource: true,
           dropOutDate: true,
           dropOutReason: true,
-          dropOutReasonGroup: true,
           customerCareServices: { select: { staffId: true } },
         },
       }),
@@ -394,7 +347,6 @@ export class MonthlyReportService {
         customerSource: student.customerSource,
         dropOutDate: student.dropOutDate,
         dropOutReason: student.dropOutReason,
-        dropOutReasonGroup: student.dropOutReasonGroup,
         customerCareStaffId: student.customerCareServices?.staffId ?? null,
       })),
       firstTopUpInMonth,

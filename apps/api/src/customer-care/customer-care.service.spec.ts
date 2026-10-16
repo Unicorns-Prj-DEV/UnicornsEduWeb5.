@@ -383,7 +383,7 @@ describe('CustomerCareService', () => {
   });
 
   describe('missing drop-out reasons', () => {
-    it('lists assigned students who dropped out since 2026-09-01 missing a reason or group', async () => {
+    it('lists assigned students who dropped out since 2026-09-01 missing a reason', async () => {
       mockPrisma.staffInfo.findFirst.mockResolvedValue({
         id: 'staff-1',
         roles: [StaffRole.customer_care],
@@ -394,8 +394,7 @@ describe('CustomerCareService', () => {
             id: 'student-1',
             fullName: 'Hoc Sinh A',
             dropOutDate: new Date('2026-09-15T00:00:00.000Z'),
-            dropOutReason: 'Lịch học thêm ở trường',
-            dropOutReasonGroup: null,
+            dropOutReason: null,
           },
         },
       ]);
@@ -409,8 +408,7 @@ describe('CustomerCareService', () => {
             studentId: 'student-1',
             fullName: 'Hoc Sinh A',
             dropOutDate: '2026-09-15',
-            dropOutReason: 'Lịch học thêm ở trường',
-            dropOutReasonGroup: null,
+            dropOutReason: null,
           },
         ],
       });
@@ -421,7 +419,7 @@ describe('CustomerCareService', () => {
             student: {
               status: StudentStatus.inactive,
               dropOutDate: { gte: new Date('2026-09-01T00:00:00.000Z') },
-              OR: [{ dropOutReason: null }, { dropOutReasonGroup: null }],
+              dropOutReason: null,
             },
           },
         }),

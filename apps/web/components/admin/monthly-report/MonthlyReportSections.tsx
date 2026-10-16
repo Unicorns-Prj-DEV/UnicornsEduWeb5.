@@ -9,15 +9,12 @@ import type {
 import { useRowLink } from "@/hooks/use-row-link";
 import { formatVnDate, formatVnInteger } from "@/lib/formatters";
 import {
-  INTERVENABLE_DROP_OUT_GROUPS,
   MONTHLY_REPORT_NONE_KEY,
   MONTHLY_REPORT_UNPLACED_LABEL,
   buildMonthlyReportMatrix,
   formatCustomerSourceKey,
-  formatDropOutGroupKey,
   formatMillions,
   formatSignedCount,
-  sumDropOutGroups,
 } from "@/lib/monthly-report";
 import { cn } from "@/lib/utils";
 import type { StudentCustomerSource } from "@/dtos/student.dto";
@@ -70,7 +67,6 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: ReactNode
 
 export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
   const { kpi } = report;
-  const intervenable = sumDropOutGroups(report.droppedByGroup, INTERVENABLE_DROP_OUT_GROUPS);
   const stillActivePercent = kpi.newStudents > 0 ? Math.round((kpi.newStillActive / kpi.newStudents) * 100) : null;
   const careStaffCount = report.customerCare.filter((row) => row.staffId != null).length;
 
@@ -86,7 +82,7 @@ export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
       <KpiCard
         label="Học sinh nghỉ"
         value={kpi.droppedStudents > 0 ? `−${kpi.droppedStudents}` : "0"}
-        hint={`${intervenable} ca có thể can thiệp`}
+        hint="theo ngày nghỉ trong tháng"
         tone={kpi.droppedStudents > 0 ? "down" : undefined}
       />
       <KpiCard
@@ -409,14 +405,7 @@ export function MonthlyReportNewStudentAppendix({
               <TableCell>{formatCustomerSourceKey(row.customerSource)}</TableCell>
               <TableCell className="text-right tabular-nums">{formatVnInteger(row.totalTopUp)} đ</TableCell>
               <TableCell className={cn(row.isEarlyDrop ? "text-error" : "text-text-muted")}>
-                {row.isEarlyDrop
-                  ? [
-                      row.dropOutDate ? formatVnDate(row.dropOutDate) : null,
-                      row.dropOutReasonGroup ? formatDropOutGroupKey(row.dropOutReasonGroup) : formatDropOutGroupKey("unclassified"),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")
-                  : "—"}
+                {row.isEarlyDrop ? (row.dropOutDate ? formatVnDate(row.dropOutDate) : "Đã nghỉ") : "—"}
               </TableCell>
             </TableRow>
           ))}
@@ -444,7 +433,6 @@ export function MonthlyReportDroppedAppendix({
             <TableHead>CSKH</TableHead>
             <TableHead>Lớp gần nhất</TableHead>
             <TableHead>Ngày nghỉ</TableHead>
-            <TableHead>Nhóm lý do</TableHead>
             <TableHead>Lý do</TableHead>
           </TableRow>
         </TableHeader>
@@ -459,7 +447,6 @@ export function MonthlyReportDroppedAppendix({
               <TableCell>{row.customerCareStaffName ?? "—"}</TableCell>
               <TableCell>{row.className ?? "—"}</TableCell>
               <TableCell className="tabular-nums">{formatVnDate(row.dropOutDate)}</TableCell>
-              <TableCell>{formatDropOutGroupKey(row.dropOutReasonGroup ?? "unclassified")}</TableCell>
               <TableCell className="max-w-[280px] whitespace-normal text-text-secondary">{row.dropOutReason ?? "—"}</TableCell>
             </TableRow>
           ))}

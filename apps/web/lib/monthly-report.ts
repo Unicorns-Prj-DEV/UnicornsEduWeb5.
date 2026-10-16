@@ -1,13 +1,7 @@
-import type {
-  MonthlyReportDropOutGroupCount,
-  MonthlyReportDropOutGroupKey,
-  MonthlyReportMatrixCell,
-} from "@/dtos/dashboard.dto";
+import type { MonthlyReportMatrixCell } from "@/dtos/dashboard.dto";
 import {
   STUDENT_CUSTOMER_SOURCE_LABELS,
   STUDENT_CUSTOMER_SOURCES,
-  STUDENT_DROP_OUT_REASON_GROUP_LABELS,
-  STUDENT_DROP_OUT_REASON_GROUP_UNCLASSIFIED_LABEL,
   type StudentCustomerSource,
 } from "@/dtos/student.dto";
 import { formatVnInteger } from "@/lib/formatters";
@@ -17,36 +11,8 @@ export const MONTHLY_REPORT_NONE_KEY = "__none__";
 export const MONTHLY_REPORT_UNPLACED_LABEL = "Chưa xếp lớp";
 export const MONTHLY_REPORT_NO_SOURCE_LABEL = "Chưa gán nguồn";
 
-/** Bốn nhóm giữ lại được; hai nhóm tự nhiên khó giữ; còn lại là Khác/Chưa phân loại. */
-export const INTERVENABLE_DROP_OUT_GROUPS: MonthlyReportDropOutGroupKey[] = [
-  "busy_schedule",
-  "no_suitable_class",
-  "trial_only",
-  "tuition",
-];
-export const NATURAL_DROP_OUT_GROUPS: MonthlyReportDropOutGroupKey[] = [
-  "exam_done",
-  "changed_direction",
-];
-export const OTHER_DROP_OUT_GROUPS: MonthlyReportDropOutGroupKey[] = ["other", "unclassified"];
-
-export function formatDropOutGroupKey(group: MonthlyReportDropOutGroupKey): string {
-  return group === "unclassified"
-    ? STUDENT_DROP_OUT_REASON_GROUP_UNCLASSIFIED_LABEL
-    : STUDENT_DROP_OUT_REASON_GROUP_LABELS[group];
-}
-
 export function formatCustomerSourceKey(source: StudentCustomerSource | null): string {
   return source ? STUDENT_CUSTOMER_SOURCE_LABELS[source] : MONTHLY_REPORT_NO_SOURCE_LABEL;
-}
-
-export function sumDropOutGroups(
-  counts: MonthlyReportDropOutGroupCount[],
-  groups: MonthlyReportDropOutGroupKey[],
-): number {
-  return counts
-    .filter((row) => groups.includes(row.group))
-    .reduce((total, row) => total + row.count, 0);
 }
 
 /** «12,5 tr» cho số tiền lớn; dưới 1 triệu hiện đủ số. */
@@ -139,10 +105,3 @@ export function buildMonthlyReportMatrix(
     maxCellTopUp: Math.max(0, ...[...byKey.values()].map((totals) => totals.totalTopUp)),
   };
 }
-
-/** Thứ tự cột nhóm lý do trong bảng (khớp thứ tự API). */
-export const MONTHLY_REPORT_DROP_OUT_GROUP_ORDER: MonthlyReportDropOutGroupKey[] = [
-  ...INTERVENABLE_DROP_OUT_GROUPS,
-  ...NATURAL_DROP_OUT_GROUPS,
-  ...OTHER_DROP_OUT_GROUPS,
-];

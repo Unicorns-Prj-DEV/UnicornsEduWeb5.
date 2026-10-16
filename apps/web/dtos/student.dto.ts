@@ -27,35 +27,6 @@ export const STUDENT_CUSTOMER_SOURCE_LABELS: Record<StudentCustomerSource, strin
 
 export const STUDENT_DROP_OUT_REASON_MAX_LENGTH = 500;
 
-/** Nhóm lý do nghỉ học. Null trên hồ sơ = Chưa phân loại (dữ liệu cũ), không phải lựa chọn. */
-export const STUDENT_DROP_OUT_REASON_GROUPS = [
-  "exam_done",
-  "changed_direction",
-  "busy_schedule",
-  "no_suitable_class",
-  "trial_only",
-  "tuition",
-  "other",
-] as const;
-
-export type StudentDropOutReasonGroup = (typeof STUDENT_DROP_OUT_REASON_GROUPS)[number];
-
-export const STUDENT_DROP_OUT_REASON_GROUP_LABELS: Record<StudentDropOutReasonGroup, string> = {
-  exam_done: "Thi xong / chuyển sang ôn THPT",
-  changed_direction: "Chuyển hướng, không theo Tin nữa",
-  busy_schedule: "Lịch học bận",
-  no_suitable_class: "Không có lớp / lịch phù hợp",
-  trial_only: "Chỉ học thử / không hợp",
-  tuition: "Học phí",
-  other: "Khác",
-};
-
-export const STUDENT_DROP_OUT_REASON_GROUP_UNCLASSIFIED_LABEL = "Chưa phân loại";
-
-export const STUDENT_DROP_OUT_REASON_GROUP_OPTIONS = STUDENT_DROP_OUT_REASON_GROUPS.map(
-  (value) => ({ value, label: STUDENT_DROP_OUT_REASON_GROUP_LABELS[value] }),
-);
-
 export const STUDENT_CUSTOMER_SOURCE_OPTIONS = STUDENT_CUSTOMER_SOURCES.map((value) => ({
   value,
   label: STUDENT_CUSTOMER_SOURCE_LABELS[value],
@@ -126,8 +97,6 @@ export interface StudentDetail extends StudentListItem {
   dropOutDate?: string | null;
   /** Lý do nghỉ học; giữ lại khi học sinh học lại. */
   dropOutReason?: string | null;
-  /** Nhóm lý do nghỉ; null khi học sinh nghỉ = Chưa phân loại. */
-  dropOutReasonGroup?: StudentDropOutReasonGroup | null;
   customerSource?: StudentCustomerSource | null;
   customerSourceNote?: string | null;
   customerCare?: {
@@ -284,7 +253,6 @@ export interface UpdateStudentPayload {
   goal?: string;
   drop_out_date?: string;
   drop_out_reason?: string;
-  drop_out_reason_group?: StudentDropOutReasonGroup;
   customer_care_staff_id?: string | null;
   customer_care_profit_percent?: number | null;
   customer_source?: StudentCustomerSource;

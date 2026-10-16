@@ -3,7 +3,6 @@ import type {
   CreateStudentPayload,
   StudentAssignableUser,
   StudentDetail,
-  StudentDropOutReasonGroup,
   StudentExamScheduleItem,
   StudentGender,
   StudentListItem,
@@ -159,15 +158,11 @@ export async function updateStudentStatus(
   id: string,
   status: StudentStatus,
   reason?: string,
-  dropOutReasonGroup?: StudentDropOutReasonGroup,
 ): Promise<StudentDetail> {
   const safeId = encodeURIComponent(id);
   const response = await api.patch<StudentDetail>(`/student/${safeId}/status`, {
     status,
     ...(reason?.trim() ? { reason: reason.trim() } : {}),
-    ...(status === "inactive" && dropOutReasonGroup
-      ? { drop_out_reason_group: dropOutReasonGroup }
-      : {}),
   });
   return response.data;
 }

@@ -1,4 +1,4 @@
-import type { StudentDropOutReasonGroup, StudentStatus } from "./student.dto";
+import type { StudentStatus } from "./student.dto";
 
 export type CustomerCarePaymentStatus = "pending" | "paid";
 
@@ -119,7 +119,7 @@ export interface CustomerCareStudentSummary {
   revenueThisMonth: number;
 }
 
-/** Học sinh nghỉ từ mốc nhắc mà còn thiếu lý do hoặc nhóm lý do nghỉ. */
+/** Học sinh nghỉ từ mốc nhắc mà còn thiếu lý do nghỉ. */
 export interface CustomerCareMissingDropOutReason {
   studentId: string;
   fullName: string;
@@ -127,8 +127,6 @@ export interface CustomerCareMissingDropOutReason {
   dropOutDate: string;
   /** Lý do hiện có (điền sẵn); null khi còn thiếu. */
   dropOutReason: string | null;
-  /** Nhóm lý do hiện có; null = Chưa phân loại. */
-  dropOutReasonGroup: StudentDropOutReasonGroup | null;
 }
 
 /** GET /customer-care/me/missing-drop-out-reasons */

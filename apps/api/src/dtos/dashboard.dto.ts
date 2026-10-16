@@ -1,7 +1,4 @@
-import type {
-  StudentCustomerSource,
-  StudentDropOutReasonGroup,
-} from 'generated/enums';
+import type { StudentCustomerSource } from 'generated/enums';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -1117,11 +1114,6 @@ export class GetAdminMonthlyReportQueryDto {
   year: string;
 }
 
-/** Nhóm lý do nghỉ, cộng `unclassified` cho học sinh nghỉ chưa có nhóm. */
-export type MonthlyReportDropOutGroupKey =
-  | StudentDropOutReasonGroup
-  | 'unclassified';
-
 export interface MonthlyReportKpiDto {
   /** Tổng nạp ví hợp lệ (QR completed + nạp thẳng approved) trong tháng. */
   totalTopUpInMonth: number;
@@ -1152,11 +1144,6 @@ export interface MonthlyReportMatrixCellDto {
   totalTopUp: number;
 }
 
-export interface MonthlyReportDropOutGroupCountDto {
-  group: MonthlyReportDropOutGroupKey;
-  count: number;
-}
-
 export interface MonthlyReportCustomerCareRowDto {
   /** `null` = học sinh chưa có CSKH phụ trách. */
   staffId: string | null;
@@ -1168,7 +1155,6 @@ export interface MonthlyReportCustomerCareRowDto {
   earlyDropCount: number;
   totalTopUpInMonth: number;
   topUpTransactionCount: number;
-  droppedByGroup: MonthlyReportDropOutGroupCountDto[];
 }
 
 export interface MonthlyReportNewStudentDto {
@@ -1184,7 +1170,6 @@ export interface MonthlyReportNewStudentDto {
   /** Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ. */
   isEarlyDrop: boolean;
   dropOutDate: string | null;
-  dropOutReasonGroup: StudentDropOutReasonGroup | null;
 }
 
 export interface MonthlyReportDroppedStudentDto {
@@ -1193,7 +1178,6 @@ export interface MonthlyReportDroppedStudentDto {
   customerCareStaffName: string | null;
   className: string | null;
   dropOutDate: string;
-  dropOutReasonGroup: StudentDropOutReasonGroup | null;
   dropOutReason: string | null;
 }
 
@@ -1205,7 +1189,6 @@ export interface AdminMonthlyReportDto {
   /** Chỉ các khoá có ít nhất một học sinh mới, theo tên. */
   courses: MonthlyReportCourseDto[];
   matrix: MonthlyReportMatrixCellDto[];
-  droppedByGroup: MonthlyReportDropOutGroupCountDto[];
   customerCare: MonthlyReportCustomerCareRowDto[];
   newStudents: MonthlyReportNewStudentDto[];
   droppedStudents: MonthlyReportDroppedStudentDto[];
