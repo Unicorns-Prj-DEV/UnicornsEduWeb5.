@@ -64,22 +64,32 @@ export interface ModuleTocEntry {
   locked: boolean;
 }
 
+/** Id mục lục của thẻ chuyên đề (có tiền tố để không trùng id tiết). */
+export function moduleTocId(key: string) {
+  return `module:${key}`;
+}
+
 export interface ModuleTocSection {
   key: string;
+  /** Id để mục lục cuộn tới thẻ chuyên đề (`moduleTocId`). */
+  id: string;
   title: string;
   entries: ModuleTocEntry[];
 }
 
 /**
  * Mục lục tab Chuyên đề: mỗi chuyên đề là một nhóm (tên chuyên đề làm đầu
- * nhóm), các tiết nằm dưới theo thứ tự thẻ. Chuyên đề chưa có tiết thì bỏ.
+ * nhóm, bấm được), các tiết nằm dưới theo thứ tự thẻ. Chuyên đề chưa có tiết
+ * vẫn giữ để học sinh nhảy tới thẻ.
  */
 export function buildModuleTocSections(
   groups: ClassContentModuleGroupDto[],
 ): ModuleTocSection[] {
-  return groups
-    .map((group) => ({
-      key: moduleCardKey(group),
+  return groups.map((group) => {
+    const key = moduleCardKey(group);
+    return {
+      key,
+      id: moduleTocId(key),
       title: group.title,
       entries: moduleCardItems(group).map((item, index) => ({
         id: item.id,
@@ -88,6 +98,6 @@ export function buildModuleTocSections(
         lessonKind: item.lessonKind,
         locked: isLockedModuleItem(item),
       })),
-    }))
-    .filter((section) => section.entries.length > 0);
+    };
+  });
 }

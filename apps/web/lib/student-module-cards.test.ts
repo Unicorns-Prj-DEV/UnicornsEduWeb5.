@@ -100,9 +100,11 @@ describe("student-module-cards", () => {
       },
     ]);
 
-    expect(sections.map((section) => section.title)).toEqual([
-      "Đồ thị",
-      "Quy hoạch động",
+    // Chuyên đề chưa có tiết vẫn có mục để cuộn tới thẻ.
+    expect(sections.map(({ id, title }) => [id, title])).toEqual([
+      ["module:m1", "Đồ thị"],
+      ["module:m2", "Trống"],
+      ["module:m3", "Quy hoạch động"],
     ]);
     expect(
       sections[0].entries.map(({ id, index, locked }) => [id, index, locked]),
@@ -111,6 +113,7 @@ describe("student-module-cards", () => {
       ["b", 2, false],
       ["c", 3, true],
     ]);
-    expect(sections[1].entries[0]).toMatchObject({ id: "d", index: 1 });
+    expect(sections[1].entries).toEqual([]);
+    expect(sections[2].entries[0]).toMatchObject({ id: "d", index: 1 });
   });
 });
