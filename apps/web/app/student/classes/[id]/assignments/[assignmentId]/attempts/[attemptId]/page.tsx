@@ -18,7 +18,7 @@ import type {
   BlankAnswers,
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
-import { formatScore } from "@/lib/attempt-score";
+import { formatScore, formatScoreValue } from "@/lib/attempt-score";
 import { refetchIntervalUntilClose } from "@/lib/assignment-window";
 import { formatDateTime } from "@/lib/class.helpers";
 import {
@@ -348,6 +348,8 @@ function StudentAttemptInProgress({
     | "autoGradedScore"
     | "autoGradedMax"
     | "scoreMax"
+    | "score"
+    | "essayScore"
     | "hasUngradedEssay"
     | "scoring"
     | "electiveVoided"
@@ -417,7 +419,6 @@ function StudentAttemptInProgress({
     layout.map((view) => [view.question.questionId, view.number]),
   );
   const electiveConflict = !closed && isElectiveConflict(questions);
-  const isIt = attempt.scoring === "absolute_it";
   // Mobile: timer + lưới câu dính đầu trang → audio của bộ dính ngay dưới lưới.
   // Desktop: hai thanh đó ở cột phải → audio dính sát mép trên như timer.
   const gridRef = useRef<HTMLElement>(null);
@@ -524,25 +525,32 @@ function StudentAttemptInProgress({
                     : ""}
                   .
                 </p>
-              ) : isIt ? (
-                <p className="mt-1 text-sm text-text-muted">
-                  Điểm:{" "}
-                  <span className="font-semibold tabular-nums text-text-primary">
-                    {formatScore(
-                      attempt.autoGradedScore ?? 0,
-                      attempt.scoreMax,
-                      attempt.scoring,
-                    )}
-                  </span>
-                </p>
               ) : (
-                <p className="mt-1 text-sm text-text-muted">
-                  Trắc nghiệm: {attempt.autoGradedScore ?? 0}/
-                  {attempt.autoGradedMax ?? 0}
-                  {" · Thang "}
-                  {attempt.scoreMax}/100
-                  {attempt.hasUngradedEssay ? " · Có câu tự luận chờ chấm" : ""}
-                </p>
+                <div className="mt-1 space-y-0.5 text-sm text-text-muted">
+                  <p>
+                    Điểm:{" "}
+                    <span className="font-semibold tabular-nums text-text-primary">
+                      {formatScore(
+                        attempt.score ?? 0,
+                        attempt.scoreMax,
+                        attempt.scoring,
+                      )}
+                    </span>
+                  </p>
+                  {attempt.essayScore != null ? (
+                    <p className="tabular-nums">
+                      Trắc nghiệm:{" "}
+                      {formatScoreValue(
+                        attempt.autoGradedScore ?? 0,
+                        attempt.scoring,
+                      )}
+                      {" · Tự luận: "}
+                      {attempt.hasUngradedEssay
+                        ? "đang chờ chấm"
+                        : formatScoreValue(attempt.essayScore, attempt.scoring)}
+                    </p>
+                  ) : null}
+                </div>
               )}
               {attempt.electiveVoided ? (
                 <p className="mt-2 text-sm text-error">

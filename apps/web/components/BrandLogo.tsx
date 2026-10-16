@@ -1,28 +1,27 @@
-"use client";
-
 import Image from "next/image";
-import { useTheme } from "@/context/ThemeContext";
-import type { AppThemeId } from "@/dtos/theme.dto";
-import logoDark from "@/image/logo/logo_dark.png";
-import logoHana from "@/image/logo/logo_hana.png";
-import logoLight from "@/image/logo/logo_light.png";
+import logo from "@/image/logo/logo.png";
+import logoFull from "@/image/logo/logo_full.png";
 
-const sources: Record<AppThemeId, typeof logoLight> = {
-  light: logoLight,
-  dark: logoDark,
-  pink: logoHana,
-};
+const sources = {
+  /** Chỉ chữ UNI (ngang ~1,34:1) — sidebar thu gọn, chỗ hẹp. */
+  mark: logo,
+  /** UNI + dòng «UNI EDUCATION» (gần vuông ~1,15:1) — thay cho wordmark chữ. */
+  full: logoFull,
+} as const;
+
+export type BrandLogoKind = keyof typeof sources;
 
 type BrandLogoProps = {
+  kind?: BrandLogoKind;
   className?: string;
   priority?: boolean;
   /** Gợi ý kích thước hiển thị cho next/image (tránh browser chọn ảnh quá nhỏ). */
   sizes?: string;
 };
 
-export function BrandLogo({ className, priority, sizes }: BrandLogoProps) {
-  const { theme } = useTheme();
-  const src = sources[theme];
+/** Logo màu gốc, nền trong suốt — dùng chung cho mọi theme. */
+export function BrandLogo({ kind = "mark", className, priority, sizes }: BrandLogoProps) {
+  const src = sources[kind];
 
   return (
     <Image

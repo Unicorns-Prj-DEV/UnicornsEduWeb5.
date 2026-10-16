@@ -516,3 +516,78 @@ export interface StaffDashboardDto {
   accountantExpense?: StaffDashboardExpenseSection;
   training?: StaffDashboardTrainingSection;
 }
+
+export interface MonthlyReportKpi {
+  /** Tổng nạp ví hợp lệ trong tháng (QR hoàn tất + nạp thẳng đã duyệt). */
+  totalTopUpInMonth: number;
+  topUpTransactionCount: number;
+  activeStudents: number;
+  newStudents: number;
+  droppedStudents: number;
+  netChange: number;
+  newStillActive: number;
+}
+
+export interface MonthlyReportCourse {
+  courseId: string;
+  courseName: string;
+}
+
+export interface MonthlyReportMatrixCell {
+  /** `null` = chưa gán nguồn khách. */
+  customerSource: StudentCustomerSource | null;
+  /** `null` = Chưa xếp lớp. */
+  courseId: string | null;
+  newCount: number;
+  earlyDropCount: number;
+  paidCount: number;
+  /** Tổng nạp từ lần nạp đầu tới hết tháng báo cáo. */
+  totalTopUp: number;
+}
+
+export interface MonthlyReportCustomerCareRow {
+  staffId: string | null;
+  staffName: string;
+  activeStudents: number;
+  newStudents: number;
+  droppedStudents: number;
+  netChange: number;
+  earlyDropCount: number;
+  totalTopUpInMonth: number;
+  topUpTransactionCount: number;
+}
+
+export interface MonthlyReportNewStudent {
+  studentId: string;
+  fullName: string;
+  customerCareStaffName: string | null;
+  className: string | null;
+  courseId: string | null;
+  courseName: string | null;
+  customerSource: StudentCustomerSource | null;
+  firstTopUpAt: string;
+  totalTopUp: number;
+  isEarlyDrop: boolean;
+  dropOutDate: string | null;
+}
+
+export interface MonthlyReportDroppedStudent {
+  studentId: string;
+  fullName: string;
+  customerCareStaffName: string | null;
+  className: string | null;
+  dropOutDate: string;
+  dropOutReason: string | null;
+}
+
+export interface AdminMonthlyReport {
+  month: string;
+  year: string;
+  generatedAt: string;
+  kpi: MonthlyReportKpi;
+  courses: MonthlyReportCourse[];
+  matrix: MonthlyReportMatrixCell[];
+  customerCare: MonthlyReportCustomerCareRow[];
+  newStudents: MonthlyReportNewStudent[];
+  droppedStudents: MonthlyReportDroppedStudent[];
+}

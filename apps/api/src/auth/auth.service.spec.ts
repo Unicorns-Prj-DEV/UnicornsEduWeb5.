@@ -11,7 +11,7 @@ jest.mock('./user-device.service', () => ({
 
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
-import { ServiceUnavailableException } from '@nestjs/common';
+import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import { StaffRole, UserRole } from '../../generated/enums';
 import { AuthService, STAFF_DATA_CONSENT_VERSION } from './auth.service';
 
@@ -41,6 +41,7 @@ describe('AuthService', () => {
     loginRequest: {
       findUnique: jest.fn(),
       delete: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     $transaction: jest.fn(),
   };
@@ -768,6 +769,80 @@ describe('AuthService', () => {
     );
   });
 
+  it('rejects password login for students so they must use the magic-link flow', async () => {
+    mockPrisma.user.findFirst.mockResolvedValueOnce({
+      id: 'student-1',
+      accountHandle: 'hocsinh1',
+      roleType: UserRole.student,
+      passwordHash: 'hash',
+    });
+    (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+
+    await expect(service.login('hocsinh1', 'secret')).rejects.toMatchObject({
+      response: expect.objectContaining({ error: 'STUDENT_LOGIN_REQUIRED' }),
+    });
+    expect(userDeviceService.createDevice).not.toHaveBeenCalled();
+  });
+
+  describe('studentLoginInit with an unverified email', () => {
+    const unverifiedStudent = {
+      id: 'student-1',
+      email: 'NguyenVanA2026@gmail.com',
+      passwordHash: 'hash',
+      roleType: UserRole.student,
+      emailVerified: false,
+    };
+
+    it('sends the email-verification mail on the same click and returns the masked email', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(unverifiedStudent);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+
+      const error: unknown = await service
+        .studentLoginInit('hocsinh1', 'secret')
+        .catch((caught: unknown) => caught);
+
+      expect(
+        (error as { response: Record<string, unknown> }).response,
+      ).toMatchObject({
+        error: 'EMAIL_NOT_VERIFIED',
+        maskedEmail: '...2026@gmail.com',
+      });
+      expect(mailService.sendVerificationEmail).toHaveBeenCalledWith(
+        'nguyenvana2026@gmail.com',
+        'token',
+        undefined,
+      );
+      expect(userDeviceService.hasActiveDevice).not.toHaveBeenCalled();
+    });
+
+    it('omits the masked email when the verification mail cannot be sent', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(unverifiedStudent);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+      mailService.sendVerificationEmail.mockRejectedValueOnce(
+        new ServiceUnavailableException('SMTP is not configured'),
+      );
+
+      const error: unknown = await service
+        .studentLoginInit('hocsinh1', 'secret')
+        .catch((caught: unknown) => caught);
+
+      const response = (error as { response: Record<string, unknown> })
+        .response;
+      expect(response).toMatchObject({ error: 'EMAIL_NOT_VERIFIED' });
+      expect(response).not.toHaveProperty('maskedEmail');
+    });
+
+    it('does not send any mail when the password is wrong', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(unverifiedStudent);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+
+      await expect(
+        service.studentLoginInit('hocsinh1', 'wrong'),
+      ).rejects.toThrow('Invalid credentials');
+      expect(mailService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+  });
+
   describe('activateStudentDevice', () => {
     const baseRequest = {
       id: 'req-1',
@@ -831,6 +906,19 @@ describe('AuthService', () => {
       expect(
         authIdentityCacheService.invalidateHasActiveDevice,
       ).toHaveBeenCalledWith('student-1');
+    });
+
+    it('rejects a second concurrent activation of the same request', async () => {
+      mockPrisma.loginRequest.findUnique.mockResolvedValueOnce({
+        ...baseRequest,
+        activateSecretHash: 'hashed-secret',
+      });
+      mockPrisma.loginRequest.deleteMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        service.activateStudentDevice('req-1', 'correct-secret'),
+      ).rejects.toThrow(ConflictException);
+      expect(userDeviceService.createDevice).not.toHaveBeenCalled();
     });
 
     it('rejects when request is not verified', async () => {

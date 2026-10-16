@@ -155,12 +155,14 @@ function EditClassStudentsDialog({
   const [debouncedStudentSearch] = useDebounce(studentSearchInput.trim(), 350);
 
   const { data: studentSearchResult } = useQuery({
-    queryKey: ["student", "list", { page: 1, limit: 50, search: debouncedStudentSearch }],
+    // Chỉ gợi ý học sinh đang học; học sinh đã nghỉ không xếp vào lớp.
+    queryKey: ["student", "list", { page: 1, limit: 50, search: debouncedStudentSearch, status: "active" }],
     queryFn: () =>
       studentApi.getStudents({
         page: 1,
         limit: 50,
         search: debouncedStudentSearch || undefined,
+        status: "active",
       }),
   });
 

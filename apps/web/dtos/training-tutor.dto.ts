@@ -18,8 +18,13 @@ export interface TrainingTutorClass {
   name: string;
 }
 
-export interface TrainingTutorDetail extends TrainingTutorSummary {
+/** Dòng danh sách gia sư: hồ sơ + Lớp đang dạy. */
+export interface TrainingTutorListItem extends TrainingTutorSummary {
   currentClasses: TrainingTutorClass[];
+}
+
+export interface TrainingTutorDetail extends TrainingTutorListItem {
+  /** Lớp đã nghỉ: lớp từng dạy nay không còn dạy, không phân biệt lý do. */
   pastClasses: TrainingTutorClass[];
   taughtSessionCount: number;
 }

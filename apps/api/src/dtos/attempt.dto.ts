@@ -238,6 +238,8 @@ export interface AttemptQuestionDto {
   correctIndex?: number | null;
   isCorrect?: boolean | null;
   pointsAwarded?: number | null;
+  /** Nhận xét gia sư cho câu tự luận (chỉ trả khi đã công bố kết quả). */
+  feedback?: string | null;
   explanation?: string | null;
   answerGuide?: string | null;
 }
@@ -257,6 +259,10 @@ export interface AttemptDetailDto {
   autoGradedMax: number | null;
   /** Tổng điểm tối đa của bài (`equal_100` = 100; `absolute_it` = tổng câu bắt buộc + một nhóm tự chọn). */
   scoreMax: number;
+  /** Tổng điểm câu tự luận đã chấm; null khi chưa công bố hoặc bài không có tự luận. */
+  essayScore: number | null;
+  /** Tổng điểm = trắc nghiệm + tự luận đã chấm; null khi chưa công bố. */
+  score: number | null;
   hasUngradedEssay: boolean;
   scoring: AttemptScoringDto;
   /** Làm cả hai nhóm tự chọn → phần tự chọn 0 điểm. */
@@ -280,6 +286,12 @@ export interface AttemptSummaryDto {
   submittedAt: Date | null;
   autoGradedScore: number | null;
   autoGradedMax: number | null;
+  /** Xem `AttemptDetailDto.scoreMax`. */
+  scoreMax: number;
+  /** Xem `AttemptDetailDto.essayScore`. */
+  essayScore: number | null;
+  /** Xem `AttemptDetailDto.score`. */
+  score: number | null;
   hasUngradedEssay: boolean;
   scoring: AttemptScoringDto;
 }

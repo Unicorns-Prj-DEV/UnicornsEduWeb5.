@@ -8,7 +8,11 @@ import {
   StaffStatus,
 } from '../../generated/enums';
 import { Prisma } from '../../generated/client';
-import { FIRST_WALLET_TOP_UP_SQL } from './first-wallet-top-up.sql';
+import {
+  FIRST_WALLET_TOP_UP_SQL,
+  MANUAL_FIRST_TOP_UP_MAX_DAYS,
+  MANUAL_TOP_UP_NOTE_PREFIX,
+} from './first-wallet-top-up.sql';
 import {
   DashboardService,
   buildPersonnelCostBreakdown,
@@ -562,6 +566,8 @@ describe('DashboardService new students by first wallet top-up', () => {
           id: 'student-1',
           status: 'active',
           dropOutDate: null,
+          // Hồ sơ tạo 28/08, nạp đầu 10/09: khối CSKH đếm ở tháng 8.
+          createdAt: new Date('2026-08-28T02:00:00.000Z'),
         },
       },
     ]);
@@ -593,13 +599,23 @@ describe('DashboardService new students by first wallet top-up', () => {
     );
   });
 
+  it('counts a manual top-up as the registration top-up only when it is the first wallet transaction', () => {
+    const { sql, values } = FIRST_WALLET_TOP_UP_SQL;
+    expect(values).toContain(`${MANUAL_TOP_UP_NOTE_PREFIX}%`);
+    expect(values).toContain(MANUAL_FIRST_TOP_UP_MAX_DAYS);
+    expect(sql).toContain(
+      'earlier_wallet_transaction.created_at < wallet_transactions_history.created_at',
+    );
+    expect(sql).toContain('manual_top_up_student.created_at + make_interval');
+  });
+
   it.each([
-    ['08', 0],
-    ['09', 1],
+    ['08', 1],
+    ['09', 0],
     ['10', 0],
     ['11', 0],
   ])(
-    'counts a student topping up across periods only in the first top-up month (%s)',
+    'counts a CSKH new student by profile creation month, not first top-up (%s)',
     async (month, expected) => {
       const dashboard = await service.getStaffDashboard({
         staffId: 'cskh-1',

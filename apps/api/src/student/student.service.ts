@@ -87,6 +87,7 @@ import {
 import { MailService } from 'src/mail/mail.service';
 import { NotificationService } from 'src/notification/notification.service';
 import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
+import { MANUAL_TOP_UP_NOTE_PREFIX } from 'src/common/manual-top-up-note';
 
 const RECENT_TOP_UP_DAYS = 21;
 const RECENT_TOP_UP_THRESHOLD = 300_000;
@@ -2780,7 +2781,7 @@ export class StudentService {
       data.amount,
       {
         allowNegativeBalance: true,
-        topupNotePrefix: 'Nạp tiền thủ công từ trang chi tiết học sinh.',
+        topupNotePrefix: MANUAL_TOP_UP_NOTE_PREFIX,
         withdrawNotePrefix:
           'Điều chỉnh giảm số dư thủ công từ trang chi tiết học sinh.',
         auditDescription: 'Điều chỉnh số dư học sinh',
@@ -2848,8 +2849,18 @@ export class StudentService {
     const classIdsToRemove = existingMemberships
       .map((membership) => membership.classId)
       .filter((classId) => !requestedClassIds.has(classId));
-    const classIdsToActivate = classIds.filter((classId) =>
-      existingClassIds.has(classId),
+    // Chỉ kích hoạt lại membership đã gỡ mềm; membership đang active giữ nguyên
+    // (không reset học phí riêng mỗi lần lưu danh sách lớp).
+    const activeClassIds = new Set(
+      existingMemberships
+        .filter(
+          (membership) => membership.status === StudentClassStatus.active,
+        )
+        .map((membership) => membership.classId),
+    );
+    const classIdsToActivate = classIds.filter(
+      (classId) =>
+        existingClassIds.has(classId) && !activeClassIds.has(classId),
     );
     const classIdsToAdd = classIds.filter(
       (classId) => !existingClassIds.has(classId),

@@ -1,5 +1,6 @@
 "use client";
 
+import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -47,6 +48,12 @@ import { toast } from "sonner";
 import { formatVnInteger } from "@/lib/formatters";
 import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import NewStudentDefinitionHint from "@/components/shared/NewStudentDefinitionHint";
+import { ChartColumn, FileChartColumn, FileDown, FileSpreadsheet } from "lucide-react";
+
+const toolbarButtonBaseClass =
+  "inline-flex min-h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
+const toolbarSecondaryClass = `${toolbarButtonBaseClass} border border-border-default bg-bg-surface text-text-primary hover:bg-bg-secondary`;
+const toolbarPrimaryClass = `${toolbarButtonBaseClass} bg-primary text-text-inverse hover:bg-primary-hover`;
 
 function formatCurrency(value: number) {
   return `${formatVnInteger(value)} đ`;
@@ -353,6 +360,7 @@ function getPersonnelCostFromBreakdown(dashboard: AdminDashboardDto) {
 
 function formatPendingPayrollNote(
   breakdown: AdminDashboardSummary["pendingPayrollBreakdown"] | undefined,
+  giftedLessonPlanEnabled: boolean,
 ) {
   const b = breakdown ?? {
     sessionAmount: 0,
@@ -364,7 +372,11 @@ function formatPendingPayrollNote(
     assistantAmount: 0,
     trainingManagerAmount: 0,
   };
-  return `Gia sư: ${formatCurrency(b.sessionAmount)} - ${LESSON_PLAN_LABEL}: ${formatCurrency(b.lessonAmount)} - SALE&CSKH: ${formatCurrency(b.customerCareAmount)} - Thưởng: ${formatCurrency(b.bonusAmount)} - Trợ cấp khác: ${formatCurrency(b.extraAllowanceAmount)} - Lương cứng: ${formatCurrency(b.fixedSalaryAmount ?? 0)} - Trợ lí: ${formatCurrency(b.assistantAmount)} - QL lớp: ${formatCurrency(b.trainingManagerAmount)} · Mọi khoản pending/unpaid mọi thời điểm (không lọc theo kỳ).`;
+  // Giáo án học sinh giỏi chỉ có trên IT.
+  const lessonSegment = giftedLessonPlanEnabled
+    ? ` - ${LESSON_PLAN_LABEL}: ${formatCurrency(b.lessonAmount)}`
+    : "";
+  return `Gia sư: ${formatCurrency(b.sessionAmount)}${lessonSegment} - SALE&CSKH: ${formatCurrency(b.customerCareAmount)} - Thưởng: ${formatCurrency(b.bonusAmount)} - Trợ cấp khác: ${formatCurrency(b.extraAllowanceAmount)} - Lương cứng: ${formatCurrency(b.fixedSalaryAmount ?? 0)} - Trợ lí: ${formatCurrency(b.assistantAmount)} - QL lớp: ${formatCurrency(b.trainingManagerAmount)} · Mọi khoản pending/unpaid mọi thời điểm (không lọc theo kỳ).`;
 }
 
 function getOtherCostFromBreakdown(dashboard: AdminDashboardDto) {
@@ -446,6 +458,7 @@ export default function AdminDashboardTabPage() {
   const routeBase = resolveAdminLikeRouteBase(pathname);
   const quickViewYearLabelId = useId();
 
+  const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const fullProfileQuery = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
@@ -712,7 +725,10 @@ export default function AdminDashboardTabPage() {
       key: "pending-payroll",
       label: "Trợ cấp chờ thanh toán",
       value: snapshotDashboard.summary.pendingPayrollTotal ?? 0,
-      note: formatPendingPayrollNote(snapshotDashboard.summary.pendingPayrollBreakdown),
+      note: formatPendingPayrollNote(
+        snapshotDashboard.summary.pendingPayrollBreakdown,
+        giftedLessonPlanEnabled !== false,
+      ),
     },
     {
       key: "personnel-cost",
@@ -869,7 +885,7 @@ export default function AdminDashboardTabPage() {
     <div className="min-h-full bg-bg-primary p-4 sm:p-6">
       <div className="mx-auto w-full max-w-[1320px] space-y-4 rounded-xl border border-border-default bg-bg-surface p-4 sm:p-5">
         <section className="flex flex-col gap-3 border-b border-border-default pb-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col gap-2">
               <span className="text-xs text-text-muted">Bộ lọc theo thời gian</span>
 
@@ -968,35 +984,54 @@ export default function AdminDashboardTabPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <Link
-                href={buildAdminLikePath(routeBase, "dashboard/statistics")}
-                className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-              >
-                Thống kê theo tháng
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  if (exportFinancialPdfMutation.isPending) return;
-                  exportFinancialPdfMutation.mutate();
-                }}
-                disabled={exportFinancialPdfMutation.isPending}
-                className="inline-flex min-h-10 items-center rounded-md border border-border-default bg-bg-surface px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {exportFinancialPdfMutation.isPending ? "Đang xuất…" : "Xuất PDF"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (exportFinancialExcelMutation.isPending) return;
-                  exportFinancialExcelMutation.mutate();
-                }}
-                disabled={exportFinancialExcelMutation.isPending}
-                className="inline-flex min-h-10 items-center rounded-md bg-primary px-3 text-sm font-medium text-text-inverse transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {exportFinancialExcelMutation.isPending ? "Đang xuất…" : "Xuất Excel"}
-              </button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <nav aria-label="Báo cáo liên quan" className="grid grid-cols-2 gap-2 sm:flex">
+                <Link
+                  href={buildAdminLikePath(routeBase, "monthly-report")}
+                  className={toolbarSecondaryClass}
+                >
+                  <FileChartColumn className="size-4 shrink-0" aria-hidden />
+                  Báo cáo tháng
+                </Link>
+                <Link
+                  href={buildAdminLikePath(routeBase, "dashboard/statistics")}
+                  className={toolbarSecondaryClass}
+                >
+                  <ChartColumn className="size-4 shrink-0" aria-hidden />
+                  Thống kê năm
+                </Link>
+              </nav>
+
+              <span aria-hidden className="hidden h-6 w-px bg-border-default sm:block" />
+
+              <div role="group" aria-label="Xuất báo cáo tài chính" className="grid grid-cols-2 gap-2 sm:flex">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (exportFinancialPdfMutation.isPending) return;
+                    exportFinancialPdfMutation.mutate();
+                  }}
+                  disabled={exportFinancialPdfMutation.isPending}
+                  aria-busy={exportFinancialPdfMutation.isPending}
+                  className={toolbarSecondaryClass}
+                >
+                  <FileDown className="size-4 shrink-0" aria-hidden />
+                  {exportFinancialPdfMutation.isPending ? "Đang xuất…" : "Xuất PDF"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (exportFinancialExcelMutation.isPending) return;
+                    exportFinancialExcelMutation.mutate();
+                  }}
+                  disabled={exportFinancialExcelMutation.isPending}
+                  aria-busy={exportFinancialExcelMutation.isPending}
+                  className={toolbarPrimaryClass}
+                >
+                  <FileSpreadsheet className="size-4 shrink-0" aria-hidden />
+                  {exportFinancialExcelMutation.isPending ? "Đang xuất…" : "Xuất Excel"}
+                </button>
+              </div>
             </div>
           </div>
         </section>

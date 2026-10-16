@@ -1,5 +1,6 @@
 "use client";
 
+import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -299,7 +300,7 @@ function StudentChangeMiniStat({
               Đóng
             </button>
           </div>
-          {type === "new" ? <NewStudentDefinitionHint /> : null}
+          {type === "new" ? <NewStudentDefinitionHint definition="profile-created" /> : null}
           <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
             {query.isLoading ? (
               <p className="text-sm text-text-muted">Đang tải…</p>
@@ -385,7 +386,7 @@ function StaffStudentChangeDialog({
           Đóng
         </button>
       </div>
-      {type === "new" ? <NewStudentDefinitionHint /> : null}
+      {type === "new" ? <NewStudentDefinitionHint definition="profile-created" /> : null}
       <ResponsiveDialogBody className="space-y-2 p-5 max-h-[70vh] overflow-y-auto">
         {query.isLoading ? (
           <p className="text-sm text-text-muted">Đang tải…</p>
@@ -1063,7 +1064,7 @@ function SalesCsSummarySection({
     <SurfaceCard
       eyebrow="Tổng hợp CSKH"
       title={`Bảng tổng hợp — ${monthLabel}`}
-      description="Tổng hợp portfolio bạn quản lí (và portfolio cá nhân nếu có) trong tháng này."
+      description="Tổng hợp portfolio bạn quản lí (và portfolio cá nhân nếu có) trong tháng này. Học sinh mới = hồ sơ tạo trong tháng, kể cả chưa nạp."
     >
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         <MiniStat
@@ -1511,7 +1512,7 @@ function CustomerCareSection({
         <SurfaceCard
           eyebrow="Tổng hợp"
           title={`CSKH — ${monthLabel}`}
-          description="Số liệu học sinh và tiền trong tháng đang xem."
+          description="Số liệu học sinh và tiền trong tháng đang xem. Học sinh mới = hồ sơ tạo trong tháng, kể cả chưa nạp."
         >
           <div className="grid gap-2 sm:grid-cols-2">
             <StudentChangeMiniStat
@@ -2032,6 +2033,7 @@ function RootLoadingState() {
 }
 
 export default function StaffDashboardPage() {
+  const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const { replace } = useRouter();
   const defaultPeriod = useMemo(() => getCurrentMonth(), []);
   const [month, setMonth] = useState(defaultPeriod.month);
@@ -2138,9 +2140,14 @@ export default function StaffDashboardPage() {
   };
   const snapshotUnpaidNetTotal = incomeSummary?.snapshotUnpaidNetTotal ?? 0;
   const dashboard = dashboardQuery.data;
-  const hasLessonPlanHead = staffRoles.includes("lesson_plan_head");
+  // Giáo án học sinh giỏi chỉ có trên IT — JP/ENG không hiện khối giáo án.
+  const hasGiftedLessonPlan = giftedLessonPlanEnabled !== false;
+  const hasLessonPlanHead =
+    hasGiftedLessonPlan && staffRoles.includes("lesson_plan_head");
   const hasLessonPlan =
-    staffRoles.includes("lesson_plan") && !hasLessonPlanHead;
+    hasGiftedLessonPlan &&
+    staffRoles.includes("lesson_plan") &&
+    !staffRoles.includes("lesson_plan_head");
   const hasIncomeAccountantDashboard =
     staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
   const hasExpenseAccountantDashboard = staffRoles.includes("accountant_expense");

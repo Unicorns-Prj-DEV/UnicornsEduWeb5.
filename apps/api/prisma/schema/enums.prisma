@@ -74,6 +74,8 @@ enum AttendanceStatus {
   present
   excused
   absent
+  /// Học thử: không trừ ví, không tính sĩ số trợ cấp; thu bù gấp đôi ở buổi present/excused kế tiếp cùng lớp.
+  trial
 }
 
 enum WalletTransactionType {

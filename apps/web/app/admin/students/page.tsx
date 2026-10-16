@@ -10,6 +10,7 @@ import { StudentListTableSkeleton } from "@/components/admin/student";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { StudentLevelBadge } from "@/components/ui/LevelBadge";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import {
   StudentGender,
   StudentListItem,
@@ -104,6 +105,9 @@ function formatActiveClassNames(
 }
 
 function AdminStudentsPageContent() {
+  // Level học sinh lấy từ UNIOJ — chỉ instance IT có.
+  const { data: appConfig } = useAppConfig();
+  const showUniojLevels = appConfig?.profile === "it";
   const { push, replace } = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -646,10 +650,12 @@ function AdminStudentsPageContent() {
                         </div>
                       </div>
 
-                      <div className="mt-2.5 flex items-center gap-2">
-                        <span className="text-xs text-text-secondary font-medium">Level:</span>
-                        <StudentLevelBadge fullName={student.fullName} />
-                      </div>
+                      {showUniojLevels ? (
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <span className="text-xs text-text-secondary font-medium">Level:</span>
+                          <StudentLevelBadge fullName={student.fullName} />
+                        </div>
+                      ) : null}
 
                       <p className="mt-2 line-clamp-2 text-sm text-text-secondary">
                         <span className="font-medium text-text-secondary">Lớp:</span>{" "}
@@ -697,9 +703,11 @@ function AdminStudentsPageContent() {
                       <th scope="col" className="w-[18%] min-w-0 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-text-secondary">
                         Số dư / Tiền vào
                       </th>
-                      <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                        Level
-                      </th>
+                      {showUniojLevels ? (
+                        <th scope="col" className="w-[22%] min-w-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                          Level
+                        </th>
+                      ) : null}
                       <th scope="col" className="w-[3.5%] min-w-8 px-1 py-3 text-right" aria-label="Xóa" />
                     </tr>
                   </thead>
@@ -776,9 +784,11 @@ function AdminStudentsPageContent() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 align-middle">
-                            <StudentLevelBadge fullName={student.fullName} />
-                          </td>
+                          {showUniojLevels ? (
+                            <td className="px-4 py-3 align-middle">
+                              <StudentLevelBadge fullName={student.fullName} />
+                            </td>
+                          ) : null}
                           <td className="px-2 py-3 align-middle text-right" onClick={(e) => e.stopPropagation()}>
                             {canDeleteStudent ? (
                               <button

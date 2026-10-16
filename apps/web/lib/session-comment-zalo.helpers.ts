@@ -23,6 +23,7 @@ export function attendanceStatusTemplateLabel(
 ): string {
   if (status === "present") return "học";
   if (status === "excused") return "nghỉ phép";
+  if (status === "trial") return "học thử";
   return "vắng";
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatScore } from "@/lib/attempt-score";
+import { attemptScoreLabel } from "@/lib/attempt-score";
 import { refetchIntervalUntilClose } from "@/lib/assignment-window";
 import { formatDateTime } from "@/lib/class.helpers";
 import Link from "next/link";
@@ -162,15 +162,7 @@ export default function StudentAssignmentLobbyPage() {
                       {statusLabel(att.status)}
                     </span>
                     <span className="text-xs text-text-muted">
-                      {att.autoGradedScore != null
-                        ? att.scoring === "absolute_it"
-                          ? `${formatScore(att.autoGradedScore, att.autoGradedMax ?? 0, att.scoring)} điểm`
-                          : `${att.autoGradedScore}/${att.autoGradedMax} MCQ`
-                        : att.status !== "in_progress" && !data.closed
-                          ? "Điểm công bố sau hạn"
-                          : att.hasUngradedEssay
-                            ? "Chờ chấm tự luận"
-                            : "—"}
+                      {attemptScoreLabel(att, data.closed)}
                     </span>
                   </Link>
                 </li>

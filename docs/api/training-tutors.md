@@ -28,8 +28,10 @@ Test: `training-tutor.service.spec.ts` mock Prisma trả row có cả field nh�
 Query: `search?` (họ tên, tối đa 5 token), `status?` (`active|inactive`), `page?` (mặc định 1), `limit?` (mặc định 20, tối đa 100).
 
 ```json
-{ "data": [TrainingTutorSummaryDto], "meta": { "total": 0, "page": 1, "limit": 20 } }
+{ "data": [TrainingTutorListItemDto], "meta": { "total": 0, "page": 1, "limit": 20 } }
 ```
+
+`TrainingTutorListItemDto` = `TrainingTutorSummaryDto` + `currentClasses` (`{ id, name }[]`, Lớp đang dạy — cùng quy tắc với endpoint chi tiết).
 
 Sắp xếp: `status` (active trước), rồi `first_name`.
 
@@ -38,7 +40,9 @@ Sắp xếp: `status` (active trước), rồi `first_name`.
 `TrainingTutorSummaryDto` + `currentClasses`, `pastClasses` (`{ id, name }[]`), `taughtSessionCount`.
 
 - **Đang dạy:** `class_teachers.status` là `null` hoặc `active` **và** `classes.status = running`.
-- **Đã dạy:** mọi phân công còn lại.
+- **Đã nghỉ** (`pastClasses`, UI «Lớp đã nghỉ»): mọi phân công còn lại — lớp từng dạy nay không còn dạy, không phân biệt lý do (gia sư nghỉ lớp hay lớp kết thúc).
+
+Hàm chia dùng chung: `splitTutorClasses` trong `training-tutor.service.ts`.
 
 ### `GET /training/tutors/:id/sessions`
 

@@ -522,16 +522,32 @@ export function SessionFormDialogHeader({
   );
 }
 
-const STATUS_ORDER: SessionAttendanceStatus[] = ["present", "excused", "absent"];
+const STATUS_ORDER: SessionAttendanceStatus[] = ["present", "excused", "absent", "trial"];
+
+const STATUS_TITLES: Record<SessionAttendanceStatus, string> = {
+  present: "Học",
+  excused: "Phép",
+  absent: "Vắng",
+  trial: "Học thử (không trừ ví; thu bù gấp đôi ở buổi học kế tiếp)",
+};
 
 type QuickPickProps = {
   value: SessionAttendanceStatus;
   onChange: (next: SessionAttendanceStatus) => void;
   namePrefix: string;
   disabled?: boolean;
+  /** `false` với lớp bán một lần — không có học thử. */
+  allowTrial?: boolean;
 };
 
-export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disabled = false }: QuickPickProps) {
+export function AttendanceStatusQuickPick({
+  value,
+  onChange,
+  namePrefix,
+  disabled = false,
+  allowTrial = true,
+}: QuickPickProps) {
+  const statuses = allowTrial ? STATUS_ORDER : STATUS_ORDER.filter((status) => status !== "trial");
   return (
     <div
       className={`inline-flex shrink-0 gap-0.5 rounded-lg border border-border-default p-0.5 ${
@@ -540,7 +556,7 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disable
       role="group"
       aria-label="Trạng thái điểm danh"
     >
-      {STATUS_ORDER.map((status) => {
+      {statuses.map((status) => {
         const active = value === status;
         return (
           <button
@@ -558,9 +574,7 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disable
                 ? "text-text-muted cursor-not-allowed"
                 : "text-text-muted hover:bg-bg-tertiary/80"
             }`}
-            title={
-              status === "present" ? "Học" : status === "excused" ? "Phép" : "Vắng"
-            }
+            title={STATUS_TITLES[status]}
             aria-pressed={active}
           >
             {status === "present" ? (
@@ -570,6 +584,10 @@ export function AttendanceStatusQuickPick({ value, onChange, namePrefix, disable
             ) : status === "excused" ? (
               <span className={`text-xs font-bold ${disabled ? "text-warning/50" : "text-warning"}`} aria-hidden>
                 p
+              </span>
+            ) : status === "trial" ? (
+              <span className={`text-xs font-bold ${disabled ? "text-primary/50" : "text-primary"}`} aria-hidden>
+                T
               </span>
             ) : (
               <svg className={`size-4 ${disabled ? "text-error/50" : "text-error"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -587,9 +605,10 @@ type SummaryProps = {
   present: number;
   excused: number;
   absent: number;
+  trial?: number;
 };
 
-export function AttendanceInlineSummary({ present, excused, absent }: SummaryProps) {
+export function AttendanceInlineSummary({ present, excused, absent, trial = 0 }: SummaryProps) {
   return (
     <p className="text-sm text-text-secondary">
       <span className="font-medium text-success">Học: {present}</span>
@@ -597,6 +616,12 @@ export function AttendanceInlineSummary({ present, excused, absent }: SummaryPro
       <span className="font-medium text-warning">Phép: {excused}</span>
       <span className="mx-2 text-text-muted/70">·</span>
       <span className="font-medium text-error">Vắng: {absent}</span>
+      {trial > 0 ? (
+        <>
+          <span className="mx-2 text-text-muted/70">·</span>
+          <span className="font-medium text-primary">Học thử: {trial}</span>
+        </>
+      ) : null}
     </p>
   );
 }
@@ -615,6 +640,8 @@ type SessionAttendanceEditorProps = {
   namePrefix: string;
   disabled?: boolean;
   canEditTuition?: boolean;
+  /** `false` với lớp bán một lần — ẩn nút Học thử. */
+  allowTrial?: boolean;
   onStatusChange: (studentId: string, status: SessionAttendanceStatus) => void;
   onNotesChange: (studentId: string, html: string) => void;
   onTuitionChange?: (studentId: string, value: string) => void;
@@ -626,6 +653,7 @@ export function SessionAttendanceEditor({
   namePrefix,
   disabled = false,
   canEditTuition = false,
+  allowTrial = true,
   onStatusChange,
   onNotesChange,
   onTuitionChange,
@@ -642,6 +670,7 @@ export function SessionAttendanceEditor({
             notes={item.notes}
             namePrefix={`${namePrefix}-${item.studentId}`}
             disabled={disabled}
+            allowTrial={allowTrial}
             onStatusChange={(next) => onStatusChange(item.studentId, next)}
             onNotesChange={(html) => onNotesChange(item.studentId, html)}
             showTuitionField={canEditTuition}
@@ -702,6 +731,7 @@ export function SessionAttendanceEditor({
                       namePrefix={`${namePrefix}-d-${item.studentId}`}
                       value={item.status}
                       disabled={disabled}
+                      allowTrial={allowTrial}
                       onChange={(next) => onStatusChange(item.studentId, next)}
                     />
                   </div>
@@ -752,42 +782,6 @@ export function SessionAttendanceEditor({
   );
 }
 
-type TrialLessonToggleProps = {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  disabled?: boolean;
-  className?: string;
-};
-
-export function TrialLessonToggle({
-  checked,
-  onChange,
-  disabled = false,
-  className = "",
-}: TrialLessonToggleProps) {
-  return (
-    <label
-      className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-        checked
-          ? "border-primary/35 bg-primary/8"
-          : "border-border-default bg-bg-secondary/35"
-      } ${disabled ? "cursor-not-allowed opacity-70" : "hover:border-primary/25"} ${className}`.trim()}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-        className="size-5 shrink-0 rounded border-border-default text-primary focus:ring-border-focus"
-      />
-      <span className="text-sm font-semibold text-text-primary">Dạy thử</span>
-      <span className="text-xs text-text-muted">
-        {checked ? "Không tính trợ cấp buổi (hệ số = 0)" : "Buổi học chính thức"}
-      </span>
-    </label>
-  );
-}
-
 type SessionStudentAttendanceCommentRowProps = {
   studentId: string;
   fullName: string;
@@ -795,6 +789,7 @@ type SessionStudentAttendanceCommentRowProps = {
   notes: string;
   namePrefix: string;
   disabled?: boolean;
+  allowTrial?: boolean;
   onStatusChange: (next: SessionAttendanceStatus) => void;
   onNotesChange: (html: string) => void;
   showTuitionField?: boolean;
@@ -813,6 +808,7 @@ export function SessionStudentAttendanceCommentRow({
   notes,
   namePrefix,
   disabled = false,
+  allowTrial = true,
   onStatusChange,
   onNotesChange,
   showTuitionField = false,
@@ -832,6 +828,7 @@ export function SessionStudentAttendanceCommentRow({
           namePrefix={namePrefix}
           value={status}
           disabled={disabled}
+          allowTrial={allowTrial}
           onChange={onStatusChange}
         />
       </div>

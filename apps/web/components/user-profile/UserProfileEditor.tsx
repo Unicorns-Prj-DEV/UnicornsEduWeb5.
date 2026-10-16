@@ -17,6 +17,7 @@ import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwi
 import { useAuth } from "@/context/AuthContext";
 import { resolveEmailVerified } from "@/mocks/user-profile-verification.mock";
 import * as authApi from "@/lib/apis/auth.api";
+import { openEmailVerificationModal } from "@/lib/email-verification-access";
 import {
   AUTH_FULL_PROFILE_QUERY_KEY,
   PROFILE_FULL_QUERY_KEY,
@@ -459,9 +460,7 @@ export default function UserProfileEditor({
   const requestVerifyEmailMutation = useMutation({
     mutationFn: () => authApi.resendVerificationEmail(),
     onSuccess: (data) => {
-      toast.success(
-        data?.message ?? "Đã gửi email xác minh. Vui lòng kiểm tra hộp thư.",
-      );
+      openEmailVerificationModal({ kind: "sent", email: data.email });
     },
     onError: (err: unknown) => {
       toast.error(

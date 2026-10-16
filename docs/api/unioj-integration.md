@@ -71,4 +71,5 @@ Các tính năng chính:
    - *Tải PDF*: tạo link download từ blob đã tải về.
    - *In / Lưu PDF*: mở blob URL ở tab mới để dùng trình xem PDF của trình duyệt.
    - *Mở rộng / Fullscreen*: hiển thị cùng blob URL trong modal phủ toàn màn hình.
-6. **Dữ liệu Demo (Mock)**: Nếu học sinh chưa có tài khoản đồng bộ trên UNIOJ (API lookup trả về 404), giao diện hiển thị trạng thái "Chưa có dữ liệu OJ" và cung cấp tuỳ chọn "Xem dữ liệu mẫu (Demo)" để dễ dàng xem thử tính năng.
+6. **Chỉ instance IT**: `OjProgressSection`, `StudentLevelBadge` và cột/badge «Level lớp» (`getClassesLevels`) đọc `GET /public/app-config`; profile `jp`/`eng` không render và không gọi API UNIOJ.
+7. **Không có profile / lỗi → ẩn hẳn**: lookup trả 404 (học sinh chưa có tài khoản UNIOJ) hoặc lỗi bất kỳ thì khối không render, không có dòng lỗi. Đã bỏ chế độ «Xem dữ liệu mẫu (Demo)» và mock data.

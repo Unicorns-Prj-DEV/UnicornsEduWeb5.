@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
+  AttendanceStatus,
   PaymentStatus,
   SessionPaymentStatus,
   StaffRole,
@@ -26,6 +27,7 @@ import { SessionLedgerService } from './session-ledger.service';
 import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
+import { SessionTrialCatchUpService } from './session-trial-catch-up.service';
 import { SessionValidationService } from './session-validation.service';
 import {
   createMemoizedTaxDeductionResolver,
@@ -173,6 +175,7 @@ export class SessionUpdateService {
     private readonly sessionLedgerService: SessionLedgerService,
     private readonly sessionSnapshotService: SessionSnapshotService,
     private readonly actionHistoryService: ActionHistoryService,
+    private readonly sessionTrialCatchUpService: SessionTrialCatchUpService,
   ) {}
 
   private async resolveTeacherPaymentRateSnapshot(
@@ -480,6 +483,7 @@ export class SessionUpdateService {
                 status: true,
                 notes: true,
                 tuitionFee: true,
+                trialCatchUpFee: true,
                 customerCareCoef: true,
                 customerCareStaffId: true,
                 customerCarePaymentStatus: true,
@@ -806,6 +810,31 @@ export class SessionUpdateService {
             notes: attendanceItem.notes ?? null,
             tuitionFee: attendanceItem.tuitionFee ?? null,
           }));
+        const existingTrialFoldByStudentId = new Map(
+          existingSession.attendance
+            .filter((attendanceItem) => attendanceItem.trialCatchUpFee != null)
+            .map((attendanceItem) => [
+              attendanceItem.studentId,
+              {
+                foldedFee: attendanceItem.tuitionFee ?? 0,
+                baseFee: Math.max(
+                  0,
+                  (attendanceItem.tuitionFee ?? 0) -
+                    (attendanceItem.trialCatchUpFee ?? 0),
+                ),
+              },
+            ]),
+        );
+        // Học phí trên form là số đã gộp thu bù học thử; đưa về học phí gốc của buổi.
+        const toBaseTuitionFee = <T extends string | number | null | undefined>(
+          studentId: string,
+          value: T,
+        ): T | number => {
+          const fold = existingTrialFoldByStudentId.get(studentId);
+          return fold && value != null && Number(value) === fold.foldedFee
+            ? fold.baseFee
+            : value;
+        };
 
         const nextAttendanceStudentIds = attendanceSource.map(
           (attendanceItem) => attendanceItem.studentId,
@@ -917,6 +946,36 @@ export class SessionUpdateService {
               live.snapshotPerStudentAllowance;
             snapshotScaleAmountUpdate = live.snapshotScaleAmount;
           }
+        }
+
+        if (shouldRebuildAttendanceState) {
+          const nextPricingMode =
+            nextClassId === existingSession.classId
+              ? existingSession.class.pricingMode
+              : (
+                  await tx.class.findUnique({
+                    where: { id: nextClassId },
+                    select: { pricingMode: true },
+                  })
+                )?.pricingMode;
+          await this.sessionTrialCatchUpService.assertTrialAttendanceAllowed(
+            tx,
+            {
+              classId: nextClassId,
+              isOneTimeClass: nextPricingMode
+                ? isOneTimePricingMode(nextPricingMode)
+                : false,
+              sessionId: existingSession.id,
+              sessionDate: effectiveSessionDate,
+              sessionStartTime:
+                sessionStartTime === undefined
+                  ? existingSession.startTime
+                  : sessionStartTime,
+              trialStudentIds: attendanceSource
+                .filter((item) => item.status === AttendanceStatus.trial)
+                .map((item) => item.studentId),
+            },
+          );
         }
 
         const oneTimeAlreadyChargedStudentIds = new Set<string>();
@@ -1078,7 +1137,10 @@ export class SessionUpdateService {
                 : data.attendance !== undefined
                   ? this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
                       attendanceItem.status,
-                      attendanceItem.tuitionFee,
+                      toBaseTuitionFee(
+                        attendanceItem.studentId,
+                        attendanceItem.tuitionFee,
+                      ),
                       defaultTuitionFee,
                     )
                   : nextClassId !== existingSession.classId
@@ -1089,7 +1151,10 @@ export class SessionUpdateService {
                       )
                     : this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
                         attendanceItem.status,
-                        existingAttendance?.tuitionFee ?? null,
+                        toBaseTuitionFee(
+                          attendanceItem.studentId,
+                          existingAttendance?.tuitionFee ?? null,
+                        ),
                         null,
                       );
 
@@ -1429,6 +1494,10 @@ export class SessionUpdateService {
         }
 
         if (attendanceIdsToDelete.length > 0) {
+          await this.sessionTrialCatchUpService.releaseBeforeDelete(
+            tx,
+            attendanceIdsToDelete,
+          );
           await tx.attendance.deleteMany({
             where: {
               id: {
@@ -1496,6 +1565,7 @@ export class SessionUpdateService {
                       attendanceItem.customerCareStaffId,
                     ),
                   tuitionFee: attendanceItem.tuitionFee,
+                  trialCatchUpFee: null,
                   transactionId,
                   assistantManagerStaffId:
                     attendanceItem.assistantManagerStaffId,
@@ -1527,6 +1597,7 @@ export class SessionUpdateService {
                       attendanceItem.customerCareStaffId,
                     ),
                   tuitionFee: attendanceItem.tuitionFee,
+                  trialCatchUpFee: null,
                   transactionId,
                   assistantManagerStaffId: shouldRefreshAttendanceAssignments
                     ? attendanceItem.assistantManagerStaffId
@@ -1568,6 +1639,17 @@ export class SessionUpdateService {
         if (!updatedSession) {
           throw new NotFoundException('Session not found');
         }
+
+        await this.sessionTrialCatchUpService.reconcile(tx, [
+          ...existingSession.attendance.map((attendanceItem) => ({
+            studentId: attendanceItem.studentId,
+            classId: existingSession.classId,
+          })),
+          ...updatedSession.attendance.map((attendanceItem) => ({
+            studentId: attendanceItem.studentId,
+            classId: nextClassId,
+          })),
+        ]);
 
         if (actor) {
           const afterValue =

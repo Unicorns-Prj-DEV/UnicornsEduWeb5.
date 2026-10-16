@@ -104,26 +104,16 @@ export class UserDeviceService {
     });
   }
 
-  async findLatestLiveDeviceForUser(userId: string) {
-    return this.prisma.userDevice.findFirst({
-      where: {
-        userId,
-        lastActiveAt: { gte: this.idleCutoff() },
-      },
-      orderBy: { lastActiveAt: 'desc' },
-    });
-  }
-
   /**
    * Refresh cookie must match a live UserDevice row (hash + optional deviceId).
-   * Student tokens issued before refresh-hash binding may still have a live
-   * device with a random token_hash — allow that once so /refresh can rebind.
+   * Không fallback sang "thiết bị sống mới nhất" của user: cookie của thiết bị
+   * đã bị force-logout / token đã rotate sẽ chiếm phiên của máy khác và phá luật
+   * một thiết bị (refresh token cũ không có deviceId đã hết hạn từ 2026-10).
    */
   async assertLiveRefreshDevice(params: {
     refreshToken: string;
     userId: string;
     deviceId?: string;
-    roleType?: string;
   }) {
     const tokenHash = this.hashToken(params.refreshToken);
 
@@ -149,13 +139,6 @@ export class UserDeviceService {
         !this.isIdle(byHash.lastActiveAt)
       ) {
         return byHash;
-      }
-    }
-
-    if (params.roleType === 'student') {
-      const legacyDevice = await this.findLatestLiveDeviceForUser(params.userId);
-      if (legacyDevice) {
-        return legacyDevice;
       }
     }
 

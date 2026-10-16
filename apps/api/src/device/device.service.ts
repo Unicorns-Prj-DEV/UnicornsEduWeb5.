@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActionHistoryService } from '../action-history/action-history.service';
 import { AuthIdentityCacheService } from '../auth/auth-identity-cache.service';
 import { DEVICE_INACTIVITY_DAYS } from '../auth/user-device.service';
+import { UserRole } from 'generated/enums';
 
 @Injectable()
 export class DeviceService {
@@ -13,6 +14,15 @@ export class DeviceService {
   ) {}
 
   async getDevicesByUserId(userId: string) {
+    // Trang này chỉ dành cho thiết bị học sinh — không lộ IP/thiết bị staff/admin.
+    const student = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { roleType: true },
+    });
+    if (!student || student.roleType !== UserRole.student) {
+      throw new NotFoundException('Student not found');
+    }
+
     const devices = await this.prisma.userDevice.findMany({
       where: { userId },
       orderBy: { lastActiveAt: 'desc' },
@@ -42,7 +52,7 @@ export class DeviceService {
       include: { user: true },
     });
 
-    if (!device) {
+    if (!device || device.user.roleType !== UserRole.student) {
       throw new NotFoundException('Device not found');
     }
 

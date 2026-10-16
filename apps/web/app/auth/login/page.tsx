@@ -8,10 +8,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import * as authApi from "@/lib/apis/auth.api";
-import type { LoginDto } from "@/dtos/Auth.dto";
+import type {
+  LoginDto,
+  StudentLoginEmailNotVerifiedError,
+} from "@/dtos/Auth.dto";
 import { useAuth } from "@/context/AuthContext";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { AuthCardSkeleton } from "@/components/auth/AuthCardSkeleton";
+import { SentToEmailNotice } from "@/components/auth/SentToEmailNotice";
 import {
   buildSetupPasswordHref,
   readSafeNextPath,
@@ -21,6 +25,11 @@ import {
   buildLoginFallbackSession,
 } from "@/lib/post-login-session";
 import { getClientApiBaseUrl } from "@/lib/api-base-url";
+import {
+  EMAIL_VERIFICATION_RESEND_COOLDOWN_MS,
+  openEmailVerificationModal,
+} from "@/lib/email-verification-access";
+import { useResendCooldown } from "@/hooks/use-resend-cooldown";
 
 function nestMessageFromResponseData(data: unknown): string | null {
   if (!data || typeof data !== "object") {
@@ -80,7 +89,18 @@ function hasAuthenticatedSession(user: { id: string; accountHandle: string }) {
   return Boolean(user.id && user.accountHandle);
 }
 
-type LoginStep = "form" | "pending" | "blocked";
+type LoginStep = "form" | "pending" | "blocked" | "email-unverified";
+
+function readEmailNotVerifiedMaskedEmail(error: unknown): string | null {
+  if (!isAxiosError(error) || error.response?.status !== 400) return null;
+  const data = error.response.data as
+    | Partial<StudentLoginEmailNotVerifiedError>
+    | undefined;
+  if (data?.error !== "EMAIL_NOT_VERIFIED") return null;
+  return typeof data.maskedEmail === "string" && data.maskedEmail
+    ? data.maskedEmail
+    : null;
+}
 
 function LoginPageContent() {
   const { replace } = useRouter();
@@ -100,7 +120,18 @@ function LoginPageContent() {
   });
   const [activateSecret, setActivateSecret] = useState<string | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Poll async chạy theo setInterval có thể chồng nhau khi mạng chậm: chỉ cho
+  // một request poll bay cùng lúc và chỉ activate một lần cho mỗi requestId.
+  const pollInFlightRef = useRef(false);
+  const activatedRequestRef = useRef<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
+  // Email nhận mail (đã che) và lúc gửi — dùng cho màn «đã gửi» + cooldown Gửi lại.
+  const [sentMaskedEmail, setSentMaskedEmail] = useState<string | null>(null);
+  const [emailSentAt, setEmailSentAt] = useState<number | null>(null);
+  const resendSecondsLeft = useResendCooldown(
+    emailSentAt,
+    EMAIL_VERIFICATION_RESEND_COOLDOWN_MS,
+  );
 
   useEffect(() => {
     const err = getSearchParam("error");
@@ -118,6 +149,22 @@ function LoginPageContent() {
       }
     };
   }, []);
+
+  // Staff/admin chưa xác minh email: bấm Đăng nhập một lần là gửi luôn mail
+  // xác minh, rồi popup chung hiện «Đã gửi thành công tới ...abcd@domain».
+  const sendVerificationAfterLoginMutation = useMutation({
+    mutationFn: () => authApi.resendVerificationEmail(),
+    onSuccess: (payload) => {
+      openEmailVerificationModal({ kind: "sent", email: payload.email });
+    },
+    onError: (error) => {
+      toast.error(
+        nestMessageFromResponseData(
+          isAxiosError(error) ? error.response?.data : null,
+        ) ?? "Không gửi được email xác minh.",
+      );
+    },
+  });
 
   // Staff/admin login (existing flow)
   const staffLoginMutation = useMutation({
@@ -145,6 +192,12 @@ function LoginPageContent() {
             ? buildSetupPasswordHref(redirectHref)
             : redirectHref,
         );
+        if (
+          session.canAccessRestrictedRoutes === false &&
+          !session.requiresPasswordSetup
+        ) {
+          sendVerificationAfterLoginMutation.mutate();
+        }
       } catch (error) {
         setIsRedirecting(false);
         toast.error(getLoginErrorToastMessage(error));
@@ -163,6 +216,8 @@ function LoginPageContent() {
     },
     onSuccess: (response) => {
       setActivateSecret(response.activateSecret);
+      setSentMaskedEmail(response.maskedEmail ?? null);
+      setEmailSentAt(Date.now());
       setLoginStep("pending");
       toast.success("Đã gửi email xác minh. Vui lòng kiểm tra hộp thư.");
       startPolling(response.requestId);
@@ -175,7 +230,16 @@ function LoginPageContent() {
           staffLoginMutation.mutate({ accountHandle, password, rememberMe });
           return;
         }
-        // EMAIL_NOT_VERIFIED or other 400 → show backend message
+        // EMAIL_NOT_VERIFIED: server đã gửi mail xác minh email ngay trong lần
+        // bấm này → hiện màn «đã gửi». Gửi lỗi (không có maskedEmail) → toast.
+        const unverifiedMaskedEmail = readEmailNotVerifiedMaskedEmail(error);
+        if (unverifiedMaskedEmail) {
+          setSentMaskedEmail(unverifiedMaskedEmail);
+          setEmailSentAt(Date.now());
+          setLoginStep("email-unverified");
+          return;
+        }
+        // Other 400 → show backend message
         toast.error(
           error.response.data?.message || "Đăng nhập thất bại.",
         );
@@ -236,10 +300,16 @@ function LoginPageContent() {
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current);
     }
+    activatedRequestRef.current = null;
     pollTimerRef.current = setInterval(async () => {
+      if (pollInFlightRef.current || activatedRequestRef.current === reqId) {
+        return;
+      }
+      pollInFlightRef.current = true;
       try {
         const result = await authApi.studentLoginPoll(reqId);
-        if (result.verified) {
+        if (result.verified && activatedRequestRef.current !== reqId) {
+          activatedRequestRef.current = reqId;
           if (pollTimerRef.current) {
             clearInterval(pollTimerRef.current);
             pollTimerRef.current = null;
@@ -248,12 +318,17 @@ function LoginPageContent() {
           studentActivateMutation.mutate(reqId);
         }
       } catch {
+        if (activatedRequestRef.current === reqId) {
+          return;
+        }
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
         }
         toast.error("Phiên đăng nhập đã hết hạn. Vui lòng thử lại.");
         setLoginStep("form");
+      } finally {
+        pollInFlightRef.current = false;
       }
     }, 2000); // Poll every 2 seconds
   };
@@ -296,9 +371,15 @@ function LoginPageContent() {
     studentLoginInitMutation.mutate({ accountHandle, password, rememberMe });
   };
 
+  const handleResendUnverifiedEmail = () => {
+    studentLoginInitMutation.mutate({ accountHandle, password, rememberMe });
+  };
+
   const handleBackToForm = () => {
     setLoginStep("form");
     setActivateSecret(null);
+    setSentMaskedEmail(null);
+    setEmailSentAt(null);
     setAccountHandle("");
     setPassword("");
     setRememberMe(false);
@@ -354,6 +435,58 @@ function LoginPageContent() {
     );
   }
 
+  // Email chưa xác minh: mail xác minh email đã gửi ngay khi bấm Đăng nhập
+  if (loginStep === "email-unverified" && sentMaskedEmail) {
+    return (
+      <div className="flex min-h-dvh items-start justify-center bg-bg-primary px-4 py-6 sm:items-center sm:py-10">
+        <div className="w-full max-w-md motion-fade-up">
+          <div className="rounded-2xl border border-border-default bg-bg-surface p-5 shadow-lg motion-hover-lift sm:p-8">
+            <div className="mb-6 flex justify-center px-1 sm:mb-8">
+              <BrandLogoLockup
+                variant="auth"
+                className="max-w-full flex-wrap justify-center"
+                priority
+              />
+            </div>
+            <h1 className="text-2xl font-semibold text-text-primary text-center mb-4">
+              Xác minh email để đăng nhập
+            </h1>
+            <p className="mb-4 text-center text-sm text-text-secondary">
+              Email của tài khoản chưa được xác minh. Chúng tôi đã gửi liên kết xác minh — bấm liên kết trong email rồi đăng nhập lại.
+            </p>
+            <SentToEmailNotice
+              maskedEmail={sentMaskedEmail}
+              className="mb-6 text-center"
+            />
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleResendUnverifiedEmail}
+                disabled={
+                  studentLoginInitMutation.isPending || resendSecondsLeft > 0
+                }
+                className="min-h-11 w-full rounded-lg bg-primary py-2.5 font-medium text-text-inverse hover:bg-primary-hover active:bg-primary-active focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {studentLoginInitMutation.isPending
+                  ? "Đang gửi…"
+                  : resendSecondsLeft > 0
+                    ? `Gửi lại (${resendSecondsLeft} giây)`
+                    : "Gửi lại"}
+              </button>
+              <button
+                type="button"
+                onClick={handleBackToForm}
+                className="min-h-11 w-full rounded-lg border border-border-default bg-bg-surface py-2.5 font-medium text-text-primary hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 transition-colors duration-200"
+              >
+                Quay lại đăng nhập
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Pending verification screen
   if (loginStep === "pending") {
     return (
@@ -375,6 +508,12 @@ function LoginPageContent() {
                 Chúng tôi đã gửi liên kết xác minh đến email của bạn. Vui lòng kiểm tra hộp thư và bấm liên kết để hoàn tất đăng nhập.
               </p>
             </div>
+            {sentMaskedEmail ? (
+              <SentToEmailNotice
+                maskedEmail={sentMaskedEmail}
+                className="mb-6 text-center"
+              />
+            ) : null}
             <div className="text-center text-sm text-text-secondary mb-6">
               <p>Đang chờ xác minh…</p>
               <div className="mt-3 flex justify-center">

@@ -9,7 +9,7 @@ import UserProfileEditor, {
   getRoleLabel,
 } from "@/components/user-profile/UserProfileEditor";
 import { profileFullQueryOptions } from "@/lib/profile-full-query";
-import { OPEN_EMAIL_VERIFICATION_MODAL_EVENT } from "@/lib/email-verification-access";
+import { openEmailVerificationModal } from "@/lib/email-verification-access";
 import { getUserWorkspaceHref } from "@/lib/auth-redirect";
 import {
   getProfileCompletion,
@@ -164,9 +164,7 @@ function ErrorState({ status }: { status?: number }) {
               <button
                 type="button"
                 onClick={() =>
-                  window.dispatchEvent(
-                    new Event(OPEN_EMAIL_VERIFICATION_MODAL_EVENT),
-                  )
+                  openEmailVerificationModal({ kind: "send" })
                 }
                 className={primaryButtonClassName}
               >

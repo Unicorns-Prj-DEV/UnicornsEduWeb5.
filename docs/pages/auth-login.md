@@ -10,7 +10,7 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 - Backend set `access_token` + `refresh_token` qua HTTP-only cookies; frontend bootstrap session bằng `authApi.getSession()` (helper `bootstrapPostLoginSession`) rồi resolve redirect.
 - User đã có session hợp lệ mở `/auth/login` sẽ được tự chuyển tiếp sang workspace entrypoint tương ứng (trừ khi còn `requiresPasswordSetup`).
 - Tài khoản **chưa xác minh email** vẫn đăng nhập thành công (nếu đúng mật khẩu + handle/email) để tạo cảm giác đã đăng nhập.
-- Nếu session trả về `canAccessRestrictedRoutes=false`, frontend giữ user ở `/` (Home-only mode). Admin đầy đủ (`roleType=admin` hoặc `staff.admin`) được backend trả `canAccessRestrictedRoutes=true` kể cả khi email chưa verify.
+- Nếu session trả về `canAccessRestrictedRoutes=false`, frontend giữ user ở `/` (Home-only mode) và **gửi luôn** mail xác minh email (`POST /auth/resend-verification`) ngay sau lần bấm Đăng nhập đó, rồi mở popup chung «Đã gửi thành công tới `...abcd@domain`» (Gửi lại sau 60 giây, Đóng). Gửi lỗi chỉ toast. Admin đầy đủ (`roleType=admin` hoặc `staff.admin`) được backend trả `canAccessRestrictedRoutes=true` kể cả khi email chưa verify.
 - Nếu URL có query `next` hợp lệ (internal path, không phải `/auth/*`) và route đó khớp shell đăng nhập của role chính, login thành công ưu tiên redirect về `next`; nếu không khớp (ví dụ staff kế toán có `next=/admin/*` nhưng session chỉ nên vào staff shell mặc định) thì bỏ `next` và dùng `preferredRedirect`/workspace entrypoint. Primary admin được giữ `next=/staff/**` để bypass vào staff workspace khi cần kiểm tra/hỗ trợ.
 - Nếu session trả `requiresPasswordSetup=true`, login chuyển thẳng sang `/auth/setup-password?next=<redirect đích>` để giữ đúng đích sau bước tạo mật khẩu.
 - Redirect theo role:
@@ -41,5 +41,11 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 ## Ghi chú
 
 - Session contract hiện bao gồm thêm: `email`, `emailVerified`, `canAccessRestrictedRoutes`.
-- Khi user non-admin chưa verify, mọi attempt mở route cá nhân/role route sẽ bị chặn về Home và bật popup xác minh email.
+- Khi user non-admin chưa verify, mọi attempt mở route cá nhân/role route sẽ bị chặn về Home và bật popup xác minh email (xem [auth.md](./auth.md) mục chưa verify).
+
+## Học sinh
+
+- Bấm Đăng nhập gọi `POST /auth/student/login` trước; tài khoản không phải học sinh (`NOT_STUDENT_ACCOUNT`) mới rơi về luồng staff/admin.
+- Màn «Kiểm tra email của bạn» (chờ xác minh thiết bị) hiện «Đã gửi thành công tới `...abcd@domain`» từ `maskedEmail` của response.
+- Email học sinh **chưa xác minh** (`EMAIL_NOT_VERIFIED`): server gửi luôn mail xác minh email trong cùng lần bấm. Có `maskedEmail` → màn «Xác minh email để đăng nhập» hiện email đã che, nút **Gửi lại** (gọi lại `student/login`, chờ 60 giây) và **Quay lại đăng nhập**. Không có `maskedEmail` (gửi lỗi / không có email) → chỉ toast.
 - Google button dùng backend URL từ `NEXT_PUBLIC_BACKEND_URL` (fallback localhost:3001).

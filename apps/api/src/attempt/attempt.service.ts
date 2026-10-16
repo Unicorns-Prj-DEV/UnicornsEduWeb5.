@@ -89,6 +89,16 @@ export class AttemptService {
     const attempts = await this.prisma.attempt.findMany({
       where: { assignmentId, studentId },
       orderBy: { startedAt: 'desc' },
+      include: {
+        answers: {
+          select: {
+            type: true,
+            slot: true,
+            pointsPossible: true,
+            pointsAwarded: true,
+          },
+        },
+      },
     });
     const closeAt = assignmentCloseAt(item);
     const closed = isAssignmentClosed(closeAt);
@@ -108,6 +118,8 @@ export class AttemptService {
         submittedAt: a.submittedAt,
         autoGradedScore: closed ? a.autoGradedScore : null,
         autoGradedMax: closed ? a.autoGradedMax : null,
+        scoreMax: this.scoreMaxOf(a),
+        ...this.releasedScores(a, closed),
         hasUngradedEssay: a.hasUngradedEssay,
         scoring: a.scoring,
       })),
@@ -754,29 +766,35 @@ export class AttemptService {
       );
     }
 
-    await this.prisma.attemptAnswer.update({
-      where: { id: attemptAnswerId },
-      data: {
-        pointsAwarded: dto.pointsAwarded,
-        // Tự luận chấm theo thang điểm, không phải đúng/sai — giữ isCorrect null.
-        isCorrect: null,
-        feedback: dto.feedback?.trim() ? dto.feedback : null,
-      },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      // Khoá dòng attempt: hai gia sư chấm hai câu cuối song song sẽ chạy nối
+      // tiếp, lần sau đếm thấy câu của lần trước — không kẹt hasUngradedEssay.
+      await tx.$queryRaw`SELECT id FROM attempts WHERE id = ${answer.attemptId} FOR UPDATE`;
 
-    const remaining = await this.prisma.attemptAnswer.count({
-      where: {
-        attemptId: answer.attemptId,
-        type: QuestionType.essay,
-        pointsAwarded: null,
-      },
-    });
-    if (remaining === 0) {
-      await this.prisma.attempt.update({
-        where: { id: answer.attemptId },
-        data: { hasUngradedEssay: false },
+      await tx.attemptAnswer.update({
+        where: { id: attemptAnswerId },
+        data: {
+          pointsAwarded: dto.pointsAwarded,
+          // Tự luận chấm theo thang điểm, không phải đúng/sai — giữ isCorrect null.
+          isCorrect: null,
+          feedback: dto.feedback?.trim() ? dto.feedback : null,
+        },
       });
-    }
+
+      const remaining = await tx.attemptAnswer.count({
+        where: {
+          attemptId: answer.attemptId,
+          type: QuestionType.essay,
+          pointsAwarded: null,
+        },
+      });
+      if (remaining === 0) {
+        await tx.attempt.update({
+          where: { id: answer.attemptId },
+          data: { hasUngradedEssay: false },
+        });
+      }
+    });
   }
 
   /** Tổng điểm tối đa: phần tự chấm (một nhóm tự chọn) + tự luận. */
@@ -813,6 +831,37 @@ export class AttemptService {
     return {
       score: (attempt.autoGradedScore ?? 0) + essayAwarded,
       scoreMax: (attempt.autoGradedMax ?? 0) + essayMax,
+    };
+  }
+
+  /**
+   * Điểm học sinh được thấy: trắc nghiệm + tự luận đã chấm. Chưa công bố → null.
+   * Lượt đang làm chưa có điểm. Tự luận còn câu chưa chấm vẫn cộng phần đã
+   * chấm; FE kèm nhãn "chờ chấm" theo `hasUngradedEssay`.
+   */
+  private releasedScores(
+    attempt: {
+      status: AttemptStatus;
+      autoGradedScore: number | null;
+      autoGradedMax: number | null;
+      answers: Array<{
+        pointsAwarded: number | null;
+        pointsPossible: number;
+        type: QuestionType;
+      }>;
+    },
+    released: boolean,
+  ): { essayScore: number | null; score: number | null } {
+    if (!released || attempt.status === AttemptStatus.in_progress) {
+      return { essayScore: null, score: null };
+    }
+    const essays = attempt.answers.filter((a) => a.type === QuestionType.essay);
+    return {
+      essayScore:
+        essays.length > 0
+          ? essays.reduce((sum, a) => sum + (a.pointsAwarded ?? 0), 0)
+          : null,
+      score: this.attemptTotals(attempt).score,
     };
   }
 
@@ -1075,6 +1124,7 @@ export class AttemptService {
             : null;
         base.isCorrect = ans.isCorrect;
         base.pointsAwarded = ans.pointsAwarded;
+        base.feedback = ans.type === QuestionType.essay ? ans.feedback : null;
         base.explanation = ans.explanation;
         base.answerGuide = ans.answerGuide;
       }
@@ -1097,6 +1147,7 @@ export class AttemptService {
       autoGradedScore: resultsReleased ? attempt.autoGradedScore : null,
       autoGradedMax: resultsReleased ? attempt.autoGradedMax : null,
       scoreMax,
+      ...this.releasedScores(attempt, resultsReleased),
       hasUngradedEssay: attempt.hasUngradedEssay,
       scoring: attempt.scoring,
       electiveVoided: resultsReleased ? attempt.electiveVoided : false,

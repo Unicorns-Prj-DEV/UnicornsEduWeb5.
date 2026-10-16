@@ -6,6 +6,7 @@ import {
   AdminDashboardFinancialDetailRowKey,
   AdminDashboardFinancialExport,
   AdminDashboardMonthlyStatistics,
+  AdminMonthlyReport,
   AdminDashboardActiveClassBreakdown,
   AdminDashboardStudentBalanceItem,
   AdminDashboardStudentChurnItem,
@@ -138,6 +139,18 @@ export async function getAdminMonthlyStatistics(params: {
       toMonth: params.toMonth,
       toYear: params.toYear,
     },
+  });
+
+  return response.data;
+}
+
+/** Báo cáo tháng (admin + trợ lí). `month` dạng 01-12, `year` dạng YYYY. */
+export async function getAdminMonthlyReport(params: {
+  month: string;
+  year: string;
+}): Promise<AdminMonthlyReport> {
+  const response = await api.get<AdminMonthlyReport>("/dashboard/monthly-report", {
+    params: { month: params.month, year: params.year },
   });
 
   return response.data;

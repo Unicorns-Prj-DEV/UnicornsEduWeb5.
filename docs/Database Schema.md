@@ -581,7 +581,9 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 - Điểm danh theo từng session & student
 - Unique composite: `(session_id, student_id)`
-- Trạng thái dùng enum `AttendanceStatus`
+- Trạng thái dùng enum `AttendanceStatus` (`present | excused | absent | trial`). `trial` = **Học thử**: không trừ ví, không tính doanh thu/hoa hồng/sĩ số (mọi query whitelist `present/excused`), mỗi học sinh tối đa 1 buổi `trial` trên một lớp, không áp dụng cho lớp bán một lần, và chỉ được đánh khi học sinh chưa bị thu học phí ở buổi trước đó của lớp. ADR `docs/adr/2026-10-12-trial-attendance-catch-up-charge.md`.
+- `trial_catch_up_fee` (`INTEGER`, nullable): phần **thu bù học thử** đã gộp vào `tuition_fee` của buổi đích (buổi `present`/`excused` đầu tiên sau buổi học thử, cùng lớp, học phí gốc > 0). Buổi đích vì vậy có `tuition_fee` = học phí gốc × 2, nên doanh thu và hoa hồng tự tính gấp đôi. Null = không gộp. Học phí gốc = `tuition_fee − coalesce(trial_catch_up_fee, 0)`.
+- `trial_catch_up_transaction_id` (nullable, unique FK → `wallet_transactions_history.id`, `ON DELETE SET NULL`): dòng ví `extend` thứ hai (note «Thu bù học thử lớp …») trừ phần thu bù; tách khỏi `transaction_id` (dòng thu học phí gốc). `SessionTrialCatchUpService.reconcile` chạy cuối tạo/sửa/xoá buổi và đổi giá lớp để chuyển, hoàn (`topup`) hoặc thu lại phần bù cho đúng buổi đích. Migration `20261012120000_attendance_trial_catch_up` (thêm enum value + 2 cột).
 - Index read path:
   - `session_id`, `student_id`
   - `(customer_care_staff_id, customer_care_payment_status)` với tên index thực tế `attendance_customer_care_staff_id_customer_care_payment_sta_idx`
@@ -939,7 +941,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `ClassStatus`: `running | ended`
 - `ClassType`: **đã xoá** (migration `20260818090000_add_class_category`) — thay bằng bảng `courses` tuỳ chỉnh được, xem mục 4.4.0-cat.
 - `StudentClassStatus`: `active | inactive`
-- `AttendanceStatus`: `present | excused | absent`
+- `AttendanceStatus`: `present | excused | absent | trial` (`trial` thêm ở `20261012120000_attendance_trial_catch_up`)
 - `LessonKind`: `theory | practice` — phân loại tiết học: `theory` (lý thuyết, video + nội dung) hoặc `practice` (thực hành, thuần câu hỏi). Đổi tên enum từ `TopicKind` ở `20260921000000_rename_three_level_content`.
 - `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
 - `ClassContentHiddenReason`: `manual`, `module_removed` — lý do ẩn mềm `class_content_items` (`20261005120000_class_module_order_and_hidden_reason`)

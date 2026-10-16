@@ -100,6 +100,7 @@ import {
   resolveTeacherScaleAmountVnd,
 } from 'src/session/session-allowance.util';
 import { computeTrainingManagerSessionSnapshot } from 'src/training-manager/training-manager.utils';
+import { SessionTrialCatchUpService } from '../session/session-trial-catch-up.service';
 import { syncLessonPlanHeadCommissions } from 'src/payroll/lesson-plan-head-commission.util';
 
 /** `0` is stored as unlimited (same semantics as `null`) across SQL aggregates. */
@@ -199,6 +200,7 @@ export class ClassService {
     private readonly staffOperationsAccess: StaffOperationsAccessService,
     private readonly actionHistoryService: ActionHistoryService,
     private readonly calendarService: CalendarService,
+    private readonly sessionTrialCatchUpService: SessionTrialCatchUpService,
   ) {}
 
   private readonly logger = new Logger(ClassService.name);
@@ -2115,6 +2117,7 @@ export class ClassService {
             studentId: true,
             status: true,
             tuitionFee: true,
+            trialCatchUpFee: true,
             transactionId: true,
           },
         },
@@ -2224,7 +2227,11 @@ export class ClassService {
               blockCount: snapshotBlockCount,
             })
           : null;
-        const oldFee = attendance.tuitionFee ?? 0;
+        // Phần thu bù học thử đã gộp không thuộc học phí buổi; đối soát lại sau vòng lặp.
+        const oldFee = Math.max(
+          0,
+          (attendance.tuitionFee ?? 0) - (attendance.trialCatchUpFee ?? 0),
+        );
         const newFee = nextFee ?? 0;
         const delta = oldFee - newFee;
         if (delta !== 0) {
@@ -2241,7 +2248,7 @@ export class ClassService {
         }
         await tx.attendance.update({
           where: { id: attendance.id },
-          data: { tuitionFee: nextFee },
+          data: { tuitionFee: nextFee, trialCatchUpFee: null },
         });
         tuitionTotal += newFee;
         attendanceIds.push(attendance.id);
@@ -2274,6 +2281,16 @@ export class ClassService {
 
       await syncLessonPlanHeadCommissions(tx, attendanceIds);
     }
+
+    await this.sessionTrialCatchUpService.reconcile(
+      tx,
+      sessions.flatMap((session) =>
+        session.attendance.map((attendance) => ({
+          studentId: attendance.studentId,
+          classId,
+        })),
+      ),
+    );
   }
 
   async updateClassTeachers(

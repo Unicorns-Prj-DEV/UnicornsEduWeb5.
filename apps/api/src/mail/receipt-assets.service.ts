@@ -36,7 +36,7 @@ export class ReceiptAssetsService {
     }
   }
 
-  /** Logo kỳ lân vuông nền trắng cho header email (`logo_mark_sm.png`, 144px). */
+  /** Logo UNI vuông nền trắng cho header email (`logo_mark_sm.png`, 144px). */
   getBrandMarkDataUri(): string | null {
     try {
       const buf = readFileSync(this.resolveAssetPath('logo_mark_sm.png'));

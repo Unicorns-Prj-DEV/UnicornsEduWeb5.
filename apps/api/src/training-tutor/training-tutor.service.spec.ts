@@ -197,6 +197,7 @@ describe('TrainingTutorService', () => {
           university: 'ĐH A',
           highSchool: 'THPT B',
           achievementCount: 2,
+          currentClasses: [],
         },
       ]);
       expectNoHiddenKeys(result, HIDDEN_STAFF_KEYS);
@@ -207,6 +208,36 @@ describe('TrainingTutorService', () => {
       expect(args.where.roles).toEqual({ has: StaffRole.teacher });
       expect(args.where).not.toHaveProperty('status');
       expectNoHiddenKeys(args.select, HIDDEN_STAFF_KEYS);
+    });
+
+    it('lists only current classes on each row', async () => {
+      mockViewer([StaffRole.training]);
+      mockPrisma.staffInfo.count.mockResolvedValue(1);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([
+        leakyTutorRow({
+          classTeachers: [
+            {
+              status: null,
+              class: { id: 'c1', name: 'Lớp 1', status: ClassStatus.running },
+            },
+            {
+              status: 'inactive',
+              class: { id: 'c2', name: 'Lớp 2', status: ClassStatus.running },
+            },
+            {
+              status: 'active',
+              class: { id: 'c3', name: 'Lớp 3', status: ClassStatus.ended },
+            },
+          ],
+        }),
+      ]);
+
+      const result = await service.listTutors(trainingViewer, {});
+
+      expect(result.data[0].currentClasses).toEqual([
+        { id: 'c1', name: 'Lớp 1' },
+      ]);
+      expect(result.data[0]).not.toHaveProperty('pastClasses');
     });
 
     it('filters by status when requested', async () => {

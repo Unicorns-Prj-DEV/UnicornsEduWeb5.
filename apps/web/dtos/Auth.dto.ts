@@ -109,6 +109,16 @@ export interface StudentLoginInitResponse {
   requestId: string;
   activateSecret: string;
   message: string;
+  /** Email nhận liên kết, đã che dạng `...abcd@domain`. */
+  maskedEmail?: string;
+}
+
+/** Body lỗi 400 `EMAIL_NOT_VERIFIED` của `POST /auth/student/login`. */
+export interface StudentLoginEmailNotVerifiedError {
+  error: "EMAIL_NOT_VERIFIED";
+  message: string;
+  /** Có khi đã gửi được mail xác minh email trong cùng lần bấm. */
+  maskedEmail?: string;
 }
 
 export interface StudentLoginPollResponse {
