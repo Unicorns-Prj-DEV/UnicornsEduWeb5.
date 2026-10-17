@@ -249,6 +249,30 @@ describe('ClassService', () => {
   });
 
   describe('getClasses', () => {
+    it('ORs teacher and training-manager filters when both are set', async () => {
+      mockPrisma.class.count.mockResolvedValue(0);
+      mockPrisma.class.findMany.mockResolvedValue([]);
+
+      await service.getClasses({
+        page: 1,
+        limit: 20,
+        teacherId: 'staff-1',
+        trainingManagerStaffId: 'staff-1',
+      });
+
+      const where = mockPrisma.class.count.mock.calls.at(-1)[0].where;
+      expect(where).not.toHaveProperty('trainingManagerStaffId');
+      expect(where).not.toHaveProperty('teachers');
+      expect(where.OR).toEqual([
+        {
+          teachers: {
+            some: expect.objectContaining({ teacherId: 'staff-1' }),
+          },
+        },
+        { trainingManagerStaffId: 'staff-1' },
+      ]);
+    });
+
     it('returns only active class teacher assignments for active staff', async () => {
       const logger = (service as unknown as { logger: { warn: jest.Mock } })
         .logger;
@@ -451,6 +475,41 @@ describe('ClassService', () => {
       expect(result.data[0]).not.toHaveProperty(
         'allowancePerSessionPerStudent',
       );
+    });
+
+    it('gives teacher + training staff taught OR managed classes, and managed only with scope=managed', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.teacher, StaffRole.training],
+      });
+      const getClassesSpy = jest
+        .spyOn(service, 'getClasses')
+        .mockResolvedValue({
+          data: [],
+          meta: { total: 0, page: 1, limit: 20 },
+        } as never);
+
+      await service.getClassesForStaff('user-1', UserRole.staff, {
+        page: 1,
+        limit: 20,
+      });
+      expect(getClassesSpy).toHaveBeenLastCalledWith({
+        page: 1,
+        limit: 20,
+        teacherId: 'staff-1',
+        trainingManagerStaffId: 'staff-1',
+      });
+
+      await service.getClassesForStaff('user-1', UserRole.staff, {
+        page: 1,
+        limit: 1,
+        scope: 'managed',
+      });
+      expect(getClassesSpy).toHaveBeenLastCalledWith({
+        page: 1,
+        limit: 1,
+        trainingManagerStaffId: 'staff-1',
+      });
     });
   });
 

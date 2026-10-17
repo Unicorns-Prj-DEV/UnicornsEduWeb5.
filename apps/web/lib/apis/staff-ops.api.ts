@@ -40,6 +40,8 @@ export async function getClasses(params: {
   search?: string;
   status?: string;
   type?: string;
+  /** `managed`: Ban Đào Tạo chỉ lấy lớp mình quản lý. */
+  scope?: "managed";
 }): Promise<ClassListResponse> {
   const response = await api.get("/staff-ops/classes", {
     params: {
@@ -48,6 +50,7 @@ export async function getClasses(params: {
       ...(params.search ? { search: params.search } : {}),
       ...(params.status ? { status: params.status } : {}),
       ...(params.type ? { type: params.type } : {}),
+      ...(params.scope ? { scope: params.scope } : {}),
     },
   });
 

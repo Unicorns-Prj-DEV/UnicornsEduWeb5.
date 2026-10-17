@@ -5,8 +5,6 @@ export interface TrainingTutorSummary {
   id: string;
   fullName: string;
   status: StaffStatus;
-  email: string | null;
-  phone: string | null;
   avatarUrl: string | null;
   university: string | null;
   highSchool: string | null;

@@ -137,6 +137,13 @@ export class StaffOpsClassController {
     required: false,
     description: 'Filter by course id (see GET /courses)',
   })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    enum: ['managed'],
+    description:
+      'Ban Đào Tạo kiêm gia sư: `managed` chỉ trả lớp mình quản lý (mặc định trả lớp mình dạy hoặc quản lý). Role khác bỏ qua.',
+  })
   @ApiResponse({ status: 200, description: 'Paginated class list.' })
   async getClasses(
     @CurrentUser() user: JwtPayload,
@@ -144,12 +151,14 @@ export class StaffOpsClassController {
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('courseId') courseId?: string,
+    @Query('scope') scope?: string,
   ) {
     return this.classService.getClassesForStaff(user.id, user.roleType, {
       ...query,
       search,
       status,
       courseId,
+      scope,
     });
   }
 

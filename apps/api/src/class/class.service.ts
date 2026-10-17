@@ -845,6 +845,21 @@ export class ClassService {
           ? ClassStatus.ended
           : undefined;
 
+    const teacherWhere = teacherId
+      ? {
+          teachers: {
+            some: {
+              teacherId,
+              OR: [{ status: null }, { status: 'active' }],
+              teacher: { is: { status: StaffStatus.active } },
+            },
+          },
+        }
+      : undefined;
+    const trainingManagerWhere = trainingManagerStaffId
+      ? { trainingManagerStaffId }
+      : undefined;
+
     const where = {
       ...(trimmedSearch
         ? {
@@ -856,18 +871,10 @@ export class ClassService {
         : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(courseId ? { courseId } : {}),
-      ...(teacherId
-        ? {
-            teachers: {
-              some: {
-                teacherId,
-                OR: [{ status: null }, { status: 'active' }],
-                teacher: { is: { status: StaffStatus.active } },
-              },
-            },
-          }
-        : {}),
-      ...(trainingManagerStaffId ? { trainingManagerStaffId } : {}),
+      // Kiêm gia sư + Ban Đào Tạo: lớp mình dạy HOẶC lớp mình quản lý.
+      ...(teacherWhere && trainingManagerWhere
+        ? { OR: [teacherWhere, trainingManagerWhere] }
+        : { ...teacherWhere, ...trainingManagerWhere }),
     };
 
     const total = await this.prisma.class.count({ where });
@@ -1148,20 +1155,24 @@ export class ClassService {
       search?: string;
       status?: string;
       courseId?: string;
+      /** `managed`: Ban Đào Tạo chỉ lấy lớp mình quản lý (bỏ lớp mình dạy). */
+      scope?: string;
     },
   ) {
+    const { scope, ...listQuery } = query;
     const actor = await this.staffOperationsAccess.resolveActor(
       userId,
       roleType,
     );
+    const scopeToTrainingManager =
+      this.shouldScopeStaffClassesToTrainingManager(actor.roles);
+    const managedOnly = scope === 'managed' && scopeToTrainingManager;
     const classes = await this.getClasses({
-      ...query,
-      ...(this.shouldScopeStaffClassesToTeacher(actor.roles)
+      ...listQuery,
+      ...(!managedOnly && this.shouldScopeStaffClassesToTeacher(actor.roles)
         ? { teacherId: actor.id }
         : {}),
-      ...(this.shouldScopeStaffClassesToTrainingManager(actor.roles)
-        ? { trainingManagerStaffId: actor.id }
-        : {}),
+      ...(scopeToTrainingManager ? { trainingManagerStaffId: actor.id } : {}),
     });
 
     const financeView = resolveAccountantFinanceView(roleType, actor.roles);
@@ -1170,7 +1181,7 @@ export class ClassService {
       financeView,
     );
 
-    if (this.shouldScopeStaffClassesToTrainingManager(actor.roles)) {
+    if (scopeToTrainingManager) {
       return redactClassListForTrainingManagerView(accountantScoped);
     }
 
