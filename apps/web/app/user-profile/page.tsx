@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import UserProfileEditor from "@/components/user-profile/UserProfileEditor";
 import { profileFullQueryOptions } from "@/lib/profile-full-query";
@@ -120,9 +120,7 @@ function ErrorState({ status }: { status?: number }) {
             {needsVerifiedEmail ? (
               <button
                 type="button"
-                onClick={() =>
-                  openEmailVerificationModal({ kind: "send" })
-                }
+                onClick={() => openEmailVerificationModal({ kind: "send" })}
                 className={primaryButtonClassName}
               >
                 Xác minh email
@@ -146,8 +144,10 @@ function ErrorState({ status }: { status?: number }) {
 }
 
 function UserProfilePageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const requiresProfileCompletion = searchParams.get("profile_required") === "1";
+  const requiresProfileCompletion =
+    searchParams.get("profile_required") === "1";
   const redirectedFrom = searchParams.get("from");
 
   const {
@@ -215,6 +215,8 @@ function UserProfilePageContent() {
         <UserProfileEditor
           profile={profile}
           validateOnMount={requiresProfileCompletion}
+          // replace: bấm Back ở workspace không quay lại trang hồ sơ vừa lưu.
+          onSaveComplete={() => router.replace(backHref)}
         />
       </div>
     </div>

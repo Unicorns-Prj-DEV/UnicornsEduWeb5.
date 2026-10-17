@@ -386,10 +386,13 @@ function ProfileSaveBar({
 export default function UserProfileEditor({
   profile,
   validateOnMount = false,
+  onSaveComplete,
 }: {
   profile: FullProfileDto;
   /** Hiện lỗi trường bắt buộc ngay khi mở (người dùng bị gate chuyển về trang hồ sơ). */
   validateOnMount?: boolean;
+  /** Gọi sau khi lưu thành công và hồ sơ không còn trường bắt buộc nào thiếu. */
+  onSaveComplete?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { setUser } = useAuth();
@@ -686,6 +689,7 @@ export default function UserProfileEditor({
       return;
     }
     toast.success("Đã lưu hồ sơ.");
+    onSaveComplete?.();
   };
 
   const completion = getProfileCompletion(profile);
