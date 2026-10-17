@@ -8,6 +8,7 @@ import {
   SessionAttendanceStatus,
   SessionCreatePayload,
   SessionItem,
+  SessionNextOrdinalResponse,
 } from "@/dtos/session.dto";
 import type { ClassPricingMode } from "@/dtos/class.dto";
 import {
@@ -38,8 +39,7 @@ import {
 import { getSessionTimeSubmitError } from "@/lib/session-time.helpers";
 import {
   buildSessionCommentZaloText,
-  findStudentsMissingRequiredComments,
-  formatMissingStudentCommentsToast,
+  findSessionReviewFormError,
   isChargeableAttendanceStatus,
   isRichTextNonEmpty,
   SESSION_HOMEWORK_PLACEHOLDER,
@@ -56,6 +56,9 @@ import {
   SessionFormDialogBody,
   SessionFormDialogFooter,
   SessionFormDialogHeader,
+  SessionReviewHomeworkDueFields,
+  SessionReviewNextSessionFields,
+  SessionReviewProgressFields,
   SessionTeacherAllowanceEstimateCard,
   SessionUnsavedChangesDialog,
 } from "@/components/admin/session/session-form-ui";
@@ -66,12 +69,20 @@ import { currentTimePrefillValue } from "@/components/ui/time-input.helpers";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import YouTubeEmbed, { extractYouTubeVideoId } from "@/components/ui/YouTubeEmbed";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
-import { normalizeOptionalRichTextContent } from "@/lib/sanitize";
 import {
   buildSessionFormDirtySnapshot,
   isSessionFormDirty,
 } from "@/lib/session-form-dirty.helpers";
 import { cn } from "@/lib/utils";
+import {
+  emptySessionReviewForm,
+  emptyStudentReviewForm,
+  findSessionReviewFormInputError,
+  toAttendanceReviewPayload,
+  toSessionReviewPayload,
+  type SessionReviewFormValue,
+  type StudentReviewFormValue,
+} from "@/lib/session-review-form";
 
 export interface SessionStudentItem {
   id: string;
@@ -86,7 +97,7 @@ type AttendanceFormItem = {
   studentId: string;
   fullName: string;
   status: SessionAttendanceStatus;
-  notes: string;
+  review: StudentReviewFormValue;
   tuitionFee: string;
   defaultTuitionFee: number | null;
   /** Đơn giá / 30 phút riêng của học sinh, dùng cho preview chế độ block. */
@@ -139,6 +150,13 @@ type Props = {
   /** Lớp không cần điểm danh — ẩn phần điểm danh, BE tự sinh present. */
   noAttendance?: boolean;
   createSessionFn?: (payload: SessionCreatePayload) => Promise<SessionItem>;
+  /** Số thứ tự buổi dự kiến (📅 Buổi N) theo ngày/giờ đang nhập. */
+  fetchNextOrdinal?: (
+    classId: string,
+    params: { date: string; startTime?: string },
+  ) => Promise<SessionNextOrdinalResponse>;
+  /** Phân biệt cache admin/staff cho query ordinal. */
+  ordinalQueryScope?: "admin" | "staff";
   onClose: () => void;
   onCreated?: (session: SessionItem) => void;
 };
@@ -220,11 +238,13 @@ function normalizeTimeInput(value: string): string {
 function toAttendancePayload(
   items: AttendanceFormItem[],
   includeTuition: boolean,
+  hasInClassTest: boolean,
 ): SessionAttendanceItem[] {
   return items.map((item) => ({
     studentId: item.studentId,
     status: item.status,
-    notes: normalizeOptionalRichTextContent(item.notes),
+    notes: null,
+    ...toAttendanceReviewPayload(item.status, item.review, hasInClassTest),
     ...(includeTuition && item.tuitionFee.trim() !== ""
       ? { tuitionFee: parseMoneyInput(item.tuitionFee) ?? 0 }
       : {}),
@@ -283,6 +303,8 @@ export default function AddSessionPopup({
   allowAttendanceTuitionEdits,
   noAttendance = false,
   createSessionFn = sessionApi.createSession,
+  fetchNextOrdinal = sessionApi.getNextSessionOrdinal,
+  ordinalQueryScope = "admin",
   onClose,
   onCreated,
 }: Props) {
@@ -304,6 +326,9 @@ export default function AddSessionPopup({
   const [homework, setHomework] = useState("");
   const [tutorial, setTutorial] = useState("");
   const [recordingUrl, setRecordingUrl] = useState("");
+  const [review, setReview] = useState<SessionReviewFormValue>(() =>
+    emptySessionReviewForm(),
+  );
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
   const [tutorialError, setTutorialError] = useState("");
@@ -320,7 +345,7 @@ export default function AddSessionPopup({
       studentId: student.id,
       fullName: student.fullName,
       status: "absent",
-      notes: "",
+      review: emptyStudentReviewForm(),
       tuitionFee: "",
       defaultTuitionFee: normalizeMoneyValue(student.tuitionFee),
       customTuitionPerBlock: normalizeMoneyValue(student.tuitionPerBlock),
@@ -342,13 +367,14 @@ export default function AddSessionPopup({
       homework,
       tutorial,
       recordingUrl,
+      review,
       teacherPaymentStatus,
       teacherId: selectedTeacherId,
       manualAllowanceGrossOverride,
       attendance: attendanceItems.map((item) => ({
         studentId: item.studentId,
         status: item.status,
-        notes: item.notes,
+        review: item.review,
         tuitionFee: item.tuitionFee,
       })),
     }),
@@ -360,6 +386,7 @@ export default function AddSessionPopup({
       lessonContent,
       manualAllowanceGrossOverride,
       recordingUrl,
+      review,
       selectedTeacherId,
       startTime,
       teacherPaymentStatus,
@@ -609,6 +636,47 @@ export default function AddSessionPopup({
     return null;
   }, [allowFinancialFields, finalAllowancePreview, classPricing]);
 
+  const ordinalStartTime = normalizeTimeInput(startTime).slice(0, 5);
+  const { data: nextOrdinal } = useQuery({
+    queryKey: [
+      "sessions",
+      "next-ordinal",
+      ordinalQueryScope,
+      classId,
+      date,
+      ordinalStartTime,
+    ],
+    queryFn: () =>
+      fetchNextOrdinal(classId, {
+        date,
+        ...(ordinalStartTime ? { startTime: ordinalStartTime } : {}),
+      }),
+    enabled: open && Boolean(classId) && /^\d{4}-\d{2}-\d{2}$/.test(date),
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const sessionReviewPayload = useMemo(
+    () => toSessionReviewPayload(review),
+    [review],
+  );
+
+  const reviewStudents = useMemo(
+    () =>
+      noAttendance
+        ? []
+        : attendanceItems.map((item) => ({
+            fullName: item.fullName,
+            status: item.status,
+            ...toAttendanceReviewPayload(
+              item.status,
+              item.review,
+              review.hasInClassTest,
+            ),
+          })),
+    [attendanceItems, noAttendance, review.hasInClassTest],
+  );
+
   const zaloCommentText = useMemo(
     () =>
       buildSessionCommentZaloText({
@@ -619,14 +687,28 @@ export default function AddSessionPopup({
         lessonContent,
         homework,
         tutorial,
-        students: attendanceItems.map((item) => ({
-          fullName: item.fullName,
-          status: item.status,
-          notes: item.notes,
-        })),
+        ordinal: nextOrdinal?.ordinal ?? null,
+        review: sessionReviewPayload,
+        structured: true,
+        students: reviewStudents,
       }),
-    [attendanceItems, className, date, endTime, homework, lessonContent, startTime, tutorial],
+    [
+      className,
+      date,
+      endTime,
+      homework,
+      lessonContent,
+      nextOrdinal?.ordinal,
+      reviewStudents,
+      sessionReviewPayload,
+      startTime,
+      tutorial,
+    ],
   );
+
+  const handleReviewChange = (patch: Partial<SessionReviewFormValue>) => {
+    setReview((prev) => ({ ...prev, ...patch }));
+  };
 
   const handleAttendanceStatusChange = (
     studentId: string,
@@ -644,14 +726,14 @@ export default function AddSessionPopup({
     );
   };
 
-  const handleAttendanceNotesChange = (studentId: string, value: string) => {
+  const handleAttendanceReviewChange = (
+    studentId: string,
+    patch: Partial<StudentReviewFormValue>,
+  ) => {
     setAttendanceItems((prev) =>
       prev.map((item) =>
         item.studentId === studentId
-          ? {
-            ...item,
-            notes: value,
-          }
+          ? { ...item, review: { ...item.review, ...patch } }
           : item,
       ),
     );
@@ -755,24 +837,15 @@ export default function AddSessionPopup({
       return;
     }
 
+    const reviewError =
+      findSessionReviewFormInputError(review) ??
+      findSessionReviewFormError(sessionReviewPayload, reviewStudents);
+    if (reviewError) {
+      toast.error(reviewError);
+      return;
+    }
+
     if (!noAttendance) {
-      const missingStudentComments = findStudentsMissingRequiredComments(
-        attendanceItems,
-      );
-      if (missingStudentComments.length > 0) {
-        toast.error(formatMissingStudentCommentsToast(missingStudentComments));
-        return;
-      }
-
-      const hasAttendanceNotesTooLong = attendanceItems.some(
-        (item) => item.notes.trim().length > CONTENT_LIMITS.attendanceNotes,
-      );
-
-      if (hasAttendanceNotesTooLong) {
-        toast.error(`Ghi chú điểm danh tối đa ${CONTENT_LIMITS.attendanceNotes} ký tự.`);
-        return;
-      }
-
       const hasInvalidAttendanceTuition =
         canEditAttendanceTuition &&
         attendanceItems.some((item) => !isNonNegativeMoneyInput(item.tuitionFee));
@@ -808,7 +881,8 @@ export default function AddSessionPopup({
       homework: trimmedHomework,
       tutorial: trimmedTutorial,
       recordingUrl: recordingUrl.trim() || null,
-      notes: zaloCommentText,
+      notes: null,
+      ...sessionReviewPayload,
       coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
       ...(canEditAllowance &&
@@ -826,6 +900,7 @@ export default function AddSessionPopup({
             attendance: toAttendancePayload(
               attendanceItems,
               canEditAttendanceTuition,
+              review.hasInClassTest,
             ),
           }),
     };
@@ -838,6 +913,7 @@ export default function AddSessionPopup({
       action: () => createSessionFn(payload),
       onSuccess: async (createdSession) => {
         await queryClient.invalidateQueries({ queryKey: ["sessions", "class", classId] });
+        await queryClient.invalidateQueries({ queryKey: ["sessions", "next-ordinal"] });
         setCreateFormBaseline(null);
         setUnsavedConfirmOpen(false);
         onClose();
@@ -993,6 +1069,33 @@ export default function AddSessionPopup({
                     ) : null}
                   </div>
 
+                  <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                    <span>
+                      Nội dung bài học <RequiredMark />
+                    </span>
+                    <RichTextEditor
+                      value={lessonContent}
+                      onChange={(value) => {
+                        setLessonContent(value);
+                        if (lessonContentError) setLessonContentError("");
+                      }}
+                      minHeight="min-h-[140px]"
+                      placeholder={SESSION_LESSON_CONTENT_PLACEHOLDER}
+                      ariaLabel="Nội dung bài học"
+                    />
+                    {lessonContentError ? (
+                      <span className="text-xs font-medium text-error" role="alert">
+                        {lessonContentError}
+                      </span>
+                    ) : null}
+                  </label>
+
+                  <SessionReviewProgressFields
+                    value={review}
+                    onChange={handleReviewChange}
+                    idPrefix="add-session-review"
+                  />
+
                   {noAttendance ? (
                     <div className="rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3 text-sm text-text-muted">
                       Lớp không cần điểm danh — hệ thống tự sinh Attendance present cho mọi học sinh đang học.
@@ -1047,8 +1150,10 @@ export default function AddSessionPopup({
                           namePrefix="add-att"
                           canEditTuition={canEditAttendanceTuition}
                           allowTrial={classPricingMode !== "one_time"}
+                          hasInClassTest={review.hasInClassTest}
+                          inClassTestTotal={sessionReviewPayload.inClassTestTotal ?? null}
                           onStatusChange={handleAttendanceStatusChange}
-                          onNotesChange={handleAttendanceNotesChange}
+                          onReviewChange={handleAttendanceReviewChange}
                           onTuitionChange={handleAttendanceTuitionChange}
                         />
 
@@ -1062,27 +1167,6 @@ export default function AddSessionPopup({
                     )}
                   </section>
                   )}
-
-                  <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                    <span>
-                      Nội dung bài học <RequiredMark />
-                    </span>
-                    <RichTextEditor
-                      value={lessonContent}
-                      onChange={(value) => {
-                        setLessonContent(value);
-                        if (lessonContentError) setLessonContentError("");
-                      }}
-                      minHeight="min-h-[140px]"
-                      placeholder={SESSION_LESSON_CONTENT_PLACEHOLDER}
-                      ariaLabel="Nội dung bài học"
-                    />
-                    {lessonContentError ? (
-                      <span className="text-xs font-medium text-error" role="alert">
-                        {lessonContentError}
-                      </span>
-                    ) : null}
-                  </label>
 
                   <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                     <span>
@@ -1104,6 +1188,18 @@ export default function AddSessionPopup({
                       </span>
                     ) : null}
                   </label>
+
+                  <SessionReviewHomeworkDueFields
+                    value={review}
+                    onChange={handleReviewChange}
+                    idPrefix="add-session-review"
+                  />
+
+                  <SessionReviewNextSessionFields
+                    value={review}
+                    onChange={handleReviewChange}
+                    idPrefix="add-session-review"
+                  />
 
                   <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                     <span>

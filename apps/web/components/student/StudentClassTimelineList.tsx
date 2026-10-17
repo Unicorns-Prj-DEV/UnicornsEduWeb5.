@@ -273,17 +273,30 @@ function StudentClassTimelineListInner({
       })),
     [visibleSessionRows],
   );
+  // Tab Chuyên đề đếm số chuyên đề (kể cả chuyên đề chưa có tiết), tab Buổi học đếm số thẻ.
   const tocCount =
-    activeTab === "chuyen-de" ? moduleEntries.length : sessionTocEntries.length;
-  // Sidebar mục lục chỉ có ở tab Chuyên đề trên màn rộng; tab Buổi học để
-  // video giữ trọn bề ngang, mục lục mở qua nút nổi.
-  const showModuleSidebar =
-    activeTab === "chuyen-de" && moduleTocSections.length > 0;
+    activeTab === "chuyen-de"
+      ? moduleTocSections.length
+      : sessionTocEntries.length;
+  // Từ `lg` mục lục là sidebar bên trái (cả 2 tab); dưới `lg` mở qua nút nổi.
+  // Xét nội dung chưa lọc để sidebar không biến mất (layout nhảy) khi tìm không khớp.
+  const showTocSidebar =
+    activeTab === "chuyen-de"
+      ? Boolean(groups?.length)
+      : sessionRows.length > 0;
 
+  // Id mục lục (tiết hoặc chính chuyên đề) → thẻ chuyên đề cần mở trước khi cuộn.
   const moduleKeyByItemId = useMemo(
     () =>
-      new Map(moduleEntries.map(({ item, moduleKey }) => [item.id, moduleKey])),
-    [moduleEntries],
+      new Map([
+        ...moduleEntries.map(
+          ({ item, moduleKey }) => [item.id, moduleKey] as const,
+        ),
+        ...moduleTocSections.map(
+          (section) => [section.id, section.key] as const,
+        ),
+      ]),
+    [moduleEntries, moduleTocSections],
   );
 
   const selectTab = useCallback(
@@ -350,21 +363,34 @@ function StudentClassTimelineListInner({
         </div>
         <div
           className={
-            showModuleSidebar
-              ? "lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-6"
+            showTocSidebar
+              ? "lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6"
               : undefined
           }
         >
-          {showModuleSidebar ? (
-            <aside className="sticky top-0 hidden max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm [overscroll-behavior:contain] lg:block">
+          {showTocSidebar ? (
+            <aside className="sticky top-0 hidden max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border border-border-default bg-bg-surface p-3 shadow-sm [overscroll-behavior:contain] lg:block"
+            >
               <h2 className="mb-3 px-2.5 text-sm font-semibold text-text-primary">
-                Mục lục
+                Mục lục ({tocCount})
               </h2>
-              <StudentClassGroupedToc
-                sections={moduleTocSections}
-                activeId={selectedTocId}
-                onSelect={scrollToRow}
-              />
+              {tocCount === 0 ? (
+                <p className="px-2.5 text-xs text-text-muted">
+                  Không có mục nào khớp.
+                </p>
+              ) : activeTab === "chuyen-de" ? (
+                <StudentClassGroupedToc
+                  sections={moduleTocSections}
+                  activeId={selectedTocId}
+                  onSelect={scrollToRow}
+                />
+              ) : (
+                <StudentClassTimelineToc
+                  entries={sessionTocEntries}
+                  activeId={selectedTocId}
+                  onSelect={scrollToRow}
+                />
+              )}
             </aside>
           ) : null}
           <div
@@ -473,9 +499,7 @@ function StudentClassTimelineListInner({
         <button
           type="button"
           onClick={() => setTocOpen(true)}
-          className={`fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg ${
-            showModuleSidebar ? "lg:hidden" : ""
-          }`}
+          className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg lg:hidden"
         >
           <List className="size-4" aria-hidden />
           Mục lục

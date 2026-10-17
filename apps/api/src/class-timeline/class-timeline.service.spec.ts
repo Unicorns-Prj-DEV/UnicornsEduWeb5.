@@ -4,6 +4,10 @@ jest.mock('../prisma/prisma.service', () => ({
 
 jest.mock('../../generated/client', () => ({}));
 
+jest.mock('src/session/session-ordinal.util', () => ({
+  loadSessionOrdinals: jest.fn().mockResolvedValue(new Map()),
+}));
+
 import { ClassTimelineService } from './class-timeline.service';
 import { UserRole } from 'generated/enums';
 import { NOT_ARCHIVED_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';

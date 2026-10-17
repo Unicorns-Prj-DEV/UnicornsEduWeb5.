@@ -42,8 +42,6 @@ const TUTOR_SUMMARY_SELECT = {
       first_name: true,
       last_name: true,
       accountHandle: true,
-      email: true,
-      phone: true,
       avatarPath: true,
     },
   },
@@ -244,8 +242,6 @@ export class TrainingTutorService {
       id: row.id,
       fullName: getPreferredUserFullName(user) ?? '',
       status: row.status,
-      email: user?.email ?? null,
-      phone: user?.phone ?? null,
       avatarUrl: await createSignedStorageUrl({
         bucket: AVATAR_STORAGE_BUCKET,
         path: user?.avatarPath,

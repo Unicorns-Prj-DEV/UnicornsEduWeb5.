@@ -37,6 +37,8 @@ function firstCallArg<T>(mock: jest.Mock): T {
 
 /** Field Ban Đào Tạo không bao giờ được thấy (CONTEXT.md: Ban Đào Tạo). */
 const HIDDEN_STAFF_KEYS = [
+  'email',
+  'phone',
   'cccdNumber',
   'cccdIssuedDate',
   'cccdIssuedPlace',
@@ -191,8 +193,6 @@ describe('TrainingTutorService', () => {
           id: 'UNISTAFF-0000000001',
           fullName: 'Sư Gia',
           status: StaffStatus.inactive,
-          email: 'gs@example.com',
-          phone: '0900',
           avatarUrl: 'signed:a/b.png',
           university: 'ĐH A',
           highSchool: 'THPT B',

@@ -25,7 +25,14 @@ import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionTrialCatchUpService } from './session-trial-catch-up.service';
-import { SessionValidationService } from './session-validation.service';
+import {
+  AttendanceReviewData,
+  AttendanceReviewInput,
+  pickAttendanceReviewInput,
+  pickSessionReviewInput,
+  SessionReviewInput,
+  SessionValidationService,
+} from './session-validation.service';
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
 import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
@@ -96,6 +103,8 @@ export class SessionCreateService {
         },
         { required: true },
       );
+      const sessionReview =
+        this.sessionValidationService.resolveSessionReviewFields(data);
       const classPricing = await this.prisma.class.findUnique({
         where: { id: data.classId },
         select: { pricingMode: true },
@@ -179,6 +188,10 @@ export class SessionCreateService {
           let resolvedAttendanceInput: NonNullable<
             SessionCreateDto['attendance']
           >;
+          const attendanceReviewByStudentId = new Map<
+            string,
+            AttendanceReviewData
+          >();
 
           if (isNoAttendanceClass) {
             // Auto-generate attendance: present for all active students
@@ -200,10 +213,15 @@ export class SessionCreateService {
               attendanceInput,
               { required: true },
             );
-            this.sessionValidationService.validateAttendanceNotes(
-              attendanceInput,
-              { required: true },
-            );
+            for (const attendanceItem of attendanceInput) {
+              attendanceReviewByStudentId.set(
+                attendanceItem.studentId,
+                this.sessionValidationService.resolveAttendanceReview(
+                  attendanceItem,
+                  sessionReview,
+                ),
+              );
+            }
             resolvedAttendanceInput = attendanceInput;
           }
 
@@ -550,6 +568,7 @@ export class SessionCreateService {
                 studentId: attendanceItem.studentId,
                 status: attendanceItem.status,
                 notes: attendanceItem.notes,
+                ...attendanceReviewByStudentId.get(attendanceItem.studentId),
                 customerCareCoef: attendanceItem.customerCareCoef,
                 customerCareStaffId: attendanceItem.customerCareStaffId,
                 customerCarePaymentStatus: attendanceItem.customerCareStaffId
@@ -605,6 +624,7 @@ export class SessionCreateService {
               lessonContent: data.lessonContent ?? null,
               homework: data.homework ?? null,
               tutorial: data.tutorial ?? null,
+              ...sessionReview,
               recordingUrl: data.recordingUrl ? data.recordingUrl.trim() : null,
               teacherPaymentStatus: data.teacherPaymentStatus ?? undefined,
               trainingManagerStaffId:
@@ -723,12 +743,14 @@ export class SessionCreateService {
       tutorial: string;
       recordingUrl?: string | null;
       coefficient?: number;
-      attendance?: Array<{
-        studentId: string;
-        status: (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
-        notes?: string | null;
-      }>;
-    },
+      attendance?: Array<
+        AttendanceReviewInput & {
+          studentId: string;
+          status: (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
+          notes?: string | null;
+        }
+      >;
+    } & SessionReviewInput,
     auditActor?: ActionHistoryActor,
   ) {
     const actor = await this.staffOperationsAccess.resolveActor(
@@ -767,11 +789,13 @@ export class SessionCreateService {
         lessonContent: data.lessonContent,
         homework: data.homework,
         tutorial: data.tutorial,
+        ...pickSessionReviewInput(data),
         recordingUrl: data.recordingUrl ?? null,
         attendance: (data.attendance ?? []).map((attendanceItem) => ({
           studentId: attendanceItem.studentId,
           status: attendanceItem.status,
           notes: attendanceItem.notes ?? null,
+          ...pickAttendanceReviewInput(attendanceItem),
         })),
       },
       auditActor,

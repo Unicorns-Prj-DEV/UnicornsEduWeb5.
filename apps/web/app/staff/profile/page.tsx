@@ -23,6 +23,10 @@ import {
   hasAssistantAndCustomerCareRoles,
 } from "@/components/admin/staff/AssistantDualRoleIncomeHelper";
 import MonthNav from "@/components/admin/MonthNav";
+import {
+  pickAttendanceReviewFields,
+  pickSessionReviewFields,
+} from "@/lib/session-review-form";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import StaffSelfEditPopup from "@/components/staff/StaffSelfEditPopup";
 import { BonusListItem } from "@/dtos/bonus.dto";
@@ -296,11 +300,14 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     homework: payload.homework,
     tutorial: payload.tutorial,
     recordingUrl: payload.recordingUrl ?? null,
+    notes: payload.notes ?? null,
+    ...pickSessionReviewFields(payload),
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
       studentId: item.studentId,
       status: item.status,
       notes: item.notes ?? null,
+      ...pickAttendanceReviewFields(item),
     })),
   };
 }

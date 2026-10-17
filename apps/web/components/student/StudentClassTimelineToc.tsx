@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ClipboardList,
   Dumbbell,
+  Layers,
   Lock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -131,13 +132,15 @@ export default function StudentClassTimelineToc({
 
 export interface TimelineTocSection {
   key: string;
+  /** Id thẻ chuyên đề — bấm tên chuyên đề gọi `onSelect(id)`. */
+  id: string;
   title: string;
   entries: TimelineTocEntry[];
 }
 
 /**
- * Mục lục tab Chuyên đề: tên chuyên đề làm đầu nhóm, các tiết nằm dưới,
- * đánh số lại từ 1 trong mỗi nhóm.
+ * Mục lục tab Chuyên đề: tên chuyên đề làm đầu nhóm (bấm để tới thẻ), các
+ * tiết nằm dưới, đánh số lại từ 1 trong mỗi nhóm.
  */
 export function StudentClassGroupedToc({
   sections,
@@ -155,26 +158,46 @@ export function StudentClassGroupedToc({
   return (
     <nav aria-label="Mục lục chuyên đề" className={className}>
       <div className="space-y-4">
-        {sections.map((section) => (
-          <section
-            key={section.key}
-            aria-labelledby={`toc-section-${section.key}`}
-          >
-            <h3
-              id={`toc-section-${section.key}`}
-              className="mb-1 truncate px-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
-              title={section.title}
+        {sections.map((section) => {
+          const active = section.id === activeId;
+          return (
+            <section
+              key={section.key}
+              aria-labelledby={`toc-section-${section.key}`}
             >
-              {section.title}
-            </h3>
-            <TocEntryList
-              entries={section.entries}
-              activeId={activeId}
-              onSelect={onSelect}
-              compact={false}
-            />
-          </section>
-        ))}
+              <h3 id={`toc-section-${section.key}`} className="mb-1">
+                <button
+                  type="button"
+                  onClick={() => onSelect(section.id)}
+                  aria-current={active ? "true" : undefined}
+                  title={section.title}
+                  className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold uppercase tracking-wide transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                    active
+                      ? "bg-primary text-text-inverse"
+                      : "text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
+                  }`}
+                >
+                  <Layers className="size-3.5 shrink-0" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">
+                    {section.title}
+                  </span>
+                </button>
+              </h3>
+              {section.entries.length ? (
+                <TocEntryList
+                  entries={section.entries}
+                  activeId={activeId}
+                  onSelect={onSelect}
+                  compact={false}
+                />
+              ) : (
+                <p className="px-2.5 py-1 pl-8 text-xs text-text-muted">
+                  Chưa có tiết
+                </p>
+              )}
+            </section>
+          );
+        })}
       </div>
     </nav>
   );

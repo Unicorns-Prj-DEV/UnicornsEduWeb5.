@@ -7,7 +7,6 @@ import { Search } from "lucide-react";
 import StaffAchievementsDialog, {
   StaffAchievementsButton,
 } from "@/components/shared/achievement/StaffAchievementsDialog";
-import TutorContactLines from "@/components/staff/tutors/TutorContactLines";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
@@ -114,7 +113,6 @@ export default function StaffTutorsPage() {
                 className={`flex flex-col gap-3 rounded-xl border border-border-default bg-bg-surface p-4 ${ROW_LINK_INTERACTION_CLASS}`}
               >
                 <TutorIdentity tutor={tutor} />
-                <TutorContactLines tutor={tutor} />
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-text-muted">
                     Lớp đang dạy
@@ -138,11 +136,8 @@ export default function StaffTutorsPage() {
                   <th scope="col" className="w-16 px-3 py-3">
                     <span className="sr-only">Ảnh đại diện</span>
                   </th>
-                  <th scope="col" className={`w-[24%] ${TH_CLASS}`}>
+                  <th scope="col" className={`w-[32%] ${TH_CLASS}`}>
                     Tên
-                  </th>
-                  <th scope="col" className={`w-[24%] ${TH_CLASS}`}>
-                    Liên hệ
                   </th>
                   <th scope="col" className={TH_CLASS}>
                     Lớp đang dạy
@@ -176,9 +171,6 @@ export default function StaffTutorsPage() {
                         <div className="mt-1">
                           <TutorStatusBadge status={tutor.status} />
                         </div>
-                      </td>
-                      <td className="min-w-0 px-4 py-3 align-top">
-                        <TutorContactLines tutor={tutor} />
                       </td>
                       <td className="px-4 py-3 align-top">
                         <TutorClassChips classes={tutor.currentClasses} />

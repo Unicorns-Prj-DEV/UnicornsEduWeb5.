@@ -17,7 +17,7 @@ Service dùng `select` tường minh (`TUTOR_SUMMARY_SELECT`), không `include`,
 
 | Trả về | Không bao giờ trả |
 | --- | --- |
-| `id`, `fullName`, `status`, `email`, `phone`, `avatarUrl` (signed 1h), `university`, `highSchool`, `achievementCount` | CCCD (số/ngày/nơi cấp), `ethnicity`, `gender`, `birthDate`, `currentAddress`, `bankAccount`, `bankQrLink`, `googleMeetLink`, `revenueSharePercent`, mọi field tiền / trạng thái thanh toán |
+| `id`, `fullName`, `status`, `avatarUrl` (signed 1h), `university`, `highSchool`, `achievementCount` | `email`, `phone`, CCCD (số/ngày/nơi cấp), `ethnicity`, `gender`, `birthDate`, `currentAddress`, `bankAccount`, `bankQrLink`, `googleMeetLink`, `revenueSharePercent`, mọi field tiền / trạng thái thanh toán |
 
 Test: `training-tutor.service.spec.ts` mock Prisma trả row có cả field nhạy cảm và khẳng định output + `select` không chứa chúng.
 

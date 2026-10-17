@@ -67,6 +67,10 @@ import {
   CLASS_DETAIL_TABS,
 } from "@/lib/class-detail-tabs";
 import { useClassDetailTab } from "@/hooks/use-class-detail-tab";
+import {
+  pickAttendanceReviewFields,
+  pickSessionReviewFields,
+} from "@/lib/session-review-form";
 import { cn } from "@/lib/utils";
 import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 
@@ -297,11 +301,13 @@ function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
     tutorial: payload.tutorial,
     recordingUrl: payload.recordingUrl ?? null,
     notes: payload.notes ?? null,
+    ...pickSessionReviewFields(payload),
     coefficient: payload.coefficient,
     attendance: (payload.attendance ?? []).map((item) => ({
       studentId: item.studentId,
       status: item.status,
       notes: item.notes ?? null,
+      ...pickAttendanceReviewFields(item),
     })),
   };
 }
@@ -316,11 +322,13 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
     tutorial: payload.tutorial,
     recordingUrl: payload.recordingUrl ?? null,
     notes: payload.notes ?? null,
+    ...pickSessionReviewFields(payload),
     coefficient: payload.coefficient,
     attendance: payload.attendance?.map((item) => ({
       studentId: item.studentId,
       status: item.status,
       notes: item.notes ?? null,
+      ...pickAttendanceReviewFields(item),
     })),
   };
 }
@@ -441,7 +449,7 @@ export default function StaffClassDetailPage() {
     placeholderData: keepPreviousData,
     retry: false,
   });
-  const { data: availableSurveys = [] } = useQuery({
+  const { data: availableSurveys = [], status: availableSurveysStatus } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
     enabled: canAccessClassWorkspace && activeTab === "buoi-hoc",
@@ -773,6 +781,8 @@ export default function StaffClassDetailPage() {
           teachers={popupTeachers}
           students={popupStudents}
           noAttendance={classDetail.noAttendance}
+          fetchNextOrdinal={staffOpsApi.getNextSessionOrdinal}
+          ordinalQueryScope="staff"
           classPricing={{
             allowancePerSessionPerStudent: classDetail.allowancePerSessionPerStudent,
             allowancePerBlockPerStudent: classDetail.allowancePerBlockPerStudent ?? null,
@@ -1160,6 +1170,7 @@ export default function StaffClassDetailPage() {
                   className={classDetail.name}
                   surveys={surveys}
                   availableSurveys={availableSurveys}
+                  availableSurveysStatus={availableSurveysStatus}
                   teachers={popupTeachers}
                   students={popupStudents}
                   error={isSurveysError}

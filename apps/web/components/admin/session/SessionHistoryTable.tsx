@@ -28,9 +28,6 @@ type SessionAttendanceRecordWithStudent = SessionAttendanceRecord & {
   student?: { fullName?: string | null } | null;
 };
 import { ClassDetail } from "@/dtos/class.dto";
-import {
-  normalizeOptionalRichTextContent,
-} from "@/lib/sanitize";
 import { formatCurrency } from "@/lib/class.helpers";
 import {
   isNonNegativeMoneyInput,
@@ -56,8 +53,7 @@ import {
 } from "@/lib/session-time.helpers";
 import {
   buildSessionCommentZaloText,
-  findStudentsMissingRequiredComments,
-  formatMissingStudentCommentsToast,
+  findSessionReviewFormError,
   isChargeableAttendanceStatus,
   isRichTextNonEmpty,
   resolveSessionCommentDisplayContent,
@@ -77,6 +73,9 @@ import {
   SessionFormDialogBody,
   SessionFormDialogFooter,
   SessionFormDialogHeader,
+  SessionReviewHomeworkDueFields,
+  SessionReviewNextSessionFields,
+  SessionReviewProgressFields,
   SessionTeacherAllowanceEstimateCard,
   SessionUnsavedChangesDialog,
 } from "@/components/admin/session/session-form-ui";
@@ -90,6 +89,17 @@ import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 import { mergeTimelineByDateDesc } from "@/lib/class-session-timeline";
+import {
+  emptySessionReviewForm,
+  emptyStudentReviewForm,
+  findSessionReviewFormInputError,
+  sessionReviewFormFromSession,
+  studentReviewFormFromAttendance,
+  toAttendanceReviewPayload,
+  toSessionReviewPayload,
+  type SessionReviewFormValue,
+  type StudentReviewFormValue,
+} from "@/lib/session-review-form";
 
 type SessionEntityMode = "teacher" | "class" | "none";
 type SessionStatusMode = "payment" | "timeline";
@@ -160,7 +170,7 @@ type AttendanceFormItem = {
   studentId: string;
   fullName: string;
   status: SessionAttendanceStatus;
-  notes: string;
+  review: StudentReviewFormValue;
   tuitionFee: string;
   defaultTuitionFee: number | null;
 };
@@ -175,7 +185,7 @@ function mapSessionAttendanceToFormItems(
         attendanceItem as SessionAttendanceRecordWithStudent
       ).student?.fullName?.trim() || "—",
     status: (attendanceItem.status ?? "absent") as SessionAttendanceStatus,
-    notes: attendanceItem.notes ?? "",
+    review: studentReviewFormFromAttendance(attendanceItem),
     tuitionFee:
       normalizeMoneyValue(attendanceItem.tuitionFee) != null
         ? moneyInputInitialFromNumber(
@@ -917,6 +927,9 @@ export default function SessionHistoryTable({
   const [editHomework, setEditHomework] = useState("");
   const [editTutorial, setEditTutorial] = useState("");
   const [editRecordingUrl, setEditRecordingUrl] = useState("");
+  const [editReview, setEditReview] = useState<SessionReviewFormValue>(() =>
+    emptySessionReviewForm(),
+  );
   const [lessonContentError, setLessonContentError] = useState("");
   const [homeworkError, setHomeworkError] = useState("");
   const [tutorialError, setTutorialError] = useState("");
@@ -1058,7 +1071,7 @@ export default function SessionHistoryTable({
             {
               status: (attendanceItem.status ??
                 "absent") as SessionAttendanceStatus,
-              notes: attendanceItem.notes ?? "",
+              review: studentReviewFormFromAttendance(attendanceItem),
               tuitionFee:
                 normalizeMoneyValue(attendanceItem.tuitionFee) ?? null,
             },
@@ -1077,7 +1090,7 @@ export default function SessionHistoryTable({
             studentId: student.id,
             fullName: student.fullName?.trim() || "—",
             status: existing?.status ?? "absent",
-            notes: existing?.notes ?? "",
+            review: existing?.review ?? emptyStudentReviewForm(),
             tuitionFee:
               shouldShowOverride && existingTuitionFee != null
                 ? moneyInputInitialFromNumber(existingTuitionFee)
@@ -1107,13 +1120,22 @@ export default function SessionHistoryTable({
     );
   };
 
-  const setAttendanceNotes = (studentId: string, notes: string) => {
+  const setAttendanceReview = (
+    studentId: string,
+    patch: Partial<StudentReviewFormValue>,
+  ) => {
     attendanceDirtyRef.current = true;
     setAttendanceItems((prev) =>
       prev.map((item) =>
-        item.studentId === studentId ? { ...item, notes } : item,
+        item.studentId === studentId
+          ? { ...item, review: { ...item.review, ...patch } }
+          : item,
       ),
     );
+  };
+
+  const handleEditReviewChange = (patch: Partial<SessionReviewFormValue>) => {
+    setEditReview((prev) => ({ ...prev, ...patch }));
   };
 
   const setAttendanceTuitionFee = (studentId: string, tuitionFee: string) => {
@@ -1238,6 +1260,7 @@ export default function SessionHistoryTable({
     setEditHomework(session.homework ?? "");
     setEditTutorial(session.tutorial ?? "");
     setEditRecordingUrl(session.recordingUrl ?? "");
+    setEditReview(sessionReviewFormFromSession(session));
     setLessonContentError("");
     setHomeworkError("");
     setTutorialError("");
@@ -1266,6 +1289,7 @@ export default function SessionHistoryTable({
   const closeEdit = useCallback(() => {
     setEditingSession(null);
     setEditRecordingUrl("");
+    setEditReview(emptySessionReviewForm());
     setTeachersList([]);
     setTeachersLoading(false);
     setAttendanceItems([]);
@@ -1286,13 +1310,14 @@ export default function SessionHistoryTable({
       homework: editHomework,
       tutorial: editTutorial,
       recordingUrl: editRecordingUrl,
+      review: editReview,
       teacherPaymentStatus: editPaymentStatus,
       teacherId: editTeacherId,
       manualAllowanceGrossOverride,
       attendance: attendanceItems.map((item) => ({
         studentId: item.studentId,
         status: item.status,
-        notes: item.notes,
+        review: item.review,
         tuitionFee: item.tuitionFee,
       })),
     }),
@@ -1304,6 +1329,7 @@ export default function SessionHistoryTable({
       editLessonContent,
       editPaymentStatus,
       editRecordingUrl,
+      editReview,
       editStartTime,
       editTeacherId,
       editTutorial,
@@ -1393,20 +1419,11 @@ export default function SessionHistoryTable({
       toast.error(sessionTextTooLong);
       return;
     }
-    const missingStudentComments = findStudentsMissingRequiredComments(
-      attendanceItems,
-    );
-    if (missingStudentComments.length > 0) {
-      toast.error(formatMissingStudentCommentsToast(missingStudentComments));
-      return;
-    }
-    const hasAttendanceNotesTooLong = attendanceItems.some(
-      (item) => item.notes.length > CONTENT_LIMITS.attendanceNotes,
-    );
-    if (hasAttendanceNotesTooLong) {
-      toast.error(
-        `Ghi chú điểm danh tối đa ${CONTENT_LIMITS.attendanceNotes} ký tự.`,
-      );
+    const reviewError =
+      findSessionReviewFormInputError(editReview) ??
+      findSessionReviewFormError(editSessionReviewPayload, editReviewStudents);
+    if (reviewError) {
+      toast.error(reviewError);
       return;
     }
     const hasInvalidAttendanceTuition =
@@ -1421,7 +1438,12 @@ export default function SessionHistoryTable({
         ? attendanceItems.map((item) => ({
             studentId: item.studentId,
             status: item.status,
-            notes: normalizeOptionalRichTextContent(item.notes),
+            notes: null,
+            ...toAttendanceReviewPayload(
+              item.status,
+              item.review,
+              editReview.hasInClassTest,
+            ),
             ...(canEditAttendanceTuition && item.tuitionFee.trim() !== ""
               ? { tuitionFee: parseMoneyInput(item.tuitionFee) ?? 0 }
               : {}),
@@ -1452,25 +1474,6 @@ export default function SessionHistoryTable({
       toast.error("Link video YouTube không hợp lệ.");
       return;
     }
-    const savedNotes = buildSessionCommentZaloText({
-      className:
-        editingSession.class?.name ??
-        editingClassDetail?.name ??
-        "",
-      date: editDate.trim(),
-      startTime: editStartTime,
-      endTime: editEndTime,
-      makeupOriginalDate:
-        editingSession.makeupScheduleEvent?.originalDate ?? null,
-      lessonContent: editLessonContent.trim(),
-      homework: editHomework.trim(),
-      tutorial: editTutorial.trim(),
-      students: attendanceItems.map((item) => ({
-        fullName: item.fullName,
-        status: item.status,
-        notes: item.notes,
-      })),
-    });
     const payload = {
       id: editingSession.id,
       date: editDate.trim(),
@@ -1483,7 +1486,8 @@ export default function SessionHistoryTable({
       homework: editHomework.trim(),
       tutorial: editTutorial.trim(),
       recordingUrl: editRecordingUrl.trim() || null,
-      notes: savedNotes,
+      // Buổi có cấu trúc: bản copy dựng từ field, không lưu snapshot vào notes.
+      notes: null,
       ...(allowPaymentStatusEdit
         ? { teacherPaymentStatus: editPaymentStatus }
         : {}),
@@ -1505,6 +1509,7 @@ export default function SessionHistoryTable({
           tutorial: payload.tutorial,
           recordingUrl: payload.recordingUrl,
           notes: payload.notes,
+          ...editSessionReviewPayload,
         };
         if (payload.teacherPaymentStatus !== undefined) {
           data.teacherPaymentStatus = payload.teacherPaymentStatus;
@@ -1831,6 +1836,27 @@ export default function SessionHistoryTable({
     currentEditFormSnapshot,
   ]);
 
+  const editSessionReviewPayload = useMemo(
+    () => toSessionReviewPayload(editReview),
+    [editReview],
+  );
+
+  const editReviewStudents = useMemo(
+    () =>
+      editingSession?.snapshotNoAttendance
+        ? []
+        : attendanceItems.map((item) => ({
+            fullName: item.fullName,
+            status: item.status,
+            ...toAttendanceReviewPayload(
+              item.status,
+              item.review,
+              editReview.hasInClassTest,
+            ),
+          })),
+    [attendanceItems, editReview.hasInClassTest, editingSession?.snapshotNoAttendance],
+  );
+
   const zaloCommentText = useMemo(() => {
     if (!editingSession) return "";
     const makeupOriginalDate =
@@ -1847,14 +1873,14 @@ export default function SessionHistoryTable({
       lessonContent: editLessonContent,
       homework: editHomework,
       tutorial: editTutorial,
-      students: attendanceItems.map((item) => ({
-        fullName: item.fullName,
-        status: item.status,
-        notes: item.notes,
-      })),
+      ordinal: editingSession.ordinal ?? null,
+      review: editSessionReviewPayload,
+      structured: true,
+      students: editReviewStudents,
     });
   }, [
-    attendanceItems,
+    editReviewStudents,
+    editSessionReviewPayload,
     editDate,
     editEndTime,
     editHomework,
@@ -1939,6 +1965,7 @@ export default function SessionHistoryTable({
             const session = entry.item;
             const status = renderSessionStatus(session, statusMode);
             const commentDisplay = resolveSessionCommentDisplayContent({
+              ...session,
               className: session.class?.name,
               date: session.date,
               startTime: session.startTime,
@@ -2269,6 +2296,7 @@ export default function SessionHistoryTable({
                   const session = entry.item;
                   const status = renderSessionStatus(session, "payment");
                   const commentDisplay = resolveSessionCommentDisplayContent({
+                    ...session,
                     className: session.class?.name,
                     date: session.date,
                     startTime: session.startTime,
@@ -2507,6 +2535,7 @@ export default function SessionHistoryTable({
                 sessions.map((session) => {
                   const status = renderSessionStatus(session, statusMode);
                   const commentDisplay = resolveSessionCommentDisplayContent({
+                    ...session,
                     className: session.class?.name,
                     date: session.date,
                     startTime: session.startTime,
@@ -3043,6 +3072,38 @@ export default function SessionHistoryTable({
                       ) : null}
                     </div>
 
+                    <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
+                      <span>
+                        Nội dung bài học <RequiredMark />
+                      </span>
+                      <RichTextEditor
+                        value={editLessonContent}
+                        onChange={(value) => {
+                          setEditLessonContent(value);
+                          if (lessonContentError) setLessonContentError("");
+                        }}
+                        disabled={readOnlySessionDetails}
+                        minHeight="min-h-[140px]"
+                        placeholder={SESSION_LESSON_CONTENT_PLACEHOLDER}
+                        ariaLabel="Nội dung bài học"
+                      />
+                      {lessonContentError ? (
+                        <span
+                          className="text-xs font-medium text-error"
+                          role="alert"
+                        >
+                          {lessonContentError}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <SessionReviewProgressFields
+                      value={editReview}
+                      onChange={handleEditReviewChange}
+                      idPrefix="edit-session-review"
+                      disabled={readOnlySessionDetails}
+                    />
+
                     {editingSession?.snapshotNoAttendance ? (
                       <div className="rounded-lg border border-border-default bg-bg-secondary/40 px-4 py-3 text-sm text-text-muted">
                         Buổi học này thuộc lớp không cần điểm danh — hệ thống tự sinh Attendance present cho mọi học sinh.
@@ -3112,8 +3173,12 @@ export default function SessionHistoryTable({
                               disabled={readOnlySessionDetails}
                               canEditTuition={canEditAttendanceTuition}
                               allowTrial={editingClassDetail?.pricingMode !== "one_time"}
+                              hasInClassTest={editReview.hasInClassTest}
+                              inClassTestTotal={
+                                editSessionReviewPayload.inClassTestTotal ?? null
+                              }
                               onStatusChange={setAttendanceStatus}
-                              onNotesChange={setAttendanceNotes}
+                              onReviewChange={setAttendanceReview}
                               onTuitionChange={setAttendanceTuitionFee}
                             />
 
@@ -3127,31 +3192,6 @@ export default function SessionHistoryTable({
                         )}
                       </section>
                     ) : null}
-
-                    <div className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
-                      <span>
-                        Nội dung bài học <RequiredMark />
-                      </span>
-                      <RichTextEditor
-                        value={editLessonContent}
-                        onChange={(value) => {
-                          setEditLessonContent(value);
-                          if (lessonContentError) setLessonContentError("");
-                        }}
-                        disabled={readOnlySessionDetails}
-                        minHeight="min-h-[140px]"
-                        placeholder={SESSION_LESSON_CONTENT_PLACEHOLDER}
-                        ariaLabel="Nội dung bài học"
-                      />
-                      {lessonContentError ? (
-                        <span
-                          className="text-xs font-medium text-error"
-                          role="alert"
-                        >
-                          {lessonContentError}
-                        </span>
-                      ) : null}
-                    </div>
 
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>
@@ -3177,6 +3217,20 @@ export default function SessionHistoryTable({
                         </span>
                       ) : null}
                     </label>
+
+                    <SessionReviewHomeworkDueFields
+                      value={editReview}
+                      onChange={handleEditReviewChange}
+                      idPrefix="edit-session-review"
+                      disabled={readOnlySessionDetails}
+                    />
+
+                    <SessionReviewNextSessionFields
+                      value={editReview}
+                      onChange={handleEditReviewChange}
+                      idPrefix="edit-session-review"
+                      disabled={readOnlySessionDetails}
+                    />
 
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
                       <span>

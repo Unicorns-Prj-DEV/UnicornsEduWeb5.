@@ -9,7 +9,6 @@ import StaffAchievementsDialog, {
   StaffAchievementsButton,
 } from "@/components/shared/achievement/StaffAchievementsDialog";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
-import TutorContactLines from "@/components/staff/tutors/TutorContactLines";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,7 +62,6 @@ export default function StaffTutorDetailPage() {
         <>
           <section className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-surface p-4">
             <TutorIdentity tutor={tutor} size="lg" />
-            <TutorContactLines tutor={tutor} />
             <StaffAchievementsButton
               count={tutor.achievementCount}
               onOpen={() => setShowAchievements(true)}

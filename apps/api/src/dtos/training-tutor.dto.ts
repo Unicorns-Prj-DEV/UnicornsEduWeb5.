@@ -16,15 +16,13 @@ export class TrainingTutorListQueryDto extends PaginationQueryDto {
 }
 
 /**
- * Hồ sơ gia sư Ban Đào Tạo được xem. Chỉ allowlist: không CCCD, dân tộc,
- * giới tính, ngày sinh, địa chỉ, ngân hàng, QR, Meet link, tiền.
+ * Hồ sơ gia sư Ban Đào Tạo được xem. Chỉ allowlist: không email, số điện thoại,
+ * CCCD, dân tộc, giới tính, ngày sinh, địa chỉ, ngân hàng, QR, Meet link, tiền.
  */
 export interface TrainingTutorSummaryDto {
   id: string;
   fullName: string;
   status: StaffStatus;
-  email: string | null;
-  phone: string | null;
   avatarUrl: string | null;
   university: string | null;
   highSchool: string | null;

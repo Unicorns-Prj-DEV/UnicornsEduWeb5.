@@ -296,13 +296,14 @@ export default function AdminClassDetailPage() {
     placeholderData: keepPreviousData,
   });
 
-  const { data: availableSurveysResponse } = useQuery({
-    queryKey: ["surveys", "picker"],
-    queryFn: () => surveysApi.getSurveys({ limit: 100 }),
+  // `/survey-warnings/open-surveys` mở cho mọi staff; `/surveys` chỉ cho admin/đội giáo án
+  // nên trợ lí/kế toán (cũng dùng trang này) sẽ bị 403.
+  const { data: availableSurveys = [], status: availableSurveysStatus } = useQuery({
+    queryKey: ["surveys", "open-picker"],
+    queryFn: () => surveysApi.getOpenSurveys(),
     enabled: !!id && isSessionsTab,
     staleTime: 60_000,
   });
-  const availableSurveys = availableSurveysResponse?.data ?? [];
 
   const handleSessionUpdated = useCallback(
     (createdSession?: SessionItem) => {
@@ -1367,6 +1368,7 @@ export default function AdminClassDetailPage() {
                   className={classDetail.name}
                   surveys={surveysInMonth}
                   availableSurveys={availableSurveys}
+                  availableSurveysStatus={availableSurveysStatus}
                   teachers={popupTeachers}
                   students={activeSurveyStudents}
                   error={isSurveysError}

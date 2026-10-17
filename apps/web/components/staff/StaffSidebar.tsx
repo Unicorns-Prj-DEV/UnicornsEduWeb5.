@@ -10,12 +10,12 @@ import { Role } from "@/dtos/Auth.dto";
 import { resolveCanonicalUserName } from "@/dtos/user-name.dto";
 import { useAuth } from "@/context/AuthContext";
 import * as authApi from "@/lib/apis/auth.api";
+import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import { canPublishNotifications } from "@/lib/notification-publisher-access";
 import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
-import { UserProfileDialogTrigger } from "@/components/user-profile/UserProfileDialog";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import {
@@ -32,6 +32,8 @@ type MenuVisibility = {
   canAccessSurveys: boolean;
   canComposeNotifications: boolean;
   isTraining: boolean;
+  /** Ban Đào Tạo đang là quản lý của ít nhất một lớp. */
+  hasManagedClasses: boolean;
   isAccountant: boolean;
   isAccountantIncome: boolean;
   isAccountantExpense: boolean;
@@ -110,7 +112,8 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconClasses />,
       isActive: (pathname) =>
         pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
-      isVisible: ({ isAccountant, isTraining }) => isAccountant || isTraining,
+      isVisible: ({ isAccountant, isTraining, hasManagedClasses }) =>
+        isAccountant || (isTraining && hasManagedClasses),
     },
     {
       href: "/staff/students",
@@ -568,6 +571,15 @@ export default function StaffSidebar() {
     staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
   const isAccountantExpense = staffRoles.includes("accountant_expense");
   const isAccountant = isAccountantIncome || isAccountantExpense;
+  // `scope=managed`: chỉ đếm lớp mình quản lý, kể cả khi kiêm gia sư; chỉ cần biết có hay không.
+  const { data: managedClassPage } = useQuery({
+    queryKey: ["staff-sidebar", "training-managed-classes"],
+    queryFn: () =>
+      staffOpsApi.getClasses({ page: 1, limit: 1, scope: "managed" }),
+    enabled: isTraining && !isAccountant && !isFullAdmin && !isAssistant,
+    staleTime: 5 * 60_000,
+  });
+  const hasManagedClasses = (managedClassPage?.meta.total ?? 0) > 0;
   const canAccessLessonPlanWorkspace =
     lessonWorkspace.canAccessWorkspace || isAccountantExpense;
   const canAccessCourseWorkspace =
@@ -589,25 +601,27 @@ export default function StaffSidebar() {
         ...DEFAULT_MENU_ITEMS.filter((item) => item.href !== "/staff/profile"),
       ]
     : DEFAULT_MENU_ITEMS;
+  const menuVisibility: MenuVisibility = {
+    hasStaffProfile,
+    canAccessClassWorkspace,
+    canAccessCustomerCareSelf,
+    canAccessLessonPlanWorkspace,
+    canAccessCourseWorkspace,
+    canAccessSurveys,
+    canComposeNotifications,
+    isTraining,
+    hasManagedClasses,
+    isAccountant,
+    isAccountantIncome,
+    isAccountantExpense,
+    isCommunication,
+    isTechnical,
+  };
   const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const menuItems = dedupeMenuItems(baseMenuItems).filter((item) =>
     // Giáo án học sinh giỏi chỉ có trên IT.
     !(giftedLessonPlanEnabled === false && isGiftedLessonPlanRoute(item.href)) &&
-    item.isVisible({
-      hasStaffProfile,
-      canAccessClassWorkspace,
-      canAccessCustomerCareSelf,
-      canAccessLessonPlanWorkspace,
-      canAccessCourseWorkspace,
-      canAccessSurveys,
-      canComposeNotifications,
-      isTraining,
-      isAccountant,
-      isAccountantIncome,
-      isAccountantExpense,
-      isCommunication,
-      isTechnical,
-    }),
+    item.isVisible(menuVisibility),
   );
   const activeMenuHref = resolveActiveMenuHref(pathname, menuItems);
   const resolvedActiveMenuHref = activeHrefState || activeMenuHref;
@@ -775,21 +789,7 @@ export default function StaffSidebar() {
               const isActive = item.href === resolvedActiveMenuHref;
               const itemLabel =
                 typeof item.label === "function"
-                  ? item.label({
-                      hasStaffProfile,
-                      canAccessClassWorkspace,
-                      canAccessCustomerCareSelf,
-                      canAccessLessonPlanWorkspace,
-                      canAccessCourseWorkspace,
-                      canAccessSurveys,
-                      canComposeNotifications,
-                      isTraining,
-                      isAccountant,
-                      isAccountantIncome,
-                      isAccountantExpense,
-                      isCommunication,
-                      isTechnical,
-                    })
+                  ? item.label(menuVisibility)
                   : item.label;
 
               return (
@@ -857,9 +857,12 @@ export default function StaffSidebar() {
           <div
             className={`mt-2 flex items-center gap-2 ${compact ? "flex-wrap justify-center" : ""}`}
           >
-            <UserProfileDialogTrigger
+            <Link
+              href={`/user-profile?from=${encodeURIComponent(pathname)}`}
+              prefetch={false}
+              onClick={handleMobileClose}
               className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
-              ariaLabel="Thông tin cá nhân"
+              aria-label="Thông tin cá nhân"
               title="Thông tin cá nhân"
             >
               <UserAvatar
@@ -869,7 +872,7 @@ export default function StaffSidebar() {
                 className="size-full"
                 fallbackClassName="text-sm font-semibold"
               />
-            </UserProfileDialogTrigger>
+            </Link>
 
             <SidebarThemePicker compact={compact} onMobileClose={handleMobileClose} />
 
