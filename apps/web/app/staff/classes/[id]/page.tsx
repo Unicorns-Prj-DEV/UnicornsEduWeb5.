@@ -449,7 +449,7 @@ export default function StaffClassDetailPage() {
     placeholderData: keepPreviousData,
     retry: false,
   });
-  const { data: availableSurveys = [] } = useQuery({
+  const { data: availableSurveys = [], status: availableSurveysStatus } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
     enabled: canAccessClassWorkspace && activeTab === "buoi-hoc",
@@ -1170,6 +1170,7 @@ export default function StaffClassDetailPage() {
                   className={classDetail.name}
                   surveys={surveys}
                   availableSurveys={availableSurveys}
+                  availableSurveysStatus={availableSurveysStatus}
                   teachers={popupTeachers}
                   students={popupStudents}
                   error={isSurveysError}
