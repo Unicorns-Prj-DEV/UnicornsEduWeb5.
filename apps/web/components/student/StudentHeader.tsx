@@ -8,7 +8,6 @@ import { useStudentLogout } from "@/hooks/use-student-logout";
 import { AUTH_FULL_PROFILE_QUERY_KEY } from "@/lib/profile-full-query";
 import { SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
-import { UserProfileDialogTrigger } from "@/components/user-profile/UserProfileDialog";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { cn } from "@/lib/utils";
 import { UserRound, WalletCards, type LucideIcon } from "lucide-react";
@@ -56,8 +55,9 @@ export default function StudentHeader() {
 
           <SidebarThemePicker compact onMobileClose={() => {}} />
 
-          <UserProfileDialogTrigger
-            ariaLabel="Mở hồ sơ của tôi"
+          <Link
+            href="/user-profile"
+            aria-label="Mở hồ sơ của tôi"
             title="Hồ sơ của tôi"
             className="flex items-center gap-2.5 rounded-full p-1 text-sm font-medium text-text-primary transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
@@ -71,7 +71,7 @@ export default function StudentHeader() {
             <span className="hidden max-w-[120px] truncate text-xs font-semibold text-text-primary sm:inline">
               {displayName}
             </span>
-          </UserProfileDialogTrigger>
+          </Link>
 
           <button
             type="button"

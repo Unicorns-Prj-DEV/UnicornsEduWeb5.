@@ -15,7 +15,6 @@ import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
 import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
-import { UserProfileDialogTrigger } from "@/components/user-profile/UserProfileDialog";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
 import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import {
@@ -857,9 +856,12 @@ export default function StaffSidebar() {
           <div
             className={`mt-2 flex items-center gap-2 ${compact ? "flex-wrap justify-center" : ""}`}
           >
-            <UserProfileDialogTrigger
+            <Link
+              href={`/user-profile?from=${encodeURIComponent(pathname)}`}
+              prefetch={false}
+              onClick={handleMobileClose}
               className="sidebar-item flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-tertiary text-text-primary ring-2 ring-border-default transition-colors duration-200 hover:bg-primary hover:text-text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary"
-              ariaLabel="Thông tin cá nhân"
+              aria-label="Thông tin cá nhân"
               title="Thông tin cá nhân"
             >
               <UserAvatar
@@ -869,7 +871,7 @@ export default function StaffSidebar() {
                 className="size-full"
                 fallbackClassName="text-sm font-semibold"
               />
-            </UserProfileDialogTrigger>
+            </Link>
 
             <SidebarThemePicker compact={compact} onMobileClose={handleMobileClose} />
 
