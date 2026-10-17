@@ -18,6 +18,7 @@ import type {
   MissedTeachingAlert,
   MissedTeachingExplanationRecord,
   SessionItem,
+  SessionNextOrdinalResponse,
   UpdateMissedTeachingExplanationPayload,
 } from "@/dtos/session.dto";
 import type {
@@ -153,6 +154,19 @@ export async function getSessionsByClassId(
     params,
   });
   return Array.isArray(response.data) ? (response.data as SessionItem[]) : [];
+}
+
+/** Số thứ tự buổi nếu tạo buổi mới tại ngày/giờ cho trước. */
+export async function getNextSessionOrdinal(
+  classId: string,
+  params: { date: string; startTime?: string },
+): Promise<SessionNextOrdinalResponse> {
+  const safeId = encodeURIComponent(classId);
+  const response = await api.get<SessionNextOrdinalResponse>(
+    `/staff-ops/classes/${safeId}/sessions/next-ordinal`,
+    { params },
+  );
+  return response.data;
 }
 
 export async function getMissedTeachingAlertsByClassId(

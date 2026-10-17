@@ -8,7 +8,13 @@ jest.mock('../payroll/lesson-plan-head-commission.util', () => ({
   syncLessonPlanHeadCommissions: jest.fn(),
 }));
 
-import { AttendanceStatus, StaffRole, UserRole } from '../../generated/enums';
+import {
+  AttendanceStatus,
+  HomeworkQuality,
+  SessionProgressStatus,
+  StaffRole,
+  UserRole,
+} from '../../generated/enums';
 import { SessionCreateService } from './session-create.service';
 import { SessionValidationService } from './session-validation.service';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
@@ -39,8 +45,11 @@ describe('SessionCreateService', () => {
 
   const validationService = {
     validateAttendanceItems: jest.fn(),
-    validateAttendanceNotes: jest.fn(),
     validateSessionCommentFields: jest.fn(),
+    resolveSessionReviewFields: jest
+      .fn()
+      .mockReturnValue({ hasInClassTest: false, inClassTestTotal: null }),
+    resolveAttendanceReview: jest.fn().mockReturnValue({}),
     isTuitionChargeableStatus: jest.fn().mockReturnValue(true),
     resolveChargeableAttendanceTuitionFee: jest.fn(),
     resolveDefaultStudentTuitionPerSession: jest.fn(),
@@ -969,11 +978,17 @@ describe('SessionCreateService time requirements', () => {
     lessonContent: '<p>Nội dung</p>',
     homework: '<p>BTVN</p>',
     tutorial: '<p>Tutorial</p>',
+    progressStatus: SessionProgressStatus.completed,
+    nextSessionPlan: 'Bài tiếp theo',
     attendance: [
       {
         studentId: 'student-1',
         status: AttendanceStatus.present,
         notes: 'OK',
+        strengths: 'Tập trung',
+        improvements: 'Cẩn thận hơn',
+        homeworkQuality: HomeworkQuality.passed,
+        homeworkComment: 'Làm đủ',
       },
     ],
   };

@@ -5,9 +5,11 @@ import type {
   ClassStatus,
 } from "./class.dto";
 import type {
+  AttendanceReviewFields,
   SessionAttendanceStatus,
   SessionItem,
   SessionMonthYearParams,
+  SessionReviewFields,
 } from "./session.dto";
 
 export type StaffOpsClassListResponse = ClassListResponse;
@@ -30,26 +32,35 @@ export interface StaffOpsUpdateClassSchedulePayload {
   expectedUpdatedAt?: string;
 }
 
-export interface StaffOpsSessionAttendancePayload {
+export interface StaffOpsSessionAttendancePayload
+  extends AttendanceReviewFields {
   studentId: string;
   status: SessionAttendanceStatus;
   notes?: string | null;
 }
 
-export interface StaffOpsCreateSessionPayload {
+export interface StaffOpsCreateSessionPayload extends SessionReviewFields {
   date: string;
   startTime?: string;
   endTime?: string;
   notes?: string | null;
+  lessonContent?: string | null;
+  homework?: string | null;
+  tutorial?: string | null;
+  recordingUrl?: string | null;
   coefficient?: number;
   attendance?: StaffOpsSessionAttendancePayload[];
 }
 
-export interface StaffOpsUpdateSessionPayload {
+export interface StaffOpsUpdateSessionPayload extends SessionReviewFields {
   date?: string;
   startTime?: string;
   endTime?: string;
   notes?: string | null;
+  lessonContent?: string | null;
+  homework?: string | null;
+  tutorial?: string | null;
+  recordingUrl?: string | null;
   coefficient?: number;
   attendance?: StaffOpsSessionAttendancePayload[];
 }

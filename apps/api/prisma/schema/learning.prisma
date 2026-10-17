@@ -340,6 +340,17 @@ model Session {
   lessonContent                          String?              @map("lesson_content")
   homework                               String?
   tutorial                               String?
+  /// Null = buổi tạo trước nhận xét có cấu trúc (legacy, đọc `attendance.notes`).
+  progressStatus                         SessionProgressStatus? @map("progress_status")
+  progressDone                           String?              @map("progress_done")
+  progressRemaining                      String?              @map("progress_remaining")
+  hasInClassTest                         Boolean              @default(false) @map("has_in_class_test")
+  inClassTestContent                     String?              @map("in_class_test_content")
+  inClassTestTotal                       Int?                 @map("in_class_test_total")
+  homeworkDueAt                          DateTime?            @map("homework_due_at") @db.Timestamptz(6)
+  nextSessionPlan                        String?              @map("next_session_plan")
+  hasRetest                              Boolean              @default(false) @map("has_retest")
+  retestContent                          String?              @map("retest_content")
   recordingUrl                           String?              @map("recording_url")
   tuitionFee                             Int?                 @map("tuition_fee")
   googleMeetLink                         String?              @map("google_meet_link")
@@ -427,7 +438,14 @@ model Attendance {
   sessionId                           String                     @map("session_id")
   studentId                           String                     @map("student_id")
   status                              AttendanceStatus           @default(present)
+  /// Nhận xét tự do legacy; buổi có `sessions.progress_status` dùng các field nhận xét có cấu trúc bên dưới.
   notes                               String?
+  testCorrectCount                    Int?                       @map("test_correct_count")
+  testComment                         String?                    @map("test_comment")
+  strengths                           String?
+  improvements                        String?
+  homeworkQuality                     HomeworkQuality?           @map("homework_quality")
+  homeworkComment                     String?                    @map("homework_comment")
   createdAt                           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
   customerCareCoef                    Decimal?                   @map("customer_care_coef") @db.Decimal(3, 2)
   customerCareStaffId                 String?                    @map("customer_care_staff_id")

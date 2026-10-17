@@ -78,6 +78,20 @@ enum AttendanceStatus {
   trial
 }
 
+/// Tiến độ buổi: mức hoàn thành nội dung dự kiến của cả buổi.
+enum SessionProgressStatus {
+  completed
+  partial
+  not_completed
+}
+
+/// Chất lượng BTVN buổi trước của một học sinh.
+enum HomeworkQuality {
+  passed
+  needs_revision
+  failed
+}
+
 enum WalletTransactionType {
   topup
   loan

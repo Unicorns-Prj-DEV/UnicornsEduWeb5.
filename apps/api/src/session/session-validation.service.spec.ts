@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
-import { AttendanceStatus } from '../../generated/enums';
+import {
+  AttendanceStatus,
+  HomeworkQuality,
+  SessionProgressStatus,
+} from '../../generated/enums';
 import { SessionValidationService } from './session-validation.service';
 
 describe('SessionValidationService', () => {
@@ -196,46 +200,148 @@ describe('SessionValidationService', () => {
     );
   });
 
-  it('requires notes for present and excused attendance', () => {
-    expect(() =>
-      service.validateAttendanceNotes(
-        [
-          { status: AttendanceStatus.present, notes: '  ' },
-          { status: AttendanceStatus.absent, notes: null },
-        ],
-        { required: false },
-      ),
-    ).toThrow(
-      new BadRequestException(
-        'Nhận xét học sinh có mặt/nghỉ phép là bắt buộc.',
-      ),
-    );
+  describe('resolveSessionReviewFields', () => {
+    const base = {
+      progressStatus: SessionProgressStatus.completed,
+      nextSessionPlan: '  Ôn tập vòng lặp ',
+    };
+
+    it('requires progress status', () => {
+      expect(() =>
+        service.resolveSessionReviewFields({ nextSessionPlan: 'x' }),
+      ).toThrow(new BadRequestException('Tiến độ buổi là bắt buộc.'));
+    });
+
+    it('clears done/remaining and unticked test/retest fields', () => {
+      const result = service.resolveSessionReviewFields({
+        ...base,
+        progressDone: 'a',
+        progressRemaining: 'b',
+        hasInClassTest: false,
+        inClassTestContent: 'stale',
+        inClassTestTotal: 10,
+        hasRetest: false,
+        retestContent: 'stale',
+      });
+      expect(result).toMatchObject({
+        progressDone: null,
+        progressRemaining: null,
+        inClassTestContent: null,
+        inClassTestTotal: null,
+        retestContent: null,
+        nextSessionPlan: 'Ôn tập vòng lặp',
+        homeworkDueAt: null,
+      });
+    });
+
+    it('requires both done and remaining for partial progress', () => {
+      expect(() =>
+        service.resolveSessionReviewFields({
+          ...base,
+          progressStatus: SessionProgressStatus.partial,
+          progressRemaining: 'Bài 3 – hết giờ',
+        }),
+      ).toThrow(new BadRequestException('Tiến độ «Đã xong» là bắt buộc.'));
+    });
+
+    it('allows not_completed without done but requires remaining', () => {
+      expect(() =>
+        service.resolveSessionReviewFields({
+          ...base,
+          progressStatus: SessionProgressStatus.not_completed,
+        }),
+      ).toThrow(new BadRequestException('Tiến độ «Chưa xong» là bắt buộc.'));
+    });
+
+    it('requires test content and total ≥ 1 when ticked', () => {
+      expect(() =>
+        service.resolveSessionReviewFields({
+          ...base,
+          hasInClassTest: true,
+          inClassTestContent: 'Từ vựng N5',
+          inClassTestTotal: 0,
+        }),
+      ).toThrow(new BadRequestException('Tổng số câu kiểm tra phải ≥ 1.'));
+    });
+
+    it('requires next session plan and retest content when ticked', () => {
+      expect(() =>
+        service.resolveSessionReviewFields({
+          progressStatus: SessionProgressStatus.completed,
+        }),
+      ).toThrow(new BadRequestException('Nội dung buổi sau là bắt buộc.'));
+      expect(() =>
+        service.resolveSessionReviewFields({ ...base, hasRetest: true }),
+      ).toThrow(new BadRequestException('Nội dung kiểm tra lại là bắt buộc.'));
+    });
   });
 
-  it('accepts absent attendance without notes', () => {
-    expect(() =>
-      service.validateAttendanceNotes(
-        [{ status: AttendanceStatus.absent, notes: null }],
-        { required: true },
-      ),
-    ).not.toThrow();
-  });
+  describe('resolveAttendanceReview', () => {
+    const noTest = { hasInClassTest: false, inClassTestTotal: null };
+    const filled = {
+      strengths: 'Tập trung',
+      improvements: 'Chữ viết',
+      homeworkQuality: HomeworkQuality.passed,
+      homeworkComment: 'Làm đủ',
+    };
 
-  it('includes student name in attendance notes validation error when provided', () => {
-    expect(() =>
-      service.validateAttendanceNotes(
-        [
+    it('ignores and clears review for excused/absent', () => {
+      expect(
+        service.resolveAttendanceReview(
+          { status: AttendanceStatus.absent, strengths: 'x' },
+          noTest,
+        ),
+      ).toEqual({
+        testCorrectCount: null,
+        testComment: null,
+        strengths: null,
+        improvements: null,
+        homeworkQuality: null,
+        homeworkComment: null,
+      });
+    });
+
+    it('requires homework quality for present, with student name', () => {
+      expect(() =>
+        service.resolveAttendanceReview(
           {
-            status: AttendanceStatus.excused,
-            notes: '<p></p>',
+            status: AttendanceStatus.present,
             studentFullName: 'Nguyễn Văn A',
+            ...filled,
+            homeworkQuality: null,
           },
-        ],
-        { required: false },
-      ),
-    ).toThrow(
-      new BadRequestException('Nhận xét học sinh Nguyễn Văn A là bắt buộc.'),
-    );
+          noTest,
+        ),
+      ).toThrow(
+        new BadRequestException(
+          'Chất lượng BTVN của học sinh Nguyễn Văn A là bắt buộc.',
+        ),
+      );
+    });
+
+    it('drops homework fields for trial students', () => {
+      const result = service.resolveAttendanceReview(
+        { status: AttendanceStatus.trial, ...filled },
+        noTest,
+      );
+      expect(result.homeworkQuality).toBeNull();
+      expect(result.homeworkComment).toBeNull();
+      expect(result.strengths).toBe('Tập trung');
+    });
+
+    it('bounds correct count by test total', () => {
+      expect(() =>
+        service.resolveAttendanceReview(
+          {
+            status: AttendanceStatus.present,
+            ...filled,
+            testCorrectCount: 11,
+            testComment: 'ok',
+          },
+          { hasInClassTest: true, inClassTestTotal: 10 },
+        ),
+      ).toThrow(new BadRequestException('Số câu đúng phải trong khoảng 0–10.'));
+    });
   });
 
   it('requires startTime and endTime', () => {

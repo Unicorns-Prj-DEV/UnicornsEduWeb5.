@@ -9,6 +9,7 @@ import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { Badge } from "@/components/ui/badge";
 import MathContent from "@/components/ui/MathContent";
 import { attendanceStatusLabel } from "./StudentTimelineCards";
+import { StudentSessionReviewSummary } from "./StudentSessionReviewSummary";
 import { formatVnWeekdayDate } from "@/lib/formatters";
 
 function formatDateTime(date: Date, startTime?: string | null, endTime?: string | null): string {
@@ -31,6 +32,9 @@ export default function StudentSessionDetailDialog({
   onClose: () => void;
 }) {
   const myAttendance = session.attendance?.[0];
+  const isStructuredReview = Boolean(session.progressStatus);
+  // Buổi có cấu trúc dựng nhận xét từ field; notes chỉ còn ý nghĩa ở buổi legacy.
+  const myNotes = isStructuredReview ? null : myAttendance?.notes;
   const teacherName =
     [session.teacher?.user?.first_name, session.teacher?.user?.last_name]
       .filter(Boolean)
@@ -104,7 +108,7 @@ export default function StudentSessionDetailDialog({
             {/* Right Column: Detailed Text Cards (Scrollable independently when content is long) */}
             <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:max-h-[calc(88vh-120px)] lg:overflow-y-auto lg:pr-2 lg:overscroll-contain [scrollbar-width:thin]">
               {/* 1. Nhận xét dành riêng cho bạn */}
-              {myAttendance?.notes && (
+              {(myNotes || isStructuredReview) && (
                 <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5 shadow-xs break-words">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
                     <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -112,7 +116,14 @@ export default function StudentSessionDetailDialog({
                     </svg>
                     Nhận xét dành riêng cho bạn
                   </h3>
-                  <MathContent content={myAttendance.notes} />
+                  {isStructuredReview ? (
+                    <StudentSessionReviewSummary
+                      session={session}
+                      myReview={myAttendance}
+                    />
+                  ) : (
+                    <MathContent content={myNotes ?? ""} />
+                  )}
                 </div>
               )}
 
@@ -155,7 +166,7 @@ export default function StudentSessionDetailDialog({
                 </div>
               )}
 
-              {!session.lessonContent && !myAttendance?.notes && !session.homework && !session.tutorial && (
+              {!session.lessonContent && !myNotes && !isStructuredReview && !session.homework && !session.tutorial && (
                 <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary/20 p-6 text-center text-xs text-text-muted">
                   Chưa có ghi chú hoặc bài tập cho buổi học này.
                 </div>

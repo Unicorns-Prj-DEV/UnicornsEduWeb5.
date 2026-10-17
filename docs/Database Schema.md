@@ -555,7 +555,15 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `lesson_content` (`TEXT`, nullable): nội dung bài học (LEVEL, CONTEST, kiến thức đã dạy); bắt buộc khi tạo/cập nhật buổi qua API.
 - `homework` (`TEXT`, nullable): bài tập về nhà; bắt buộc khi tạo/cập nhật buổi qua API.
 - `tutorial` (`TEXT`, nullable): **Tutorial các buổi học** (hướng dẫn/tài liệu tham khảo buổi); bắt buộc khi tạo/cập nhật buổi qua API. Khác `cf_problem_tutorials.tutorial` (tutorial bài Codeforces).
-- `notes` (`TEXT`, nullable): bản ghi text template Zalo 5 phần (đồng bộ với nút **Copy nhận xét**); FE ghi khi tạo/cập nhật buổi từ `lesson_content`, `homework`, `tutorial` và `attendance.notes`. Dữ liệu cũ có thể là HTML legacy hoặc đã backfill sang `lesson_content`. Form mới không còn ô nhập trực tiếp `notes`.
+- `notes` (`TEXT`, nullable): **legacy** — text template Zalo 5 phần của buổi tạo trước Nhận xét buổi học có cấu trúc. Form mới luôn gửi `notes: null`; text **Copy nhận xét** dựng lại từ các field có cấu trúc bên dưới. Dữ liệu cũ có thể là HTML legacy hoặc đã backfill sang `lesson_content`.
+- **Nhận xét buổi học có cấu trúc — phần chung** (migration `20261017090000_structured_session_review`, ADR `docs/adr/2026-10-17-structured-session-review.md`). Bắt buộc/điều kiện kiểm ở `SessionValidationService` khi tạo/cập nhật buổi có gửi nội dung buổi:
+  - `progress_status` (`SessionProgressStatus`, nullable): **Tiến độ buổi**, bắt buộc với buổi mới (kể cả **Buổi không điểm danh**). `NULL` = buổi legacy → đọc `notes` / `attendance.notes` và hiển thị format cũ; không migrate dữ liệu cũ. Sửa buổi legacy phải nhập đủ field mới.
+  - `progress_done`, `progress_remaining` (`TEXT`, nullable, plain text mỗi dòng 1 ý, ≤ 2.000): `completed` → cả hai bị null hoá; `partial` → bắt buộc cả hai; `not_completed` → bắt buộc `progress_remaining`.
+  - `has_in_class_test` (`BOOLEAN`, default `false`), `in_class_test_content` (`TEXT`), `in_class_test_total` (`INTEGER`, ≥ 1): **Kiểm tra trong buổi**; tick thì bắt buộc nội dung + tổng số câu.
+  - `homework_due_at` (`TIMESTAMPTZ`, nullable): hạn nộp BTVN (ngày + giờ 24h, giờ Việt Nam), tuỳ chọn.
+  - `next_session_plan` (`TEXT`): nội dung buổi sau, bắt buộc.
+  - `has_retest` (`BOOLEAN`, default `false`), `retest_content` (`TEXT`): kiểm tra lại buổi sau; tick thì bắt buộc nội dung, không tick → copy in «Không».
+  - **Số thứ tự buổi** không lưu cột: suy ra bằng `ROW_NUMBER() OVER (PARTITION BY class_id ORDER BY date, start_time NULLS FIRST, created_at, id)` (`apps/api/src/session/session-ordinal.util.ts`), tính cả buổi bù; response session/timeline có `ordinal`.
 - Snapshot khấu trừ theo buổi:
   - `teacher_tax_rate_percent` (`DECIMAL(5,2)`, default `0`, Prisma field `teacherOperatingDeductionRatePercent`): snapshot mức **khấu trừ vận hành** effective của cặp gia sư-lớp; trước thanh toán được refresh khi tạo/cập nhật session, khi chuyển sang `paid` được snapshot lại theo thời điểm thanh toán.
     - Buổi mới/cập nhật luôn snapshot theo `class_teachers.operatingDeductionRatePercent` hiện hành; FE không còn toggle tắt phí vận hành từng buổi. Field request `includeTeacherOperatingDeduction=false` vẫn tồn tại ở API (legacy) nhưng UI không gửi; buổi cũ đã snapshot `0%` giữ nguyên cho lịch sử thanh toán.
@@ -582,6 +590,11 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Điểm danh theo từng session & student
 - Unique composite: `(session_id, student_id)`
 - Trạng thái dùng enum `AttendanceStatus` (`present | excused | absent | trial`). `trial` = **Học thử**: không trừ ví, không tính doanh thu/hoa hồng/sĩ số (mọi query whitelist `present/excused`), mỗi học sinh tối đa 1 buổi `trial` trên một lớp, không áp dụng cho lớp bán một lần, và chỉ được đánh khi học sinh chưa bị thu học phí ở buổi trước đó của lớp. ADR `docs/adr/2026-10-12-trial-attendance-catch-up-charge.md`.
+- **Nhận xét buổi học có cấu trúc — phần từng học sinh** (cùng migration `20261017090000_structured_session_review`), plain text ≤ 2.000:
+  - `present`/`trial`: bắt buộc `strengths` (Điểm tốt), `improvements` (Cần cải thiện); buổi có kiểm tra thì bắt buộc `test_correct_count` (`INTEGER`, 0..`sessions.in_class_test_total`) + `test_comment`.
+  - Chỉ `present`: bắt buộc `homework_quality` (`HomeworkQuality`) + `homework_comment` (**Chất lượng BTVN buổi trước**; không nộp tính là `failed`).
+  - `excused`/`absent`: mọi field null (không đánh giá, copy chỉ in tên + trạng thái). **Buổi không điểm danh**: bỏ toàn bộ phần này.
+  - `notes` (`TEXT`, DTO ≤ 500): **legacy** — nhận xét tự do của buổi trước mô hình có cấu trúc; form mới không còn ô nhập và gửi `notes: null`.
 - `trial_catch_up_fee` (`INTEGER`, nullable): phần **thu bù học thử** đã gộp vào `tuition_fee` của buổi đích (buổi `present`/`excused` đầu tiên sau buổi học thử, cùng lớp, học phí gốc > 0). Buổi đích vì vậy có `tuition_fee` = học phí gốc × 2, nên doanh thu và hoa hồng tự tính gấp đôi. Null = không gộp. Học phí gốc = `tuition_fee − coalesce(trial_catch_up_fee, 0)`.
 - `trial_catch_up_transaction_id` (nullable, unique FK → `wallet_transactions_history.id`, `ON DELETE SET NULL`): dòng ví `extend` thứ hai (note «Thu bù học thử lớp …») trừ phần thu bù; tách khỏi `transaction_id` (dòng thu học phí gốc). `SessionTrialCatchUpService.reconcile` chạy cuối tạo/sửa/xoá buổi và đổi giá lớp để chuyển, hoàn (`topup`) hoặc thu lại phần bù cho đúng buổi đích. Migration `20261012120000_attendance_trial_catch_up` (thêm enum value + 2 cột).
 - Index read path:
@@ -942,6 +955,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `ClassType`: **đã xoá** (migration `20260818090000_add_class_category`) — thay bằng bảng `courses` tuỳ chỉnh được, xem mục 4.4.0-cat.
 - `StudentClassStatus`: `active | inactive`
 - `AttendanceStatus`: `present | excused | absent | trial` (`trial` thêm ở `20261012120000_attendance_trial_catch_up`)
+- `SessionProgressStatus`: `completed | partial | not_completed` — Tiến độ buổi (`sessions.progress_status`, `20261017090000_structured_session_review`)
+- `HomeworkQuality`: `passed | needs_revision | failed` — Chất lượng BTVN buổi trước (`attendance.homework_quality`, cùng migration)
 - `LessonKind`: `theory | practice` — phân loại tiết học: `theory` (lý thuyết, video + nội dung) hoặc `practice` (thực hành, thuần câu hỏi). Đổi tên enum từ `TopicKind` ở `20260921000000_rename_three_level_content`.
 - `ClassContentItemKind`: `lesson` — phân loại nội dung lớp học (đổi value từ `topic` cùng migration)
 - `ClassContentHiddenReason`: `manual`, `module_removed` — lý do ẩn mềm `class_content_items` (`20261005120000_class_module_order_and_hidden_reason`)

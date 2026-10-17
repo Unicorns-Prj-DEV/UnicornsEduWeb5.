@@ -28,7 +28,14 @@ import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
 import { SessionStudentBalanceService } from './session-student-balance.service';
 import { SessionTrialCatchUpService } from './session-trial-catch-up.service';
-import { SessionValidationService } from './session-validation.service';
+import {
+  AttendanceReviewData,
+  AttendanceReviewInput,
+  pickAttendanceReviewInput,
+  pickSessionReviewInput,
+  SessionReviewInput,
+  SessionValidationService,
+} from './session-validation.service';
 import {
   createMemoizedTaxDeductionResolver,
   normalizePercent,
@@ -425,16 +432,11 @@ export class SessionUpdateService {
     this.sessionValidationService.validateAttendanceItems(data.attendance, {
       required: false,
     });
-    if (data.attendance !== undefined) {
-      this.sessionValidationService.validateAttendanceNotes(data.attendance, {
-        required: false,
-      });
-    }
-    if (
+    const hasSessionContentPayload =
       data.lessonContent !== undefined ||
       data.homework !== undefined ||
-      data.tutorial !== undefined
-    ) {
+      data.tutorial !== undefined;
+    if (hasSessionContentPayload) {
       this.sessionValidationService.validateSessionCommentFields(
         {
           lessonContent: data.lessonContent,
@@ -444,6 +446,13 @@ export class SessionUpdateService {
         { required: true },
       );
     }
+
+    // Sửa nội dung buổi (kể cả buổi legacy) ⇒ bắt buộc nhập đủ Nhận xét buổi học có cấu trúc.
+    const sessionReview =
+      hasSessionContentPayload ||
+      this.sessionValidationService.hasAnySessionReviewField(data)
+        ? this.sessionValidationService.resolveSessionReviewFields(data)
+        : undefined;
 
     const sessionId = data.id;
 
@@ -470,6 +479,9 @@ export class SessionUpdateService {
             snapshotScaleAmount: true,
             snapshotNoAttendance: true,
             snapshotBlockCount: true,
+            progressStatus: true,
+            hasInClassTest: true,
+            inClassTestTotal: true,
             class: {
               select: {
                 name: true,
@@ -482,6 +494,12 @@ export class SessionUpdateService {
                 studentId: true,
                 status: true,
                 notes: true,
+                testCorrectCount: true,
+                testComment: true,
+                strengths: true,
+                improvements: true,
+                homeworkQuality: true,
+                homeworkComment: true,
                 tuitionFee: true,
                 trialCatchUpFee: true,
                 customerCareCoef: true,
@@ -514,6 +532,34 @@ export class SessionUpdateService {
           data,
           existingSession.snapshotNoAttendance,
         );
+
+        // Phần từng HS chỉ áp dụng cho buổi có cấu trúc + lớp có điểm danh.
+        // Đổi phần chung mà không gửi attendance ⇒ kiểm lại review đang lưu theo mốc kiểm tra mới.
+        const attendanceReviewByStudentId = new Map<
+          string,
+          AttendanceReviewData
+        >();
+        const isStructuredReview =
+          sessionReview !== undefined ||
+          existingSession.progressStatus !== null;
+        if (isStructuredReview && !existingSession.snapshotNoAttendance) {
+          const testContext = sessionReview ?? {
+            hasInClassTest: existingSession.hasInClassTest,
+            inClassTestTotal: existingSession.inClassTestTotal,
+          };
+          const reviewSource =
+            data.attendance ??
+            (sessionReview !== undefined ? existingSession.attendance : []);
+          for (const attendanceItem of reviewSource) {
+            attendanceReviewByStudentId.set(
+              attendanceItem.studentId,
+              this.sessionValidationService.resolveAttendanceReview(
+                attendanceItem,
+                testContext,
+              ),
+            );
+          }
+        }
 
         const nextClassId = data.classId ?? existingSession.classId;
         const nextTeacherId = data.teacherId ?? existingSession.teacherId;
@@ -1405,6 +1451,7 @@ export class SessionUpdateService {
             ...(data.tutorial !== undefined && {
               tutorial: data.tutorial ?? null,
             }),
+            ...sessionReview,
             ...(data.recordingUrl !== undefined && {
               recordingUrl: data.recordingUrl ? data.recordingUrl.trim() : null,
             }),
@@ -1618,6 +1665,15 @@ export class SessionUpdateService {
           );
         }
 
+        await Promise.all(
+          [...attendanceReviewByStudentId].map(([studentId, review]) =>
+            tx.attendance.updateMany({
+              where: { sessionId, studentId },
+              data: review,
+            }),
+          ),
+        );
+
         if (sessionDate !== undefined || sessionStartTime !== undefined) {
           await syncClassTimelineSortByTime(tx, nextClassId);
         }
@@ -1693,12 +1749,14 @@ export class SessionUpdateService {
       tutorial?: string;
       recordingUrl?: string | null;
       coefficient?: number;
-      attendance?: Array<{
-        studentId: string;
-        status: NonNullable<SessionUpdateDto['attendance']>[number]['status'];
-        notes?: string | null;
-      }>;
-    },
+      attendance?: Array<
+        AttendanceReviewInput & {
+          studentId: string;
+          status: NonNullable<SessionUpdateDto['attendance']>[number]['status'];
+          notes?: string | null;
+        }
+      >;
+    } & SessionReviewInput,
     auditActor?: ActionHistoryActor,
   ) {
     const existingSession = await this.prisma.session.findUnique({
@@ -1756,6 +1814,7 @@ export class SessionUpdateService {
         studentId: attendanceItem.studentId,
         status: attendanceItem.status,
         notes: attendanceItem.notes ?? null,
+        ...pickAttendanceReviewInput(attendanceItem),
         tuitionFee:
           this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
             attendanceItem.status,
@@ -1775,6 +1834,7 @@ export class SessionUpdateService {
         lessonContent: data.lessonContent,
         homework: data.homework,
         tutorial: data.tutorial,
+        ...pickSessionReviewInput(data),
         recordingUrl: data.recordingUrl,
         coefficient: data.coefficient,
         attendance: enrichedAttendance,

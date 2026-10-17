@@ -82,6 +82,7 @@ import {
   TheoryLessonViewResponseDto,
 } from 'src/dtos/course-content.dto';
 
+import { withSessionOrdinals } from '../session/session-ordinal.util';
 @ApiTags('users')
 @Controller('users/me')
 @ApiCookieAuth('access_token')
@@ -1018,7 +1019,7 @@ export class UserProfileController {
     const studentId = await this.userService.getLinkedStudentId(user.id);
     await this.validateStudentClassAccess(classId, studentId);
 
-    return this.prisma.session.findMany({
+    const sessions = await this.prisma.session.findMany({
       where: { classId },
       include: {
         attendance: {
@@ -1028,6 +1029,7 @@ export class UserProfileController {
       },
       orderBy: { date: 'desc' },
     });
+    return withSessionOrdinals(this.prisma, sessions);
   }
 
   @Get('student-classes/:classId/surveys')

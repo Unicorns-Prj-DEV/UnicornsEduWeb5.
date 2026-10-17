@@ -335,6 +335,33 @@ export class SessionController {
     );
   }
 
+  @Get('/class/:classId/next-ordinal')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.assistant,
+    StaffRole.accountant_income,
+    StaffRole.accountant_expense,
+  )
+  @ApiOperation({
+    summary: 'Số thứ tự buổi nếu tạo buổi mới tại ngày/giờ cho trước',
+  })
+  @ApiParam({
+    name: 'classId',
+    description: 'ID lớp học',
+    example: 'UNICL-b2c3d4e5f6',
+  })
+  @ApiQuery({ name: 'date', required: true, description: 'YYYY-MM-DD' })
+  @ApiQuery({ name: 'startTime', required: false, description: 'HH:mm' })
+  @ApiResponse({ status: 200, description: '{ ordinal: number }' })
+  @ApiResponse({ status: 400, description: 'date/startTime không hợp lệ.' })
+  async getNextSessionOrdinal(
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+    @Query('date') date: string,
+    @Query('startTime') startTime?: string,
+  ) {
+    return this.sessionService.getNextSessionOrdinal(classId, date, startTime);
+  }
+
   @Get('/class/:classId/missed-teaching-alerts')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(

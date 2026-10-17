@@ -8,6 +8,7 @@ import MathContent from "@/components/ui/MathContent";
 import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
 import { useNearViewport } from "@/hooks/use-near-viewport";
 import { formatVnWeekday } from "@/lib/formatters";
+import { StudentSessionReviewSummary } from "./StudentSessionReviewSummary";
 
 type TimelineSession = NonNullable<ClassTimelineItemDto["session"]>;
 type TimelineSurvey = NonNullable<ClassTimelineItemDto["survey"]>;
@@ -108,7 +109,8 @@ function SessionVideoFrame({
 /**
  * Thẻ buổi học trên tab Buổi học của học sinh: ngày giờ ở đầu; video lớn bên
  * trái (trên ở mobile); cột chữ bắt đầu bằng điểm danh + nhận xét dành riêng
- * cho em, rồi Nội dung bài học, BTVN, Tutorial. Không hiện dữ liệu vận hành
+ * cho em (buổi có cấu trúc: thêm tiến độ, hạn BTVN, buổi sau), rồi Nội dung
+ * bài học, BTVN, Tutorial. Không hiện dữ liệu vận hành
  * (hệ số, thanh toán gia sư, trợ cấp) và không hiện điểm danh/nhận xét của bạn
  * học khác.
  */
@@ -128,7 +130,11 @@ export function StudentSessionTimelineCard({
     Boolean(field.content?.trim()),
   );
   const statusLabel = attendanceStatusLabel(session.myAttendanceStatus);
-  const myNotes = session.myAttendanceNotes?.trim() ?? "";
+  const isStructuredReview = Boolean(session.progressStatus);
+  // Buổi có cấu trúc dựng nhận xét từ field; notes chỉ còn ý nghĩa ở buổi legacy.
+  const myNotes = isStructuredReview
+    ? ""
+    : (session.myAttendanceNotes?.trim() ?? "");
   const recordingUrl = session.recordingUrl?.trim() ?? "";
 
   return (
@@ -167,6 +173,13 @@ export function StudentSessionTimelineCard({
                 <MathContent content={myNotes} className="text-xs" />
               ) : null}
             </div>
+          ) : null}
+
+          {isStructuredReview ? (
+            <StudentSessionReviewSummary
+              session={session}
+              myReview={session.myReview}
+            />
           ) : null}
 
           {fields.length ? (

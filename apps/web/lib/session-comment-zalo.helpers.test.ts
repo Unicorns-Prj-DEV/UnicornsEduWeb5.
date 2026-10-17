@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   attendanceStatusTemplateLabel,
   buildSessionCommentZaloText,
+  findSessionReviewFormError,
+  formatHomeworkDueAtLabel,
   formatStudentCommentBlock,
   resolveStudentCommentLines,
   richTextToPlainTextPreservingStructure,
@@ -153,5 +155,150 @@ describe("buildSessionCommentZaloText", () => {
     expect(text).toContain("Phạm Thị D (học)\n  - —");
     expect(text).toContain("5️⃣ Tutorial các buổi học");
     expect(text).toContain("Tutorial buổi");
+  });
+});
+
+describe("buildSessionCommentZaloText — structured review", () => {
+  const review = {
+    progressStatus: "partial" as const,
+    progressDone: "Vòng lặp for",
+    progressRemaining: "Vòng lặp while – hết giờ\nBài 3 – HS hỏi nhiều",
+    hasInClassTest: true,
+    inClassTestContent: "Từ vựng N5 bài 3",
+    inClassTestTotal: 10,
+    homeworkDueAt: "2026-06-26T13:00:00.000Z",
+    nextSessionPlan: "Vòng lặp while",
+    hasRetest: false,
+    retestContent: null,
+  };
+  const presentStudent = {
+    fullName: "Nguyễn Văn A",
+    status: "present" as const,
+    testCorrectCount: 8,
+    testComment: "Nhớ tốt",
+    strengths: "Tập trung\n- Hỏi bài chủ động",
+    improvements: "Chữ viết",
+    homeworkQuality: "needs_revision" as const,
+    homeworkComment: "Sai 2 câu",
+  };
+
+  it("renders the new template in order for the whole class", () => {
+    const text = buildSessionCommentZaloText({
+      ...baseInput,
+      ordinal: 12,
+      makeupOriginalDate: "2026-06-20",
+      review,
+      students: [
+        presentStudent,
+        { fullName: "Trần B", status: "absent", strengths: "bỏ qua" },
+      ],
+    });
+
+    expect(text).toBe(
+      [
+        "📚 NHẬN XÉT BUỔI HỌC",
+        "🏫 Lớp: Lớp A",
+        "📅 Buổi 12 – 24/06/2026 | 18:00 - 20:00 (bù ngày 20/06)",
+        "",
+        "📖 Nội dung:",
+        "Nội dung bài học",
+        "",
+        "📊 Tiến độ: Một phần",
+        "• Đã xong: Vòng lặp for",
+        "• Chưa xong:",
+        "  - Vòng lặp while – hết giờ",
+        "  - Bài 3 – HS hỏi nhiều",
+        "",
+        "🧪 Kiểm tra trong buổi: Từ vựng N5 bài 3 (10 câu)",
+        "",
+        "━━━━━━━━━━━━━━━",
+        "👤 Nguyễn Văn A (học)",
+        "🧪 Kết quả: 8/10 câu – 80% · Nhớ tốt",
+        "✅ Điểm tốt:",
+        "• Tập trung",
+        "• Hỏi bài chủ động",
+        "⚠️ Cần cải thiện:",
+        "• Chữ viết",
+        "📝 Chất lượng BTVN buổi trước: Cần sửa – Sai 2 câu",
+        "",
+        "👤 Trần B (vắng)",
+        "",
+        "━━━━━━━━━━━━━━━",
+        "📌 BTVN được giao:",
+        "Bài tập",
+        "⏰ Hạn: 20:00 26/06/2026",
+        "",
+        "🔜 Buổi sau: Vòng lặp while",
+        "🔁 Kiểm tra lại: Không",
+        "",
+        "📎 Tutorial:",
+        "Tutorial buổi",
+        "",
+        "— Gia sư Unicorns Edu",
+      ].join("\n"),
+    );
+  });
+
+  it("omits progress details when completed and BTVN for trial students", () => {
+    const text = buildSessionCommentZaloText({
+      ...baseInput,
+      review: { ...review, progressStatus: "completed", hasInClassTest: false },
+      students: [{ ...presentStudent, status: "trial" }],
+    });
+
+    expect(text).toContain("📅 24/06/2026 | 18:00 - 20:00");
+    expect(text).not.toContain("Đã xong");
+    expect(text).not.toContain("🧪");
+    expect(text).not.toContain("📝");
+    expect(text).toContain("👤 Nguyễn Văn A (học thử)");
+  });
+
+  it("keeps the legacy format when progress status is missing", () => {
+    const text = buildSessionCommentZaloText({ ...baseInput, students: [] });
+    expect(text).toContain("— UniEdu");
+  });
+});
+
+describe("formatHomeworkDueAtLabel", () => {
+  it("formats in Vietnam time", () => {
+    expect(formatHomeworkDueAtLabel("2026-06-26T17:30:00.000Z")).toBe(
+      "00:30 27/06/2026",
+    );
+  });
+});
+
+describe("findSessionReviewFormError", () => {
+  const validReview = {
+    progressStatus: "completed" as const,
+    nextSessionPlan: "Bài 4",
+  };
+
+  it("requires done + remaining for partial progress", () => {
+    expect(
+      findSessionReviewFormError({ ...validReview, progressStatus: "partial" }, []),
+    ).toBe("Vui lòng nhập phần «Đã xong».");
+  });
+
+  it("checks correct count bounds per student", () => {
+    expect(
+      findSessionReviewFormError(
+        {
+          ...validReview,
+          hasInClassTest: true,
+          inClassTestContent: "Mini test",
+          inClassTestTotal: 5,
+        },
+        [{ fullName: "A", status: "present", testCorrectCount: 6 }],
+      ),
+    ).toBe("Số câu đúng của A phải trong khoảng 0–5.");
+  });
+
+  it("skips excused students and homework for trial", () => {
+    expect(
+      findSessionReviewFormError(validReview, [
+        { fullName: "A", status: "excused" },
+        { fullName: "B", status: "trial", strengths: "x", improvements: "y" },
+      ]),
+    ).toBeNull();
   });
 });
