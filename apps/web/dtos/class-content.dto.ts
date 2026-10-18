@@ -18,7 +18,7 @@ export interface ClassContentItemDto {
   isOpen: boolean;
   hiddenAt: string | null;
   hiddenByStaffId: string | null;
-  /** `module_removed` = đã gỡ khỏi lớp; `manual` = gia sư Ẩn. */
+  /** `module_removed` = ẩn kèm khi gỡ khỏi lớp (item đã gỡ không trả về); `manual` = gia sư Ẩn. */
   hiddenReason: "manual" | "module_removed" | null;
 }
 
@@ -66,6 +66,12 @@ export interface AssignmentCloseAtDraft {
 }
 
 /** Tiết lý thuyết cần mở dialog Tiến độ (roster đã xem / hoàn thành). */
+/** Tiết đang chờ xác nhận **Gỡ khỏi lớp**. */
+export interface ClassContentRemovalTarget {
+  id: string;
+  title: string;
+}
+
 export interface TheoryProgressTarget {
   contentItemId: string;
   title: string;

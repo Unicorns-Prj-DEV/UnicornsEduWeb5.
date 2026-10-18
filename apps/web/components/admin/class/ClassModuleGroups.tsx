@@ -32,6 +32,7 @@ import {
   Eye,
   GripVertical,
   Layers,
+  MinusCircle,
   PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -42,6 +43,7 @@ import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 import type {
   ClassContentItemDto,
   ClassContentModuleGroupDto,
+  ClassContentRemovalTarget,
   TheoryProgressTarget,
 } from "@/dtos/class-content.dto";
 import { formatVnDateTime } from "@/lib/formatters";
@@ -66,11 +68,16 @@ interface ClassModuleGroupsProps {
   onOpenItem: (contentItemId: string) => void;
   /** Có thì hiện nút Tiến độ cho tiết lý thuyết. */
   onOpenTheoryProgress?: (target: TheoryProgressTarget) => void;
+  /** Có thì hiện nút **Gỡ khỏi lớp** (khác Ẩn). */
+  onRemoveItem?: (target: ClassContentRemovalTarget) => void;
 }
 
 type ItemActionProps = Pick<
   ClassModuleGroupsProps,
-  "practiceActionsBasePath" | "onOpenItem" | "onOpenTheoryProgress"
+  | "practiceActionsBasePath"
+  | "onOpenItem"
+  | "onOpenTheoryProgress"
+  | "onRemoveItem"
 >;
 
 /**
@@ -330,6 +337,7 @@ function ContentItemRow({
   practiceActionsBasePath,
   onOpenItem,
   onOpenTheoryProgress,
+  onRemoveItem,
 }: {
   item: ClassContentItemDto;
 } & ItemActionProps) {
@@ -344,6 +352,7 @@ function ContentItemRow({
     : "";
   const showPracticeActions = isPractice && Boolean(practiceActionsBasePath);
   const showTheoryActions = !isPractice && Boolean(onOpenTheoryProgress);
+  const showRemove = Boolean(onRemoveItem);
 
   return (
     <div
@@ -369,7 +378,7 @@ function ContentItemRow({
           <span className="mt-0.5 block text-xs text-text-muted">{schedule}</span>
         ) : null}
       </button>
-      {showPracticeActions || showTheoryActions ? (
+      {showPracticeActions || showTheoryActions || showRemove ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-2 px-1">
           {showPracticeActions ? (
             <>
@@ -402,6 +411,18 @@ function ContentItemRow({
             >
               <Eye className="size-3.5" />
               Tiến độ
+            </button>
+          ) : null}
+          {showRemove ? (
+            <button
+              type="button"
+              onClick={() =>
+                onRemoveItem?.({ id: item.id, title: item.title })
+              }
+              className={`${ACTION_CLASS} cursor-pointer border-error/40 text-error hover:bg-error/5 sm:ml-auto`}
+            >
+              <MinusCircle className="size-3.5" />
+              Gỡ khỏi lớp
             </button>
           ) : null}
         </div>

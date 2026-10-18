@@ -9,6 +9,7 @@ import {
   LessonResponseDto,
   ClassContentCreateDto,
   ClassContentScheduleUpdateDto,
+  ClassContentItemRemovalImpactDto,
   ClassContentItemResponseDto,
   ClassContentModuleGroupDto,
   ClassTheoryProgressDto,
@@ -34,9 +35,13 @@ import {
 } from './course-content-support.service';
 import { isAnswered } from '../attempt/grading';
 import { assignmentDurationMinutes } from '../attempt/assignment-window';
-import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
+import { PRESENT_CONTENT_ITEM } from './archived-lesson-filter';
 import { groupClassContentByModule } from './class-content-groups';
-import { ensureClassModuleGroupOnTop } from './class-course-module-sync';
+import {
+  ensureClassModuleGroupOnTop,
+  removeClassContentItems,
+  restoreRemovedClassContentItems,
+} from './class-course-module-sync';
 
 const CLASS_CONTENT_CREATE_TRANSACTION_TIMEOUT_MS = 15_000;
 
@@ -407,25 +412,18 @@ export class ClassContentService extends CourseContentSupportService {
         const existing = await tx.classContentItem.findUnique({
           where: { classId_lessonId: { classId, lessonId } },
         });
-        if (
-          existing?.hiddenReason === ClassContentHiddenReason.module_removed
-        ) {
-          // Tiết từng gỡ khỏi lớp → thêm lại = hiện lại item cũ (giữ attempt/điểm), lịch theo lần thêm này.
-          const restored = await tx.classContentItem.update({
+        if (existing?.removedAt) {
+          // Tiết từng gỡ khỏi lớp → thêm lại = đưa về item cũ (giữ attempt/điểm/lượt xem),
+          // tiết từng Ẩn tay vẫn ẩn; lần giao lấy lịch theo lần thêm này.
+          await restoreRemovedClassContentItems(tx, {
+            classId,
             where: { id: existing.id },
-            data: {
-              hiddenAt: null,
-              hiddenByStaffId: null,
-              hiddenReason: null,
-              ...(isPractice ? { openAt, closeAt } : {}),
-            },
+          });
+          return tx.classContentItem.update({
+            where: { id: existing.id },
+            data: isPractice ? { openAt, closeAt } : {},
             include: { lesson: { include: { module: true } } },
           });
-          await tx.classTimelineItem.updateMany({
-            where: { classContentItemId: existing.id },
-            data: { hiddenAt: null, hiddenByStaffId: null },
-          });
-          return restored;
         }
         if (existing) {
           if (existing.hiddenAt) {
@@ -486,7 +484,7 @@ export class ClassContentService extends CourseContentSupportService {
   ): Promise<ClassContentItemResponseDto[]> {
     await this.validateStaffClassAccess(classId, actor);
     const items = await this.prisma.classContentItem.findMany({
-      where: { classId, ...NOT_ARCHIVED_CONTENT_ITEM },
+      where: { classId, ...PRESENT_CONTENT_ITEM },
       orderBy: { sortOrder: 'asc' },
       include: {
         lesson: { include: { module: true } },
@@ -690,7 +688,7 @@ export class ClassContentService extends CourseContentSupportService {
 
     // Finding #4: verify ALL IDs belong to this class before updating
     const owned = await this.prisma.classContentItem.findMany({
-      where: { id: { in: orderedIds }, classId, ...NOT_ARCHIVED_CONTENT_ITEM },
+      where: { id: { in: orderedIds }, classId, ...PRESENT_CONTENT_ITEM },
       select: { id: true },
     });
     if (owned.length !== orderedIds.length) {
@@ -719,7 +717,7 @@ export class ClassContentService extends CourseContentSupportService {
     const item = await this.prisma.classContentItem.findUnique({
       where: { id: itemId },
     });
-    if (!item || item.classId !== classId) {
+    if (!item || item.classId !== classId || item.removedAt) {
       throw new NotFoundException('Class content item not found');
     }
     const hiddenAt = item.hiddenAt ?? new Date();
@@ -750,13 +748,22 @@ export class ClassContentService extends CourseContentSupportService {
     const item = await this.prisma.classContentItem.findUnique({
       where: { id: itemId },
       include: {
-        lesson: { select: { kind: true, moduleId: true, archivedAt: true } },
+        lesson: { select: { archivedAt: true } },
       },
     });
     if (!item || item.classId !== classId) {
       throw new NotFoundException('Class content item not found');
     }
-    await this.assertClassContentRestorable(classId, item.lesson);
+    if (item.removedAt) {
+      throw new BadRequestException(
+        'Tiết đã gỡ khỏi lớp. Hãy thêm lại tiết thay vì khôi phục.',
+      );
+    }
+    if (item.lesson?.archivedAt) {
+      throw new BadRequestException(
+        'Tiết học đã được lưu trữ, không khôi phục vào lớp được.',
+      );
+    }
     await this.prisma.$transaction([
       this.prisma.classContentItem.update({
         where: { id: itemId },
@@ -774,34 +781,67 @@ export class ClassContentService extends CourseContentSupportService {
   }
 
   /**
-   * Tiết đã lưu trữ không khôi phục được. Item thuộc chuyên đề (lý thuyết lẫn lần giao)
-   * chỉ hiện lại khi lớp còn chuyên đề đó — muốn hiện lại cả chuyên đề thì thêm lại chuyên đề.
+   * Gỡ một tiết khỏi lớp (khác Ẩn): tiết và lần giao biến mất ở mọi phía, kể cả gia sư.
+   * Bài làm, điểm, lượt xem giữ nguyên; thêm lại tiết thì hiện lại (tiết từng Ẩn vẫn ẩn).
+   * Gỡ tiết cuối của chuyên đề → nhóm chuyên đề biến mất (xoá dòng thứ tự nhóm).
    */
-  private async assertClassContentRestorable(
+  async removeClassContentItem(
     classId: string,
-    lesson: {
-      kind: string;
-      moduleId: string | null;
-      archivedAt: Date | null;
-    } | null,
-  ): Promise<void> {
-    if (lesson?.archivedAt) {
-      throw new BadRequestException(
-        'Tiết học đã được lưu trữ, không khôi phục vào lớp được.',
-      );
-    }
-    if (!lesson?.moduleId) return;
-    const classModule = await this.prisma.classModule.findUnique({
-      where: {
-        classId_moduleId: { classId, moduleId: lesson.moduleId },
-      },
-      select: { id: true },
+    itemId: string,
+    actor: ActionHistoryActor,
+  ): Promise<ClassContentItemResponseDto[]> {
+    await this.validateStaffClassAccess(classId, actor);
+    const hiddenByStaffId = await this.resolveHiddenByStaffId(actor);
+    const removedAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      const item = await tx.classContentItem.findUnique({
+        where: { id: itemId },
+        select: {
+          classId: true,
+          removedAt: true,
+          lesson: { select: { moduleId: true } },
+        },
+      });
+      if (!item || item.classId !== classId || item.removedAt) {
+        throw new NotFoundException('Class content item not found');
+      }
+      await removeClassContentItems(tx, {
+        classId,
+        where: { id: itemId },
+        removedAt,
+        hiddenByStaffId,
+      });
+      const moduleId = item.lesson?.moduleId;
+      if (!moduleId) return;
+      const remaining = await tx.classContentItem.count({
+        where: { classId, removedAt: null, lesson: { is: { moduleId } } },
+      });
+      if (remaining === 0) {
+        await tx.classModule.deleteMany({ where: { classId, moduleId } });
+      }
     });
-    if (!classModule) {
-      throw new BadRequestException(
-        'Lớp chưa thêm chuyên đề chứa tiết này. Hãy thêm chuyên đề trước.',
-      );
+    this.logger.log(
+      `Class content item removed: ${itemId} from class ${classId} by ${actor.userEmail}`,
+    );
+    return this.listClassContentItems(classId, actor);
+  }
+
+  /** Ảnh hưởng nếu gỡ một tiết (chỉ lần giao thực hành có bài làm). */
+  async getClassContentItemRemovalImpact(
+    classId: string,
+    itemId: string,
+    actor: ActionHistoryActor,
+  ): Promise<ClassContentItemRemovalImpactDto> {
+    await this.validateStaffClassAccess(classId, actor);
+    const item = await this.prisma.classContentItem.findUnique({
+      where: { id: itemId },
+      select: { classId: true, removedAt: true },
+    });
+    if (!item || item.classId !== classId || item.removedAt) {
+      throw new NotFoundException('Class content item not found');
     }
+    const impact = await this.computeRemovalImpact({ id: itemId, classId });
+    return { itemId, ...impact };
   }
 
   async updateClassContentSchedule(
@@ -874,7 +914,7 @@ export class ClassContentService extends CourseContentSupportService {
       throw new ForbiddenException('Content access period has expired');
     }
     const items = await this.prisma.classContentItem.findMany({
-      where: { classId, hiddenAt: null, ...NOT_ARCHIVED_CONTENT_ITEM },
+      where: { classId, hiddenAt: null, ...PRESENT_CONTENT_ITEM },
       orderBy: { sortOrder: 'asc' },
       include: {
         lesson: { include: { module: true } },
@@ -911,15 +951,9 @@ export class ClassContentService extends CourseContentSupportService {
         },
         orderBy: [{ module: { sortOrder: 'asc' } }, { order: 'asc' }],
       }),
-      // Tiết đã gỡ khỏi lớp (module_removed) không tính là đã thêm.
+      // Tiết đã gỡ khỏi lớp không tính là đã thêm.
       this.prisma.classContentItem.findMany({
-        where: {
-          classId,
-          OR: [
-            { hiddenReason: null },
-            { hiddenReason: { not: ClassContentHiddenReason.module_removed } },
-          ],
-        },
+        where: { classId, removedAt: null },
         select: { lessonId: true },
       }),
     ]);

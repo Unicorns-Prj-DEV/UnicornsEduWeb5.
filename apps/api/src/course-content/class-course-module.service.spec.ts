@@ -16,7 +16,7 @@ import { UserRole } from 'generated/enums';
 import { CourseAccessService } from '../class/course-access.service';
 import { compareClassContentItems } from './class-content.service';
 import {
-  hideClassModuleItems,
+  removeClassModuleItems,
   restoreClassModuleItems,
   syncClassModuleLessons,
 } from './class-course-module-sync';
@@ -176,10 +176,11 @@ describe('syncClassModuleLessons', () => {
     expect(prisma.classContentItem.updateMany).not.toHaveBeenCalled();
   });
 
-  it('restoreClassModuleItems: chỉ hiện lại item ẩn do gỡ chuyên đề (cả lý thuyết lẫn lần giao)', async () => {
+  it('restoreClassModuleItems: đưa về item đã gỡ, chỉ hiện lại item ẩn do gỡ, Ẩn tay vẫn ẩn', async () => {
     prisma.classContentItem.findMany.mockResolvedValue([
-      { id: 'i1' },
-      { id: 'p1' },
+      { id: 'i1', hiddenReason: 'module_removed' },
+      { id: 'p1', hiddenReason: 'module_removed' },
+      { id: 'h1', hiddenReason: 'manual' },
     ]);
 
     const restored = await restoreClassModuleItems(prisma as any, {
@@ -187,16 +188,21 @@ describe('syncClassModuleLessons', () => {
       moduleId: 'm-1',
     });
 
-    expect(restored).toEqual(['i1', 'p1']);
+    expect(restored).toEqual(['i1', 'p1', 'h1']);
     expect(prisma.classContentItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          lesson: { is: { moduleId: 'm-1' } },
           classId: 'cls-1',
-          hiddenReason: 'module_removed',
-          lesson: { moduleId: 'm-1', archivedAt: null },
+          removedAt: { not: null },
+          NOT: { lesson: { is: { archivedAt: { not: null } } } },
         },
       }),
     );
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['i1', 'p1', 'h1'] } },
+      data: { removedAt: null },
+    });
     expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['i1', 'p1'] } },
       data: { hiddenAt: null, hiddenByStaffId: null, hiddenReason: null },
@@ -207,41 +213,48 @@ describe('syncClassModuleLessons', () => {
     });
   });
 
-  it('hideClassModuleItems: ẩn mọi item đang hiện của chuyên đề, lý do module_removed', async () => {
+  it('removeClassModuleItems: gỡ mọi item còn trong lớp, chỉ ẩn kèm item đang hiện', async () => {
     prisma.classContentItem.findMany.mockResolvedValue([
-      { id: 'i1' },
-      { id: 'p1' },
+      { id: 'i1', hiddenAt: null },
+      { id: 'p1', hiddenAt: null },
+      { id: 'h1', hiddenAt: new Date('2026-10-01T00:00:00Z') },
     ]);
-    const hiddenAt = new Date('2026-10-05T00:00:00Z');
+    const removedAt = new Date('2026-10-05T00:00:00Z');
 
-    await hideClassModuleItems(prisma as any, {
+    const removed = await removeClassModuleItems(prisma as any, {
       classId: 'cls-1',
       moduleId: 'm-1',
-      hiddenAt,
+      removedAt,
       hiddenByStaffId: 'staff-1',
     });
 
-    // Không lọc theo loại tiết: lần giao thực hành cũng ẩn.
+    expect(removed).toEqual(['i1', 'p1', 'h1']);
+    // Không lọc theo loại tiết hay trạng thái Ẩn: lần giao và tiết đang Ẩn cũng gỡ.
     expect(prisma.classContentItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          lesson: { is: { moduleId: 'm-1' } },
           classId: 'cls-1',
-          hiddenAt: null,
-          lesson: { moduleId: 'm-1' },
+          removedAt: null,
         },
       }),
     );
     expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['i1', 'p1', 'h1'] } },
+      data: { removedAt },
+    });
+    // Item đang Ẩn tay giữ lý do manual để thêm lại vẫn ẩn.
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['i1', 'p1'] } },
       data: {
-        hiddenAt,
+        hiddenAt: removedAt,
         hiddenByStaffId: 'staff-1',
         hiddenReason: 'module_removed',
       },
     });
     expect(prisma.classTimelineItem.updateMany).toHaveBeenCalledWith({
       where: { classContentItemId: { in: ['i1', 'p1'] } },
-      data: { hiddenAt, hiddenByStaffId: 'staff-1' },
+      data: { hiddenAt: removedAt, hiddenByStaffId: 'staff-1' },
     });
   });
 });
@@ -389,7 +402,7 @@ describe('ClassCourseModuleService', () => {
     expect(practice.closeAt).toEqual(contentAccessExpiresAt);
     expect(prisma.classContentItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ hiddenReason: 'module_removed' }),
+        where: expect.objectContaining({ removedAt: { not: null } }),
       }),
     );
   });
@@ -416,16 +429,20 @@ describe('ClassCourseModuleService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('remove: xoá liên kết, ẩn mềm mọi item của chuyên đề (lý thuyết + lần giao)', async () => {
+  it('remove: xoá liên kết, gỡ mọi item của chuyên đề (lý thuyết + lần giao)', async () => {
     prisma.classContentItem.findMany.mockResolvedValue([
-      { id: 'i1' },
-      { id: 'p1' },
+      { id: 'i1', hiddenAt: null },
+      { id: 'p1', hiddenAt: null },
     ]);
 
     await service.removeClassModule('cls-1', 'm-1', adminActor);
 
     expect(prisma.classModule.deleteMany).toHaveBeenCalledWith({
       where: { classId: 'cls-1', moduleId: 'm-1' },
+    });
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['i1', 'p1'] } },
+      data: { removedAt: expect.any(Date) },
     });
     expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['i1', 'p1'] } },
@@ -513,10 +530,11 @@ describe('ClassCourseModuleService', () => {
     expect(prisma.attempt.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          // Gồm cả lần giao đang Ẩn: gỡ làm mất lối vào chấm bài của chúng.
           assignment: {
             classId: 'cls-1',
-            hiddenAt: null,
-            lesson: { moduleId: 'm-1' },
+            lesson: { is: { moduleId: 'm-1' } },
+            removedAt: null,
           },
         },
         distinct: ['assignmentId', 'studentId'],
@@ -781,7 +799,11 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
       id: 'cci-old',
       hiddenAt: new Date(),
       hiddenReason: 'module_removed',
+      removedAt: new Date(),
     });
+    prisma.classContentItem.findMany.mockResolvedValue([
+      { id: 'cci-old', hiddenReason: 'module_removed' },
+    ]);
     prisma.classContentItem.update.mockResolvedValue({
       id: 'cci-old',
       classId: 'cls-1',
@@ -806,21 +828,75 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
     expect(result.id).toBe('cci-old');
     expect(prisma.classContentItem.create).not.toHaveBeenCalled();
     expect(prisma.classModule.create).not.toHaveBeenCalled();
-    expect(prisma.classContentItem.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'cci-old' },
-        data: { hiddenAt: null, hiddenByStaffId: null, hiddenReason: null },
-      }),
-    );
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['cci-old'] } },
+      data: { removedAt: null },
+    });
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['cci-old'] } },
+      data: { hiddenAt: null, hiddenByStaffId: null, hiddenReason: null },
+    });
   });
 
-  it('không khôi phục tiết lý thuyết khi lớp đã gỡ chuyên đề', async () => {
+  it('thêm lại tiết đã gỡ từng Ẩn tay → về lớp nhưng vẫn ẩn', async () => {
+    prisma.class.findUnique.mockResolvedValue({ courseId: 'course-1' });
+    prisma.lesson.findUnique.mockResolvedValue({
+      id: 't1',
+      kind: 'theory',
+      moduleId: 'm-1',
+      courseId: 'course-1',
+      classId: null,
+      archivedAt: null,
+    });
+    prisma.classModule.findUnique.mockResolvedValue({ id: 'cm-1' });
+    prisma.classContentItem.findUnique.mockResolvedValue({
+      id: 'cci-old',
+      hiddenAt: new Date(),
+      hiddenReason: 'manual',
+      removedAt: new Date(),
+    });
+    prisma.classContentItem.findMany.mockResolvedValue([
+      { id: 'cci-old', hiddenReason: 'manual' },
+    ]);
+    prisma.classContentItem.update.mockResolvedValue({
+      id: 'cci-old',
+      classId: 'cls-1',
+      lessonId: 't1',
+      kind: 'lesson',
+      sortOrder: 0,
+      hiddenAt: new Date(),
+      hiddenReason: 'manual',
+      lesson: {
+        title: 'Lý thuyết',
+        kind: 'theory',
+        classId: null,
+        module: { id: 'm-1', title: 'Chuyên đề 1' },
+        quizzes: [],
+      },
+    });
+
+    const result = await service.createClassContentItem(
+      'cls-1',
+      { lessonId: 't1' },
+      adminActor,
+    );
+
+    expect(result.hiddenReason).toBe('manual');
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['cci-old'] } },
+      data: { removedAt: null },
+    });
+    expect(prisma.classTimelineItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('không khôi phục (bỏ Ẩn) tiết đã gỡ khỏi lớp', async () => {
     prisma.classContentItem.findUnique.mockResolvedValue({
       id: 'i1',
       classId: 'cls-1',
-      lesson: { kind: 'theory', moduleId: 'm-1', archivedAt: null },
+      removedAt: new Date(),
+      lesson: { archivedAt: null },
     });
-    prisma.classModule.findUnique.mockResolvedValue(null);
 
     await expect(
       service.restoreClassContentItem('cls-1', 'i1', adminActor),
@@ -828,18 +904,119 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
     expect(prisma.classContentItem.update).not.toHaveBeenCalled();
   });
 
-  it('không khôi phục lần giao khi lớp đã gỡ chuyên đề', async () => {
+  it('không Ẩn tiết đã gỡ khỏi lớp', async () => {
     prisma.classContentItem.findUnique.mockResolvedValue({
-      id: 'p1',
+      id: 'i1',
       classId: 'cls-1',
-      lesson: { kind: 'practice', moduleId: 'm-1', archivedAt: null },
+      removedAt: new Date(),
     });
-    prisma.classModule.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.restoreClassContentItem('cls-1', 'p1', adminActor),
-    ).rejects.toThrow(BadRequestException);
-    expect(prisma.classContentItem.update).not.toHaveBeenCalled();
+      service.deleteClassContentItem('cls-1', 'i1', adminActor),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('gỡ một tiết: gỡ item, còn tiết khác của chuyên đề thì giữ nhóm', async () => {
+    prisma.classContentItem.findUnique.mockResolvedValue({
+      classId: 'cls-1',
+      removedAt: null,
+      lesson: { moduleId: 'm-1' },
+    });
+    prisma.classContentItem.findMany.mockResolvedValue([
+      { id: 'i1', hiddenAt: null },
+    ]);
+    prisma.classContentItem.count = jest.fn().mockResolvedValue(2);
+
+    await service.removeClassContentItem('cls-1', 'i1', adminActor);
+
+    expect(prisma.classContentItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'i1', classId: 'cls-1', removedAt: null },
+      }),
+    );
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['i1'] } },
+      data: { removedAt: expect.any(Date) },
+    });
+    expect(prisma.classContentItem.count).toHaveBeenCalledWith({
+      where: {
+        classId: 'cls-1',
+        removedAt: null,
+        lesson: { is: { moduleId: 'm-1' } },
+      },
+    });
+    expect(prisma.classModule.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('gỡ tiết cuối của chuyên đề → nhóm biến mất', async () => {
+    prisma.classContentItem.findUnique.mockResolvedValue({
+      classId: 'cls-1',
+      removedAt: null,
+      lesson: { moduleId: 'm-1' },
+    });
+    prisma.classContentItem.findMany.mockResolvedValue([
+      { id: 'i1', hiddenAt: new Date() },
+    ]);
+    prisma.classContentItem.count = jest.fn().mockResolvedValue(0);
+
+    await service.removeClassContentItem('cls-1', 'i1', adminActor);
+
+    // Item đang Ẩn tay: chỉ đánh dấu gỡ, không đổi lý do ẩn.
+    expect(prisma.classContentItem.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.classModule.deleteMany).toHaveBeenCalledWith({
+      where: { classId: 'cls-1', moduleId: 'm-1' },
+    });
+  });
+
+  it('gỡ tiết đã gỡ / lớp khác → 404', async () => {
+    prisma.classContentItem.findUnique.mockResolvedValue({
+      classId: 'cls-1',
+      removedAt: new Date(),
+      lesson: { moduleId: 'm-1' },
+    });
+
+    await expect(
+      service.removeClassContentItem('cls-1', 'i1', adminActor),
+    ).rejects.toThrow(NotFoundException);
+    expect(prisma.classContentItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('ảnh hưởng gỡ một tiết: tính trên lần giao đó', async () => {
+    prisma.classContentItem.findUnique.mockResolvedValue({
+      classId: 'cls-1',
+      removedAt: null,
+    });
+    prisma.attempt.findMany.mockResolvedValue([
+      {
+        studentId: 's1',
+        status: 'submitted',
+        hasUngradedEssay: true,
+        _count: { answers: 3 },
+      },
+      {
+        studentId: 's2',
+        status: 'in_progress',
+        hasUngradedEssay: false,
+        _count: { answers: 0 },
+      },
+    ]);
+
+    const impact = await service.getClassContentItemRemovalImpact(
+      'cls-1',
+      'p1',
+      adminActor,
+    );
+
+    expect(impact).toEqual({
+      itemId: 'p1',
+      ungradedEssayCount: 3,
+      inProgressStudentCount: 1,
+    });
+    expect(prisma.attempt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { assignment: { id: 'p1', classId: 'cls-1', removedAt: null } },
+      }),
+    );
   });
 
   it('ẩn tay gắn lý do manual; khôi phục xoá lý do', async () => {
@@ -848,9 +1025,9 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
       classId: 'cls-1',
       hiddenAt: null,
       hiddenReason: null,
-      lesson: { kind: 'practice', moduleId: 'm-1', archivedAt: null },
+      removedAt: null,
+      lesson: { archivedAt: null },
     });
-    prisma.classModule.findUnique.mockResolvedValue({ id: 'cm-1' });
 
     await service.deleteClassContentItem('cls-1', 'p1', adminActor);
     expect(prisma.classContentItem.update).toHaveBeenCalledWith({
@@ -894,13 +1071,7 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
       }),
     );
     expect(prisma.classContentItem.findMany).toHaveBeenCalledWith({
-      where: {
-        classId: 'cls-1',
-        OR: [
-          { hiddenReason: null },
-          { hiddenReason: { not: 'module_removed' } },
-        ],
-      },
+      where: { classId: 'cls-1', removedAt: null },
       select: { lessonId: true },
     });
   });

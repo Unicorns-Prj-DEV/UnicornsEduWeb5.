@@ -10,7 +10,7 @@ jest.mock('src/session/session-ordinal.util', () => ({
 
 import { ClassTimelineService } from './class-timeline.service';
 import { UserRole } from 'generated/enums';
-import { NOT_ARCHIVED_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';
+import { PRESENT_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';
 
 describe('ClassTimelineService — soft hide', () => {
   let service: ClassTimelineService;
@@ -70,7 +70,7 @@ describe('ClassTimelineService — soft hide', () => {
     expect(rows[0].hiddenAt).toBe('2026-09-07T00:00:00.000Z');
     expect(mockPrisma.classTimelineItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { classId: 'cls-1', ...NOT_ARCHIVED_TIMELINE_ITEM },
+        where: { classId: 'cls-1', ...PRESENT_TIMELINE_ITEM },
       }),
     );
   });

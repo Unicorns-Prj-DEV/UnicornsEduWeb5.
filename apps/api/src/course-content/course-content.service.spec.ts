@@ -20,7 +20,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from 'generated/enums';
-import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
+import { PRESENT_CONTENT_ITEM } from './archived-lesson-filter';
 
 describe('CourseContentService — ClassContent methods', () => {
   let service: CourseContentService;
@@ -425,7 +425,7 @@ describe('CourseContentService — ClassContent methods', () => {
         expect.objectContaining({
           where: {
             classId: 'cls-1',
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );
@@ -451,7 +451,7 @@ describe('CourseContentService — ClassContent methods', () => {
           where: {
             id: { in: ['cci-1', 'cci-archived'] },
             classId: 'cls-1',
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );
@@ -767,25 +767,9 @@ describe('CourseContentService — ClassContent methods', () => {
   });
 
   describe('listClassContentGroups', () => {
-    it('nhóm theo tập tiết, thứ tự nhóm của lớp, bỏ item đã gỡ', async () => {
+    it('nhóm theo tập tiết, thứ tự nhóm của lớp, truy vấn bỏ item đã gỡ', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classContentItem.findMany.mockResolvedValue([
-        {
-          id: 'cci-p',
-          lessonId: 'p1',
-          kind: 'lesson',
-          sortOrder: 0,
-          classId: 'cls-1',
-          hiddenAt: new Date(),
-          hiddenReason: 'module_removed',
-          lesson: {
-            title: 'Đề',
-            kind: 'practice',
-            order: 0,
-            classId: null,
-            module: { id: 'm-old', title: 'Cũ', sortOrder: 0 },
-          },
-        },
         {
           id: 'cci-t',
           lessonId: 't1',
@@ -823,6 +807,11 @@ describe('CourseContentService — ClassContent methods', () => {
 
       const groups = await service.listClassContentGroups('cls-1', adminActor);
 
+      expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ removedAt: null }),
+        }),
+      );
       expect(mockPrisma.classModule.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { classId: 'cls-1' } }),
       );
@@ -989,7 +978,7 @@ describe('CourseContentService — ClassContent methods', () => {
           where: {
             classId: 'cls-1',
             hiddenAt: null,
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );
@@ -1046,7 +1035,7 @@ describe('CourseContentService — ClassContent methods', () => {
           where: {
             classId: 'cls-1',
             hiddenAt: null,
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );

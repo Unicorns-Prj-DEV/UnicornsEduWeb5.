@@ -318,7 +318,7 @@ export interface ClassContentItemResponseDto {
   isOpen: boolean;
   hiddenAt: Date | string | null;
   hiddenByStaffId: string | null;
-  /** `module_removed` = item đã gỡ khỏi lớp (không thuộc tập tiết của lớp); `manual` = gia sư Ẩn. */
+  /** `module_removed` = ẩn kèm khi gỡ khỏi lớp (item đã gỡ không trả về staff); `manual` = gia sư Ẩn. */
   hiddenReason: 'manual' | 'module_removed' | null;
 }
 
@@ -627,13 +627,22 @@ export class ClassModuleReorderDto {
   moduleIds: string[];
 }
 
-/** Ảnh hưởng nếu gỡ chuyên đề: dialog xác nhận báo trước, không chặn gỡ. */
-export interface ClassModuleRemovalImpactDto {
-  moduleId: string;
-  /** Số câu tự luận đã nộp nhưng chưa chấm, thuộc lần giao của chuyên đề trong lớp. */
+/** Ảnh hưởng nếu gỡ khỏi lớp: dialog xác nhận báo trước, không chặn gỡ. */
+export interface ClassContentRemovalImpactDto {
+  /** Số câu tự luận đã nộp nhưng chưa chấm, thuộc lần giao bị gỡ. */
   ungradedEssayCount: number;
-  /** Số học sinh đang làm dở (bài chưa nộp) lần giao của chuyên đề trong lớp. */
+  /** Số học sinh đang làm dở (bài chưa nộp) lần giao bị gỡ. */
   inProgressStudentCount: number;
+}
+
+/** Ảnh hưởng nếu gỡ cả chuyên đề. */
+export interface ClassModuleRemovalImpactDto extends ClassContentRemovalImpactDto {
+  moduleId: string;
+}
+
+/** Ảnh hưởng nếu gỡ một tiết khỏi lớp. */
+export interface ClassContentItemRemovalImpactDto extends ClassContentRemovalImpactDto {
+  itemId: string;
 }
 
 /** Một chuyên đề của khoá, nhìn từ một lớp: đã thêm hay chưa + số tiết. */

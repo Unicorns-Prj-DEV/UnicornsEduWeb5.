@@ -248,11 +248,22 @@ export interface ClassModuleDto {
   addedAt: string | null;
 }
 
-/** Ảnh hưởng nếu gỡ chuyên đề — dialog xác nhận báo trước, không chặn gỡ. */
-export interface ClassModuleRemovalImpactDto {
-  moduleId: string;
+/** Ảnh hưởng nếu gỡ khỏi lớp — dialog xác nhận báo trước, không chặn gỡ. */
+export interface ClassContentRemovalImpactDto {
   ungradedEssayCount: number;
   inProgressStudentCount: number;
+}
+
+/** Ảnh hưởng nếu gỡ cả chuyên đề. */
+export interface ClassModuleRemovalImpactDto
+  extends ClassContentRemovalImpactDto {
+  moduleId: string;
+}
+
+/** Ảnh hưởng nếu gỡ một tiết khỏi lớp. */
+export interface ClassContentItemRemovalImpactDto
+  extends ClassContentRemovalImpactDto {
+  itemId: string;
 }
 
 export interface ExamLibraryItem extends CourseLesson {

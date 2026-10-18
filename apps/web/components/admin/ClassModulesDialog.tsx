@@ -11,6 +11,7 @@ import {
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import RemovalImpactDescription from "@/components/admin/class/RemovalImpactDescription";
 import type { ClassModuleDto } from "@/dtos/course-content.dto";
 import * as classApi from "@/lib/apis/class.api";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
@@ -27,7 +28,7 @@ type ClassModulesDialogProps = {
 /**
  * Thêm/gỡ Chuyên đề của khoá vào lớp. Thêm chuyên đề chép một lần mọi tiết đang có
  * (lý thuyết + lần giao thực hành) và đưa nhóm lên đầu. Lớp đã có một phần tiết thì
- * **Thêm đủ** bổ sung tiết còn thiếu. Gỡ = coi như chưa từng thêm.
+ * **Thêm đủ** bổ sung tiết còn thiếu. Gỡ = mọi tiết của chuyên đề rời lớp (khác Ẩn).
  */
 export default function ClassModulesDialog({
   classId,
@@ -165,6 +166,9 @@ export default function ClassModulesDialog({
         title={`Gỡ chuyên đề “${removeTarget?.title ?? ""}” khỏi lớp?`}
         description={
           <RemovalImpactDescription
+            intro="Nhóm chuyên đề và mọi tiết của nó (kể cả tiết đang Ẩn) biến mất khỏi lớp ở mọi phía. Bài làm, điểm và lượt xem giữ nguyên; thêm lại chuyên đề sẽ hiện lại, tiết từng Ẩn vẫn ẩn."
+            subject="Chuyên đề"
+            afterRemoval="Sau khi gỡ, trang Chấm bài của các tiết này không còn lối vào cho tới khi thêm lại chuyên đề."
             loading={removalImpactQuery.isLoading}
             failed={removalImpactQuery.isError}
             ungradedEssayCount={
@@ -183,50 +187,6 @@ export default function ClassModulesDialog({
         }}
       />
     </ResponsiveDialog>
-  );
-}
-
-/** Nội dung xác nhận gỡ; nằm trong `<p>` của AlertDialog nên chỉ dùng `<span>`. */
-function RemovalImpactDescription({
-  loading,
-  failed,
-  ungradedEssayCount,
-  inProgressStudentCount,
-}: {
-  loading: boolean;
-  failed: boolean;
-  ungradedEssayCount: number;
-  inProgressStudentCount: number;
-}) {
-  const warnings = [
-    ungradedEssayCount > 0
-      ? `${ungradedEssayCount} câu tự luận chưa chấm`
-      : null,
-    inProgressStudentCount > 0
-      ? `${inProgressStudentCount} học sinh đang làm dở`
-      : null,
-  ].filter(Boolean);
-
-  return (
-    <span className="block space-y-2">
-      <span className="block">
-        Nhóm chuyên đề biến mất khỏi lớp: tiết lý thuyết và tiết thực hành đã
-        giao đều ẩn với học sinh. Bài làm, điểm và lượt xem giữ nguyên; thêm lại
-        chuyên đề sẽ hiện lại.
-      </span>
-      {loading ? (
-        <span className="block text-text-muted">Đang kiểm tra bài làm...</span>
-      ) : failed ? (
-        <span className="block text-text-muted">
-          Không kiểm tra được bài làm dở / chưa chấm.
-        </span>
-      ) : warnings.length > 0 ? (
-        <span className="block rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 font-medium text-text-primary">
-          Chuyên đề còn {warnings.join(" và ")}. Sau khi gỡ, trang Chấm bài của
-          các tiết này không còn lối vào cho tới khi thêm lại chuyên đề.
-        </span>
-      ) : null}
-    </span>
   );
 }
 

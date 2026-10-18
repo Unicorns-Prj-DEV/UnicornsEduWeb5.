@@ -84,6 +84,9 @@ export const classKeys = {
   /** Cảnh báo trước khi gỡ chuyên đề (`GET /class/:id/modules/:moduleId/removal-impact`). */
   moduleRemovalImpact: (id: string, moduleId: string) =>
     [...classKeys.all, "modules", id, "removal-impact", moduleId] as const,
+  /** Cảnh báo trước khi gỡ một tiết (`GET /class/:id/content/:itemId/removal-impact`). */
+  contentRemovalImpact: (id: string, itemId: string) =>
+    [...classKeys.all, "content", id, "removal-impact", itemId] as const,
   /** Tiết thực hành giao được cho lớp (`GET /class/:id/content/course-lessons`). */
   courseLessons: (id: string) => ["course-lessons-for-class", id] as const,
   /** Nằm dưới prefix `["class-content", id]` nên invalidate nội dung lớp kéo theo. */

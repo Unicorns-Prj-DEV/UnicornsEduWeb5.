@@ -4,19 +4,14 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  AttemptStatus,
-  ClassContentHiddenReason,
-  LessonKind,
-  QuestionType,
-} from 'generated/enums';
+import { LessonKind } from 'generated/enums';
 import {
   ClassModuleRemovalImpactDto,
   ClassModuleResponseDto,
 } from 'src/dtos/course-content.dto';
 import {
   ensureClassModuleGroupOnTop,
-  hideClassModuleItems,
+  removeClassModuleItems,
   restoreClassModuleItems,
   syncClassModuleLessons,
 } from './class-course-module-sync';
@@ -65,13 +60,7 @@ export class ClassCourseModuleService extends CourseContentSupportService {
       }),
       // Tiết lớp đang có (kể cả Ẩn tay), không tính tiết đã gỡ.
       this.prisma.classContentItem.findMany({
-        where: {
-          classId,
-          OR: [
-            { hiddenReason: null },
-            { hiddenReason: { not: ClassContentHiddenReason.module_removed } },
-          ],
-        },
+        where: { classId, removedAt: null },
         select: { lessonId: true },
       }),
     ]);
@@ -147,8 +136,8 @@ export class ClassCourseModuleService extends CourseContentSupportService {
   }
 
   /**
-   * Gỡ chuyên đề = coi như chưa từng thêm: nhóm biến mất, ẩn mềm tiết lý thuyết lẫn lần giao
-   * thực hành của chuyên đề (lý do `module_removed`). Bài làm, điểm, lượt xem giữ nguyên.
+   * Gỡ chuyên đề = gỡ khỏi lớp mọi tiết của chuyên đề (lý thuyết lẫn lần giao, kể cả tiết
+   * đang Ẩn): nhóm và các tiết biến mất ở mọi phía. Bài làm, điểm, lượt xem giữ nguyên.
    */
   async removeClassModule(
     classId: string,
@@ -157,9 +146,9 @@ export class ClassCourseModuleService extends CourseContentSupportService {
   ): Promise<ClassModuleResponseDto[]> {
     await this.validateStaffClassAccess(classId, actor);
     const hiddenByStaffId = await this.resolveHiddenByStaffId(actor);
-    const hiddenAt = new Date();
+    const removedAt = new Date();
 
-    const hiddenItemIds = await this.prisma.$transaction(
+    const removedItemIds = await this.prisma.$transaction(
       async (tx) => {
         // deleteMany + count trong transaction: hai lần gỡ đồng thời → lần sau 404, không P2025.
         const { count } = await tx.classModule.deleteMany({
@@ -168,10 +157,10 @@ export class ClassCourseModuleService extends CourseContentSupportService {
         if (count === 0) {
           throw new NotFoundException('Lớp chưa thêm chuyên đề này.');
         }
-        return hideClassModuleItems(tx, {
+        return removeClassModuleItems(tx, {
           classId,
           moduleId,
-          hiddenAt,
+          removedAt,
           hiddenByStaffId,
         });
       },
@@ -179,7 +168,7 @@ export class ClassCourseModuleService extends CourseContentSupportService {
     );
 
     this.logger.log(
-      `Class module removed: ${moduleId} from class ${classId} (${hiddenItemIds.length} items hidden) by ${actor.userEmail}`,
+      `Class module removed: ${moduleId} from class ${classId} (${removedItemIds.length} items removed) by ${actor.userEmail}`,
     );
     return this.listClassModules(classId, actor);
   }
@@ -230,55 +219,18 @@ export class ClassCourseModuleService extends CourseContentSupportService {
     return this.listClassModules(classId, actor);
   }
 
-  /**
-   * Ảnh hưởng nếu gỡ chuyên đề, tính trên lượt làm mới nhất mỗi học sinh mỗi lần giao đang
-   * hiện (giống hàng đợi chấm). Chỉ để cảnh báo; gỡ không bị chặn.
-   */
+  /** Ảnh hưởng nếu gỡ chuyên đề (mọi lần giao còn trong lớp, kể cả đang Ẩn). */
   async getClassModuleRemovalImpact(
     classId: string,
     moduleId: string,
     actor: ActionHistoryActor,
   ): Promise<ClassModuleRemovalImpactDto> {
     await this.validateStaffClassAccess(classId, actor);
-    const latestAttempts = await this.prisma.attempt.findMany({
-      where: {
-        assignment: { classId, hiddenAt: null, lesson: { moduleId } },
-      },
-      orderBy: [
-        { assignmentId: 'asc' },
-        { studentId: 'asc' },
-        { startedAt: 'desc' },
-      ],
-      distinct: ['assignmentId', 'studentId'],
-      select: {
-        studentId: true,
-        status: true,
-        hasUngradedEssay: true,
-        _count: {
-          select: {
-            answers: {
-              where: { type: QuestionType.essay, pointsAwarded: null },
-            },
-          },
-        },
-      },
+    const impact = await this.computeRemovalImpact({
+      classId,
+      lesson: { is: { moduleId } },
     });
-
-    let ungradedEssayCount = 0;
-    const inProgressStudentIds = new Set<string>();
-    for (const attempt of latestAttempts) {
-      if (attempt.status === AttemptStatus.in_progress) {
-        inProgressStudentIds.add(attempt.studentId);
-      } else if (attempt.hasUngradedEssay) {
-        ungradedEssayCount += attempt._count.answers;
-      }
-    }
-
-    return {
-      moduleId,
-      ungradedEssayCount,
-      inProgressStudentCount: inProgressStudentIds.size,
-    };
+    return { moduleId, ...impact };
   }
 
   private async findClassCourseId(classId: string): Promise<string> {

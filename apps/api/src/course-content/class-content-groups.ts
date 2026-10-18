@@ -7,8 +7,8 @@ export const UNGROUPED_CONTENT_TITLE = 'Ngoài chuyên đề';
 
 /**
  * Gom nội dung lớp theo chuyên đề. Nhóm lấy từ **tập tiết của lớp** (ADR
- * 2026-10-18-class-content-as-lesson-set): chuyên đề hiện khi lớp có ít nhất một tiết của nó,
- * item đã gỡ khỏi lớp (`hiddenReason = module_removed`) không tính và không hiện.
+ * 2026-10-18-class-content-as-lesson-set): chuyên đề hiện khi lớp có ít nhất một tiết của nó.
+ * Item đã gỡ khỏi lớp (`removedAt`) bị lọc từ truy vấn nên không tới đây.
  * `items` đã sắp bằng `compareClassContentItems` nên giữ nguyên thứ tự trong nhóm.
  * Thứ tự nhóm theo `groupOrder` (`class_modules.sort_order`); nhóm chưa có thứ tự đứng
  * đầu. Item không có chuyên đề vào nhóm cuối `moduleId: null`.
@@ -22,7 +22,6 @@ export function groupClassContentByModule(
     { title: string; items: ClassContentItemResponseDto[] }
   >();
   for (const item of items) {
-    if (item.hiddenReason === 'module_removed') continue;
     const key = item.moduleId ?? null;
     const bucket = byModule.get(key) ?? {
       title: item.moduleTitle ?? UNGROUPED_CONTENT_TITLE,

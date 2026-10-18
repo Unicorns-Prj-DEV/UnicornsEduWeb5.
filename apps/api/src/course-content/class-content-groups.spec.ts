@@ -60,21 +60,6 @@ describe('groupClassContentByModule', () => {
     expect(groupClassContentByModule([], new Map([['m1', 0]]))).toEqual([]);
   });
 
-  it('item đã gỡ khỏi lớp không tạo nhóm', () => {
-    const groups = groupClassContentByModule(
-      [
-        item('p1', 'practice', 'm-removed', {
-          hiddenAt: new Date(),
-          hiddenReason: 'module_removed',
-        }),
-        item('t1', 'theory', 'm1'),
-      ],
-      new Map([['m1', 1]]),
-    );
-
-    expect(groups.map((g) => g.moduleId)).toEqual(['m1']);
-  });
-
   it('item Ẩn tay vẫn thuộc nhóm', () => {
     const groups = groupClassContentByModule(
       [

@@ -9,8 +9,18 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ActionHistoryService } from 'src/action-history/action-history.service';
 import { CourseAccessService } from 'src/class/course-access.service';
-import { LessonCreateDto } from 'src/dtos/course-content.dto';
-import { LessonKind, StaffRole, UserRole } from 'generated/enums';
+import type { Prisma } from '../../generated/client';
+import {
+  ClassContentRemovalImpactDto,
+  LessonCreateDto,
+} from 'src/dtos/course-content.dto';
+import {
+  AttemptStatus,
+  LessonKind,
+  QuestionType,
+  StaffRole,
+  UserRole,
+} from 'generated/enums';
 
 export const CLASS_OWNED_LESSON_DISABLED_MESSAGE =
   'Lớp không tạo tiết riêng nữa. Hãy thêm tiết có sẵn của khoá.';
@@ -209,6 +219,50 @@ export class CourseContentSupportService {
       select: { id: true },
     });
     return staff?.id ?? null;
+  }
+
+  /**
+   * Ảnh hưởng nếu gỡ khỏi lớp các lần giao khớp `assignmentWhere`, tính trên lượt làm mới
+   * nhất mỗi học sinh mỗi lần giao (giống hàng đợi chấm). Chỉ để cảnh báo; gỡ không bị chặn.
+   */
+  protected async computeRemovalImpact(
+    assignmentWhere: Prisma.ClassContentItemWhereInput,
+  ): Promise<ClassContentRemovalImpactDto> {
+    const latestAttempts = await this.prisma.attempt.findMany({
+      where: { assignment: { ...assignmentWhere, removedAt: null } },
+      orderBy: [
+        { assignmentId: 'asc' },
+        { studentId: 'asc' },
+        { startedAt: 'desc' },
+      ],
+      distinct: ['assignmentId', 'studentId'],
+      select: {
+        studentId: true,
+        status: true,
+        hasUngradedEssay: true,
+        _count: {
+          select: {
+            answers: {
+              where: { type: QuestionType.essay, pointsAwarded: null },
+            },
+          },
+        },
+      },
+    });
+
+    let ungradedEssayCount = 0;
+    const inProgressStudentIds = new Set<string>();
+    for (const attempt of latestAttempts) {
+      if (attempt.status === AttemptStatus.in_progress) {
+        inProgressStudentIds.add(attempt.studentId);
+      } else if (attempt.hasUngradedEssay) {
+        ungradedEssayCount += attempt._count.answers;
+      }
+    }
+    return {
+      ungradedEssayCount,
+      inProgressStudentCount: inProgressStudentIds.size,
+    };
   }
 
   /**

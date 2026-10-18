@@ -218,7 +218,8 @@ export class ClassContentController {
   @ApiParam({ name: 'itemId', description: 'ID nội dung' })
   @ApiResponse({
     status: 200,
-    description: 'Đã ẩn. Danh sách nội dung (gồm item đã ẩn).',
+    description:
+      'Đã ẩn. Danh sách nội dung (gồm item đã ẩn, không gồm item đã gỡ).',
   })
   @ApiResponse({ status: 404, description: 'Không tìm thấy nội dung.' })
   async delete(
@@ -247,6 +248,64 @@ export class ClassContentController {
     @Param('itemId') itemId: string,
   ) {
     return this.topicService.restoreClassContentItem(classId, itemId, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Post(':itemId/remove')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @ApiOperation({
+    summary:
+      'Gỡ tiết khỏi lớp (khác Ẩn): biến mất ở mọi phía, giữ bài làm/điểm; gỡ tiết cuối của chuyên đề thì nhóm biến mất',
+  })
+  @ApiParam({ name: 'classId', description: 'ID lớp học' })
+  @ApiParam({ name: 'itemId', description: 'ID nội dung' })
+  @ApiResponse({
+    status: 200,
+    description: 'Đã gỡ. Danh sách nội dung còn trong lớp.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy nội dung (hoặc đã gỡ).',
+  })
+  async remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.topicService.removeClassContentItem(classId, itemId, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Get(':itemId/removal-impact')
+  @Roles(UserRole.admin)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @ApiOperation({
+    summary:
+      'Ảnh hưởng nếu gỡ tiết: số câu tự luận chưa chấm, số học sinh đang làm dở',
+  })
+  @ApiParam({ name: 'classId', description: 'ID lớp học' })
+  @ApiParam({ name: 'itemId', description: 'ID nội dung' })
+  @ApiResponse({
+    status: 200,
+    description: '{ itemId, ungradedEssayCount, inProgressStudentCount }',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy nội dung (hoặc đã gỡ).',
+  })
+  async removalImpact(
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.topicService.getClassContentItemRemovalImpact(classId, itemId, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

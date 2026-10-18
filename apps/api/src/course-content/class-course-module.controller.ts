@@ -148,7 +148,7 @@ export class ClassCourseModuleController {
   @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
   @ApiOperation({
     summary:
-      'Gỡ chuyên đề khỏi lớp (coi như chưa từng thêm): ẩn mềm tiết lý thuyết và lần giao tiết thực hành của chuyên đề. Bài làm, điểm, lượt xem giữ nguyên.',
+      'Gỡ chuyên đề khỏi lớp: mọi tiết của chuyên đề (kể cả tiết đang Ẩn) biến mất ở mọi phía. Bài làm, điểm, lượt xem giữ nguyên; thêm lại chuyên đề thì hiện lại, tiết từng Ẩn vẫn ẩn.',
   })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiParam({ name: 'moduleId', description: 'ID chuyên đề' })

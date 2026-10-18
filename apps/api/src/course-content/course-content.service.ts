@@ -310,6 +310,18 @@ export class CourseContentService extends CourseContentSupportService {
     return this.content.restoreClassContentItem(...args);
   }
 
+  removeClassContentItem(
+    ...args: Parameters<ClassContentService['removeClassContentItem']>
+  ) {
+    return this.content.removeClassContentItem(...args);
+  }
+
+  getClassContentItemRemovalImpact(
+    ...args: Parameters<ClassContentService['getClassContentItemRemovalImpact']>
+  ) {
+    return this.content.getClassContentItemRemovalImpact(...args);
+  }
+
   updateClassContentSchedule(
     ...args: Parameters<ClassContentService['updateClassContentSchedule']>
   ) {

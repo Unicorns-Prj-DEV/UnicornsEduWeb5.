@@ -58,8 +58,12 @@ model ClassContentItem {
   /// Null = hiện với học sinh. Có giá trị = ẩn mềm; không xoá Attempt.
   hiddenAt         DateTime?                 @map("hidden_at") @db.Timestamptz(6)
   hiddenByStaffId  String?                   @map("hidden_by_staff_id")
-  /// Null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ chuyên đề.
+  /// Null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ khỏi lớp (tiết/chuyên đề).
   hiddenReason     ClassContentHiddenReason? @map("hidden_reason")
+  /// Có giá trị = tiết đã **gỡ khỏi lớp** (không thuộc tập tiết của lớp): biến mất ở mọi phía.
+  /// Khác Ẩn: item đang hiện thì gỡ kèm ẩn (`module_removed`); item đang Ẩn tay giữ `manual`.
+  /// Thêm lại tiết/chuyên đề xoá cột này. Attempt/điểm/lượt xem giữ nguyên.
+  removedAt        DateTime?                 @map("removed_at") @db.Timestamptz(6)
   createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
