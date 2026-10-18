@@ -521,14 +521,21 @@ export interface StaffDashboardDto {
   training?: StaffDashboardTrainingSection;
 }
 
+/** `old` = Học sinh cũ nghỉ, `trial` = Học sinh thử nghỉ. */
+export type MonthlyReportEarlyDropKind = "old" | "trial";
+
 export interface MonthlyReportKpi {
   /** Tổng nạp ví hợp lệ trong tháng (QR hoàn tất + nạp thẳng đã duyệt). */
   totalTopUpInMonth: number;
   topUpTransactionCount: number;
   activeStudents: number;
   newStudents: number;
+  /** Học sinh cũ nghỉ trong tháng. */
   droppedStudents: number;
+  /** Học sinh thử nghỉ trong tháng (không trừ vào tăng ròng). */
+  trialDroppedStudents: number;
   netChange: number;
+  earlyDropOldCount: number;
   newStillActive: number;
 }
 
@@ -543,7 +550,9 @@ export interface MonthlyReportMatrixCell {
   /** `null` = Chưa xếp lớp. */
   courseId: string | null;
   newCount: number;
+  /** Tổng nghỉ sớm (cũ nghỉ + thử nghỉ). */
   earlyDropCount: number;
+  earlyDropOldCount: number;
   paidCount: number;
   /** Tổng nạp từ lần nạp đầu tới hết tháng báo cáo. */
   totalTopUp: number;
@@ -557,6 +566,7 @@ export interface MonthlyReportCustomerCareRow {
   droppedStudents: number;
   netChange: number;
   earlyDropCount: number;
+  earlyDropOldCount: number;
   totalTopUpInMonth: number;
   topUpTransactionCount: number;
 }
@@ -572,6 +582,7 @@ export interface MonthlyReportNewStudent {
   firstTopUpAt: string;
   totalTopUp: number;
   isEarlyDrop: boolean;
+  earlyDropKind: MonthlyReportEarlyDropKind | null;
   dropOutDate: string | null;
 }
 

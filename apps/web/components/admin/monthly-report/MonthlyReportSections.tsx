@@ -13,6 +13,7 @@ import {
   MONTHLY_REPORT_UNPLACED_LABEL,
   buildMonthlyReportMatrix,
   formatCustomerSourceKey,
+  formatEarlyDropBreakdown,
   formatMillions,
   formatSignedCount,
 } from "@/lib/monthly-report";
@@ -65,6 +66,19 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: ReactNode
   );
 }
 
+/** «2/5» kèm dòng phụ «1 cũ · 1 thử» khi có nghỉ sớm. */
+function EarlyDropRatio({ total, oldCount, newCount }: { total: number; oldCount: number; newCount: number }) {
+  const breakdown = formatEarlyDropBreakdown(total, oldCount);
+  return (
+    <div className="flex flex-col items-end leading-tight">
+      <span className={cn(total > 0 ? "text-error" : "text-success")}>
+        {total}/{newCount}
+      </span>
+      {breakdown ? <span className="text-xs font-normal text-text-muted">{breakdown}</span> : null}
+    </div>
+  );
+}
+
 export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
   const { kpi } = report;
   const stillActivePercent = kpi.newStudents > 0 ? Math.round((kpi.newStillActive / kpi.newStudents) * 100) : null;
@@ -80,9 +94,9 @@ export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
       <KpiCard label="Đang học" value={formatVnInteger(kpi.activeStudents)} hint={`qua ${careStaffCount} nhân sự CSKH`} />
       <KpiCard label="Học sinh mới" value={`+${kpi.newStudents}`} hint="theo lần nạp đầu" tone="up" />
       <KpiCard
-        label="Học sinh nghỉ"
+        label="Học sinh cũ nghỉ"
         value={kpi.droppedStudents > 0 ? `−${kpi.droppedStudents}` : "0"}
-        hint="theo ngày nghỉ trong tháng"
+        hint={`+ ${kpi.trialDroppedStudents} thử nghỉ (không tính)`}
         tone={kpi.droppedStudents > 0 ? "down" : undefined}
       />
       <KpiCard
@@ -97,7 +111,11 @@ export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
         hint={
           stillActivePercent == null
             ? "chưa có học sinh mới"
-            : `${stillActivePercent}% · ${kpi.newStudents - kpi.newStillActive} em nghỉ sớm`
+            : `${stillActivePercent}% · ${kpi.newStudents - kpi.newStillActive} em nghỉ sớm${
+                kpi.newStudents > kpi.newStillActive
+                  ? ` (${formatEarlyDropBreakdown(kpi.newStudents - kpi.newStillActive, kpi.earlyDropOldCount)})`
+                  : ""
+              }`
         }
       />
     </div>
@@ -152,7 +170,12 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
                         <div className="flex flex-col items-end leading-tight">
                           <span className="font-semibold">{cell.newCount}</span>
                           {cell.earlyDropCount > 0 ? (
-                            <span className="text-xs text-error">{cell.earlyDropCount} nghỉ</span>
+                            <span
+                              className="text-xs text-error"
+                              title={formatEarlyDropBreakdown(cell.earlyDropCount, cell.earlyDropOldCount) ?? undefined}
+                            >
+                              {cell.earlyDropCount} nghỉ
+                            </span>
                           ) : null}
                         </div>
                       ) : (
@@ -163,9 +186,7 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
                 })}
                 <TableCell className="text-right font-semibold tabular-nums">{total.newCount}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  <span className={cn(total.earlyDropCount > 0 ? "text-error" : "text-success")}>
-                    {total.earlyDropCount}/{total.newCount}
-                  </span>
+                  <EarlyDropRatio total={total.earlyDropCount} oldCount={total.earlyDropOldCount} newCount={total.newCount} />
                 </TableCell>
               </TableRow>
             );
@@ -179,7 +200,11 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
             ))}
             <TableCell className="text-right tabular-nums">{view.grandTotal.newCount}</TableCell>
             <TableCell className="text-right tabular-nums">
-              {view.grandTotal.earlyDropCount}/{view.grandTotal.newCount}
+              <EarlyDropRatio
+                total={view.grandTotal.earlyDropCount}
+                oldCount={view.grandTotal.earlyDropOldCount}
+                newCount={view.grandTotal.newCount}
+              />
             </TableCell>
           </TableRow>
         </TableBody>
@@ -355,7 +380,11 @@ export function MonthlyReportCustomerCareTable({ rows }: { rows: MonthlyReportCu
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{row.topUpTransactionCount}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {row.newStudents > 0 ? `${row.earlyDropCount}/${row.newStudents}` : "—"}
+                  {row.newStudents > 0 ? (
+                    <EarlyDropRatio total={row.earlyDropCount} oldCount={row.earlyDropOldCount} newCount={row.newStudents} />
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
               </TableRow>
             );
@@ -405,7 +434,14 @@ export function MonthlyReportNewStudentAppendix({
               <TableCell>{formatCustomerSourceKey(row.customerSource)}</TableCell>
               <TableCell className="text-right tabular-nums">{formatVnInteger(row.totalTopUp)} đ</TableCell>
               <TableCell className={cn(row.isEarlyDrop ? "text-error" : "text-text-muted")}>
-                {row.isEarlyDrop ? (row.dropOutDate ? formatVnDate(row.dropOutDate) : "Đã nghỉ") : "—"}
+                {row.isEarlyDrop ? (
+                  <div className="flex flex-col leading-tight">
+                    <span>{row.dropOutDate ? formatVnDate(row.dropOutDate) : "Đã nghỉ"}</span>
+                    <span className="text-xs text-text-muted">{row.earlyDropKind === "old" ? "Cũ nghỉ" : "Thử nghỉ"}</span>
+                  </div>
+                ) : (
+                  "—"
+                )}
               </TableCell>
             </TableRow>
           ))}

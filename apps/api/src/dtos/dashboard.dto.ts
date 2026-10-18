@@ -1126,8 +1126,13 @@ export interface MonthlyReportKpiDto {
   /** Học sinh đang học tại lúc xem (snapshot). */
   activeStudents: number;
   newStudents: number;
+  /** Học sinh cũ nghỉ trong tháng. */
   droppedStudents: number;
+  /** Học sinh thử nghỉ trong tháng (không trừ vào tăng ròng). */
+  trialDroppedStudents: number;
   netChange: number;
+  /** Số học sinh nghỉ sớm thuộc nhóm cũ nghỉ; phần còn lại là thử nghỉ. */
+  earlyDropOldCount: number;
   newStillActive: number;
 }
 
@@ -1142,7 +1147,9 @@ export interface MonthlyReportMatrixCellDto {
   /** `null` = Chưa xếp lớp. */
   courseId: string | null;
   newCount: number;
+  /** Tổng nghỉ sớm (cũ nghỉ + thử nghỉ). */
   earlyDropCount: number;
+  earlyDropOldCount: number;
   /** Số học sinh trong ô đã có tổng nạp > 0. */
   paidCount: number;
   /** Tổng nạp từ lần nạp đầu tới hết tháng báo cáo. */
@@ -1158,6 +1165,7 @@ export interface MonthlyReportCustomerCareRowDto {
   droppedStudents: number;
   netChange: number;
   earlyDropCount: number;
+  earlyDropOldCount: number;
   totalTopUpInMonth: number;
   topUpTransactionCount: number;
 }
@@ -1174,6 +1182,8 @@ export interface MonthlyReportNewStudentDto {
   totalTopUp: number;
   /** Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ. */
   isEarlyDrop: boolean;
+  /** `old` = cũ nghỉ, `trial` = thử nghỉ; `null` khi chưa nghỉ. */
+  earlyDropKind: 'old' | 'trial' | null;
   dropOutDate: string | null;
 }
 

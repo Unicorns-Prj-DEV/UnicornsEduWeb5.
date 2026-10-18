@@ -108,7 +108,7 @@ export default function AdminMonthlyReportPage() {
 
             <ReportSection
               title="Học sinh mới theo nguồn và khoá học"
-              description="Cột là khoá học của lớp đầu tiên học sinh vào; mỗi học sinh nằm đúng một cột. Số đỏ là học sinh nghỉ sớm (học sinh mới của tháng mà hiện đang nghỉ)."
+              description="Cột là khoá học của lớp đầu tiên học sinh vào; mỗi học sinh nằm đúng một cột. Số đỏ là học sinh nghỉ sớm (học sinh mới của tháng mà hiện đang nghỉ), tách cũ nghỉ / thử nghỉ."
             >
               <MonthlyReportNewStudentMatrix report={report} />
             </ReportSection>
@@ -127,11 +127,11 @@ export default function AdminMonthlyReportPage() {
               <MonthlyReportCustomerCareTable rows={report.customerCare} />
             </ReportSection>
 
-            <ReportSection title="Phụ lục A · Danh sách học sinh mới" description="Bấm vào dòng để mở hồ sơ học sinh.">
+            <ReportSection title={`Phụ lục A · Danh sách học sinh mới (${report.newStudents.length})`} description="Bấm vào dòng để mở hồ sơ học sinh.">
               <MonthlyReportNewStudentAppendix report={report} studentHref={studentHref} />
             </ReportSection>
 
-            <ReportSection title="Phụ lục B · Danh sách học sinh nghỉ" description="Bấm vào dòng để mở hồ sơ học sinh.">
+            <ReportSection title={`Phụ lục B · Danh sách học sinh cũ nghỉ (${report.droppedStudents.length})`} description="Bấm vào dòng để mở hồ sơ học sinh.">
               <MonthlyReportDroppedAppendix report={report} studentHref={studentHref} />
             </ReportSection>
 
@@ -140,6 +140,10 @@ export default function AdminMonthlyReportPage() {
                 <li>
                   Học sinh mới = học sinh có lần nạp ví hợp lệ đầu tiên (QR hoàn tất hoặc nạp thẳng đã duyệt) trong tháng.
                   Khác với «Học sinh mới» trên khối CSKH (tính theo ngày tạo hồ sơ).
+                </li>
+                <li>
+                  Học sinh cũ nghỉ = đã nạp ví thành công và đã học từ 2 buổi trở lên (có mặt, nghỉ phép hoặc học thử; cộng
+                  mọi lớp). Chỉ cũ nghỉ được trừ vào tăng ròng và nằm ở Phụ lục B; thử nghỉ chỉ đếm riêng.
                 </li>
                 <li>Tổng nạp là tiền nạp vào ví, không phải doanh thu ghi nhận theo buổi học.</li>
                 <li>Số liệu tính lúc {formatVnDateTime(report.generatedAt)}; trạng thái học sinh có thể đổi sau đó.</li>

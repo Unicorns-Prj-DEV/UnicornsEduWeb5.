@@ -27,9 +27,16 @@ export function formatSignedCount(value: number): string {
   return "0";
 }
 
+/** «2 cũ · 1 thử» cho số nghỉ sớm; `null` khi không có ai nghỉ sớm. */
+export function formatEarlyDropBreakdown(total: number, oldCount: number): string | null {
+  if (total <= 0) return null;
+  return `${oldCount} cũ · ${total - oldCount} thử`;
+}
+
 export type MonthlyReportMatrixTotals = {
   newCount: number;
   earlyDropCount: number;
+  earlyDropOldCount: number;
   paidCount: number;
   totalTopUp: number;
 };
@@ -50,6 +57,7 @@ export type MonthlyReportMatrixView = {
 const EMPTY_TOTALS: MonthlyReportMatrixTotals = {
   newCount: 0,
   earlyDropCount: 0,
+  earlyDropOldCount: 0,
   paidCount: 0,
   totalTopUp: 0,
 };
@@ -61,6 +69,7 @@ function addTotals(
   return {
     newCount: a.newCount + b.newCount,
     earlyDropCount: a.earlyDropCount + b.earlyDropCount,
+    earlyDropOldCount: a.earlyDropOldCount + b.earlyDropOldCount,
     paidCount: a.paidCount + b.paidCount,
     totalTopUp: a.totalTopUp + b.totalTopUp,
   };

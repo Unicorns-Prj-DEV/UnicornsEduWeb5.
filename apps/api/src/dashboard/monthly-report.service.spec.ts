@@ -120,6 +120,12 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
       ['cs-1', 'Nguyễn Ngọc Linh'],
       ['cs-2', 'Phan Đàm Thu Thảo'],
     ]),
+    // Mặc định mọi học sinh đang nghỉ đều là cũ nghỉ.
+    oldDroppedStudentIds: new Set([
+      'new-dropped',
+      'old-dropped',
+      'old-dropped-august',
+    ]),
     ...overrides,
   };
   return input;
@@ -135,7 +141,9 @@ describe('buildAdminMonthlyReport', () => {
       activeStudents: 3,
       newStudents: 3,
       droppedStudents: 2,
+      trialDroppedStudents: 0,
       netChange: 1,
+      earlyDropOldCount: 1,
       newStillActive: 2,
     });
   });
@@ -153,6 +161,7 @@ describe('buildAdminMonthlyReport', () => {
           courseId: 'c-basic',
           newCount: 2,
           earlyDropCount: 1,
+          earlyDropOldCount: 1,
           paidCount: 2,
           totalTopUp: 3_500_000,
         },
@@ -161,6 +170,7 @@ describe('buildAdminMonthlyReport', () => {
           courseId: null,
           newCount: 1,
           earlyDropCount: 0,
+          earlyDropOldCount: 0,
           paidCount: 0,
           totalTopUp: 0,
         },
@@ -216,6 +226,7 @@ describe('buildAdminMonthlyReport', () => {
     ]);
     expect(report.newStudents[1]).toMatchObject({
       isEarlyDrop: true,
+      earlyDropKind: 'old',
       dropOutDate: '2026-09-20',
       courseName: 'BASIC',
     });
@@ -223,6 +234,35 @@ describe('buildAdminMonthlyReport', () => {
       className: null,
       courseId: null,
       totalTopUp: 0,
+    });
+  });
+
+  it('counts trial-dropped students apart: not in net change nor appendix B, but still early drops', () => {
+    const report = buildAdminMonthlyReport(
+      buildInput({
+        oldDroppedStudentIds: new Set(['old-dropped', 'old-dropped-august']),
+      }),
+    );
+
+    expect(report.kpi).toMatchObject({
+      droppedStudents: 1,
+      trialDroppedStudents: 1,
+      netChange: 2,
+      earlyDropOldCount: 0,
+      newStillActive: 2,
+    });
+    expect(report.droppedStudents.map((row) => row.studentId)).toEqual([
+      'old-dropped',
+    ]);
+    expect(report.newStudents[1]).toMatchObject({
+      isEarlyDrop: true,
+      earlyDropKind: 'trial',
+    });
+    expect(report.customerCare[0]).toMatchObject({
+      droppedStudents: 0,
+      netChange: 2,
+      earlyDropCount: 1,
+      earlyDropOldCount: 0,
     });
   });
 });

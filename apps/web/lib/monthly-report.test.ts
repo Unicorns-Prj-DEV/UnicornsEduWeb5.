@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MONTHLY_REPORT_NONE_KEY,
   buildMonthlyReportMatrix,
+  formatEarlyDropBreakdown,
   formatMillions,
   formatSignedCount,
 } from "./monthly-report";
@@ -9,9 +10,9 @@ import {
 describe("buildMonthlyReportMatrix", () => {
   const view = buildMonthlyReportMatrix(
     [
-      { customerSource: "referral", courseId: "c-basic", newCount: 1, earlyDropCount: 0, paidCount: 1, totalTopUp: 2_000_000 },
-      { customerSource: "tiktok", courseId: "c-basic", newCount: 2, earlyDropCount: 1, paidCount: 2, totalTopUp: 3_500_000 },
-      { customerSource: null, courseId: null, newCount: 1, earlyDropCount: 0, paidCount: 0, totalTopUp: 0 },
+      { customerSource: "referral", courseId: "c-basic", newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, paidCount: 1, totalTopUp: 2_000_000 },
+      { customerSource: "tiktok", courseId: "c-basic", newCount: 2, earlyDropCount: 1, earlyDropOldCount: 1, paidCount: 2, totalTopUp: 3_500_000 },
+      { customerSource: null, courseId: null, newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, paidCount: 0, totalTopUp: 0 },
     ],
     ["c-basic", "c-adv"],
   );
@@ -26,7 +27,7 @@ describe("buildMonthlyReportMatrix", () => {
     expect(view.cell("tiktok", "c-adv").newCount).toBe(0);
     expect(view.columnTotal("c-basic")).toMatchObject({ newCount: 3, totalTopUp: 5_500_000 });
     expect(view.rowTotal(MONTHLY_REPORT_NONE_KEY).newCount).toBe(1);
-    expect(view.grandTotal).toEqual({ newCount: 4, earlyDropCount: 1, paidCount: 3, totalTopUp: 5_500_000 });
+    expect(view.grandTotal).toEqual({ newCount: 4, earlyDropCount: 1, earlyDropOldCount: 1, paidCount: 3, totalTopUp: 5_500_000 });
     expect(view.maxCellTopUp).toBe(3_500_000);
   });
 
@@ -45,5 +46,10 @@ describe("monthly report formatters", () => {
     expect(formatSignedCount(3)).toBe("+3");
     expect(formatSignedCount(-2)).toBe("−2");
     expect(formatSignedCount(0)).toBe("0");
+  });
+
+  it("splits early drops into old and trial dropped students", () => {
+    expect(formatEarlyDropBreakdown(3, 2)).toBe("2 cũ · 1 thử");
+    expect(formatEarlyDropBreakdown(0, 0)).toBeNull();
   });
 });
