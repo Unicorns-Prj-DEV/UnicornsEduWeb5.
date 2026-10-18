@@ -11,10 +11,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import {
-  STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-} from './student.dto';
+import { STUDENT_CUSTOMER_SOURCE_VALUES } from './student.dto';
 
 export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
   'topup',
@@ -29,10 +26,8 @@ export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
   'customer-source',
 ] as const;
 
-export const ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS = [
-  ...STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-] as const;
+export const ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS =
+  STUDENT_CUSTOMER_SOURCE_VALUES;
 
 export type AdminDashboardFinancialDetailRowKeyDto =
   (typeof ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS)[number];
@@ -665,8 +660,6 @@ export interface AdminDashboardFinancialDetailItemDto {
   secondaryLabel: string | null;
   amount: number;
   note: string | null;
-  /** Chú thích nguồn thực tế. Chỉ có trên dòng Khác. */
-  sourceNote?: string | null;
   /**
    * Số tiền theo `sources[].key` (có dấu, phạt âm). Có trên Chi phí nhân sự và
    * Trợ cấp chờ thanh toán; FE dùng để lọc theo thẻ nguồn.
@@ -1142,8 +1135,7 @@ export interface MonthlyReportCourseDto {
 }
 
 export interface MonthlyReportMatrixCellDto {
-  /** `null` = chưa gán nguồn khách. */
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   /** `null` = Chưa xếp lớp. */
   courseId: string | null;
   newCount: number;
@@ -1180,7 +1172,7 @@ export interface MonthlyReportNewStudentDto {
   className: string | null;
   courseId: string | null;
   courseName: string | null;
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   firstTopUpAt: string;
   totalTopUp: number;
   /** Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ. */

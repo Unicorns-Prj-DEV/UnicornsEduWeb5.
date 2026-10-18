@@ -38,10 +38,10 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
         dropOutDate: new Date('2026-09-20T00:00:00.000Z'),
         dropOutReason: 'Học thử không hợp',
       }),
-      // Mới, chưa xếp lớp, không có nguồn, không có CSKH.
+      // Mới, chưa xếp lớp, nguồn Người quen, không có CSKH.
       student({
         id: 'new-unplaced',
-        customerSource: null,
+        customerSource: 'acquaintance',
         customerCareStaffId: null,
       }),
       // Cũ, nghỉ trong tháng.
@@ -168,7 +168,7 @@ describe('buildAdminMonthlyReport', () => {
           revenue: 1_200_000,
         },
         {
-          customerSource: null,
+          customerSource: 'acquaintance',
           courseId: null,
           newCount: 1,
           earlyDropCount: 0,

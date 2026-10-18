@@ -75,8 +75,11 @@ model StudentInfo {
   status                    StudentStatus                     @default(active)
   gender                    Gender                            @default(male)
   goal                      String?
-  customerSource            StudentCustomerSource?            @map("customer_source")
-  customerSourceNote        String?                           @map("customer_source_note") @db.VarChar(200)
+  customerSource            StudentCustomerSource             @default(acquaintance) @map("customer_source")
+  /// Nguồn trước khi gộp vào Người quen (`unassigned` = chưa gán); chỉ lưu DB, không hiện UI.
+  legacyCustomerSource      String?                           @map("legacy_customer_source") @db.VarChar(32)
+  /// Chú thích nguồn «Khác» cũ; chỉ lưu DB, không hiện UI.
+  legacyCustomerSourceNote  String?                           @map("legacy_customer_source_note") @db.VarChar(200)
   dropOutDate               DateTime?                         @map("drop_out_date") @db.Date
   /// Lý do nghỉ học, bắt buộc khi chuyển sang nghỉ; giữ lại khi học sinh học lại.
   dropOutReason             String?                           @map("drop_out_reason") @db.VarChar(500)

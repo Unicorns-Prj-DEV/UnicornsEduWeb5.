@@ -10,15 +10,15 @@ import {
 describe("buildMonthlyReportMatrix", () => {
   const view = buildMonthlyReportMatrix(
     [
-      { customerSource: "referral", courseId: "c-basic", newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, earningCount: 1, revenue: 2_000_000 },
+      { customerSource: "acquaintance", courseId: "c-basic", newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, earningCount: 1, revenue: 2_000_000 },
       { customerSource: "tiktok", courseId: "c-basic", newCount: 2, earlyDropCount: 1, earlyDropOldCount: 1, earningCount: 2, revenue: 3_500_000 },
-      { customerSource: null, courseId: null, newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, earningCount: 0, revenue: 0 },
+      { customerSource: "acquaintance", courseId: null, newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, earningCount: 0, revenue: 0 },
     ],
     ["c-basic", "c-adv"],
   );
 
-  it("orders rows by source enum, unassigned source last, and appends the unplaced column", () => {
-    expect(view.rowKeys).toEqual(["tiktok", "referral", MONTHLY_REPORT_NONE_KEY]);
+  it("orders rows by source enum, Người quen last, and appends the unplaced column", () => {
+    expect(view.rowKeys).toEqual(["tiktok", "acquaintance"]);
     expect(view.columnKeys).toEqual(["c-basic", "c-adv", MONTHLY_REPORT_NONE_KEY]);
   });
 
@@ -26,7 +26,8 @@ describe("buildMonthlyReportMatrix", () => {
     expect(view.cell("tiktok", "c-basic").earlyDropCount).toBe(1);
     expect(view.cell("tiktok", "c-adv").newCount).toBe(0);
     expect(view.columnTotal("c-basic")).toMatchObject({ newCount: 3, revenue: 5_500_000 });
-    expect(view.rowTotal(MONTHLY_REPORT_NONE_KEY).newCount).toBe(1);
+    expect(view.rowTotal("acquaintance").newCount).toBe(2);
+    expect(view.cell("acquaintance", MONTHLY_REPORT_NONE_KEY).newCount).toBe(1);
     expect(view.grandTotal).toEqual({ newCount: 4, earlyDropCount: 1, earlyDropOldCount: 1, earningCount: 3, revenue: 5_500_000 });
     expect(view.maxCellRevenue).toBe(3_500_000);
   });

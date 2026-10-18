@@ -699,10 +699,8 @@ export default function AdminStudentDetailPage() {
                                         label="Nguồn khách"
                                         value={
                                             student.customerSource
-                                                ? student.customerSource === "other" && student.customerSourceNote?.trim()
-                                                    ? `${STUDENT_CUSTOMER_SOURCE_LABELS.other} · ${student.customerSourceNote.trim()}`
-                                                    : STUDENT_CUSTOMER_SOURCE_LABELS[student.customerSource]
-                                                : "Chưa gán"
+                                                ? STUDENT_CUSTOMER_SOURCE_LABELS[student.customerSource]
+                                                : "—"
                                         }
                                     />
                                     <StudentDetailRow label="Tỉnh / Thành phố" value={student.province?.trim() || "—"} />

@@ -19,7 +19,7 @@ export interface MonthlyReportStudentInput {
   id: string;
   fullName: string;
   status: StudentStatus;
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   dropOutDate: Date | null;
   dropOutReason: string | null;
   customerCareStaffId: string | null;
@@ -119,7 +119,7 @@ export function buildAdminMonthlyReport(
     const firstClass = input.firstClassByStudent.get(student.id) ?? null;
     if (firstClass) courseNames.set(firstClass.courseId, firstClass.courseName);
     const courseId = firstClass?.courseId ?? null;
-    const key = `${student.customerSource ?? ''}|${courseId ?? ''}`;
+    const key = `${student.customerSource}|${courseId ?? ''}`;
     const cell = cells.get(key) ?? {
       customerSource: student.customerSource,
       courseId,

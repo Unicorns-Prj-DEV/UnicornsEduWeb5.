@@ -198,8 +198,8 @@ export type AdminDashboardFinancialDetailRowKey =
   | "total-in"
   | "customer-source";
 
-/** Mọi Nguồn khách cộng nhóm Chưa gán. */
-export type AdminDashboardCustomerSourceKey = StudentCustomerSource | "unassigned";
+/** Bốn Nguồn khách (tập đóng). */
+export type AdminDashboardCustomerSourceKey = StudentCustomerSource;
 
 export interface AdminDashboardCustomerSourceRow {
   key: AdminDashboardCustomerSourceKey;
@@ -223,7 +223,6 @@ export interface AdminDashboardFinancialDetailItem {
   secondaryLabel: string | null;
   amount: number;
   note: string | null;
-  sourceNote?: string | null;
   /** Số tiền theo `sources[].key` (có dấu, phạt âm). Có trên Chi phí nhân sự và Trợ cấp chờ thanh toán. */
   sourceAmounts?: Record<string, number>;
 }
@@ -545,8 +544,7 @@ export interface MonthlyReportCourse {
 }
 
 export interface MonthlyReportMatrixCell {
-  /** `null` = chưa gán nguồn khách. */
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   /** `null` = Chưa xếp lớp. */
   courseId: string | null;
   newCount: number;
@@ -579,7 +577,7 @@ export interface MonthlyReportNewStudent {
   className: string | null;
   courseId: string | null;
   courseName: string | null;
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   firstTopUpAt: string;
   totalTopUp: number;
   isEarlyDrop: boolean;

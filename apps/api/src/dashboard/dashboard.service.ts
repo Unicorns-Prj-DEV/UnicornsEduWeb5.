@@ -3,8 +3,6 @@ import { Prisma } from '../../generated/client';
 import {
   STUDENT_CUSTOMER_SOURCE_LABELS,
   STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-  UNASSIGNED_CUSTOMER_SOURCE_LABEL,
 } from '../dtos/student.dto';
 import {
   ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL,
@@ -311,19 +309,15 @@ type LearnedTuitionByStudentSqlRow = {
   className: string;
   totalAmount: number | string | null;
   attendanceCount: number | string | null;
-  customerSourceNote?: string | null;
 };
 
 type CustomerSourceAggregateSqlRow = {
-  customerSource: string | null;
+  customerSource: string;
   studentCount: number | string | null;
   revenue: number | string | null;
 };
 
-const CUSTOMER_SOURCE_ROW_ORDER = [
-  ...STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-] as const;
+const CUSTOMER_SOURCE_ROW_ORDER = STUDENT_CUSTOMER_SOURCE_VALUES;
 
 function allocateSharePercents(amounts: number[]): number[] {
   const total = amounts.reduce((sum, amount) => sum + amount, 0);
@@ -1161,7 +1155,7 @@ export class DashboardService {
 
     const byKey = new Map(
       rows.map((row) => [
-        row.customerSource ?? UNASSIGNED_CUSTOMER_SOURCE_KEY,
+        row.customerSource,
         {
           studentCount: normalizeInteger(row.studentCount),
           revenue: normalizeMoneyAmount(row.revenue),
@@ -1175,10 +1169,7 @@ export class DashboardService {
 
     return CUSTOMER_SOURCE_ROW_ORDER.map((key, index) => ({
       key,
-      label:
-        key === UNASSIGNED_CUSTOMER_SOURCE_KEY
-          ? UNASSIGNED_CUSTOMER_SOURCE_LABEL
-          : STUDENT_CUSTOMER_SOURCE_LABELS[key],
+      label: STUDENT_CUSTOMER_SOURCE_LABELS[key],
       studentCount: byKey.get(key)?.studentCount ?? 0,
       revenue: amounts[index],
       sharePercent: shares[index],
@@ -1191,10 +1182,7 @@ export class DashboardService {
     limit: number;
     customerSource: (typeof CUSTOMER_SOURCE_ROW_ORDER)[number];
   }) {
-    const sourceFilter =
-      params.customerSource === UNASSIGNED_CUSTOMER_SOURCE_KEY
-        ? Prisma.sql`student_info.customer_source IS NULL`
-        : Prisma.sql`student_info.customer_source::text = ${params.customerSource}`;
+    const sourceFilter = Prisma.sql`student_info.customer_source::text = ${params.customerSource}`;
 
     return this.prisma.$queryRaw<LearnedTuitionByStudentSqlRow[]>(Prisma.sql`
       SELECT
@@ -1205,8 +1193,7 @@ export class DashboardService {
           ''
         ) AS "className",
         COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount",
-        COUNT(attendance.id) AS "attendanceCount",
-        student_info.customer_source_note AS "customerSourceNote"
+        COUNT(attendance.id) AS "attendanceCount"
       FROM attendance
       INNER JOIN sessions ON sessions.id = attendance.session_id
       INNER JOIN classes ON classes.id = sessions.class_id
@@ -1215,7 +1202,7 @@ export class DashboardService {
         AND sessions.date >= ${params.monthStart}
         AND sessions.date < ${params.monthEnd}
         AND ${sourceFilter}
-      GROUP BY student_info.id, student_info.full_name, student_info.customer_source_note
+      GROUP BY student_info.id, student_info.full_name
       ORDER BY "totalAmount" DESC, student_info.full_name ASC
       LIMIT ${params.limit}
     `);
@@ -5381,9 +5368,6 @@ export class DashboardService {
                   secondaryLabel: row.className || null,
                   amount: normalizeMoneyAmount(row.totalAmount),
                   note: `${normalizeInteger(row.attendanceCount)} lượt học có mặt/vắng phép`,
-                  ...(sourceKey === 'other'
-                    ? { sourceNote: row.customerSourceNote?.trim() || null }
-                    : {}),
                 }),
               ),
               emptyState:

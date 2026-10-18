@@ -131,7 +131,7 @@ function useMatrix(report: AdminMonthlyReport) {
   const columnLabel = (key: string) =>
     key === MONTHLY_REPORT_NONE_KEY ? MONTHLY_REPORT_UNPLACED_LABEL : (courseNames.get(key) ?? key);
   const rowLabel = (key: string) =>
-    formatCustomerSourceKey(key === MONTHLY_REPORT_NONE_KEY ? null : (key as StudentCustomerSource));
+    formatCustomerSourceKey(key as StudentCustomerSource);
   return { view, columnLabel, rowLabel };
 }
 
