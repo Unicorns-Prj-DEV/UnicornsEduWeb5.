@@ -1138,15 +1138,18 @@ export interface MonthlyReportMatrixCellDto {
   customerSource: StudentCustomerSource;
   /** `null` = Chưa xếp lớp. */
   courseId: string | null;
+  /** Học sinh mới có lớp đầu tiên thuộc khoá của ô. */
   newCount: number;
   /** Tổng nghỉ sớm (cũ nghỉ + thử nghỉ). */
   earlyDropCount: number;
   earlyDropOldCount: number;
-  /** Số học sinh trong ô có doanh thu > 0 trong tháng. */
+  /** Số học sinh mới có doanh thu > 0 ở khoá của ô trong tháng. */
   earningCount: number;
   /**
    * Doanh thu mới: Học phí đã học trong tháng (attendance present/excused,
-   * gồm thu bù học thử và gói bán một lần) của học sinh mới thuộc ô.
+   * gồm thu bù học thử và gói bán một lần) của học sinh mới cùng nguồn, tính
+   * theo khoá của lớp có buổi — học sinh đổi sang lớp khoá khác thì doanh thu
+   * nằm ở ô khoá mới (ô có thể có doanh thu mà `newCount = 0`).
    */
   revenue: number;
 }

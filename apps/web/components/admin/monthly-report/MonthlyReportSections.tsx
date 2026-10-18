@@ -243,7 +243,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
                 <TableCell className="sticky left-0 bg-bg-surface font-medium">{rowLabel(rowKey)}</TableCell>
                 {view.columnKeys.map((columnKey) => {
                   const cell = view.cell(rowKey, columnKey);
-                  if (cell.newCount === 0) {
+                  if (cell.newCount === 0 && cell.earningCount === 0) {
                     return (
                       <TableCell key={columnKey} className="text-right text-text-muted">
                         ·

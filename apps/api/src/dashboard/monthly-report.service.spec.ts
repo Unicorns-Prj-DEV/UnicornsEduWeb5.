@@ -121,7 +121,14 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
       ['cs-2', 'Phan Đàm Thu Thảo'],
     ]),
     // Doanh thu ≠ tổng nạp: new-dropped nạp nhưng chưa học buổi nào.
-    revenueInMonth: new Map([['new-active', 1_200_000]]),
+    revenueInMonth: [
+      {
+        studentId: 'new-active',
+        courseId: 'c-basic',
+        courseName: 'BASIC',
+        revenue: 1_200_000,
+      },
+    ],
     // Mặc định mọi học sinh đang nghỉ đều là cũ nghỉ.
     oldDroppedStudentIds: new Set([
       'new-dropped',
@@ -177,6 +184,59 @@ describe('buildAdminMonthlyReport', () => {
           revenue: 0,
         },
       ]),
+    );
+  });
+
+  it('puts revenue under the course of the attended class when the student switched course', () => {
+    // new-active vào lớp BASIC đầu tiên rồi đổi sang lớp ADVANCED và học ở đó.
+    const report = buildAdminMonthlyReport(
+      buildInput({
+        revenueInMonth: [
+          {
+            studentId: 'new-active',
+            courseId: 'c-adv',
+            courseName: 'ADVANCED',
+            revenue: 1_100_000,
+          },
+          {
+            studentId: 'old-active',
+            courseId: 'c-adv',
+            courseName: 'ADVANCED',
+            revenue: 9_000_000,
+          },
+        ],
+      }),
+    );
+
+    expect(report.courses).toEqual([
+      { courseId: 'c-adv', courseName: 'ADVANCED' },
+      { courseId: 'c-basic', courseName: 'BASIC' },
+    ]);
+    expect(report.matrix).toEqual(
+      expect.arrayContaining([
+        {
+          customerSource: 'tiktok',
+          courseId: 'c-basic',
+          newCount: 2,
+          earlyDropCount: 1,
+          earlyDropOldCount: 1,
+          earningCount: 0,
+          revenue: 0,
+        },
+        {
+          customerSource: 'tiktok',
+          courseId: 'c-adv',
+          newCount: 0,
+          earlyDropCount: 0,
+          earlyDropOldCount: 0,
+          earningCount: 1,
+          revenue: 1_100_000,
+        },
+      ]),
+    );
+    // Học sinh cũ không vào ma trận.
+    expect(report.matrix.reduce((total, cell) => total + cell.revenue, 0)).toBe(
+      1_100_000,
     );
   });
 

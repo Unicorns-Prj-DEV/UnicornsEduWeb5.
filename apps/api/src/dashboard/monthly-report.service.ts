@@ -41,6 +41,14 @@ export interface MonthlyReportClassInput {
   courseName: string;
 }
 
+/** Học phí đã học trong tháng của một học sinh ở một khoá (khoá của lớp có buổi). */
+export interface MonthlyReportRevenueInput {
+  studentId: string;
+  courseId: string;
+  courseName: string;
+  revenue: number;
+}
+
 export interface MonthlyReportInput {
   month: string;
   year: string;
@@ -56,8 +64,11 @@ export interface MonthlyReportInput {
   /** Lớp gần nhất học sinh vào (cho phụ lục học sinh nghỉ). */
   latestClassByStudent: Map<string, MonthlyReportClassInput>;
   staffNames: Map<string, string>;
-  /** studentId → Học phí đã học trong tháng (doanh thu), chỉ cần cho học sinh mới. */
-  revenueInMonth: Map<string, number>;
+  /**
+   * Học phí đã học trong tháng (doanh thu) của học sinh mới, tách theo khoá của
+   * lớp có buổi — học sinh đổi lớp sang khoá khác thì doanh thu theo lớp mới.
+   */
+  revenueInMonth: MonthlyReportRevenueInput[];
   /** Học sinh đang nghỉ thoả định nghĩa **Học sinh cũ nghỉ**; còn lại là thử nghỉ. */
   oldDroppedStudentIds: Set<string>;
 }
@@ -112,30 +123,49 @@ export function buildAdminMonthlyReport(
   const staffNameOf = (staffId: string | null) =>
     staffId ? (input.staffNames.get(staffId) ?? null) : null;
 
-  // Ma trận Nguồn khách × Khoá học của lớp đầu tiên.
+  // Ma trận Nguồn khách × Khoá học: số học sinh theo khoá của lớp đầu tiên,
+  // doanh thu theo khoá của lớp có buổi (đổi lớp sang khoá khác không kéo
+  // doanh thu về khoá cũ).
   const cells = new Map<string, MonthlyReportMatrixCellDto>();
   const courseNames = new Map<string, string>();
+  const cellOf = (
+    customerSource: StudentCustomerSource,
+    courseId: string | null,
+  ) => {
+    const key = `${customerSource}|${courseId ?? ''}`;
+    let cell = cells.get(key);
+    if (!cell) {
+      cell = {
+        customerSource,
+        courseId,
+        newCount: 0,
+        earlyDropCount: 0,
+        earlyDropOldCount: 0,
+        earningCount: 0,
+        revenue: 0,
+      };
+      cells.set(key, cell);
+    }
+    return cell;
+  };
   for (const student of newStudents) {
     const firstClass = input.firstClassByStudent.get(student.id) ?? null;
     if (firstClass) courseNames.set(firstClass.courseId, firstClass.courseName);
-    const courseId = firstClass?.courseId ?? null;
-    const key = `${student.customerSource}|${courseId ?? ''}`;
-    const cell = cells.get(key) ?? {
-      customerSource: student.customerSource,
-      courseId,
-      newCount: 0,
-      earlyDropCount: 0,
-      earlyDropOldCount: 0,
-      earningCount: 0,
-      revenue: 0,
-    };
-    const revenue = input.revenueInMonth.get(student.id) ?? 0;
+    const cell = cellOf(student.customerSource, firstClass?.courseId ?? null);
     cell.newCount += 1;
     if (isEarlyDrop(student)) cell.earlyDropCount += 1;
     if (isEarlyDropOld(student)) cell.earlyDropOldCount += 1;
-    if (revenue > 0) cell.earningCount += 1;
-    cell.revenue += revenue;
-    cells.set(key, cell);
+  }
+  const sourceByNewStudent = new Map(
+    newStudents.map((student) => [student.id, student.customerSource]),
+  );
+  for (const row of input.revenueInMonth) {
+    const customerSource = sourceByNewStudent.get(row.studentId);
+    if (customerSource == null || row.revenue <= 0) continue;
+    courseNames.set(row.courseId, row.courseName);
+    const cell = cellOf(customerSource, row.courseId);
+    cell.earningCount += 1;
+    cell.revenue += row.revenue;
   }
 
   // Bảng theo CSKH.
@@ -399,33 +429,46 @@ export class MonthlyReportService {
   }
 
   /**
-   * Học phí đã học trong tháng theo học sinh: `tuition_fee` của buổi
-   * có mặt/nghỉ phép có `sessions.date` trong tháng. `tuition_fee` đã gồm thu
-   * bù học thử và tổng gói của lớp bán một lần, khớp doanh thu dashboard.
+   * Học phí đã học trong tháng theo học sinh × khoá của lớp có buổi:
+   * `tuition_fee` của buổi có mặt/nghỉ phép có `sessions.date` trong tháng.
+   * `tuition_fee` đã gồm thu bù học thử và tổng gói của lớp bán một lần, khớp
+   * doanh thu dashboard.
    */
   private async findRevenueInMonth(
     studentIds: string[],
     monthStart: Date,
     monthEnd: Date,
-  ): Promise<Map<string, number>> {
-    if (studentIds.length === 0) return new Map();
+  ): Promise<MonthlyReportRevenueInput[]> {
+    if (studentIds.length === 0) return [];
     const rows = await this.prisma.$queryRaw<
-      { student_id: string; revenue: bigint | number | null }[]
+      {
+        student_id: string;
+        course_id: string;
+        course_name: string;
+        revenue: bigint | number | null;
+      }[]
     >(Prisma.sql`
       SELECT
         attendance.student_id AS student_id,
+        courses.id AS course_id,
+        courses.name AS course_name,
         COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
       FROM attendance
       INNER JOIN sessions ON sessions.id = attendance.session_id
+      INNER JOIN classes ON classes.id = sessions.class_id
+      INNER JOIN courses ON courses.id = classes.course_id
       WHERE attendance.student_id IN (${Prisma.join(studentIds)})
         AND attendance.status IN ('present', 'excused')
         AND sessions.date >= ${monthStart}
         AND sessions.date < ${monthEnd}
-      GROUP BY attendance.student_id
+      GROUP BY attendance.student_id, courses.id, courses.name
     `);
-    return new Map(
-      rows.map((row) => [row.student_id, Number(row.revenue ?? 0)]),
-    );
+    return rows.map((row) => ({
+      studentId: row.student_id,
+      courseId: row.course_id,
+      courseName: row.course_name,
+      revenue: Number(row.revenue ?? 0),
+    }));
   }
 
   /** Lọc trong `studentIds` những học sinh thoả định nghĩa **Học sinh cũ nghỉ**. */
