@@ -168,6 +168,8 @@ export interface AdminDashboardStudentChurnItem {
   studentName: string;
   className: string;
   eventDate: string;
+  /** Chỉ có ở `dropped` / `trial_dropped`: lý do nghỉ trên hồ sơ, `null` khi chưa điền. */
+  dropOutReason?: string | null;
 }
 
 export interface AdminDashboardActiveClassBreakdownItem {

@@ -627,6 +627,8 @@ export interface AdminDashboardStudentChurnItemDto {
   studentName: string;
   className: string;
   eventDate: string;
+  /** Chỉ có ở `dropped` / `trial_dropped`: lý do nghỉ trên hồ sơ, `null` khi chưa điền. */
+  dropOutReason?: string | null;
 }
 
 /** Một khoá học (phân loại lớp) đang có lớp `running`. */

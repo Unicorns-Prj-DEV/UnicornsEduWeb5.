@@ -171,6 +171,7 @@ function StudentChurnDetailModal({
   year: string;
 }) {
   const dialogTitleId = useId();
+  const isDroppedTab = activeTab === "dropped" || activeTab === "trial_dropped";
 
   const churnQuery = useQuery({
     queryKey: ["dashboard", "admin", "student-churn-details", activeTab, month, year],
@@ -236,7 +237,7 @@ function StudentChurnDetailModal({
               ))}
             </div>
             {activeTab === "new" ? <NewStudentDefinitionHint /> : null}
-            {activeTab === "dropped" || activeTab === "trial_dropped" ? <DroppedStudentDefinitionHint /> : null}
+            {isDroppedTab ? <DroppedStudentDefinitionHint /> : null}
 
             <div className="max-h-[65vh] overflow-auto px-4 py-4 sm:px-5">
               {churnQuery.isLoading ? (
@@ -267,6 +268,11 @@ function StudentChurnDetailModal({
                             {formatChurnDate(item.eventDate)}
                           </p>
                         ) : null}
+                        {isDroppedTab ? (
+                          <p className="mt-1 text-xs text-text-secondary">
+                            Lý do nghỉ: {item.dropOutReason || "—"}
+                          </p>
+                        ) : null}
                       </article>
                     ))}
                   </div>
@@ -282,6 +288,7 @@ function StudentChurnDetailModal({
                               {activeTab === "new" ? "Ngày vào học" : "Ngày nghỉ"}
                             </TableHead>
                           ) : null}
+                          {isDroppedTab ? <TableHead className="min-w-[240px]">Lý do nghỉ</TableHead> : null}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -296,6 +303,11 @@ function StudentChurnDetailModal({
                             {activeTab !== "active" ? (
                               <TableCell className="align-top text-text-secondary">
                                 {formatChurnDate(item.eventDate)}
+                              </TableCell>
+                            ) : null}
+                            {isDroppedTab ? (
+                              <TableCell className="max-w-[320px] whitespace-normal align-top text-text-secondary">
+                                {item.dropOutReason || "—"}
                               </TableCell>
                             ) : null}
                           </TableRow>

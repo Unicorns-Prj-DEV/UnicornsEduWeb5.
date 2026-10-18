@@ -674,6 +674,29 @@ describe('DashboardService new students by first wallet top-up', () => {
     expect(sql).toContain('counted_attendance.student_id = student_info.id');
   });
 
+  it('returns the drop-out reason on dropped churn rows only', async () => {
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        studentId: 's1',
+        studentName: 'A',
+        className: 'L1',
+        eventDate: new Date('2026-09-10T00:00:00.000Z'),
+        dropOutReason: '  Lịch học bận ',
+      },
+    ]);
+
+    const rows = await service.getAdminStudentChurnDetails({
+      type: 'trial_dropped',
+      month: '09',
+      year: '2026',
+    });
+
+    expect(rows[0].dropOutReason).toBe('Lịch học bận');
+    const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
+    expect(sql.sql).toContain('student_info.drop_out_reason');
+    expect(sql.sql).toContain('NOT (');
+  });
+
   it('splits dropped students into old (paid + ≥2 counted sessions) and trial', async () => {
     prisma.$queryRaw.mockResolvedValue([]);
 

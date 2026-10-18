@@ -302,6 +302,7 @@ type StudentChurnDetailSqlRow = {
   studentName: string;
   className: string;
   eventDate: Date | string;
+  dropOutReason?: string | null;
 };
 
 type LearnedTuitionByStudentSqlRow = {
@@ -6145,7 +6146,8 @@ export class DashboardService {
                 STRING_AGG(DISTINCT classes.name, ' - ' ORDER BY classes.name),
                 ''
               ) AS "className",
-              ${Prisma.raw(dateColumn)} AS "eventDate"
+              ${Prisma.raw(dateColumn)} AS "eventDate",
+              student_info.drop_out_reason AS "dropOutReason"
             FROM student_info
             ${firstTopUpJoin}
             LEFT JOIN student_classes ON student_classes.student_id = student_info.id
@@ -6156,6 +6158,7 @@ export class DashboardService {
             GROUP BY
               student_info.id,
               student_info.full_name,
+              student_info.drop_out_reason,
               ${Prisma.raw(dateColumn)}
             ORDER BY ${Prisma.raw(dateColumn)} DESC, student_info.full_name ASC
             LIMIT ${limit}
@@ -6170,6 +6173,9 @@ export class DashboardService {
             row.eventDate instanceof Date
               ? row.eventDate.toISOString()
               : new Date(row.eventDate).toISOString(),
+          ...(query.type === 'new'
+            ? {}
+            : { dropOutReason: row.dropOutReason?.trim() || null }),
         }));
       },
     });
