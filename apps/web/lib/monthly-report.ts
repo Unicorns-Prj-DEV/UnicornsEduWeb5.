@@ -37,8 +37,8 @@ export type MonthlyReportMatrixTotals = {
   newCount: number;
   earlyDropCount: number;
   earlyDropOldCount: number;
-  paidCount: number;
-  totalTopUp: number;
+  earningCount: number;
+  revenue: number;
 };
 
 export type MonthlyReportMatrixView = {
@@ -50,16 +50,16 @@ export type MonthlyReportMatrixView = {
   rowTotal: (rowKey: string) => MonthlyReportMatrixTotals;
   columnTotal: (columnKey: string) => MonthlyReportMatrixTotals;
   grandTotal: MonthlyReportMatrixTotals;
-  /** Ô tổng nạp lớn nhất, dùng chuẩn hoá heatmap. */
-  maxCellTopUp: number;
+  /** Ô doanh thu lớn nhất, dùng chuẩn hoá heatmap. */
+  maxCellRevenue: number;
 };
 
 const EMPTY_TOTALS: MonthlyReportMatrixTotals = {
   newCount: 0,
   earlyDropCount: 0,
   earlyDropOldCount: 0,
-  paidCount: 0,
-  totalTopUp: 0,
+  earningCount: 0,
+  revenue: 0,
 };
 
 function addTotals(
@@ -70,8 +70,8 @@ function addTotals(
     newCount: a.newCount + b.newCount,
     earlyDropCount: a.earlyDropCount + b.earlyDropCount,
     earlyDropOldCount: a.earlyDropOldCount + b.earlyDropOldCount,
-    paidCount: a.paidCount + b.paidCount,
-    totalTopUp: a.totalTopUp + b.totalTopUp,
+    earningCount: a.earningCount + b.earningCount,
+    revenue: a.revenue + b.revenue,
   };
 }
 
@@ -111,6 +111,6 @@ export function buildMonthlyReportMatrix(
     rowTotal,
     columnTotal,
     grandTotal: rowKeys.reduce((total, rowKey) => addTotals(total, rowTotal(rowKey)), EMPTY_TOTALS),
-    maxCellTopUp: Math.max(0, ...[...byKey.values()].map((totals) => totals.totalTopUp)),
+    maxCellRevenue: Math.max(0, ...[...byKey.values()].map((totals) => totals.revenue)),
   };
 }

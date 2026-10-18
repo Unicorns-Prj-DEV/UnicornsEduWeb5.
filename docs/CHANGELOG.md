@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Báo cáo tháng: ma trận theo doanh thu** (#220): heatmap đổi từ Tổng nạp sang **Doanh thu mới** = Học phí đã học trong tháng của học sinh mới (gồm thu bù học thử + gói bán một lần). Ô ma trận đổi `paidCount/totalTopUp` → `earningCount/revenue`; TB/HS chia cho mọi học sinh mới. Bảng CSKH và Phụ lục A giữ Tổng nạp. Docs: `pages/admin.md`.
 - **Báo cáo tháng theo định nghĩa cũ nghỉ** (#219): KPI Học sinh cũ nghỉ, Tăng ròng, bảng CSKH và Phụ lục B chỉ tính **Học sinh cũ nghỉ**; KPI thêm `trialDroppedStudents`. Nghỉ sớm vẫn đếm cả hai nhóm nhưng tách số (`earlyDropOldCount` ở KPI/ô ma trận/dòng CSKH, `earlyDropKind` ở Phụ lục A). Tiêu đề Phụ lục A/B kèm số lượng. Docs: `pages/admin.md`.
 - **Cột Lý do nghỉ trong popup Biến động học sinh** (#218): tab Cũ nghỉ / Thử nghỉ hiện `drop_out_reason`; API churn details trả `dropOutReason`. `CONTEXT.md` bỏ mục **Nhóm lý do nghỉ** (tính năng đã gỡ ở `6d6d539b`). Docs: `pages/admin.md`.
 - **Học sinh cũ nghỉ / thử nghỉ trên dashboard admin** (#217): card Học sinh hiện `+X mới / -Y cũ nghỉ / -Z thử nghỉ`; popup Biến động học sinh tách tab **Cũ nghỉ** / **Thử nghỉ** (`type=dropped|trial_dropped`). Cũ nghỉ = đã nạp ví thành công + ≥2 buổi có mặt/nghỉ phép/học thử cộng mọi lớp (`OLD_DROPPED_STUDENT_WHERE_SQL`). Summary thêm `trialDroppedStudentsThisMonth`. Docs: `pages/admin.md`, `CONTEXT.md`.

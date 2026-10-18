@@ -213,7 +213,7 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
   );
 }
 
-export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyReport }) {
+export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyReport }) {
   const { view, columnLabel, rowLabel } = useMatrix(report);
   if (view.rowKeys.length === 0) return null;
   const grand = view.grandTotal;
@@ -237,7 +237,7 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
         <TableBody>
           {view.rowKeys.map((rowKey) => {
             const total = view.rowTotal(rowKey);
-            const share = grand.totalTopUp > 0 ? (total.totalTopUp / grand.totalTopUp) * 100 : 0;
+            const share = grand.revenue > 0 ? (total.revenue / grand.revenue) * 100 : 0;
             return (
               <TableRow key={rowKey}>
                 <TableCell className="sticky left-0 bg-bg-surface font-medium">{rowLabel(rowKey)}</TableCell>
@@ -251,7 +251,7 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
                     );
                   }
                   const intensity =
-                    view.maxCellTopUp > 0 ? Math.round((cell.totalTopUp / view.maxCellTopUp) * 24) : 0;
+                    view.maxCellRevenue > 0 ? Math.round((cell.revenue / view.maxCellRevenue) * 24) : 0;
                   return (
                     <TableCell
                       key={columnKey}
@@ -259,27 +259,25 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
                       style={{
                         background: `color-mix(in srgb, var(--color-text-primary, currentColor) ${intensity}%, transparent)`,
                       }}
-                      title={`${formatVnInteger(cell.totalTopUp)} đ`}
+                      title={`${formatVnInteger(cell.revenue)} đ`}
                     >
                       <div className="flex flex-col items-end leading-tight">
                         <span className="font-semibold">
-                          {cell.paidCount > 0 ? formatMillions(cell.totalTopUp) : "chưa có"}
+                          {cell.earningCount > 0 ? formatMillions(cell.revenue) : "chưa học"}
                         </span>
-                        <span className="text-xs text-text-muted">
-                          {cell.paidCount > 0 ? cell.paidCount : cell.newCount} HS
-                        </span>
+                        <span className="text-xs text-text-muted">{cell.newCount} HS</span>
                       </div>
                     </TableCell>
                   );
                 })}
-                <TableCell className="text-right font-semibold tabular-nums" title={`${formatVnInteger(total.totalTopUp)} đ`}>
-                  {total.paidCount > 0 ? formatMillions(total.totalTopUp) : "—"}
+                <TableCell className="text-right font-semibold tabular-nums" title={`${formatVnInteger(total.revenue)} đ`}>
+                  {total.earningCount > 0 ? formatMillions(total.revenue) : "—"}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {total.paidCount > 0 ? formatMillions(total.totalTopUp / total.paidCount) : "—"}
+                  {total.earningCount > 0 ? formatMillions(total.revenue / total.newCount) : "—"}
                 </TableCell>
                 <TableCell>
-                  {total.paidCount > 0 ? (
+                  {total.earningCount > 0 ? (
                     <div className="flex min-w-[120px] items-center gap-2">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-secondary">
                         <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
@@ -297,15 +295,15 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
               const total = view.columnTotal(columnKey);
               return (
                 <TableCell key={columnKey} className="text-right tabular-nums">
-                  {total.paidCount > 0 ? formatMillions(total.totalTopUp) : "—"}
+                  {total.earningCount > 0 ? formatMillions(total.revenue) : "—"}
                 </TableCell>
               );
             })}
-            <TableCell className="text-right tabular-nums" title={`${formatVnInteger(grand.totalTopUp)} đ`}>
-              {formatMillions(grand.totalTopUp)}
+            <TableCell className="text-right tabular-nums" title={`${formatVnInteger(grand.revenue)} đ`}>
+              {formatMillions(grand.revenue)}
             </TableCell>
             <TableCell className="text-right tabular-nums">
-              {grand.paidCount > 0 ? formatMillions(grand.totalTopUp / grand.paidCount) : "—"}
+              {grand.newCount > 0 ? formatMillions(grand.revenue / grand.newCount) : "—"}
             </TableCell>
             <TableCell />
           </TableRow>

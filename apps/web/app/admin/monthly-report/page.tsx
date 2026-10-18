@@ -11,7 +11,7 @@ import {
   MonthlyReportKpis,
   MonthlyReportNewStudentAppendix,
   MonthlyReportNewStudentMatrix,
-  MonthlyReportTopUpMatrix,
+  MonthlyReportRevenueMatrix,
   ReportSection,
 } from "@/components/admin/monthly-report/MonthlyReportSections";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -114,10 +114,10 @@ export default function AdminMonthlyReportPage() {
             </ReportSection>
 
             <ReportSection
-              title="Tổng nạp của học sinh mới theo nguồn và khoá học"
-              description="Tổng nạp ví hợp lệ của mỗi học sinh mới, từ lần nạp đầu tới hết tháng báo cáo. Ô đậm hơn là tổng nạp cao hơn."
+              title="Doanh thu mới theo nguồn và khoá học"
+              description="Học phí đã học trong tháng của mỗi học sinh mới (kể cả thu bù học thử và gói bán một lần), dồn vào ô lớp đầu tiên. Học sinh chưa học buổi nào góp 0đ. TB/HS chia cho mọi học sinh mới. Ô đậm hơn là doanh thu cao hơn."
             >
-              <MonthlyReportTopUpMatrix report={report} />
+              <MonthlyReportRevenueMatrix report={report} />
             </ReportSection>
 
             <ReportSection
@@ -145,7 +145,9 @@ export default function AdminMonthlyReportPage() {
                   Học sinh cũ nghỉ = đã nạp ví thành công và đã học từ 2 buổi trở lên (có mặt, nghỉ phép hoặc học thử; cộng
                   mọi lớp). Chỉ cũ nghỉ được trừ vào tăng ròng và nằm ở Phụ lục B; thử nghỉ chỉ đếm riêng.
                 </li>
-                <li>Tổng nạp là tiền nạp vào ví, không phải doanh thu ghi nhận theo buổi học.</li>
+                <li>
+                  Ma trận doanh thu dùng Học phí đã học trong tháng; bảng CSKH và Phụ lục A dùng Tổng nạp (tiền nạp vào ví).
+                </li>
                 <li>Số liệu tính lúc {formatVnDateTime(report.generatedAt)}; trạng thái học sinh có thể đổi sau đó.</li>
               </ul>
             </ReportSection>

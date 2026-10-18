@@ -10,9 +10,9 @@ import {
 describe("buildMonthlyReportMatrix", () => {
   const view = buildMonthlyReportMatrix(
     [
-      { customerSource: "referral", courseId: "c-basic", newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, paidCount: 1, totalTopUp: 2_000_000 },
-      { customerSource: "tiktok", courseId: "c-basic", newCount: 2, earlyDropCount: 1, earlyDropOldCount: 1, paidCount: 2, totalTopUp: 3_500_000 },
-      { customerSource: null, courseId: null, newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, paidCount: 0, totalTopUp: 0 },
+      { customerSource: "referral", courseId: "c-basic", newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, earningCount: 1, revenue: 2_000_000 },
+      { customerSource: "tiktok", courseId: "c-basic", newCount: 2, earlyDropCount: 1, earlyDropOldCount: 1, earningCount: 2, revenue: 3_500_000 },
+      { customerSource: null, courseId: null, newCount: 1, earlyDropCount: 0, earlyDropOldCount: 0, earningCount: 0, revenue: 0 },
     ],
     ["c-basic", "c-adv"],
   );
@@ -25,10 +25,10 @@ describe("buildMonthlyReportMatrix", () => {
   it("sums rows, columns and grand total", () => {
     expect(view.cell("tiktok", "c-basic").earlyDropCount).toBe(1);
     expect(view.cell("tiktok", "c-adv").newCount).toBe(0);
-    expect(view.columnTotal("c-basic")).toMatchObject({ newCount: 3, totalTopUp: 5_500_000 });
+    expect(view.columnTotal("c-basic")).toMatchObject({ newCount: 3, revenue: 5_500_000 });
     expect(view.rowTotal(MONTHLY_REPORT_NONE_KEY).newCount).toBe(1);
-    expect(view.grandTotal).toEqual({ newCount: 4, earlyDropCount: 1, earlyDropOldCount: 1, paidCount: 3, totalTopUp: 5_500_000 });
-    expect(view.maxCellTopUp).toBe(3_500_000);
+    expect(view.grandTotal).toEqual({ newCount: 4, earlyDropCount: 1, earlyDropOldCount: 1, earningCount: 3, revenue: 5_500_000 });
+    expect(view.maxCellRevenue).toBe(3_500_000);
   });
 
   it("omits the unplaced column when every new student has a class", () => {

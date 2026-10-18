@@ -553,9 +553,10 @@ export interface MonthlyReportMatrixCell {
   /** Tổng nghỉ sớm (cũ nghỉ + thử nghỉ). */
   earlyDropCount: number;
   earlyDropOldCount: number;
-  paidCount: number;
-  /** Tổng nạp từ lần nạp đầu tới hết tháng báo cáo. */
-  totalTopUp: number;
+  /** Số học sinh trong ô có doanh thu > 0 trong tháng. */
+  earningCount: number;
+  /** Doanh thu mới: Học phí đã học trong tháng của học sinh mới thuộc ô. */
+  revenue: number;
 }
 
 export interface MonthlyReportCustomerCareRow {

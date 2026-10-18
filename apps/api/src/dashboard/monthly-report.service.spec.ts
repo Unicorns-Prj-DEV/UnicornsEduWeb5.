@@ -120,6 +120,8 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
       ['cs-1', 'Nguyễn Ngọc Linh'],
       ['cs-2', 'Phan Đàm Thu Thảo'],
     ]),
+    // Doanh thu ≠ tổng nạp: new-dropped nạp nhưng chưa học buổi nào.
+    revenueInMonth: new Map([['new-active', 1_200_000]]),
     // Mặc định mọi học sinh đang nghỉ đều là cũ nghỉ.
     oldDroppedStudentIds: new Set([
       'new-dropped',
@@ -148,7 +150,7 @@ describe('buildAdminMonthlyReport', () => {
     });
   });
 
-  it('builds the source × first-class course matrix with an unplaced column', () => {
+  it('builds the source × first-class course revenue matrix with an unplaced column', () => {
     const report = buildAdminMonthlyReport(buildInput());
 
     expect(report.courses).toEqual([
@@ -162,8 +164,8 @@ describe('buildAdminMonthlyReport', () => {
           newCount: 2,
           earlyDropCount: 1,
           earlyDropOldCount: 1,
-          paidCount: 2,
-          totalTopUp: 3_500_000,
+          earningCount: 1,
+          revenue: 1_200_000,
         },
         {
           customerSource: null,
@@ -171,8 +173,8 @@ describe('buildAdminMonthlyReport', () => {
           newCount: 1,
           earlyDropCount: 0,
           earlyDropOldCount: 0,
-          paidCount: 0,
-          totalTopUp: 0,
+          earningCount: 0,
+          revenue: 0,
         },
       ]),
     );
@@ -224,6 +226,7 @@ describe('buildAdminMonthlyReport', () => {
       'new-dropped',
       'new-unplaced',
     ]);
+    expect(report.newStudents[0].totalTopUp).toBe(3_000_000);
     expect(report.newStudents[1]).toMatchObject({
       isEarlyDrop: true,
       earlyDropKind: 'old',

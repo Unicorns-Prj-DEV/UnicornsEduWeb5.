@@ -56,6 +56,8 @@ export interface MonthlyReportInput {
   /** Lớp gần nhất học sinh vào (cho phụ lục học sinh nghỉ). */
   latestClassByStudent: Map<string, MonthlyReportClassInput>;
   staffNames: Map<string, string>;
+  /** studentId → Học phí đã học trong tháng (doanh thu), chỉ cần cho học sinh mới. */
+  revenueInMonth: Map<string, number>;
   /** Học sinh đang nghỉ thoả định nghĩa **Học sinh cũ nghỉ**; còn lại là thử nghỉ. */
   oldDroppedStudentIds: Set<string>;
 }
@@ -124,15 +126,15 @@ export function buildAdminMonthlyReport(
       newCount: 0,
       earlyDropCount: 0,
       earlyDropOldCount: 0,
-      paidCount: 0,
-      totalTopUp: 0,
+      earningCount: 0,
+      revenue: 0,
     };
-    const totalTopUp = topUpByStudent.get(student.id)?.toMonthEndAmount ?? 0;
+    const revenue = input.revenueInMonth.get(student.id) ?? 0;
     cell.newCount += 1;
     if (isEarlyDrop(student)) cell.earlyDropCount += 1;
     if (isEarlyDropOld(student)) cell.earlyDropOldCount += 1;
-    if (totalTopUp > 0) cell.paidCount += 1;
-    cell.totalTopUp += totalTopUp;
+    if (revenue > 0) cell.earningCount += 1;
+    cell.revenue += revenue;
     cells.set(key, cell);
   }
 
@@ -357,9 +359,11 @@ export class MonthlyReportService {
       )
       .map((student) => student.id);
 
-    const [firstClasses, latestClasses] = await Promise.all([
-      this.findClassPerStudent([...firstTopUpInMonth.keys()], 'first'),
+    const newStudentIds = [...firstTopUpInMonth.keys()];
+    const [firstClasses, latestClasses, revenueInMonth] = await Promise.all([
+      this.findClassPerStudent(newStudentIds, 'first'),
       this.findClassPerStudent(droppedIds, 'latest'),
+      this.findRevenueInMonth(newStudentIds, monthStart, monthEnd),
     ]);
 
     return buildAdminMonthlyReport({
@@ -389,8 +393,39 @@ export class MonthlyReportService {
       staffNames: new Map(
         staffRows.map((row) => [row.id, row.full_name ?? 'Nhân sự']),
       ),
+      revenueInMonth,
       oldDroppedStudentIds,
     });
+  }
+
+  /**
+   * Học phí đã học trong tháng theo học sinh: `tuition_fee` của buổi
+   * có mặt/nghỉ phép có `sessions.date` trong tháng. `tuition_fee` đã gồm thu
+   * bù học thử và tổng gói của lớp bán một lần, khớp doanh thu dashboard.
+   */
+  private async findRevenueInMonth(
+    studentIds: string[],
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<Map<string, number>> {
+    if (studentIds.length === 0) return new Map();
+    const rows = await this.prisma.$queryRaw<
+      { student_id: string; revenue: bigint | number | null }[]
+    >(Prisma.sql`
+      SELECT
+        attendance.student_id AS student_id,
+        COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
+      FROM attendance
+      INNER JOIN sessions ON sessions.id = attendance.session_id
+      WHERE attendance.student_id IN (${Prisma.join(studentIds)})
+        AND attendance.status IN ('present', 'excused')
+        AND sessions.date >= ${monthStart}
+        AND sessions.date < ${monthEnd}
+      GROUP BY attendance.student_id
+    `);
+    return new Map(
+      rows.map((row) => [row.student_id, Number(row.revenue ?? 0)]),
+    );
   }
 
   /** Lọc trong `studentIds` những học sinh thoả định nghĩa **Học sinh cũ nghỉ**. */
