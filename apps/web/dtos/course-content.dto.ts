@@ -242,6 +242,8 @@ export interface ClassModuleDto {
   classSortOrder: number | null;
   theoryLessonCount: number;
   practiceLessonCount: number;
+  /** Số tiết của chuyên đề lớp đang có (không tính tiết đã gỡ). */
+  inClassLessonCount: number;
   added: boolean;
   addedAt: string | null;
 }

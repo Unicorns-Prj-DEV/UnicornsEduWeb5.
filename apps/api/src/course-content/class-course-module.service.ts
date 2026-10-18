@@ -1,19 +1,24 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AttemptStatus, LessonKind, QuestionType } from 'generated/enums';
+import {
+  AttemptStatus,
+  ClassContentHiddenReason,
+  LessonKind,
+  QuestionType,
+} from 'generated/enums';
 import {
   ClassModuleRemovalImpactDto,
   ClassModuleResponseDto,
 } from 'src/dtos/course-content.dto';
 import {
+  ensureClassModuleGroupOnTop,
   hideClassModuleItems,
   restoreClassModuleItems,
-  syncClassModuleTheoryLessons,
+  syncClassModuleLessons,
 } from './class-course-module-sync';
 import {
   ActionHistoryActor,
@@ -23,10 +28,10 @@ import {
 const CLASS_MODULE_TRANSACTION_TIMEOUT_MS = 30_000;
 
 /**
- * Nội dung lớp theo Chuyên đề: lớp thêm/gỡ nguyên chuyên đề của khoá. Thêm chuyên đề
- * đưa mọi tiết lý thuyết vào lớp; tiết thực hành giao từng tiết (không đi theo).
+ * Thêm/gỡ cả chuyên đề của khoá vào lớp. Thêm chuyên đề chép một lần mọi tiết đang có
+ * (lý thuyết + lần giao thực hành); tiết khoá thêm về sau không tự vào lớp.
  * Thứ tự nhóm chuyên đề là của riêng lớp (`class_modules.sort_order`).
- * ADR: docs/adr/2026-10-02-class-content-by-module.md,
+ * ADR: docs/adr/2026-10-18-class-content-as-lesson-set.md,
  * docs/adr/2026-10-05-class-module-order-and-removal.md.
  */
 @Injectable()
@@ -40,7 +45,7 @@ export class ClassCourseModuleService extends CourseContentSupportService {
     await this.validateStaffClassAccess(classId, actor);
     const courseId = await this.findClassCourseId(classId);
 
-    const [modules, added] = await Promise.all([
+    const [modules, added, inClass] = await Promise.all([
       this.prisma.module.findMany({
         where: { courseId },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -50,7 +55,7 @@ export class ClassCourseModuleService extends CourseContentSupportService {
           sortOrder: true,
           lessons: {
             where: { archivedAt: null },
-            select: { kind: true },
+            select: { id: true, kind: true },
           },
         },
       }),
@@ -58,8 +63,20 @@ export class ClassCourseModuleService extends CourseContentSupportService {
         where: { classId },
         select: { moduleId: true, createdAt: true, sortOrder: true },
       }),
+      // Tiết lớp đang có (kể cả Ẩn tay), không tính tiết đã gỡ.
+      this.prisma.classContentItem.findMany({
+        where: {
+          classId,
+          OR: [
+            { hiddenReason: null },
+            { hiddenReason: { not: ClassContentHiddenReason.module_removed } },
+          ],
+        },
+        select: { lessonId: true },
+      }),
     ]);
     const addedByModule = new Map(added.map((row) => [row.moduleId, row]));
+    const inClassLessonIds = new Set(inClass.map((item) => item.lessonId));
 
     return modules.map((courseModule) => {
       const classModule = addedByModule.get(courseModule.id);
@@ -74,6 +91,9 @@ export class ClassCourseModuleService extends CourseContentSupportService {
         ).length,
         practiceLessonCount: courseModule.lessons.filter(
           (lesson) => lesson.kind === LessonKind.practice,
+        ).length,
+        inClassLessonCount: courseModule.lessons.filter((lesson) =>
+          inClassLessonIds.has(lesson.id),
         ).length,
         added: addedAt != null,
         addedAt,
@@ -93,25 +113,23 @@ export class ClassCourseModuleService extends CourseContentSupportService {
       throw new BadRequestException('Chuyên đề không thuộc khoá của lớp này.');
     }
 
+    const classInfo = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { contentAccessExpiresAt: true },
+    });
+    const openAt = new Date();
+
     const result = await this.prisma.$transaction(
       async (tx) => {
-        const existing = await tx.classModule.findUnique({
-          where: { classId_moduleId: { classId, moduleId } },
-          select: { id: true },
-        });
-        if (existing) {
-          throw new ConflictException('Lớp đã có chuyên đề này.');
-        }
-        // Chuyên đề vừa thêm (kể cả thêm lại) lên đầu nhóm của lớp.
-        const top = await tx.classModule.aggregate({
-          where: { classId },
-          _min: { sortOrder: true },
-        });
-        const sortOrder = (top._min.sortOrder ?? 1) - 1;
-        await tx.classModule.create({ data: { classId, moduleId, sortOrder } });
-        const createdItemIds = await syncClassModuleTheoryLessons(tx, {
+        // Lớp đã có nhóm (thêm lẻ tiết trước đó) → giữ vị trí, chỉ bổ sung tiết còn thiếu.
+        // Chuyên đề mới vào lớp (kể cả thêm lại sau khi gỡ) lên đầu nhóm.
+        await ensureClassModuleGroupOnTop(tx, classId, moduleId);
+        // Lần giao thực hành: mở bài lúc thêm, hạn = hạn xem nội dung của lớp.
+        const createdItemIds = await syncClassModuleLessons(tx, {
           classId,
           moduleId,
+          openAt,
+          closeAt: classInfo?.contentAccessExpiresAt ?? null,
         });
         const restoredItemIds = await restoreClassModuleItems(tx, {
           classId,
@@ -123,7 +141,7 @@ export class ClassCourseModuleService extends CourseContentSupportService {
     );
 
     this.logger.log(
-      `Class module added: ${moduleId} to class ${classId} (+${result.createdItemIds.length} theory, ${result.restoredItemIds.length} restored) by ${actor.userEmail}`,
+      `Class module added: ${moduleId} to class ${classId} (+${result.createdItemIds.length} lessons, ${result.restoredItemIds.length} restored) by ${actor.userEmail}`,
     );
     return this.listClassModules(classId, actor);
   }

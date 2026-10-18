@@ -5,22 +5,32 @@ import { appendClassTimelineContentItems } from 'src/class-timeline/append-timel
 type Tx = Prisma.TransactionClient;
 
 /**
- * Đưa mọi tiết lý thuyết (chưa lưu trữ) của một chuyên đề vào nội dung lớp:
- * tạo `ClassContentItem` + dòng timeline cho tiết còn thiếu, theo thứ tự tiết.
- * Item đã có (kể cả đang ẩn) giữ nguyên. Idempotent; tiết thực hành không bị đụng tới.
- * Trả ID item vừa tạo.
+ * Thêm cả chuyên đề (chốt một lần): đưa mọi tiết lý thuyết + thực hành **đang có**
+ * (chưa lưu trữ) của chuyên đề vào lớp — tạo `ClassContentItem` + dòng timeline cho
+ * tiết còn thiếu, lý thuyết trước rồi thực hành, mỗi loại theo thứ tự tiết. Tiết
+ * thực hành thành lần giao với `openAt`/`closeAt` truyền vào. Item đã có (kể cả
+ * đang ẩn) giữ nguyên. Idempotent. Trả ID item vừa tạo.
  */
-export async function syncClassModuleTheoryLessons(
+export async function syncClassModuleLessons(
   tx: Tx,
-  input: { classId: string; moduleId: string },
+  input: {
+    classId: string;
+    moduleId: string;
+    openAt: Date;
+    closeAt: Date | null;
+  },
 ): Promise<string[]> {
-  const { classId, moduleId } = input;
-  const lessons = await tx.lesson.findMany({
-    where: { moduleId, kind: LessonKind.theory, archivedAt: null },
+  const { classId, moduleId, openAt, closeAt } = input;
+  const ordered = await tx.lesson.findMany({
+    where: { moduleId, archivedAt: null },
     orderBy: [{ order: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true },
+    select: { id: true, kind: true },
   });
-  if (lessons.length === 0) return [];
+  if (ordered.length === 0) return [];
+  const lessons = [
+    ...ordered.filter((lesson) => lesson.kind !== LessonKind.practice),
+    ...ordered.filter((lesson) => lesson.kind === LessonKind.practice),
+  ];
 
   const existing = await tx.classContentItem.findMany({
     where: { classId, lessonId: { in: lessons.map((lesson) => lesson.id) } },
@@ -46,6 +56,9 @@ export async function syncClassModuleTheoryLessons(
           kind: 'lesson',
           sortOrder: baseSort + idx,
           createdAt: new Date(baseMs + idx),
+          ...(lesson.kind === LessonKind.practice
+            ? { openAt, closeAt, shuffleQuestions: true }
+            : {}),
         },
         select: { id: true },
       });
