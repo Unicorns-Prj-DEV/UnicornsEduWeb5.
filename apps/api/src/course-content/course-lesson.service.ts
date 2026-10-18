@@ -26,6 +26,7 @@ export class CourseLessonService extends CourseContentSupportService {
     actor: ActionHistoryActor,
   ): Promise<LessonResponseDto> {
     await this.validateLessonOwnership(dto);
+    const durationMinutes = this.resolveCreateDurationMinutes(dto);
 
     if (dto.courseId) {
       await this.validateCourseExists(dto.courseId);
@@ -50,6 +51,7 @@ export class CourseLessonService extends CourseContentSupportService {
           title: dto.title,
           videoUrl: dto.videoUrl ?? null,
           content: dto.content ?? null,
+          durationMinutes,
           createdBy: actor.userId,
           updatedBy: actor.userId,
         },
@@ -66,6 +68,17 @@ export class CourseLessonService extends CourseContentSupportService {
     );
 
     return lesson;
+  }
+
+  /** Tiết thực hành bắt buộc có thời lượng; tiết lý thuyết không lưu thời lượng. */
+  private resolveCreateDurationMinutes(dto: LessonCreateDto): number | null {
+    if (dto.kind !== LessonKind.practice) return null;
+    if (dto.durationMinutes == null) {
+      throw new BadRequestException(
+        'Tiết thực hành phải đặt thời lượng làm bài (phút).',
+      );
+    }
+    return dto.durationMinutes;
   }
 
   async updateLesson(
@@ -94,6 +107,14 @@ export class CourseLessonService extends CourseContentSupportService {
     const nextContent =
       dto.content !== undefined ? dto.content : existing.content;
     this.assertPracticeHasNoMedia(existing.kind, nextVideo, nextContent);
+    if (
+      dto.durationMinutes !== undefined &&
+      existing.kind !== LessonKind.practice
+    ) {
+      throw new BadRequestException(
+        'Chỉ tiết thực hành có thời lượng làm bài.',
+      );
+    }
 
     const lesson = await this.prisma.lesson.update({
       where: { id: lessonId },
@@ -106,6 +127,10 @@ export class CourseLessonService extends CourseContentSupportService {
         }),
         ...(dto.elective2Name !== undefined && {
           elective2Name: dto.elective2Name?.trim() || null,
+        }),
+        // Lượt đang làm giữ snapshot `attempts.duration_minutes`; lượt mới đọc giá trị này.
+        ...(dto.durationMinutes !== undefined && {
+          durationMinutes: dto.durationMinutes,
         }),
         updatedBy: actor.userId,
       },

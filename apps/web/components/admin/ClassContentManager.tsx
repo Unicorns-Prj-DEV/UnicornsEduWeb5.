@@ -62,7 +62,6 @@ import { ShuffleQuestionsField } from "./ShuffleQuestionsField";
 import {
   isOpenAtPairComplete,
   isOpenAtPairPartial,
-  parseAssignmentDurationMinutes,
 } from "@/lib/assignment-schedule.helpers";
 import { formatVnDateTime } from "@/lib/formatters";
 
@@ -515,34 +514,22 @@ function AddContentDialog({
   const queryClient = useQueryClient();
   const [lessonId, setLessonId] = useState("");
   const [step, setStep] = useState<"pick" | "schedule">("pick");
-  const defaults = defaultAssignmentSchedule();
   const [openDate, setOpenDate] = useState("");
   const [openTime, setOpenTime] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState(
-    defaults.durationMinutes,
-  );
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
 
-  const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
-  const durationError =
-    parsedDuration == null ? "Thời lượng phải từ 1 đến 720 phút." : null;
   const openAtPartial = isOpenAtPairPartial(openDate, openTime);
-  const canSubmitSchedule = parsedDuration != null && !openAtPartial;
+  const canSubmitSchedule = !openAtPartial;
 
   const createMutation = useMutation({
-    mutationFn: () => {
-      if (parsedDuration == null) {
-        return Promise.reject(new Error("invalid-duration"));
-      }
-      return classApi.createClassContent(classId, {
+    mutationFn: () =>
+      classApi.createClassContent(classId, {
         lessonId: lessonId.trim(),
         ...(isOpenAtPairComplete(openDate, openTime)
           ? { openAt: toOpenAtIso(openDate, openTime) }
           : {}),
-        durationMinutes: parsedDuration,
         shuffleQuestions,
-      });
-    },
+      }),
     onSuccess: () => {
       toast.success("Đã giao tiết thực hành");
       queryClient.invalidateQueries({
@@ -573,7 +560,7 @@ function AddContentDialog({
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
               {step === "schedule"
-                ? "Thời điểm mở bài và thời lượng thuộc lần giao của lớp này, không đụng đề."
+                ? "Thời điểm mở bài thuộc lần giao của lớp này, không đụng đề."
                 : "Chọn chuyên đề lớp đã thêm, rồi chọn tiết thực hành. Tiết lý thuyết vào lớp theo chuyên đề."}
             </p>
           </div>
@@ -592,12 +579,9 @@ function AddContentDialog({
               <AssignmentScheduleFields
                 openDate={openDate}
                 openTime={openTime}
-                durationMinutes={durationMinutes}
                 openAtOptional
-                durationError={durationError}
                 onOpenDateChange={setOpenDate}
                 onOpenTimeChange={setOpenTime}
-                onDurationChange={setDurationMinutes}
               />
               {openAtPartial ? (
                 <p className="text-xs text-error">
@@ -674,30 +658,18 @@ function EditScheduleDialog({
     : { date: fallback.openDate, time: fallback.openTime };
   const [openDate, setOpenDate] = useState(parsed.date);
   const [openTime, setOpenTime] = useState(parsed.time);
-  const [durationMinutes, setDurationMinutes] = useState(
-    String(item.durationMinutes ?? 60),
-  );
   const [shuffleQuestions, setShuffleQuestions] = useState(
     item.shuffleQuestions,
   );
-  const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
-  const durationError =
-    parsedDuration == null ? "Thời lượng phải từ 1 đến 720 phút." : null;
   const canSave =
-    Boolean(openDate && openTime && parsedDuration != null) &&
-    !isOpenAtPairPartial(openDate, openTime);
+    Boolean(openDate && openTime) && !isOpenAtPairPartial(openDate, openTime);
 
   const mutation = useMutation({
-    mutationFn: () => {
-      if (parsedDuration == null) {
-        return Promise.reject(new Error("invalid-duration"));
-      }
-      return classApi.updateClassContentSchedule(classId, item.id, {
+    mutationFn: () =>
+      classApi.updateClassContentSchedule(classId, item.id, {
         openAt: toOpenAtIso(openDate, openTime),
-        durationMinutes: parsedDuration,
         shuffleQuestions,
-      });
-    },
+      }),
     onSuccess: () => {
       toast.success("Đã cập nhật lần giao");
       onSuccess();
@@ -731,11 +703,9 @@ function EditScheduleDialog({
           <AssignmentScheduleFields
             openDate={openDate}
             openTime={openTime}
-            durationMinutes={durationMinutes}
-            durationError={durationError}
+            durationMinutes={item.durationMinutes}
             onOpenDateChange={setOpenDate}
             onOpenTimeChange={setOpenTime}
-            onDurationChange={setDurationMinutes}
           />
           <ShuffleQuestionsField
             checked={shuffleQuestions}

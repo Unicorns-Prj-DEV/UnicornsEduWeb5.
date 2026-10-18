@@ -47,7 +47,8 @@ model ClassContentItem {
   sortOrder        Int                       @default(0) @map("sort_order")
   /// Thời điểm mở bài của lần giao (riêng lớp). Null với tiết lý thuyết.
   openAt           DateTime?                 @map("open_at") @db.Timestamptz(6)
-  /// Thời lượng làm bài (phút) của lần giao. Null với tiết lý thuyết.
+  /// Thời lượng đã chốt của lần giao tạo trước khi thời lượng chuyển lên tiết (legacy).
+  /// Lần giao mới để null → đọc `lessons.duration_minutes`.
   durationMinutes  Int?                      @map("duration_minutes")
   /// Đảo câu: mỗi lượt làm xáo thứ tự câu (đề IT xáo trong từng nhóm) và thứ tự phương án/nhận định.
   shuffleQuestions Boolean                   @default(true) @map("shuffle_questions")
@@ -529,6 +530,9 @@ model Lesson {
   /// Tên hai nhóm tự chọn của tiết thực hành (hồ sơ IT).
   elective1Name String?    @map("elective_1_name")
   elective2Name String?    @map("elective_2_name")
+  /// Thời lượng làm bài (phút/lượt, 1–720) của tiết thực hành; null với tiết lý thuyết.
+  /// Lượt mới của mọi lần giao đọc từ đây (trừ lần giao cũ đã chốt `class_content_items.duration_minutes`).
+  durationMinutes Int?     @map("duration_minutes")
   /// Lưu trữ mềm (không xoá). Tiết riêng của lớp cũ bị lưu trữ khi chuyển sang nội dung theo chuyên đề.
   archivedAt    DateTime?  @map("archived_at") @db.Timestamptz(6)
   createdBy     String?    @map("created_by")

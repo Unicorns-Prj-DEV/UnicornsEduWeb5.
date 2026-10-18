@@ -35,16 +35,12 @@ export interface ClassContentCreatePayload {
   lessonId: string;
   /** ISO 8601. Omit for practice to default openAt to server time when the item is added. */
   openAt?: string;
-  /** Required for practice. Integer 1–720. */
-  durationMinutes?: number;
   /** Mặc định true. */
   shuffleQuestions?: boolean;
 }
 
 export interface ClassContentScheduleUpdatePayload {
   openAt: string;
-  /** Integer 1–720. */
-  durationMinutes: number;
   shuffleQuestions?: boolean;
 }
 

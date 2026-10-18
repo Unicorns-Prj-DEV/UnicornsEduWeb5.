@@ -54,7 +54,11 @@ import {
   shuffleQuestionOptions,
   shuffleWithinGroups,
 } from './shuffle';
-import { assignmentCloseAt, isAssignmentClosed } from './assignment-window';
+import {
+  assignmentCloseAt,
+  assignmentDurationMinutes,
+  isAssignmentClosed,
+} from './assignment-window';
 import { resolveAudioRefs } from 'src/question/audio-asset.service';
 import { attemptAudioView } from './audio-play';
 
@@ -107,7 +111,7 @@ export class AttemptService {
       classId,
       lessonId: item.lessonId ?? '',
       title: item.lesson!.title,
-      durationMinutes: item.durationMinutes as number,
+      durationMinutes: assignmentDurationMinutes(item) as number,
       openAt: item.openAt,
       closeAt,
       closed,
@@ -201,7 +205,7 @@ export class AttemptService {
           assignmentId: item.id,
           studentId,
           startedAt,
-          durationMinutes: item.durationMinutes as number,
+          durationMinutes: assignmentDurationMinutes(item) as number,
           status: AttemptStatus.in_progress,
           scoring,
           answers: {
@@ -709,7 +713,7 @@ export class AttemptService {
       title: item.lesson?.title ?? '',
       className: item.class.name,
       openAt: item.openAt,
-      durationMinutes: item.durationMinutes,
+      durationMinutes: assignmentDurationMinutes(item),
       submittedCount: students.filter((s) => s.attemptCount > 0).length,
       rosterCount: roster.length,
       averageScore,

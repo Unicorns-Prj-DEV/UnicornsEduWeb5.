@@ -421,7 +421,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `lesson_id` (nullable FK → `lessons.id`, `onDelete: Restrict`) — FK đến tiết học. Nullable để hỗ trợ future kinds không cần lesson. Không Cascade/SetNull: xóa Chuyên đề / Tiết học cấp khoá khi còn lần giao **tiết thực hành** (kể cả đã ẩn) bị chặn 409; item tiết lý thuyết được ứng dụng xoá trước trong cùng transaction. ADR `docs/adr/2026-09-07-class-content-soft-hide-restrict-knowledge-tree.md` (sửa bởi ADR 2026-10-02).
 - `sort_order` (`INT`, default 0) — thứ tự hiển thị trong danh sách nội dung lớp.
 - `open_at` (`TIMESTAMPTZ`, nullable) — thời điểm mở bài của **lần giao**. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`. Khi `POST /class/:id/content` luyện tập **không** gửi `openAt`, backend ghi thời điểm tạo lần giao (đồng hồ server), không lấy giờ máy client.
-- `duration_minutes` (`INT`, nullable) — thời lượng làm bài (phút) của lần giao. 1–720. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`.
+- `duration_minutes` (`INT`, nullable) — **thời lượng đã chốt** của lần giao tạo trước #228 (legacy). Lần giao mới để `NULL`: thời lượng hiệu lực = `COALESCE(class_content_items.duration_minutes, lessons.duration_minutes)` (`assignmentDurationMinutes`), dùng cho snapshot lượt làm, hạn lần giao và DTO. Sửa lịch lần giao không còn nhận thời lượng.
 - `shuffle_questions` (`BOOLEAN`, default `true`) — **Đảo câu**: mỗi lượt làm bắt đầu sau đó xáo thứ tự câu (hồ sơ IT: xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2, giữ thứ tự nhóm) và thứ tự phương án / nhận định. Câu có phương án nhắc vị trí (`isPositionDependent`: «ở trên», «Cả A và B», «ý a»…) giữ thứ tự phương án. Đổi cờ không ảnh hưởng lượt đã bắt đầu.
 - `hidden_at` (`TIMESTAMPTZ`, nullable, default null) — thời điểm ẩn mềm khỏi học sinh. Null = đang hiện.
 - `hidden_by_staff_id` (nullable FK → `staff_info.id`, `onDelete: SetNull`) — staff đã ẩn.
@@ -429,6 +429,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Unique constraint: `(class_id, lesson_id)` — mỗi tiết chỉ xuất hiện tối đa 1 lần trong nội dung của một lớp; cùng một tiết vẫn giao được cho nhiều lớp (mỗi lớp một hàng độc lập). Item đã ẩn vẫn chiếm unique — khôi phục, không thêm lại.
 - Migration: `20260910000000_add_class_content_items` — tạo bảng + backfill các topic (cũ) `class_id IS NOT NULL`.
 - Migration: `20260912000000_add_class_content_assignment_schedule` — thêm `open_at` + `duration_minutes`.
+- Migration: `20261018100000_practice_lesson_duration` — thời lượng chuyển lên `lessons.duration_minutes`; lần giao cũ giữ giá trị đã chốt.
 - Migration: `20261008000000_assignment_shuffle` — thêm `class_content_items.shuffle_questions` (default true, kể cả lần giao cũ) + `attempt_answers.option_order`.
 - Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
 - Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
@@ -472,7 +473,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Mỗi `attempts` là **một lượt** học sinh làm một lần giao luyện tập. FK `assignment_id` → `class_content_items.id` (không có `topic_id`) — cùng một đề giao nhiều lớp cho ra bảng điểm độc lập (ADR live-link). `onDelete: Restrict` — không xoá lịch sử khi ẩn/cố xoá lần giao.
 - `student_id` (FK → `student_info.id`, `onDelete: Cascade`)
 - `started_at` — mốc đồng hồ **của học sinh này** (lúc bấm bắt đầu), không phải `open_at` của lớp.
-- `duration_minutes` — snapshot thời lượng lần giao lúc bắt đầu; sửa lịch lớp sau đó không đổi đồng hồ lượt đang chạy.
+- `duration_minutes` — snapshot thời lượng hiệu lực (lần giao cũ đã chốt, không thì của tiết thực hành) lúc bắt đầu; sửa thời lượng tiết sau đó không đổi đồng hồ lượt đang chạy.
 - `status` (`AttemptStatus`): `in_progress` | `submitted` | `timed_out`. Hết giờ → `timed_out`, chốt câu đã trả lời và chấm MCQ, **không huỷ**. `endsAt` là trường tính (`started_at + duration_minutes`), không lưu cột. Cron `@nestjs/schedule` `EVERY_MINUTE` (`AttemptExpiryJob` → `AttemptService.finalizeExpiredInProgress`) quét `in_progress` đã quá `endsAt` và gọi cùng `gradeAndClose` với GET/nộp — học sinh đóng tab không làm lượt kẹt. Claim bằng `updateMany` `WHERE id AND status = in_progress` trong transaction: trùng nút Nộp không double-grade. Job log số lượt đã chốt; 0 bản ghi không nổ. `ScheduleModule.forRoot` tắt cron khi `NODE_ENV=test`.
 - Unique partial: tối đa một `in_progress` trên `(assignment_id, student_id)`. Làm lại = tạo lượt mới; lượt cũ giữ nguyên.
 - `attempt_answers`: một hàng / câu. Lúc `start` snapshot toàn bộ đề: `type`, `content`, `options`, `correct_index`, `explanation`, `answer_guide`, `difficulty_label`, thứ tự, và `points_possible`. `points_possible` = chia 100 đều N câu (Hamilton: phần dư +1 từ câu đầu); **không** lấy `question_links.points` — trừ hồ sơ JP: chia 100 theo trọng số `question_links.points` (null = 1, Hamilton theo phần lẻ lớn nhất), ADR `docs/adr/2026-10-09-jp-weighted-scoring.md`. Chấm MCQ/tự luận chỉ đọc snapshot, không join `questions` live. `onDelete: Restrict` với `questions`. Không cascade theo `question_links`.
@@ -659,6 +660,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `content` (`TEXT`, nullable) — chỉ tiết lý thuyết
   - `order` (`INTEGER`, default 0) — thứ tự trong chuyên đề (hoặc trong lớp, với tiết riêng lớp)
   - `elective_1_name`, `elective_2_name` (`TEXT`, nullable) — tên hai nhóm tự chọn của tiết thực hành (hồ sơ IT, vd "Khoa học máy tính" / "Tin học ứng dụng"); sửa qua `PATCH` tiết học.
+  - `duration_minutes` (`INTEGER`, nullable) — **thời lượng làm bài** (phút/lượt, 1–720, tính từ lúc học sinh bấm bắt đầu) của tiết thực hành; `NULL` với tiết lý thuyết. Bắt buộc khi tạo tiết thực hành (`400` nếu thiếu); `PATCH` trên tiết lý thuyết → `400`. Sửa áp cho mọi lớp từ lượt bắt đầu sau đó; lượt đang làm giữ `attempts.duration_minutes`. Migration `20261018100000_practice_lesson_duration` backfill từ lần giao gần nhất của tiết, chưa giao lần nào → 60.
   - `archived_at` (`TIMESTAMPTZ`, nullable) — tiết đã lưu trữ (hiện chỉ tiết riêng lớp cũ). Tiết lưu trữ không đồng bộ theo chuyên đề, không giao/khôi phục vào lớp được.
   - `created_by`, `updated_by` (nullable FK → `users.id`)
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)

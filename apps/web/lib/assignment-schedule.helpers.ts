@@ -1,6 +1,6 @@
 import { currentTimePrefillValue } from "@/components/ui/time-input.helpers";
 
-/** Matches BE `PRACTICE_DURATION_*` on class content lần giao. */
+/** Matches BE `PRACTICE_DURATION_*` on practice lesson duration. */
 export const ASSIGNMENT_DURATION_MIN_MINUTES = 1;
 export const ASSIGNMENT_DURATION_MAX_MINUTES = 720;
 
@@ -26,7 +26,6 @@ export function defaultAssignmentSchedule() {
   return {
     openDate: todayDateValue(),
     openTime: currentTimePrefillValue(),
-    durationMinutes: "60",
   };
 }
 

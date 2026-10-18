@@ -17,6 +17,7 @@ import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
 } from 'src/dtos/class-timeline.dto';
+import { assignmentDurationMinutes } from 'src/attempt/assignment-window';
 
 /**
  * Include dùng chung cho cả staff và student. `studentId` chỉ lọc `studentAssessments`
@@ -326,7 +327,7 @@ export class ClassTimelineService {
       lessonKind,
       isOpen,
       openAt: content?.openAt?.toISOString() ?? null,
-      durationMinutes: content?.durationMinutes ?? null,
+      durationMinutes: content ? assignmentDurationMinutes(content) : null,
       hiddenAt:
         row.hiddenAt?.toISOString() ?? content?.hiddenAt?.toISOString() ?? null,
       session: null,

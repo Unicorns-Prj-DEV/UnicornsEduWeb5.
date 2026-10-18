@@ -37,6 +37,8 @@ export interface CourseLesson {
   /** Tên nhóm tự chọn (tiết thực hành IT). */
   elective1Name?: string | null;
   elective2Name?: string | null;
+  /** Thời lượng làm bài (phút/lượt) — chỉ tiết thực hành. */
+  durationMinutes?: number | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt?: string;
@@ -67,6 +69,8 @@ export interface CreateCourseLessonPayload {
   title: string;
   videoUrl?: string | null;
   content?: string | null;
+  /** Bắt buộc với tiết thực hành. Integer 1–720. */
+  durationMinutes?: number;
 }
 
 export interface UpdateCourseLessonPayload {
@@ -75,6 +79,8 @@ export interface UpdateCourseLessonPayload {
   content?: string | null;
   elective1Name?: string | null;
   elective2Name?: string | null;
+  /** Chỉ tiết thực hành. Integer 1–720. */
+  durationMinutes?: number;
 }
 
 export interface QuestionLinkQuestion {

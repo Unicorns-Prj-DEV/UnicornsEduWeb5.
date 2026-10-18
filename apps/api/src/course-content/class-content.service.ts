@@ -12,8 +12,6 @@ import {
   ClassContentItemResponseDto,
   ClassContentModuleGroupDto,
   ClassTheoryProgressDto,
-  PRACTICE_DURATION_MIN_MINUTES,
-  PRACTICE_DURATION_MAX_MINUTES,
   CourseLessonForClassDto,
   TheoryLessonViewResponseDto,
 } from 'src/dtos/course-content.dto';
@@ -35,6 +33,7 @@ import {
   CourseContentSupportService,
 } from './course-content-support.service';
 import { isAnswered } from '../attempt/grading';
+import { assignmentDurationMinutes } from '../attempt/assignment-window';
 import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
 import { groupClassContentByModule } from './class-content-groups';
 
@@ -203,7 +202,8 @@ export class ClassContentService extends CourseContentSupportService {
       );
     }
     this.assertPracticeAssignmentOpen(item.lesson.kind, item.openAt);
-    if (item.durationMinutes == null || item.durationMinutes < 1) {
+    const durationMinutes = assignmentDurationMinutes(item);
+    if (durationMinutes == null || durationMinutes < 1) {
       throw new BadRequestException('Assignment has no duration');
     }
     return item;
@@ -249,6 +249,7 @@ export class ClassContentService extends CourseContentSupportService {
       title: string;
       kind: string;
       classId: string | null;
+      durationMinutes?: number | null;
       module?: { id: string; title: string } | null;
     } | null;
   }): ClassContentItemResponseDto {
@@ -262,7 +263,8 @@ export class ClassContentService extends CourseContentSupportService {
         ? 'class'
         : 'course';
     const openAt = item.openAt ?? null;
-    const durationMinutes = item.durationMinutes ?? null;
+    const durationMinutes =
+      item.durationMinutes ?? lesson?.durationMinutes ?? null;
     return {
       id: item.id,
       lessonId: item.lessonId ?? '',
@@ -301,55 +303,25 @@ export class ClassContentService extends CourseContentSupportService {
     }
   }
 
-  private parsePracticeSchedule(
+  private parsePracticeOpenAt(
     lessonKind: string,
-    dto: { openAt?: string; durationMinutes?: number },
+    dto: { openAt?: string },
     required: boolean,
-  ):
-    | { openAt: Date; durationMinutes: number }
-    | { openAt: null; durationMinutes: null } {
-    if (lessonKind !== 'practice') {
-      return { openAt: null, durationMinutes: null };
-    }
-
-    const durationMinutes = dto.durationMinutes;
-    if (
-      durationMinutes == null ||
-      !Number.isInteger(durationMinutes) ||
-      durationMinutes < PRACTICE_DURATION_MIN_MINUTES ||
-      durationMinutes > PRACTICE_DURATION_MAX_MINUTES
-    ) {
-      throw new BadRequestException(
-        durationMinutes == null
-          ? 'Practice assignments require durationMinutes'
-          : `durationMinutes must be an integer from ${PRACTICE_DURATION_MIN_MINUTES} to ${PRACTICE_DURATION_MAX_MINUTES}`,
-      );
-    }
+  ): Date | null {
+    if (lessonKind !== 'practice') return null;
 
     const rawOpenAt = dto.openAt?.trim() ? dto.openAt.trim() : undefined;
-    let openAt: Date;
     if (rawOpenAt == null) {
       if (required) {
-        throw new BadRequestException(
-          'Practice assignments require openAt and durationMinutes',
-        );
+        throw new BadRequestException('Practice assignments require openAt');
       }
-      openAt = new Date();
-    } else {
-      openAt = new Date(rawOpenAt);
-      if (Number.isNaN(openAt.getTime())) {
-        throw new BadRequestException('openAt is not a valid date');
-      }
+      return new Date();
     }
-
-    const closeAtMs = openAt.getTime() + durationMinutes * 60_000;
-    if (openAt.getTime() >= closeAtMs) {
-      throw new BadRequestException(
-        'openAt must not be later than assignment close time',
-      );
+    const openAt = new Date(rawOpenAt);
+    if (Number.isNaN(openAt.getTime())) {
+      throw new BadRequestException('openAt is not a valid date');
     }
-
-    return { openAt, durationMinutes };
+    return openAt;
   }
 
   async createClassContentItem(
@@ -378,7 +350,7 @@ export class ClassContentService extends CourseContentSupportService {
     const lessonKind: string = topic.kind;
     const moduleId = topic.moduleId;
 
-    const schedule = this.parsePracticeSchedule(lessonKind, dto, false);
+    const openAt = this.parsePracticeOpenAt(lessonKind, dto, false);
 
     const item = await this.prisma.$transaction(
       async (tx) => {
@@ -419,8 +391,8 @@ export class ClassContentService extends CourseContentSupportService {
             lessonId,
             kind: 'lesson',
             sortOrder: nextSort,
-            openAt: schedule.openAt,
-            durationMinutes: schedule.durationMinutes,
+            openAt,
+            // Lần giao mới không chốt thời lượng — lượt làm đọc từ tiết thực hành.
             shuffleQuestions: dto.shuffleQuestions ?? true,
           },
           include: {
@@ -795,17 +767,14 @@ export class ClassContentService extends CourseContentSupportService {
     }
     const lessonKind = item.lesson?.kind ?? 'theory';
     if (lessonKind !== 'practice') {
-      throw new BadRequestException(
-        'Only practice assignments have openAt and durationMinutes',
-      );
+      throw new BadRequestException('Only practice assignments have openAt');
     }
-    const schedule = this.parsePracticeSchedule(lessonKind, dto, true);
+    const openAt = this.parsePracticeOpenAt(lessonKind, dto, true);
     const updated = await this.prisma.$transaction(async (tx) => {
       const next = await tx.classContentItem.update({
         where: { id: itemId },
         data: {
-          openAt: schedule.openAt,
-          durationMinutes: schedule.durationMinutes,
+          openAt,
           ...(dto.shuffleQuestions !== undefined
             ? { shuffleQuestions: dto.shuffleQuestions }
             : {}),

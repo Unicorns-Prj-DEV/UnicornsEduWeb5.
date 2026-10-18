@@ -35,6 +35,8 @@ import type {
 } from "@/dtos/course-content.dto";
 import { TheoryLessonEditor } from "@/components/course-workspace/TheoryLessonEditor";
 import { WorkspaceBreadcrumb } from "@/components/course-workspace/WorkspaceBreadcrumb";
+import { PracticeDurationField } from "@/components/course-workspace/PracticeDurationField";
+import { parseAssignmentDurationMinutes } from "@/lib/assignment-schedule.helpers";
 import {
   lessonKindBadgeClass,
   lessonKindLabel,
@@ -93,6 +95,8 @@ function LessonWorkspaceInner({
   const [kind, setKind] = useState<LessonKind | null>(null);
   const [title, setTitle] = useState("");
   const [savedTitle, setSavedTitle] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("60");
+  const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
 
   // Đồng bộ form khi dữ liệu tiết học đổi — chỉnh state ngay trong render thay vì effect.
   const [syncedLesson, setSyncedLesson] = useState<typeof lesson>(undefined);
@@ -101,6 +105,9 @@ function LessonWorkspaceInner({
     setTitle(lesson.title);
     setSavedTitle(lesson.title);
     setKind(lesson.kind);
+    setDurationMinutes(
+      lesson.durationMinutes != null ? String(lesson.durationMinutes) : "",
+    );
   }
 
   const backToLessons = moduleLessonsHref(routeBase, courseId, moduleId);
@@ -110,6 +117,9 @@ function LessonWorkspaceInner({
       classApi.createCourseLesson(courseId, moduleId, {
         kind: kind!,
         title: title.trim(),
+        ...(kind === "practice" && parsedDuration != null
+          ? { durationMinutes: parsedDuration }
+          : {}),
       }),
     onSuccess: (created) => {
       toast.success("Đã tạo tiết học.");
@@ -144,6 +154,31 @@ function LessonWorkspaceInner({
         onError: (err) => {
           toast.error((err as ApiError)?.response?.data?.message || "Không thể lưu tên.");
           setTitle(savedTitle);
+        },
+      },
+    );
+  };
+
+  const saveDuration = (next: string) => {
+    const minutes = parseAssignmentDurationMinutes(next);
+    if (!lesson || !canEdit || minutes == null) return;
+    const previous = durationMinutes;
+    setDurationMinutes(next);
+    updateMutation.mutate(
+      { durationMinutes: minutes },
+      {
+        onSuccess: () => {
+          toast.success("Đã lưu thời lượng làm bài.");
+          void queryClient.invalidateQueries({
+            queryKey: courseKeys.lessons(courseId, moduleId),
+          });
+        },
+        onError: (err) => {
+          toast.error(
+            (err as ApiError)?.response?.data?.message ||
+              "Không thể lưu thời lượng.",
+          );
+          setDurationMinutes(previous);
         },
       },
     );
@@ -308,6 +343,12 @@ function LessonWorkspaceInner({
                   className="w-full rounded-md border border-border-default px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 />
               </div>
+              {kind === "practice" ? (
+                <PracticeDurationField
+                  value={durationMinutes}
+                  onValueChange={setDurationMinutes}
+                />
+              ) : null}
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Link
                   href={backToLessons}
@@ -317,7 +358,12 @@ function LessonWorkspaceInner({
                 </Link>
                 <button
                   type="button"
-                  disabled={!kind || !title.trim() || createMutation.isPending}
+                  disabled={
+                    !kind ||
+                    !title.trim() ||
+                    (kind === "practice" && parsedDuration == null) ||
+                    createMutation.isPending
+                  }
                   onClick={() => createMutation.mutate()}
                   className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary-hover disabled:opacity-60 sm:min-h-10"
                 >
@@ -374,6 +420,16 @@ function LessonWorkspaceInner({
                   <p className="mt-1 text-xs text-text-muted">
                     Lưu khi rời ô nhập hoặc nhấn Enter.
                   </p>
+                ) : null}
+                {lesson.kind === "practice" ? (
+                  <div className="mt-4">
+                    <PracticeDurationField
+                      value={durationMinutes}
+                      onValueChange={saveDuration}
+                      disabled={!canEdit || updateMutation.isPending}
+                      hint="Áp cho mọi lớp từ lượt bắt đầu sau khi lưu; lượt đang làm giữ thời lượng cũ."
+                    />
+                  </div>
                 ) : null}
               </div>
 

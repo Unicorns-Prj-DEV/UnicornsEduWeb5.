@@ -563,12 +563,49 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
         courseId: 'course-1',
         moduleId: 'm-1',
         title: 'Thực hành',
+        durationMinutes: 60,
       },
       adminActor,
     );
 
     expect(prisma.classModule.findMany).not.toHaveBeenCalled();
     expect(prisma.classContentItem.create).not.toHaveBeenCalled();
+  });
+
+  it('tạo tiết thực hành không có thời lượng → bị chặn', async () => {
+    prisma.course.findUnique.mockResolvedValue({ id: 'course-1' });
+    prisma.module.findUnique.mockResolvedValue({
+      id: 'm-1',
+      courseId: 'course-1',
+    });
+
+    await expect(
+      service.createLesson(
+        {
+          kind: 'practice' as never,
+          courseId: 'course-1',
+          moduleId: 'm-1',
+          title: 'Thực hành',
+        },
+        adminActor,
+      ),
+    ).rejects.toThrow('Tiết thực hành phải đặt thời lượng làm bài');
+    expect(prisma.lesson.create).not.toHaveBeenCalled();
+  });
+
+  it('sửa thời lượng trên tiết lý thuyết → bị chặn', async () => {
+    prisma.lesson.findUnique.mockResolvedValue({
+      id: 't-1',
+      kind: 'theory',
+      courseId: 'course-1',
+      classId: null,
+      archivedAt: null,
+    });
+
+    await expect(
+      service.updateLesson('t-1', { durationMinutes: 30 }, adminActor),
+    ).rejects.toThrow('Chỉ tiết thực hành có thời lượng làm bài');
+    expect(prisma.lesson.update).not.toHaveBeenCalled();
   });
 
   it('không tạo tiết riêng cho lớp nữa', async () => {
@@ -754,11 +791,7 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
     prisma.classModule.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.createClassContentItem(
-        'cls-1',
-        { lessonId: 'p1', durationMinutes: 45 },
-        adminActor,
-      ),
+      service.createClassContentItem('cls-1', { lessonId: 'p1' }, adminActor),
     ).rejects.toThrow('Lớp chưa thêm chuyên đề chứa tiết thực hành này');
     expect(prisma.classModule.findUnique).toHaveBeenCalledWith({
       where: { classId_moduleId: { classId: 'cls-1', moduleId: 'm-other' } },
@@ -767,7 +800,7 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
     expect(prisma.classContentItem.create).not.toHaveBeenCalled();
   });
 
-  it('giao tiết thực hành thuộc chuyên đề lớp đã thêm → tạo lần giao kèm giờ mở + thời lượng', async () => {
+  it('giao tiết thực hành thuộc chuyên đề lớp đã thêm → tạo lần giao kèm giờ mở, thời lượng đọc từ tiết', async () => {
     prisma.lesson.findUnique.mockResolvedValue({
       id: 'p1',
       kind: 'practice',
@@ -785,11 +818,12 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
       kind: 'lesson',
       sortOrder: 0,
       openAt: new Date('2026-10-05T01:00:00.000Z'),
-      durationMinutes: 45,
+      durationMinutes: null,
       hiddenAt: null,
       lesson: {
         title: 'Luyện tập',
         kind: 'practice',
+        durationMinutes: 45,
         classId: null,
         module: { id: 'm-1', title: 'Chuyên đề 1' },
         quizzes: [],
@@ -801,21 +835,18 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
       {
         lessonId: 'p1',
         openAt: '2026-10-05T01:00:00.000Z',
-        durationMinutes: 45,
       },
       adminActor,
     );
 
     expect(result.id).toBe('cci-p1');
-    expect(prisma.classContentItem.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          lessonId: 'p1',
-          openAt: new Date('2026-10-05T01:00:00.000Z'),
-          durationMinutes: 45,
-        }),
-      }),
-    );
+    expect(result.durationMinutes).toBe(45);
+    const created = prisma.classContentItem.create.mock.calls[0][0];
+    expect(created.data).toMatchObject({
+      lessonId: 'p1',
+      openAt: new Date('2026-10-05T01:00:00.000Z'),
+    });
+    expect(created.data.durationMinutes).toBeUndefined();
   });
 });
 

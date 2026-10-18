@@ -22,7 +22,7 @@ import { LessonKind } from 'generated/enums';
 import { BlankAnswerConstraint } from './attempt.dto';
 import { CONTENT_LIMITS, HTTP_URL_OPTIONS } from './content-limits';
 
-/** Product cap for practice lần giao duration (12 hours). Matches FE + schema docs. */
+/** Product cap for practice lesson duration (12 hours). Matches FE + schema docs. */
 export const PRACTICE_DURATION_MIN_MINUTES = 1;
 export const PRACTICE_DURATION_MAX_MINUTES = 720;
 
@@ -89,6 +89,17 @@ export class LessonCreateDto {
   @IsString()
   @MaxLength(CONTENT_LIMITS.theoryContent)
   content?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Thời lượng làm bài (phút/lượt, tính từ lúc học sinh bấm bắt đầu) của tiết thực hành. Bắt buộc khi tạo tiết thực hành; tiết lý thuyết bị bỏ qua. 1–720.',
+    example: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(PRACTICE_DURATION_MIN_MINUTES)
+  @Max(PRACTICE_DURATION_MAX_MINUTES)
+  durationMinutes?: number;
 }
 
 export class LessonUpdateDto {
@@ -139,6 +150,17 @@ export class LessonUpdateDto {
   @IsString()
   @MaxLength(120)
   elective2Name?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Thời lượng làm bài (phút/lượt, tính từ lúc học sinh bấm bắt đầu) của tiết thực hành. Áp cho mọi lớp từ lượt bắt đầu sau khi sửa; lượt đang làm giữ snapshot. Tiết lý thuyết bị từ chối. 1–720.',
+    example: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(PRACTICE_DURATION_MIN_MINUTES)
+  @Max(PRACTICE_DURATION_MAX_MINUTES)
+  durationMinutes?: number;
 }
 
 export interface LessonResponseDto {
@@ -154,6 +176,8 @@ export interface LessonResponseDto {
   /** Tên nhóm tự chọn (tiết thực hành IT). */
   elective1Name?: string | null;
   elective2Name?: string | null;
+  /** Thời lượng làm bài (phút/lượt) — chỉ tiết thực hành. */
+  durationMinutes?: number | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Date;
@@ -227,17 +251,6 @@ export class ClassContentCreateDto {
 
   @ApiPropertyOptional({
     description:
-      'Thời lượng làm bài (phút) của lần giao. Bắt buộc khi tiết thực hành. 1–720.',
-    example: 60,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(PRACTICE_DURATION_MIN_MINUTES)
-  @Max(PRACTICE_DURATION_MAX_MINUTES)
-  durationMinutes?: number;
-
-  @ApiPropertyOptional({
-    description:
       'Đảo câu: mỗi lượt làm xáo thứ tự câu (đề IT xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2) và thứ tự phương án, nhận định. Câu có phương án nhắc vị trí (vd «Cả A và B», «ở trên») giữ nguyên thứ tự phương án. Mặc định true khi tạo; chỉ áp cho lượt bắt đầu sau khi đổi.',
     example: true,
   })
@@ -253,16 +266,6 @@ export class ClassContentScheduleUpdateDto {
   })
   @IsDateString()
   openAt: string;
-
-  @ApiProperty({
-    description:
-      'Thời lượng làm bài (phút) của lần giao. 1–720. Không đụng đề.',
-    example: 90,
-  })
-  @IsInt()
-  @Min(PRACTICE_DURATION_MIN_MINUTES)
-  @Max(PRACTICE_DURATION_MAX_MINUTES)
-  durationMinutes: number;
 
   @ApiPropertyOptional({
     description:
@@ -286,6 +289,7 @@ export interface ClassContentItemResponseDto {
   moduleId?: string;
   moduleTitle?: string;
   openAt: Date | string | null;
+  /** Thời lượng hiệu lực: đã chốt trên lần giao cũ, không thì của tiết thực hành. */
   durationMinutes: number | null;
   /** Đảo câu + đảo phương án mỗi lượt làm. */
   shuffleQuestions: boolean;

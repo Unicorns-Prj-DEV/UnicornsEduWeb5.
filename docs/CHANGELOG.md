@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- Thời lượng làm bài chuyển lên tiết thực hành (#228): tạo tiết thực hành trong trang nội dung khoá bắt buộc chọn thời lượng (phút/lượt, 1–720), sửa ngay trên trang tiết và áp cho mọi lớp từ lượt bắt đầu sau đó. Form giao / sửa lần giao bỏ ô thời lượng (chỉ hiện thời lượng của tiết). Cột mới `lessons.duration_minutes`; migration backfill từ lần giao gần nhất (mặc định 60), lần giao cũ giữ thời lượng đã chốt, lượt đang làm giữ snapshot.
 - **Logo trơn trên mọi instance** (#227): `BrandLogo` / `BrandLogoLockup` bỏ logo đầy đủ UNI + «UNI EDUCATION» (`logo_full.png`), mọi nơi (navbar, sidebar, trang auth) dùng logo trơn `logo.png`. Favicon và watermark ảnh public không đổi. Docs: `UI-Schema.md`.
 - **Instance IT bỏ Kiểm tra trong buổi khỏi nhận xét buổi học** (#226): cờ hồ sơ `inClassTest` (`GET /public/app-config`, IT `false`). IT: form không có công tắc, hiển thị/copy Zalo/màn học sinh không có 🧪, API bỏ qua `hasInClassTest` + điểm từng học sinh. JP/ENG không đổi. Docs: `docs/pages/admin.md`, `docs/api/courses.md`.
 - **Nhận xét buổi không điểm danh bỏ phần từng học sinh** (#225): hiển thị lịch sử và copy Zalo (cả format legacy, cả nhận xét cũ lưu ở `notes`) không còn mục 3️⃣ / dòng «(vắng)», bất kể sĩ số. Buổi có điểm danh không đổi. Docs: `docs/pages/admin.md`.
