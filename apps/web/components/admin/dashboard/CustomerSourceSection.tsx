@@ -34,9 +34,9 @@ export function CustomerSourceSection({
       }`}
     >
       <div className="px-5 py-4 sm:px-6 sm:py-5">
-        <h2 className="text-base font-bold tracking-tight text-text-primary sm:text-lg">Nguồn khách</h2>
+        <h2 className="text-base font-bold tracking-tight text-text-primary sm:text-lg">Nguồn khách mới</h2>
         <p className="mt-1 text-sm leading-6 text-text-secondary">
-          Số học sinh và học phí đã học trong kỳ đang xem, theo nguồn hiện tại trên hồ sơ.
+          Học sinh mới của kỳ (kể cả em chưa học buổi nào) và doanh thu mới (học phí đã học trong kỳ), theo nguồn hiện tại trên hồ sơ.
         </p>
       </div>
 
@@ -52,7 +52,7 @@ export function CustomerSourceSection({
                 <dd className="mt-1 text-sm font-semibold tabular-nums text-text-primary">{formatVnInteger(row.studentCount)}</dd>
               </div>
               <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">Doanh thu</dt>
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">Doanh thu mới</dt>
                 <dd className="mt-1 text-sm font-semibold tabular-nums text-text-primary">{formatCurrency(row.revenue)}</dd>
               </div>
               <div>
@@ -67,7 +67,7 @@ export function CustomerSourceSection({
       <div className="hidden overflow-x-auto border-t border-border-default md:block">
         <Table>
           <TableCaption className="sr-only">
-            Thống kê nguồn khách theo học phí đã học trong kỳ. Bấm tên nguồn để xem danh sách học sinh.
+            Thống kê nguồn khách mới theo doanh thu mới trong kỳ. Bấm tên nguồn để xem danh sách học sinh.
           </TableCaption>
           <TableHeader>
             <TableRow className="border-border-default hover:bg-transparent">
@@ -78,7 +78,7 @@ export function CustomerSourceSection({
                 Khách
               </TableHead>
               <TableHead className="h-auto min-w-[160px] py-3.5 text-right text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-                Doanh thu
+                Doanh thu mới
               </TableHead>
               <TableHead className="h-auto min-w-[110px] py-3.5 pr-5 text-right text-xs font-semibold uppercase tracking-[0.14em] text-text-muted sm:pr-6">
                 Tỷ trọng

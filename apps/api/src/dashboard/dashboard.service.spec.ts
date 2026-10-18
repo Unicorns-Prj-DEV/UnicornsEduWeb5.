@@ -744,6 +744,33 @@ describe('DashboardService customer source stats', () => {
       studentCount: 0,
     });
   });
+
+  it('counts only new students of the period, keeping those without lessons', async () => {
+    prisma.$queryRaw.mockReset();
+    prisma.$queryRaw.mockResolvedValue([
+      { customerSource: 'tiktok', studentCount: 2, revenue: 300 },
+      { customerSource: 'acquaintance', studentCount: 1, revenue: 100 },
+    ]);
+    const service = new DashboardService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    const rows = (await service['getCustomerSourceStats']({
+      monthStart: new Date('2026-09-01T00:00:00.000Z'),
+      monthEnd: new Date('2026-10-01T00:00:00.000Z'),
+    })) as Array<{ key: string; sharePercent: number }>;
+
+    const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
+    expect(sql.sql).toContain(FIRST_WALLET_TOP_UP_SQL.sql);
+    expect(sql.sql).toMatch(
+      /FROM new_students[\s\S]*LEFT JOIN new_student_revenue/,
+    );
+    expect(rows.reduce((sum, row) => sum + row.sharePercent, 0)).toBeCloseTo(
+      100,
+    );
+  });
 });
 
 describe('DashboardService financial export', () => {

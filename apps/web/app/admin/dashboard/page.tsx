@@ -1296,7 +1296,7 @@ export default function AdminDashboardTabPage() {
             rowLabel={
               selectedFinancialRow?.label ??
               periodFinancialDashboard?.customerSources?.find((row) => row.key === selectedCustomerSourceKey)?.label ??
-              "Nguồn khách"
+              "Nguồn khách mới"
             }
             detail={financialDetailQuery.data}
             isLoading={financialDetailQuery.isLoading}

@@ -327,7 +327,7 @@ function allocateSharePercents(amounts: number[]): number[] {
 
   const numerators = amounts.map((amount) => amount * 1000);
   const floors = numerators.map((numerator) => Math.floor(numerator / total));
-  let leftover = 1000 - floors.reduce((sum, value) => sum + value, 0);
+  const leftover = 1000 - floors.reduce((sum, value) => sum + value, 0);
   const ranked = numerators
     .map((numerator, index) => ({
       index,
@@ -1133,22 +1133,54 @@ export class DashboardService {
     `);
   }
 
+  /**
+   * CTE `new_students` (Học sinh mới của kỳ = nạp đầu trong kỳ) và
+   * `new_student_revenue` (Học phí đã học trong kỳ của nhóm đó).
+   */
+  private newStudentRevenueCtes(params: {
+    monthStart: Date;
+    monthEnd: Date;
+  }): Prisma.Sql {
+    return Prisma.sql`
+      new_students AS (
+        SELECT first_wallet_top_up.student_id
+        FROM (${FIRST_WALLET_TOP_UP_SQL}) AS first_wallet_top_up
+        WHERE ${firstTopUpInRangeSql(params)}
+      ),
+      new_student_revenue AS (
+        SELECT
+          attendance.student_id,
+          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS amount,
+          COUNT(attendance.id) AS attendance_count,
+          STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS class_names
+        FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
+        INNER JOIN classes ON classes.id = sessions.class_id
+        WHERE attendance.status IN ('present', 'excused')
+          AND sessions.date >= ${params.monthStart}
+          AND sessions.date < ${params.monthEnd}
+          AND attendance.student_id IN (SELECT student_id FROM new_students)
+        GROUP BY attendance.student_id
+      )
+    `;
+  }
+
+  /** Nguồn khách mới: Học sinh mới của kỳ và Doanh thu mới theo nguồn. */
   private async getCustomerSourceStats(params: {
     monthStart: Date;
     monthEnd: Date;
   }): Promise<AdminDashboardCustomerSourceRowDto[]> {
     const rows = await this.prisma.$queryRaw<CustomerSourceAggregateSqlRow[]>(
       Prisma.sql`
+        WITH ${this.newStudentRevenueCtes(params)}
         SELECT
           student_info.customer_source::text AS "customerSource",
-          COUNT(DISTINCT student_info.id) AS "studentCount",
-          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
-        FROM attendance
-        INNER JOIN sessions ON sessions.id = attendance.session_id
-        INNER JOIN student_info ON student_info.id = attendance.student_id
-        WHERE attendance.status IN ('present', 'excused')
-          AND sessions.date >= ${params.monthStart}
-          AND sessions.date < ${params.monthEnd}
+          COUNT(*) AS "studentCount",
+          COALESCE(SUM(new_student_revenue.amount), 0) AS revenue
+        FROM new_students
+        INNER JOIN student_info ON student_info.id = new_students.student_id
+        LEFT JOIN new_student_revenue
+          ON new_student_revenue.student_id = new_students.student_id
         GROUP BY student_info.customer_source
       `,
     );
@@ -1176,33 +1208,26 @@ export class DashboardService {
     }));
   }
 
-  private async getLearnedTuitionByStudentForCustomerSource(params: {
+  /** Từng Học sinh mới của kỳ mang nguồn đó, kể cả em chưa học (0đ). */
+  private async getNewStudentRevenueForCustomerSource(params: {
     monthStart: Date;
     monthEnd: Date;
     limit: number;
     customerSource: (typeof CUSTOMER_SOURCE_ROW_ORDER)[number];
   }) {
-    const sourceFilter = Prisma.sql`student_info.customer_source::text = ${params.customerSource}`;
-
     return this.prisma.$queryRaw<LearnedTuitionByStudentSqlRow[]>(Prisma.sql`
+      WITH ${this.newStudentRevenueCtes(params)}
       SELECT
         student_info.id AS "studentId",
         student_info.full_name AS "studentName",
-        COALESCE(
-          STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name),
-          ''
-        ) AS "className",
-        COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount",
-        COUNT(attendance.id) AS "attendanceCount"
-      FROM attendance
-      INNER JOIN sessions ON sessions.id = attendance.session_id
-      INNER JOIN classes ON classes.id = sessions.class_id
-      INNER JOIN student_info ON student_info.id = attendance.student_id
-      WHERE attendance.status IN ('present', 'excused')
-        AND sessions.date >= ${params.monthStart}
-        AND sessions.date < ${params.monthEnd}
-        AND ${sourceFilter}
-      GROUP BY student_info.id, student_info.full_name
+        COALESCE(new_student_revenue.class_names, '') AS "className",
+        COALESCE(new_student_revenue.amount, 0) AS "totalAmount",
+        COALESCE(new_student_revenue.attendance_count, 0) AS "attendanceCount"
+      FROM new_students
+      INNER JOIN student_info ON student_info.id = new_students.student_id
+      LEFT JOIN new_student_revenue
+        ON new_student_revenue.student_id = new_students.student_id
+      WHERE student_info.customer_source::text = ${params.customerSource}
       ORDER BY "totalAmount" DESC, student_info.full_name ASC
       LIMIT ${params.limit}
     `);
@@ -5336,7 +5361,7 @@ export class DashboardService {
                 monthStart: period.monthStart,
                 monthEnd: period.monthEnd,
               }),
-              this.getLearnedTuitionByStudentForCustomerSource({
+              this.getNewStudentRevenueForCustomerSource({
                 monthStart: period.monthStart,
                 monthEnd: period.monthEnd,
                 limit,
@@ -5349,13 +5374,13 @@ export class DashboardService {
 
             return {
               rowKey: query.rowKey,
-              title: `Chi tiết nguồn khách · ${label}`,
-              description: `Học sinh đang mang nguồn ${label} và có học phí đã học trong ${periodLabel}.`,
+              title: `Chi tiết nguồn khách mới · ${label}`,
+              description: `Học sinh mới trong ${periodLabel} đang mang nguồn ${label}, kể cả em chưa học buổi nào. Doanh thu mới = học phí đã học trong kỳ.`,
               amount,
               sources: [
                 {
                   key: sourceKey,
-                  label: `Học phí đã học · ${label}`,
+                  label: `Doanh thu mới · ${label}`,
                   amount,
                   note: `${sourceRow?.studentCount ?? 0} học sinh · tỷ trọng ${sourceRow?.sharePercent ?? 0}%`,
                   tone: 'positive',
@@ -5370,8 +5395,7 @@ export class DashboardService {
                   note: `${normalizeInteger(row.attendanceCount)} lượt học có mặt/vắng phép`,
                 }),
               ),
-              emptyState:
-                'Chưa có học sinh nào phát sinh học phí đã học từ nguồn này trong kỳ.',
+              emptyState: 'Chưa có học sinh mới nào từ nguồn này trong kỳ.',
             };
           }
           case 'prepaid': {
