@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useInClassTestEnabled } from "@/lib/hooks/useInClassTestEnabled";
 
 import type {
   AttendanceReviewFields,
@@ -62,16 +65,18 @@ export function StudentSessionReviewSummary({
   session: SessionReviewFields;
   myReview: AttendanceReviewFields | null | undefined;
 }) {
+  const inClassTestEnabled = useInClassTestEnabled();
   if (!session.progressStatus) return null;
 
-  const testScore = session.hasInClassTest
+  const showInClassTest = inClassTestEnabled && session.hasInClassTest;
+  const testScore = showInClassTest
     ? formatTestScoreLabel(myReview?.testCorrectCount, session.inClassTestTotal)
     : "";
   const dueLabel = formatHomeworkDueAtLabel(session.homeworkDueAt);
 
   return (
     <div className="space-y-1.5">
-      {testScore || hasLines(myReview?.testComment) ? (
+      {showInClassTest && (testScore || hasLines(myReview?.testComment)) ? (
         <ReviewItem label="Kiểm tra trong buổi">
           {hasLines(session.inClassTestContent) ? (
             <ReviewLines value={session.inClassTestContent} />

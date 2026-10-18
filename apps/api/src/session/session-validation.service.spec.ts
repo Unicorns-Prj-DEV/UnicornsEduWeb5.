@@ -4,6 +4,8 @@ import {
   HomeworkQuality,
   SessionProgressStatus,
 } from '../../generated/enums';
+import { lmsProfileConfig } from '../lms-profile/lms-profile';
+import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import { SessionValidationService } from './session-validation.service';
 
 describe('SessionValidationService', () => {
@@ -341,6 +343,45 @@ describe('SessionValidationService', () => {
           { hasInClassTest: true, inClassTestTotal: 10 },
         ),
       ).toThrow(new BadRequestException('Số câu đúng phải trong khoảng 0–10.'));
+    });
+  });
+
+  describe('instance IT (không có Kiểm tra trong buổi)', () => {
+    const itService = () =>
+      new SessionValidationService({
+        config: lmsProfileConfig('it'),
+      } as LmsProfileService);
+
+    it('drops in-class test fields even when ticked', () => {
+      const result = itService().resolveSessionReviewFields({
+        progressStatus: SessionProgressStatus.completed,
+        nextSessionPlan: 'Ôn tập',
+        hasInClassTest: true,
+        inClassTestContent: 'Đề 1',
+        inClassTestTotal: 10,
+      });
+      expect(result).toMatchObject({
+        hasInClassTest: false,
+        inClassTestContent: null,
+        inClassTestTotal: null,
+      });
+    });
+
+    it('skips per-student test score on stored test sessions', () => {
+      const result = itService().resolveAttendanceReview(
+        {
+          status: AttendanceStatus.present,
+          strengths: 'Tốt',
+          improvements: 'Chữ',
+          homeworkQuality: HomeworkQuality.passed,
+          homeworkComment: 'Đủ',
+        },
+        { hasInClassTest: true, inClassTestTotal: 10 },
+      );
+      expect(result).toMatchObject({
+        testCorrectCount: null,
+        testComment: null,
+      });
     });
   });
 

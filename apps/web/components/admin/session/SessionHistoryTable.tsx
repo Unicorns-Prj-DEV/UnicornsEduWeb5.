@@ -81,6 +81,7 @@ import {
   TrialLessonBadge,
   TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
+import { useInClassTestEnabled } from "@/lib/hooks/useInClassTestEnabled";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
@@ -922,6 +923,7 @@ export default function SessionHistoryTable({
   const [editingSession, setEditingSession] = useState<SessionItem | null>(
     null,
   );
+  const inClassTestEnabled = useInClassTestEnabled();
   const isSavedTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
   const [editIsTrialLesson, setEditIsTrialLesson] = useState(false);
   const showTrialLessonToggle =
@@ -1274,7 +1276,12 @@ export default function SessionHistoryTable({
     setEditHomework(session.homework ?? "");
     setEditTutorial(session.tutorial ?? "");
     setEditRecordingUrl(session.recordingUrl ?? "");
-    setEditReview(sessionReviewFormFromSession(session));
+    const seededReview = sessionReviewFormFromSession(session);
+    setEditReview(
+      inClassTestEnabled
+        ? seededReview
+        : { ...seededReview, hasInClassTest: false },
+    );
     setLessonContentError("");
     setHomeworkError("");
     setTutorialError("");
@@ -1991,6 +1998,7 @@ export default function SessionHistoryTable({
             const status = renderSessionStatus(session, statusMode);
             const commentDisplay = resolveSessionCommentDisplayContent({
               ...session,
+              hasInClassTest: inClassTestEnabled && session.hasInClassTest,
               className: session.class?.name,
               date: session.date,
               startTime: session.startTime,
@@ -2325,6 +2333,7 @@ export default function SessionHistoryTable({
                   const status = renderSessionStatus(session, "payment");
                   const commentDisplay = resolveSessionCommentDisplayContent({
                     ...session,
+                    hasInClassTest: inClassTestEnabled && session.hasInClassTest,
                     className: session.class?.name,
                     date: session.date,
                     startTime: session.startTime,
@@ -2564,6 +2573,7 @@ export default function SessionHistoryTable({
                   const status = renderSessionStatus(session, statusMode);
                   const commentDisplay = resolveSessionCommentDisplayContent({
                     ...session,
+                    hasInClassTest: inClassTestEnabled && session.hasInClassTest,
                     className: session.class?.name,
                     date: session.date,
                     startTime: session.startTime,

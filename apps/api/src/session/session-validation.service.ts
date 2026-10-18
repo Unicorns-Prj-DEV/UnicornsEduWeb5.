@@ -8,6 +8,7 @@ import {
   resolveEffectivePackageFields,
   resolveSessionChargeTuitionFee,
 } from 'src/common/student-class-tuition.util';
+import { LmsProfileService } from '../lms-profile/lms-profile.service';
 
 const SESSION_REVIEW_FIELD_KEYS = [
   'progressStatus',
@@ -97,6 +98,10 @@ export function pickAttendanceReviewInput(
 
 @Injectable()
 export class SessionValidationService {
+  constructor(
+    private readonly lmsProfile: LmsProfileService = new LmsProfileService(),
+  ) {}
+
   parseSessionDate(date: string) {
     const normalized = String(date ?? '').trim();
     const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
@@ -484,7 +489,9 @@ export class SessionValidationService {
       }
     }
 
-    const hasInClassTest = data.hasInClassTest === true;
+    // Instance không có Kiểm tra trong buổi (IT): bỏ qua cờ client gửi.
+    const hasInClassTest =
+      this.lmsProfile.config.inClassTest && data.hasInClassTest === true;
     const inClassTestContent = hasInClassTest
       ? this.normalizeReviewText(data.inClassTestContent)
       : null;
@@ -579,7 +586,7 @@ export class SessionValidationService {
     };
 
     const result: AttendanceReviewData = { ...empty };
-    if (test.hasInClassTest) {
+    if (test.hasInClassTest && this.lmsProfile.config.inClassTest) {
       const total = test.inClassTestTotal ?? 0;
       const correct = item.testCorrectCount;
       if (correct === undefined || correct === null) {

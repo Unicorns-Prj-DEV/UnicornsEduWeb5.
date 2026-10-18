@@ -31,4 +31,6 @@ export interface AppConfig {
   sharedMaterials: boolean;
   /** Audio tư liệu cho câu / tư liệu dùng chung (JP). */
   questionAudio: boolean;
+  /** Nhận xét buổi học có phần Kiểm tra trong buổi (IT tắt). */
+  inClassTest: boolean;
 }

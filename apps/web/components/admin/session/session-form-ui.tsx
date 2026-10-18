@@ -28,6 +28,7 @@ import {
 } from "@/lib/money-input.helpers";
 import type { SessionCommentDisplayContent } from "@/lib/session-comment-zalo.helpers";
 import { sanitizeRichTextContent } from "@/lib/sanitize";
+import { useInClassTestEnabled } from "@/lib/hooks/useInClassTestEnabled";
 
 /** Chuẩn hóa "HH:mm" hoặc "HH:mm:ss" để tính phút. */
 function parseTimeToMinutes(time: string): number | null {
@@ -797,6 +798,7 @@ export function SessionReviewProgressFields({
   idPrefix,
   disabled = false,
 }: SessionReviewFieldsProps) {
+  const inClassTestEnabled = useInClassTestEnabled();
   const showProgressDetail =
     value.progressStatus === "partial" || value.progressStatus === "not_completed";
 
@@ -841,6 +843,7 @@ export function SessionReviewProgressFields({
         </div>
       ) : null}
 
+      {inClassTestEnabled ? (
       <div className="space-y-3 rounded-lg border border-border-default bg-bg-secondary/30 p-3">
         <ReviewToggle
           id={`${idPrefix}-has-test`}
@@ -879,6 +882,7 @@ export function SessionReviewProgressFields({
           </>
         ) : null}
       </div>
+      ) : null}
     </div>
   );
 }
