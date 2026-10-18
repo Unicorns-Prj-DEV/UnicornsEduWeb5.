@@ -2724,6 +2724,7 @@ export default function AdminStaffDetailPage({
                 editorLayout="wide"
                 enableBulkPaymentStatusEdit={canPayAll}
                 allowTeacherSelection={canEditSessionDetails}
+                allowTrialTeachingToggle={canEditSessionDetails}
                 allowFinancialEdits={canEditSessionDetails}
                 allowAllowanceEdit={canEditSessionDetails}
                 allowAttendanceTuitionEdits={canEditSessionDetails}

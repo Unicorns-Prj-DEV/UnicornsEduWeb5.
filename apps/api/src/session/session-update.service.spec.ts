@@ -157,7 +157,7 @@ describe('SessionUpdateService', () => {
         startTime: undefined,
         endTime: undefined,
         notes: undefined,
-        coefficient: 1.8,
+        coefficient: undefined,
         attendance: [
           {
             studentId: 'student-1',

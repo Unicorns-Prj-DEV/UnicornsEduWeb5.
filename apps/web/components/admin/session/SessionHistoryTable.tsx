@@ -78,6 +78,8 @@ import {
   SessionReviewProgressFields,
   SessionTeacherAllowanceEstimateCard,
   SessionUnsavedChangesDialog,
+  TrialLessonBadge,
+  TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
@@ -153,6 +155,8 @@ type Props = {
   allowDeleteSession?: boolean;
   enableBulkPaymentStatusEdit?: boolean;
   readOnlySessionDetails?: boolean;
+  /** Hiện toggle Dạy thử (coefficient = 0) khi sửa buổi — chỉ admin/trợ lí. */
+  allowTrialTeachingToggle?: boolean;
   showTrainingManagerAllowance?: boolean;
   updateSessionFn?: (
     id: string,
@@ -583,7 +587,7 @@ function SelectionCheckbox({
 }: SelectionCheckboxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+   
   useEffect(() => {
     if (!inputRef.current) return;
     inputRef.current.indeterminate = indeterminate;
@@ -823,6 +827,7 @@ export function ClassDetailInfoColumn({
             {renderCoefficientLabel(session.coefficient)}
           </span>
         </div>
+        {Number(session.coefficient ?? 1) === 0 ? <TrialLessonBadge /> : null}
         <div className="inline-flex items-center justify-center gap-0.5">
           <svg
             className="size-3.5 text-text-muted"
@@ -877,6 +882,7 @@ export default function SessionHistoryTable({
   allowDeleteSession = true,
   enableBulkPaymentStatusEdit = false,
   readOnlySessionDetails = false,
+  allowTrialTeachingToggle = false,
   showTrainingManagerAllowance = false,
   updateSessionFn = sessionApi.updateSession,
   deleteSessionFn = sessionApi.deleteSession,
@@ -916,7 +922,14 @@ export default function SessionHistoryTable({
   const [editingSession, setEditingSession] = useState<SessionItem | null>(
     null,
   );
-  const isLegacyTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
+  const isSavedTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
+  const [editIsTrialLesson, setEditIsTrialLesson] = useState(false);
+  const showTrialLessonToggle =
+    allowTrialTeachingToggle && !readOnlySessionDetails;
+  // Gia sư không đổi được Dạy thử: giữ đúng trạng thái đã lưu.
+  const isTrialLesson = showTrialLessonToggle
+    ? editIsTrialLesson
+    : isSavedTrialLesson;
   const [sessionToDelete, setSessionToDelete] = useState<SessionItem | null>(
     null,
   );
@@ -1251,6 +1264,7 @@ export default function SessionHistoryTable({
 
   const openEdit = (session: SessionItem) => {
     setEditingSession(session);
+    setEditIsTrialLesson(Number(session.coefficient ?? 1) === 0);
     setEditDate(toDateInputValue(session.date));
     setEditStartTime(toTimeInputValue(session.startTime) || "18:00");
     setEditEndTime(toTimeInputValue(session.endTime) || "20:00");
@@ -1314,6 +1328,7 @@ export default function SessionHistoryTable({
       teacherPaymentStatus: editPaymentStatus,
       teacherId: editTeacherId,
       manualAllowanceGrossOverride,
+      isTrialLesson: editIsTrialLesson,
       attendance: attendanceItems.map((item) => ({
         studentId: item.studentId,
         status: item.status,
@@ -1326,6 +1341,7 @@ export default function SessionHistoryTable({
       editDate,
       editEndTime,
       editHomework,
+      editIsTrialLesson,
       editLessonContent,
       editPaymentStatus,
       editRecordingUrl,
@@ -1449,8 +1465,15 @@ export default function SessionHistoryTable({
               : {}),
           }))
         : [];
-    // Hệ số buổi giữ nguyên khi sửa (buổi Dạy thử cũ có hệ số 0); học thử giờ là trạng thái điểm danh.
-    const coeffNum = isLegacyTrialLesson ? 0 : undefined;
+    // Chỉ gửi hệ số khi admin/trợ lí đổi Dạy thử; còn lại giữ nguyên hệ số đã lưu.
+    const coeffNum =
+      isTrialLesson !== isSavedTrialLesson
+        ? isTrialLesson
+          ? 0
+          : 1
+        : isSavedTrialLesson
+          ? 0
+          : undefined;
     if (
       canEditAllowance &&
       manualAllowanceGrossOverride !== null &&
@@ -1604,11 +1627,13 @@ export default function SessionHistoryTable({
         ["accountant", "accountant_income"].includes(role),
       ));
   const coefficientForAllowancePreview = useMemo(() => {
+    if (isTrialLesson) return 0;
+    if (isSavedTrialLesson) return 1;
     const s = editingSession?.coefficient;
     const c = typeof s === "number" ? s : Number(s);
     if (Number.isFinite(c) && c >= 0 && c <= 1) return c;
     return 1;
-  }, [editingSession?.coefficient]);
+  }, [editingSession?.coefficient, isSavedTrialLesson, isTrialLesson]);
 
   const selectedTeacherId =
     editTeacherId.trim() || editingSession?.teacherId || "";
@@ -1736,9 +1761,9 @@ export default function SessionHistoryTable({
 
   const isAllowancePaymentLocked =
     isSessionPaymentLockedStatus(editPaymentStatus);
-  const isAllowanceEditLocked = isLegacyTrialLesson || isAllowancePaymentLocked;
-  const allowanceEditLockedReason = isLegacyTrialLesson
-    ? "Buổi dạy thử (dữ liệu cũ) không tính trợ cấp."
+  const isAllowanceEditLocked = isTrialLesson || isAllowancePaymentLocked;
+  const allowanceEditLockedReason = isTrialLesson
+    ? "Buổi dạy thử không tính trợ cấp."
     : isAllowancePaymentLocked
       ? "Buổi đã thanh toán hoặc ghi cọc — không chỉnh trợ cấp."
       : null;
@@ -2133,6 +2158,9 @@ export default function SessionHistoryTable({
                               {renderCoefficientLabel(session.coefficient)}
                             </span>
                           </div>
+                          {Number(session.coefficient ?? 1) === 0 ? (
+                            <TrialLessonBadge />
+                          ) : null}
                           <div className="inline-flex items-center gap-1">
                             <svg
                               className="size-3.5 text-text-muted"
@@ -3028,6 +3056,21 @@ export default function SessionHistoryTable({
                             buttonClassName="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                           />
                         </label>
+                      ) : null}
+
+                      {showTrialLessonToggle ? (
+                        <TrialLessonToggle
+                          className={fullWidthFieldClass}
+                          checked={editIsTrialLesson}
+                          onChange={(value) => {
+                            setEditIsTrialLesson(value);
+                            if (value) setManualAllowanceGrossOverride(null);
+                          }}
+                        />
+                      ) : isSavedTrialLesson ? (
+                        <div className={fullWidthFieldClass}>
+                          <TrialLessonBadge />
+                        </div>
                       ) : null}
 
                       {showEditAllowanceEstimate ? (

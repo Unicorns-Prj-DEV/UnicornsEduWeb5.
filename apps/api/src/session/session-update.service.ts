@@ -1836,7 +1836,10 @@ export class SessionUpdateService {
         tutorial: data.tutorial,
         ...pickSessionReviewInput(data),
         recordingUrl: data.recordingUrl,
-        coefficient: data.coefficient,
+        // Dạy thử chỉ admin/trợ lí đổi; gia sư sửa buổi giữ nguyên hệ số.
+        coefficient: actor.roles.includes(StaffRole.assistant)
+          ? data.coefficient
+          : undefined,
         attendance: enrichedAttendance,
       },
       auditActor,

@@ -344,7 +344,7 @@
   - sửa role staff, status staff hoặc quyền hệ thống
   - tự đổi trạng thái thanh toán thưởng
   - chuyển trạng thái thanh toán buổi học, bonus, lesson output hoặc extra allowance
-  - chỉnh học phí, trợ cấp, `custom allowance`, `operating_deduction_rate_percent` hoặc bất kỳ field finance nào khác trên buổi học (toggle **Dạy thử** đã bỏ; học thử nay là trạng thái điểm danh `trial` của từng học sinh)
+  - chỉnh học phí, trợ cấp, `custom allowance`, `operating_deduction_rate_percent` hoặc bất kỳ field finance nào khác trên buổi học (gia sư không có toggle **Dạy thử**; `staff-ops` bỏ qua `coefficient` gia sư gửi — buổi mới luôn chính thức, sửa buổi giữ hệ số cũ. Buổi Dạy thử do admin/trợ lí bật hiện nhãn **Dạy thử** trong form và lịch sử. Khác **Học thử** = trạng thái điểm danh `trial` của từng học sinh)
   - xem hoặc thao tác dữ liệu của staff khác qua route `/staff`
 
 ## Data and API

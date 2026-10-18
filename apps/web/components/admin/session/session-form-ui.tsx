@@ -68,6 +68,62 @@ export function RequiredMark() {
   return <span className="text-error">*</span>;
 }
 
+type TrialLessonToggleProps = {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+};
+
+/** Dạy thử (coefficient = 0) — chỉ admin/trợ lí bật; buổi không tính trợ cấp. */
+export function TrialLessonToggle({
+  checked,
+  onChange,
+  disabled = false,
+  className = "",
+}: TrialLessonToggleProps) {
+  return (
+    <label
+      className={cn(
+        "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+        checked
+          ? "border-primary/35 bg-primary/8"
+          : "border-border-default bg-bg-secondary/35",
+        disabled ? "cursor-not-allowed opacity-70" : "hover:border-primary/25",
+        className,
+      )}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="size-5 shrink-0 rounded border-border-default text-primary focus:ring-border-focus"
+      />
+      <span className="text-sm font-semibold text-text-primary">Dạy thử</span>
+      <span className="text-xs text-text-muted">
+        {checked
+          ? "Không tính trợ cấp buổi (hệ số = 0)"
+          : "Buổi học chính thức"}
+      </span>
+    </label>
+  );
+}
+
+/** Nhãn chỉ đọc cho buổi Dạy thử (gia sư thấy, không đổi được). */
+export function TrialLessonBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary",
+        className,
+      )}
+    >
+      Dạy thử
+    </span>
+  );
+}
+
 type SessionTeacherAllowanceEstimateCardProps = {
   amount?: number | null;
   estimatedAmount?: number | null;

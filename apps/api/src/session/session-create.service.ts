@@ -782,7 +782,10 @@ export class SessionCreateService {
         classId,
         teacherId,
         date: data.date,
-        coefficient: data.coefficient,
+        // Dạy thử (coefficient = 0) chỉ admin/trợ lí bật; gia sư luôn buổi chính thức.
+        coefficient: actor.roles.includes(StaffRole.assistant)
+          ? data.coefficient
+          : undefined,
         startTime: data.startTime,
         endTime: data.endTime,
         notes: data.notes ?? null,

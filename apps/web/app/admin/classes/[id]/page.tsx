@@ -770,6 +770,7 @@ export default function AdminClassDetailPage() {
       {addSessionPopupOpen ? (
         <AddSessionPopup
           open={addSessionPopupOpen}
+          allowTrialTeachingToggle={canEditSessions}
           classId={id}
           className={classDetail.name}
           defaultTeacherId={currentClassTeacherId}
@@ -1405,6 +1406,7 @@ export default function AdminClassDetailPage() {
                           editorLayout="wide"
                           enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
                           allowTeacherSelection={canEditSessions}
+                          allowTrialTeachingToggle={canEditSessions}
                           allowFinancialEdits={canEditSessions}
                           allowAllowanceEdit={canEditSessions}
                           allowAttendanceTuitionEdits={canEditSessions}
