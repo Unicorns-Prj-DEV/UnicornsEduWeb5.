@@ -246,12 +246,17 @@ export type BuildSessionCommentZaloTextInput = {
   review?: SessionReviewFields | null;
   /** Ép dùng template mới kể cả khi chưa chọn tiến độ (form đang nhập). */
   structured?: boolean;
+  /** Buổi không điểm danh: bỏ hẳn phần nhận xét từng học sinh (mục 3️⃣). */
+  noAttendance?: boolean;
   students: SessionCommentZaloStudent[];
 };
 
 export function buildSessionCommentZaloText(
   input: BuildSessionCommentZaloTextInput,
 ): string {
+  if (input.noAttendance && input.students.length > 0) {
+    return buildSessionCommentZaloText({ ...input, students: [] });
+  }
   if (input.review && (input.structured || input.review.progressStatus)) {
     return buildStructuredSessionReviewText(input, input.review);
   }
@@ -292,12 +297,14 @@ export function buildSessionCommentZaloText(
 
   lines.push("", "1️⃣ Nhận xét ngày", dayReviewLine, "", "2️⃣ Nội dung bài học");
 
-  lines.push(lessonContent || "—", "", STUDENT_COMMENTS_SECTION_TITLE);
+  lines.push(lessonContent || "—");
 
-  if (studentBlocks.length > 0) {
-    lines.push(studentBlocks.join("\n\n"));
-  } else {
-    lines.push("—");
+  if (!input.noAttendance) {
+    lines.push(
+      "",
+      STUDENT_COMMENTS_SECTION_TITLE,
+      studentBlocks.length > 0 ? studentBlocks.join("\n\n") : "—",
+    );
   }
 
   lines.push(
@@ -335,6 +342,8 @@ export type SessionCommentZaloSource = SessionReviewFields & {
   lessonContent?: string | null;
   homework?: string | null;
   tutorial?: string | null;
+  /** Snapshot cờ lớp không điểm danh của buổi. */
+  snapshotNoAttendance?: boolean | null;
   attendance?: Array<
     AttendanceReviewFields & {
       status: SessionAttendanceStatus;
@@ -358,6 +367,7 @@ export function buildSessionCommentZaloTextFromSession(
     tutorial: session.tutorial ?? "",
     ordinal: session.ordinal ?? null,
     review: session,
+    noAttendance: Boolean(session.snapshotNoAttendance),
     students: (session.attendance ?? []).map((attendanceItem) => ({
       ...attendanceItem,
       fullName: attendanceItem.student?.fullName?.trim() || "—",
@@ -377,6 +387,24 @@ function looksLikeZaloCommentTemplate(value: string): boolean {
     /1️⃣\s*Nhận xét ngày/.test(trimmed) ||
     /3️⃣\s*(Cụ thể từng học sinh|Nhận xét từng học sinh)/.test(trimmed)
   );
+}
+
+/**
+ * Bỏ mục 3️⃣ (nhận xét từng học sinh) khỏi nhận xét legacy lưu ở `notes`:
+ * từ dòng tiêu đề 3️⃣ tới trước mục 4️⃣ (hoặc hết văn bản).
+ */
+export function stripLegacyStudentCommentsSection(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((line) =>
+    /^\s*3️⃣\s*(Cụ thể từng học sinh|Nhận xét từng học sinh)/.test(line),
+  );
+  if (start < 0) return text;
+  const nextOffset = lines
+    .slice(start + 1)
+    .findIndex((line) => /^\s*4️⃣/.test(line));
+  const end = nextOffset < 0 ? lines.length : start + 1 + nextOffset;
+  const kept = [...lines.slice(0, start), ...lines.slice(end)];
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export type SessionCommentDisplayContent = {
@@ -405,7 +433,12 @@ export function resolveSessionCommentDisplayContent(
     if (looksLikeHtmlRichText(notes) && !looksLikeZaloCommentTemplate(notes)) {
       return { mode: "html", text: notes };
     }
-    return { mode: "plain", text: notes };
+    return {
+      mode: "plain",
+      text: session.snapshotNoAttendance
+        ? stripLegacyStudentCommentsSection(notes)
+        : notes,
+    };
   }
 
   if (hasStructuredFields) {

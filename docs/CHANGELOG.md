@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Nhận xét buổi không điểm danh bỏ phần từng học sinh** (#225): hiển thị lịch sử và copy Zalo (cả format legacy, cả nhận xét cũ lưu ở `notes`) không còn mục 3️⃣ / dòng «(vắng)», bất kể sĩ số. Buổi có điểm danh không đổi. Docs: `docs/pages/admin.md`.
 - **Khôi phục Dạy thử cho buổi học** (#224): admin/trợ lí bật/tắt toggle **Dạy thử** trên form tạo/sửa buổi (`coefficient = 0`, trợ cấp = 0, khoá ô trợ cấp). Gia sư không có toggle, thấy nhãn **Dạy thử**; `staff-ops` bỏ qua `coefficient` gia sư gửi. Buổi đã có không bị tính lại. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
 - **Dashboard admin gọn lại** (#223): bỏ khối Cảnh báo & hành động, dialog danh sách cảnh báo và card Cảnh báo mở; hàng card đầu chỉ còn Lớp học và Học sinh (2 cột từ mobile). Xoá `AlertGroupCard`, `DashboardAlertListDialog`, `alert-group-styles`, `getAdminDashboardActionAlerts`. API backend giữ nguyên.
 - **Dashboard: Nguồn khách mới / Doanh thu mới** (#222): bảng nguồn khách chỉ tính **Học sinh mới** của kỳ (nạp đầu trong kỳ, kể cả em chưa học — góp 0đ); cột tiền đổi thành **Doanh thu mới** = Học phí đã học trong kỳ của nhóm đó, tỷ trọng trên tổng doanh thu mới. Popup chi tiết nguồn liệt kê mọi học sinh mới của nguồn.
