@@ -22,8 +22,6 @@ import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
-import AlertGroupCard from "@/components/admin/dashboard/AlertGroupCard";
-import DashboardAlertListDialog from "@/components/admin/dashboard/DashboardAlertListDialog";
 import {
   AdminDashboardFinancialReportSkeleton,
   AdminDashboardRefreshStrip,
@@ -34,10 +32,7 @@ import { DashboardIcon } from "@/components/admin/dashboard/DashboardIcon";
 import { CustomerSourceSection } from "@/components/admin/dashboard/CustomerSourceSection";
 import { ActiveClassBreakdownDialog } from "@/components/admin/dashboard/ActiveClassBreakdownDialog";
 import { FinancialDetailModal } from "@/components/admin/dashboard/FinancialDetailModal";
-import type { AlertGroupTone } from "@/components/admin/dashboard/alert-group-styles";
 import type {
-  AdminDashboardActionAlert,
-  AdminDashboardActionAlertGroup,
   AdminDashboardCustomerSourceRow,
   AdminDashboardDto,
   AdminDashboardFinancialDetailRowKey,
@@ -457,7 +452,6 @@ function AssistantDashboardRedirect({
 }
 
 export default function AdminDashboardTabPage() {
-  const { push } = useRouter();
   const pathname = usePathname();
   const routeBase = resolveAdminLikeRouteBase(pathname);
   const quickViewYearLabelId = useId();
@@ -490,11 +484,6 @@ export default function AdminDashboardTabPage() {
   const [selectedCustomerSourceKey, setSelectedCustomerSourceKey] = useState<AdminDashboardCustomerSourceRow["key"] | null>(null);
   const [studentChurnTab, setStudentChurnTab] = useState<AdminDashboardStudentChurnType | null>(null);
   const [classBreakdownOpen, setClassBreakdownOpen] = useState(false);
-  const [openAlertGroup, setOpenAlertGroup] = useState<{
-    group: AdminDashboardActionAlertGroup;
-    title: string;
-    tone: AlertGroupTone;
-  } | null>(null);
 
   // Date-range mode state
   const [viewMode, setViewMode] = useState<"month" | "range">("month");
@@ -517,14 +506,14 @@ export default function AdminDashboardTabPage() {
       getAdminDashboard({
         month,
         year,
-        alertLimit: 8,
+        alertLimit: 1,
         topClassLimit: 8,
       }),
     enabled: fullProfileQuery.isSuccess && !isAssistantStaff,
     staleTime: 30_000,
   });
 
-  // Second query for range mode financial data (only financial rows; KPI/alerts/quickview stay on month query)
+  // Second query for range mode financial data (only financial rows; KPI/quickview stay on month query)
   const rangeFinancialQuery = useQuery<AdminDashboardDto>({
     queryKey: ["dashboard", "admin", "range", dateFrom, dateTo],
     queryFn: () =>
@@ -772,60 +761,6 @@ export default function AdminDashboardTabPage() {
     dashboard.yearlySummary.reduce((best, item) => (item.profit > best.profit ? item : best), dashboard.yearlySummary[0]) ??
     { quarter: "Q1", classes: 0, revenue: 0, expense: 0, profit: 0 };
 
-  const expiringAlerts = dashboard.actionAlerts.filter((item) => item.type === "Sắp hết tiền");
-  const debtAlerts = dashboard.actionAlerts.filter((item) => item.type === "Chưa thu");
-  const payrollAlerts = dashboard.actionAlerts.filter((item) => item.type === "Nhân sự chưa thanh toán");
-  const classAlerts = dashboard.actionAlerts.filter((item) => item.type === "Lớp cảnh báo");
-
-  const alertGroupCards: Array<{
-    group: AdminDashboardActionAlertGroup;
-    title: string;
-    alerts: AdminDashboardActionAlert[];
-    totalCount: number;
-    tone: AlertGroupTone;
-  }> = [
-    {
-      group: "expiring",
-      title: "Học sinh cần gia hạn",
-      alerts: expiringAlerts,
-      totalCount: dashboard.summary.expiringStudentsCount,
-      tone: "destructive",
-    },
-    {
-      group: "payroll",
-      title: "Chờ thanh toán trợ cấp",
-      alerts: payrollAlerts,
-      totalCount: dashboard.summary.unpaidStaffCount,
-      tone: "info",
-    },
-    {
-      group: "class",
-      title: "Lớp chưa báo cáo khảo sát",
-      alerts: classAlerts,
-      totalCount: dashboard.summary.classAlertCount,
-      tone: "class",
-    },
-    {
-      group: "debt",
-      title: "Chưa thu học phí",
-      alerts: debtAlerts,
-      totalCount: dashboard.summary.debtStudentsCount,
-      tone: "warning",
-    },
-  ];
-
-  const openAlertDetail = (alert: AdminDashboardActionAlert) => {
-    if (alert.targetType === "student") {
-      push(buildAdminLikePath(routeBase, `students/${alert.targetId}`));
-      return;
-    }
-    if (alert.targetType === "staff") {
-      push(buildAdminLikePath(routeBase, `staffs/${alert.targetId}`));
-      return;
-    }
-    push(buildAdminLikePath(routeBase, `classes/${alert.targetId}`));
-  };
-
   const openFinancialDetail = (rowKey: AdminDashboardFinancialDetailRowKey) => {
     setSelectedCustomerSourceKey(null);
     setSelectedFinancialRowKey(rowKey);
@@ -874,7 +809,6 @@ export default function AdminDashboardTabPage() {
       : quickView === "ops"
         ? [
           { label: "Lớp đang hoạt động", value: String(dashboard.summary.activeClasses), description: "Số lớp đang chạy" },
-          { label: "Cảnh báo mở", value: String(dashboard.summary.totalAlerts), description: "Tổng cảnh báo cần xử lý" },
           { label: "Nhân sự chưa thanh toán", value: String(dashboard.summary.unpaidStaffCount), description: "Nhân sự còn khoản pending" },
           { label: "Trợ cấp chờ thanh toán", value: formatCurrency(dashboard.summary.pendingPayrollTotal), description: "Tổng payroll pending" },
         ]
@@ -1051,7 +985,7 @@ export default function AdminDashboardTabPage() {
         ) : null}
 
         <section
-          className={`grid gap-3 transition-opacity sm:grid-cols-2 lg:grid-cols-3 ${
+          className={`grid grid-cols-2 gap-3 transition-opacity ${
             isMonthDashboardRefreshing ? "opacity-70" : ""
           }`}
         >
@@ -1068,34 +1002,6 @@ export default function AdminDashboardTabPage() {
             note={`${dashboard.summary.activeStudents} đang học · +${dashboard.summary.newStudentsThisMonth} mới / -${dashboard.summary.droppedStudentsThisMonth} cũ nghỉ / -${dashboard.summary.trialDroppedStudentsThisMonth} thử nghỉ`}
             tone={dashboard.summary.droppedStudentsThisMonth > 0 ? "warning" : "default"}
             onClick={() => setStudentChurnTab("new")}
-          />
-          <KpiCard
-            title="Lợi nhuận tháng"
-            value={formatCurrency(periodFinancialDashboard?.summary.monthlyProfit ?? 0)}
-            note="Doanh thu thực tế (học phí đã học) trừ chi phí trong kỳ"
-            tone={(periodFinancialDashboard?.summary.monthlyProfit ?? 0) >= 0 ? "success" : "warning"}
-            onClick={() => setSelectedFinancialRowKey("profit")}
-          />
-          <KpiCard
-            title="Học phí chưa dạy (Ví dương)"
-            value={formatCurrency(snapshotDashboard.summary.prepaidTuitionTotal ?? 0)}
-            note="Snapshot hiện tại — mọi học sinh có ví dương"
-            tone="warning"
-            onClick={() => setSelectedFinancialRowKey("prepaid")}
-          />
-          <KpiCard
-            title="Học phí chưa thu (Ví âm)"
-            value={formatCurrency(snapshotDashboard.summary.pendingCollectionTotal ?? 0)}
-            note="Snapshot hiện tại — mọi học sinh có ví âm"
-            tone="default"
-            onClick={() => setSelectedFinancialRowKey("uncollected")}
-          />
-          <KpiCard
-            title="Trợ cấp chờ thanh toán"
-            value={`${snapshotDashboard.summary.unpaidStaffCount} nhân sự · ${formatCurrency(snapshotDashboard.summary.pendingPayrollTotal ?? 0)}`}
-            note="Mọi khoản pending/unpaid mọi thời điểm"
-            tone="warning"
-            onClick={() => setSelectedFinancialRowKey("pending-payroll")}
           />
         </section>
 
@@ -1221,32 +1127,6 @@ export default function AdminDashboardTabPage() {
         )}
 
         <section className="rounded-xl border border-border-default bg-bg-surface p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <DashboardIcon path="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
-            <h2 className="text-base font-semibold text-text-primary">Cảnh báo & hành động</h2>
-                    </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {alertGroupCards.map((card) => (
-              <AlertGroupCard
-                key={card.group}
-                title={card.title}
-                alerts={card.alerts}
-                totalCount={card.totalCount}
-                tone={card.tone}
-                onOpenAlert={openAlertDetail}
-                onViewAll={() =>
-                  setOpenAlertGroup({
-                    group: card.group,
-                    title: card.title,
-                    tone: card.tone,
-                  })
-                }
-              />
-            ))}
-                  </div>
-        </section>
-
-        <section className="rounded-xl border border-border-default bg-bg-surface p-4">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold text-text-primary">Chế độ xem nhanh theo phân hệ</h2>
             <div className="flex items-center gap-2 text-sm text-text-secondary">
@@ -1327,18 +1207,6 @@ export default function AdminDashboardTabPage() {
           />
         ) : null}
 
-        {openAlertGroup ? (
-          <DashboardAlertListDialog
-            open
-            title={openAlertGroup.title}
-            group={openAlertGroup.group}
-            tone={openAlertGroup.tone}
-            month={month}
-            year={year}
-            onClose={() => setOpenAlertGroup(null)}
-            onOpenAlert={openAlertDetail}
-          />
-        ) : null}
 
       </div>
     </div>

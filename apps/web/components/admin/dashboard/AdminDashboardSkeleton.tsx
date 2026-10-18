@@ -1,8 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-const KPI_CARD_COUNT = 6;
+const KPI_CARD_COUNT = 2;
 const FINANCIAL_ROW_COUNT = 9;
-const ALERT_GROUP_COUNT = 4;
 const QUICK_VIEW_CARD_COUNT = 4;
 
 function SkeletonLine({ className = "" }: { className?: string }) {
@@ -42,7 +41,7 @@ function KpiCardSkeleton() {
 
 function KpiCardsSkeleton() {
   return (
-    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <section className="grid grid-cols-2 gap-3">
       {Array.from({ length: KPI_CARD_COUNT }).map((_, index) => (
         <KpiCardSkeleton key={`admin-dashboard-kpi-${index}`} />
       ))}
@@ -137,47 +136,6 @@ export function AdminDashboardFinancialReportSkeleton() {
   );
 }
 
-function AlertGroupCardSkeleton() {
-  return (
-    <article className="rounded-xl border border-border-default bg-bg-surface p-2.5">
-      <div className="mb-2 rounded-md border border-border-default bg-bg-secondary/40 px-2.5 py-2">
-        <div className="flex items-start gap-2">
-          <SkeletonLine className="mt-1 size-2 shrink-0 rounded-full" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <SkeletonLine className="h-4 w-36" />
-            <SkeletonLine className="h-3 w-16" />
-          </div>
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <SkeletonLine
-            key={`admin-dashboard-alert-item-${index}`}
-            className="h-14 w-full rounded-md"
-          />
-        ))}
-      </div>
-      <SkeletonLine className="mt-2 h-9 w-full rounded-md" />
-    </article>
-  );
-}
-
-function AlertGroupsSkeleton() {
-  return (
-    <section className="rounded-xl border border-border-default bg-bg-surface p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <SkeletonLine className="size-4 rounded-full" />
-        <SkeletonLine className="h-5 w-44" />
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: ALERT_GROUP_COUNT }).map((_, index) => (
-          <AlertGroupCardSkeleton key={`admin-dashboard-alert-group-${index}`} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function QuickViewSkeleton() {
   return (
     <section className="rounded-xl border border-border-default bg-bg-surface p-4">
@@ -232,7 +190,6 @@ export function AdminDashboardSkeleton({
             <KpiCardsSkeleton />
             <AdminDashboardFinancialReportSkeleton />
             <CustomerSourceSectionSkeleton />
-            <AlertGroupsSkeleton />
             <QuickViewSkeleton />
           </>
         ) : null}
