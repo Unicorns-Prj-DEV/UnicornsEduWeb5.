@@ -15,8 +15,10 @@ export interface AdminDashboardSummary {
   activeStudents: number;
   /** Toàn hệ thống (không lọc theo CSKH), createdAt rơi trong kỳ đang chọn. */
   newStudentsThisMonth: number;
-  /** Toàn hệ thống (không lọc theo CSKH), dropOutDate rơi trong kỳ đang chọn. */
+  /** Học sinh cũ nghỉ: dropOutDate rơi trong kỳ, đã nạp ví thành công và học ≥2 buổi (cộng mọi lớp). */
   droppedStudentsThisMonth: number;
+  /** Học sinh thử nghỉ: dropOutDate rơi trong kỳ, không đủ điều kiện cũ nghỉ. */
+  trialDroppedStudentsThisMonth: number;
   monthlyTopupTotal: number;
   totalLearnedTuition: number;
   monthlyRevenue: number;
@@ -159,7 +161,7 @@ export interface AdminDashboardStudentBalanceItem {
   balance: number;
 }
 
-export type AdminDashboardStudentChurnType = "new" | "dropped" | "active";
+export type AdminDashboardStudentChurnType = "new" | "dropped" | "trial_dropped" | "active";
 
 export interface AdminDashboardStudentChurnItem {
   studentId: string;

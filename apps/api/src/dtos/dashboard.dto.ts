@@ -214,6 +214,7 @@ export class GetAdminStudentBalanceDetailsQueryDto {
 export const ADMIN_DASHBOARD_STUDENT_CHURN_TYPES = [
   'new',
   'dropped',
+  'trial_dropped',
   'active',
 ] as const;
 
@@ -223,7 +224,7 @@ export type AdminDashboardStudentChurnTypeDto =
 export class GetAdminStudentChurnDetailsQueryDto {
   @ApiProperty({
     description:
-      'Churn type: new (enrolled in period) or dropped (left in period).',
+      'Churn type: new (enrolled in period), dropped (Học sinh cũ nghỉ in period), trial_dropped (Học sinh thử nghỉ in period) or active (snapshot).',
     enum: ADMIN_DASHBOARD_STUDENT_CHURN_TYPES,
     example: 'new',
   })
@@ -373,8 +374,10 @@ export interface AdminDashboardSummaryDto {
   activeStudents: number;
   /** All StudentInfo (toàn hệ thống, không lọc theo CSKH) có createdAt rơi trong kỳ đang chọn. */
   newStudentsThisMonth: number;
-  /** All StudentInfo (toàn hệ thống, không lọc theo CSKH) có dropOutDate rơi trong kỳ đang chọn. */
+  /** Học sinh cũ nghỉ (toàn hệ thống): dropOutDate rơi trong kỳ, đã nạp ví thành công và học ≥2 buổi. */
   droppedStudentsThisMonth: number;
+  /** Học sinh thử nghỉ (toàn hệ thống): dropOutDate rơi trong kỳ, không đủ điều kiện cũ nghỉ. */
+  trialDroppedStudentsThisMonth: number;
   monthlyTopupTotal: number;
   totalLearnedTuition: number;
   monthlyRevenue: number;

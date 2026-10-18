@@ -263,7 +263,7 @@ export class DashboardController {
     required: true,
     type: String,
     description:
-      'Churn type: new, dropped, or active (snapshot, ignores month/dateFrom/dateTo).',
+      'Churn type: new, dropped (Học sinh cũ nghỉ), trial_dropped (Học sinh thử nghỉ), or active (snapshot, ignores month/dateFrom/dateTo).',
     example: 'new',
   })
   @ApiQuery({

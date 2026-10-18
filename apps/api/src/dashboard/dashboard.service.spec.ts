@@ -14,6 +14,11 @@ import {
   MANUAL_TOP_UP_NOTE_PREFIX,
 } from './first-wallet-top-up.sql';
 import {
+  COUNTED_ATTENDANCE_STATUSES,
+  OLD_DROPPED_MIN_SESSIONS,
+  OLD_DROPPED_STUDENT_WHERE_SQL,
+} from './dropped-student.sql';
+import {
   DashboardService,
   buildPersonnelCostBreakdown,
   buildStaffPendingPayrollSources,
@@ -629,7 +634,11 @@ describe('DashboardService new students by first wallet top-up', () => {
 
   it('uses the first top-up for system-wide churn counts instead of profile creation', async () => {
     prisma.$queryRaw.mockResolvedValue([
-      { newStudentsThisMonth: 3, droppedStudentsThisMonth: 1 },
+      {
+        newStudentsThisMonth: 3,
+        droppedStudentsThisMonth: 1,
+        trialDroppedStudentsThisMonth: 2,
+      },
     ]);
 
     await expect(
@@ -640,10 +649,42 @@ describe('DashboardService new students by first wallet top-up', () => {
     ).resolves.toEqual({
       newStudentsThisMonth: 3,
       droppedStudentsThisMonth: 1,
+      trialDroppedStudentsThisMonth: 2,
     });
     const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
     expect(sql.sql).toContain(FIRST_WALLET_TOP_UP_SQL.sql);
     expect(sql.sql).not.toContain('student_info.created_at');
+  });
+
+  it('defines Học sinh cũ nghỉ as qualifying top-up + ≥2 present/excused/trial sessions', () => {
+    const { sql, values } = OLD_DROPPED_STUDENT_WHERE_SQL;
+    expect(OLD_DROPPED_MIN_SESSIONS).toBe(2);
+    expect([...COUNTED_ATTENDANCE_STATUSES].sort()).toEqual(
+      [
+        AttendanceStatus.excused,
+        AttendanceStatus.present,
+        AttendanceStatus.trial,
+      ].sort(),
+    );
+    expect(values).not.toContain(AttendanceStatus.absent);
+    expect(values).toEqual(
+      expect.arrayContaining([...COUNTED_ATTENDANCE_STATUSES, 2]),
+    );
+    expect(sql).toContain('wallet_transactions_history.type');
+    expect(sql).toContain('counted_attendance.student_id = student_info.id');
+  });
+
+  it('splits dropped students into old (paid + ≥2 counted sessions) and trial', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    await service['getStudentChurnCounts']({
+      monthStart: new Date('2026-09-01T00:00:00.000Z'),
+      monthEnd: new Date('2026-10-01T00:00:00.000Z'),
+    });
+
+    const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
+    expect(sql.sql).toContain(OLD_DROPPED_STUDENT_WHERE_SQL.sql);
+    expect(sql.sql).toContain('WHERE NOT is_old');
   });
 });
 

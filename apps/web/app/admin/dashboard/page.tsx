@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { formatVnInteger } from "@/lib/formatters";
 import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
 import NewStudentDefinitionHint from "@/components/shared/NewStudentDefinitionHint";
+import DroppedStudentDefinitionHint from "@/components/shared/DroppedStudentDefinitionHint";
 import { ChartColumn, FileChartColumn, FileDown, FileSpreadsheet } from "lucide-react";
 
 const toolbarButtonBaseClass =
@@ -150,6 +151,7 @@ function StudentChurnDetailModal({
   periodLabel,
   newCount,
   droppedCount,
+  trialDroppedCount,
   activeCount,
   activeTab,
   onChangeTab,
@@ -160,6 +162,7 @@ function StudentChurnDetailModal({
   periodLabel: string;
   newCount: number;
   droppedCount: number;
+  trialDroppedCount: number;
   activeCount: number;
   activeTab: AdminDashboardStudentChurnType;
   onChangeTab: (tab: AdminDashboardStudentChurnType) => void;
@@ -209,42 +212,31 @@ function StudentChurnDetailModal({
               </button>
             </div>
 
-            <div className="flex gap-2 border-b border-border-default px-5 py-3">
-              <button
-                type="button"
-                onClick={() => onChangeTab("new")}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                  activeTab === "new"
-                    ? "bg-success text-text-inverse"
-                    : "border border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary"
-                }`}
-              >
-                Học sinh mới (+{newCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeTab("dropped")}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                  activeTab === "dropped"
-                    ? "bg-warning text-text-inverse"
-                    : "border border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary"
-                }`}
-              >
-                Học sinh nghỉ (-{droppedCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeTab("active")}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
-                  activeTab === "active"
-                    ? "bg-primary text-text-inverse"
-                    : "border border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary"
-                }`}
-              >
-                Học sinh hiện tại ({activeCount})
-              </button>
+            <div className="flex flex-wrap gap-2 border-b border-border-default px-5 py-3">
+              {(
+                [
+                  { type: "new", label: `Học sinh mới (+${newCount})`, activeClass: "bg-success" },
+                  { type: "dropped", label: `Cũ nghỉ (-${droppedCount})`, activeClass: "bg-warning" },
+                  { type: "trial_dropped", label: `Thử nghỉ (-${trialDroppedCount})`, activeClass: "bg-warning" },
+                  { type: "active", label: `Học sinh hiện tại (${activeCount})`, activeClass: "bg-primary" },
+                ] satisfies { type: AdminDashboardStudentChurnType; label: string; activeClass: string }[]
+              ).map((tab) => (
+                <button
+                  key={tab.type}
+                  type="button"
+                  onClick={() => onChangeTab(tab.type)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                    activeTab === tab.type
+                      ? `${tab.activeClass} text-text-inverse`
+                      : "border border-border-default bg-bg-surface text-text-secondary hover:bg-bg-secondary"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
             {activeTab === "new" ? <NewStudentDefinitionHint /> : null}
+            {activeTab === "dropped" || activeTab === "trial_dropped" ? <DroppedStudentDefinitionHint /> : null}
 
             <div className="max-h-[65vh] overflow-auto px-4 py-4 sm:px-5">
               {churnQuery.isLoading ? (
@@ -1061,7 +1053,7 @@ export default function AdminDashboardTabPage() {
           <KpiCard
             title="Học sinh"
             value={String(dashboard.summary.activeStudents)}
-            note={`${dashboard.summary.activeStudents} đang học · +${dashboard.summary.newStudentsThisMonth} mới / -${dashboard.summary.droppedStudentsThisMonth} nghỉ trong kỳ`}
+            note={`${dashboard.summary.activeStudents} đang học · +${dashboard.summary.newStudentsThisMonth} mới / -${dashboard.summary.droppedStudentsThisMonth} cũ nghỉ / -${dashboard.summary.trialDroppedStudentsThisMonth} thử nghỉ`}
             tone={dashboard.summary.droppedStudentsThisMonth > 0 ? "warning" : "default"}
             onClick={() => setStudentChurnTab("new")}
           />
@@ -1313,6 +1305,7 @@ export default function AdminDashboardTabPage() {
             periodLabel={dashboard.period.monthLabel}
             newCount={dashboard.summary.newStudentsThisMonth}
             droppedCount={dashboard.summary.droppedStudentsThisMonth}
+            trialDroppedCount={dashboard.summary.trialDroppedStudentsThisMonth}
             activeCount={dashboard.summary.activeStudents}
             activeTab={studentChurnTab}
             onChangeTab={setStudentChurnTab}

@@ -17,6 +17,10 @@ import {
   studentCreatedInRangeSql,
 } from './first-wallet-top-up.sql';
 import {
+  OLD_DROPPED_STUDENT_WHERE_SQL,
+  droppedStudentKindSql,
+} from './dropped-student.sql';
+import {
   AttendanceStatus,
   ClassStatus,
   LessonTaskStatus,
@@ -109,6 +113,7 @@ type ActiveClassBreakdownSqlRow = {
 type StudentChurnCountRow = {
   newStudentsThisMonth: number | string | null;
   droppedStudentsThisMonth: number | string | null;
+  trialDroppedStudentsThisMonth: number | string | null;
 };
 
 type CustomerCareStaffDebtAggregateRow = {
@@ -1046,6 +1051,7 @@ export class DashboardService {
   /**
    * System-wide (all StudentInfo, not scoped by CSKH staff) new/dropped counts for the selected period.
    * Học sinh mới = lần nạp ví thành công đầu tiên rơi trong kỳ.
+   * `droppedStudentsThisMonth` = Học sinh cũ nghỉ; `trialDroppedStudentsThisMonth` = Học sinh thử nghỉ.
    */
   private async getStudentChurnCounts(period: {
     monthStart: Date;
@@ -1053,28 +1059,36 @@ export class DashboardService {
   }): Promise<{
     newStudentsThisMonth: number;
     droppedStudentsThisMonth: number;
+    trialDroppedStudentsThisMonth: number;
   }> {
     const [row] = await this.prisma.$queryRaw<StudentChurnCountRow[]>(
       Prisma.sql`
+        WITH dropped_in_period AS (
+          SELECT ${OLD_DROPPED_STUDENT_WHERE_SQL} AS is_old
+          FROM student_info
+          WHERE student_info.drop_out_date IS NOT NULL
+            AND student_info.drop_out_date >= ${period.monthStart}
+            AND student_info.drop_out_date < ${period.monthEnd}
+        )
         SELECT
           (
             SELECT COUNT(*)
             FROM (${FIRST_WALLET_TOP_UP_SQL}) AS first_wallet_top_up
             WHERE ${firstTopUpInRangeSql(period)}
           ) AS "newStudentsThisMonth",
-          (
-            SELECT COUNT(*)
-            FROM student_info
-            WHERE student_info.drop_out_date IS NOT NULL
-              AND student_info.drop_out_date >= ${period.monthStart}
-              AND student_info.drop_out_date < ${period.monthEnd}
-          ) AS "droppedStudentsThisMonth"
+          (SELECT COUNT(*) FROM dropped_in_period WHERE is_old)
+            AS "droppedStudentsThisMonth",
+          (SELECT COUNT(*) FROM dropped_in_period WHERE NOT is_old)
+            AS "trialDroppedStudentsThisMonth"
       `,
     );
 
     return {
       newStudentsThisMonth: normalizeInteger(row?.newStudentsThisMonth),
       droppedStudentsThisMonth: normalizeInteger(row?.droppedStudentsThisMonth),
+      trialDroppedStudentsThisMonth: normalizeInteger(
+        row?.trialDroppedStudentsThisMonth,
+      ),
     };
   }
 
@@ -4707,6 +4721,8 @@ export class DashboardService {
               newStudentsThisMonth: studentChurnCounts.newStudentsThisMonth,
               droppedStudentsThisMonth:
                 studentChurnCounts.droppedStudentsThisMonth,
+              trialDroppedStudentsThisMonth:
+                studentChurnCounts.trialDroppedStudentsThisMonth,
               monthlyTopupTotal,
               totalLearnedTuition: rangeTotals.revenue,
               monthlyRevenue: rangeTotals.revenue,
@@ -4936,6 +4952,8 @@ export class DashboardService {
             newStudentsThisMonth: studentChurnCounts.newStudentsThisMonth,
             droppedStudentsThisMonth:
               studentChurnCounts.droppedStudentsThisMonth,
+            trialDroppedStudentsThisMonth:
+              studentChurnCounts.trialDroppedStudentsThisMonth,
             monthlyTopupTotal,
             totalLearnedTuition,
             monthlyRevenue: selectedMonthTrend.revenue,
@@ -6089,6 +6107,13 @@ export class DashboardService {
       query.type === 'new'
         ? 'first_wallet_top_up.first_top_up_at'
         : 'student_info.drop_out_date';
+    // `dropped` = Học sinh cũ nghỉ, `trial_dropped` = Học sinh thử nghỉ.
+    const droppedKindFilter =
+      query.type === 'dropped'
+        ? Prisma.sql`AND ${droppedStudentKindSql('old')}`
+        : query.type === 'trial_dropped'
+          ? Prisma.sql`AND ${droppedStudentKindSql('trial')}`
+          : Prisma.empty;
     // Học sinh mới: ngày vào học = lần nạp ví thành công đầu tiên; điều kiện
     // kỳ trên `dateColumn` loại học sinh chưa nạp nên LEFT JOIN đủ.
     const firstTopUpJoin =
@@ -6127,6 +6152,7 @@ export class DashboardService {
             LEFT JOIN classes ON classes.id = student_classes.class_id
             WHERE ${Prisma.raw(dateColumn)} >= ${period.monthStart}
               AND ${Prisma.raw(dateColumn)} < ${period.monthEnd}
+              ${droppedKindFilter}
             GROUP BY
               student_info.id,
               student_info.full_name,
