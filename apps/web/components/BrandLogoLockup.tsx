@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export type BrandLogoVariant = "navbar" | "auth";
 
 type BrandLogoLockupProps = {
-  /** `false` khi sidebar thu gọn — chỉ hiện chữ UNI, cỡ nhỏ hơn. */
+  /** `false` khi sidebar thu gọn — logo cỡ nhỏ hơn, căn giữa rail. */
   showWordmark?: boolean;
   variant?: BrandLogoVariant;
   dense?: boolean;
@@ -18,7 +18,7 @@ const markHover =
   "transition-[opacity,filter] duration-200 ease-out opacity-[0.88] contrast-100 group-hover/brand:opacity-100 group-hover/brand:contrast-[1.12]";
 
 /**
- * Logo đầy đủ (UNI + «UNI EDUCATION») đã chứa tên thương hiệu nên không render thêm chữ.
+ * Logo trơn (chữ UNI) dùng mọi nơi, không render thêm chữ.
  * Navbar/sidebar: cao 48px (52px từ `sm`), vừa header `h-14`/`h-16`.
  */
 const fullLogo = {
@@ -38,13 +38,11 @@ export function BrandLogoLockup({
   logoClassName,
   priority,
 }: BrandLogoLockupProps) {
-  const kind = showWordmark ? "full" : "mark";
   const sizeClass = showWordmark ? fullLogo[variant] : denseCollapsedMark;
 
   return (
     <span className={cn("group/brand inline-flex min-w-0 max-w-full items-center", className)}>
       <BrandLogo
-        kind={kind}
         className={cn(sizeClass, markHover, logoClassName)}
         priority={priority}
         sizes={dense || !showWordmark ? "56px" : variant === "auth" ? "128px" : "64px"}

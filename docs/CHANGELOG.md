@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Logo trơn trên mọi instance** (#227): `BrandLogo` / `BrandLogoLockup` bỏ logo đầy đủ UNI + «UNI EDUCATION» (`logo_full.png`), mọi nơi (navbar, sidebar, trang auth) dùng logo trơn `logo.png`. Favicon và watermark ảnh public không đổi. Docs: `UI-Schema.md`.
 - **Instance IT bỏ Kiểm tra trong buổi khỏi nhận xét buổi học** (#226): cờ hồ sơ `inClassTest` (`GET /public/app-config`, IT `false`). IT: form không có công tắc, hiển thị/copy Zalo/màn học sinh không có 🧪, API bỏ qua `hasInClassTest` + điểm từng học sinh. JP/ENG không đổi. Docs: `docs/pages/admin.md`, `docs/api/courses.md`.
 - **Nhận xét buổi không điểm danh bỏ phần từng học sinh** (#225): hiển thị lịch sử và copy Zalo (cả format legacy, cả nhận xét cũ lưu ở `notes`) không còn mục 3️⃣ / dòng «(vắng)», bất kể sĩ số. Buổi có điểm danh không đổi. Docs: `docs/pages/admin.md`.
 - **Khôi phục Dạy thử cho buổi học** (#224): admin/trợ lí bật/tắt toggle **Dạy thử** trên form tạo/sửa buổi (`coefficient = 0`, trợ cấp = 0, khoá ô trợ cấp). Gia sư không có toggle, thấy nhãn **Dạy thử**; `staff-ops` bỏ qua `coefficient` gia sư gửi. Buổi đã có không bị tính lại. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.
