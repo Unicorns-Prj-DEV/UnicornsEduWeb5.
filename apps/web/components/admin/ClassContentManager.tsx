@@ -879,6 +879,7 @@ function TheoryLessonInlineEditor({
             ariaLabel="Nội dung lý thuyết"
             placeholder="Nhập nội dung tiết lý thuyết..."
             minHeight="min-h-[120px]"
+            markdown
           />
         </div>
       </div>

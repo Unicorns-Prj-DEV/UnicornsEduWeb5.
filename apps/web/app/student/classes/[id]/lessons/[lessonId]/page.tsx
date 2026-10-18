@@ -253,7 +253,7 @@ export default function StudentTopicDetailPage() {
                 </h2>
               </div>
               <div className="text-text-primary text-sm sm:text-base leading-relaxed">
-                <MathContent content={topic.content!} />
+                <MathContent content={topic.content!} markdown />
               </div>
             </CardContent>
           </Card>

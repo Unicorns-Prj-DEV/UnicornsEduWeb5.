@@ -22,11 +22,13 @@ function hasVisibleContent(html: string): boolean {
 /**
  * MathRichTextEditor + tab "Xem trước" render bằng MathContent — đúng giao diện học sinh thấy.
  * Tab Soạn luôn mounted để giữ undo history / selection của TipTap khi chuyển tab.
+ * `markdown`: soạn markdown raw, chỉ tab Xem trước mới render (heading, bảng, …).
  */
 export default function MathRichTextEditorWithPreview({
   className,
+  markdown = false,
   ...editorProps
-}: MathRichTextEditorProps & { className?: string }) {
+}: MathRichTextEditorProps & { className?: string; markdown?: boolean }) {
   const [tab, setTab] = useState<EditorTab>("edit");
   const { value, fill = false, minHeight = "min-h-[180px]" } = editorProps;
 
@@ -64,7 +66,7 @@ export default function MathRichTextEditorWithPreview({
       >
         {hasVisibleContent(value) ? (
           <div className="text-sm leading-relaxed text-text-primary sm:text-base">
-            <MathContent content={value} />
+            <MathContent content={value} markdown={markdown} />
           </div>
         ) : (
           <p className="text-sm italic text-text-muted">Chưa có nội dung để xem trước.</p>

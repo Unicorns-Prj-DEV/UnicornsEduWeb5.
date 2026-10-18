@@ -231,10 +231,11 @@ export function TheoryLessonEditor({
             placeholder="Nhập nội dung tiết học..."
             minHeight="min-h-[160px]"
             fill
+            markdown
           />
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border-default p-3 text-sm">
-            <MathContent content={content || "—"} />
+            <MathContent content={content || "—"} markdown />
           </div>
         )}
       </div>
