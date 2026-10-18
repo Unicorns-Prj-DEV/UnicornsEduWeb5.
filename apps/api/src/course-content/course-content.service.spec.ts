@@ -764,7 +764,7 @@ describe('CourseContentService — ClassContent methods', () => {
   });
 
   describe('listClassContentGroups', () => {
-    it('groups by the class module order and drops items of removed modules', async () => {
+    it('nhóm theo tập tiết, thứ tự nhóm của lớp, bỏ item đã gỡ', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classContentItem.findMany.mockResolvedValue([
         {
@@ -774,6 +774,7 @@ describe('CourseContentService — ClassContent methods', () => {
           sortOrder: 0,
           classId: 'cls-1',
           hiddenAt: new Date(),
+          hiddenReason: 'module_removed',
           lesson: {
             title: 'Đề',
             kind: 'practice',
@@ -796,11 +797,25 @@ describe('CourseContentService — ClassContent methods', () => {
             module: { id: 'm-1', title: 'Một', sortOrder: 1 },
           },
         },
+        {
+          id: 'cci-t2',
+          lessonId: 't2',
+          kind: 'lesson',
+          sortOrder: 2,
+          classId: 'cls-1',
+          lesson: {
+            title: 'Lý thuyết 2',
+            kind: 'theory',
+            order: 0,
+            classId: null,
+            module: { id: 'm-2', title: 'Hai', sortOrder: 2 },
+          },
+        },
       ]);
       // Thứ tự lớp ngược thứ tự khoá: m-2 (khoá 2) lên trước m-1 (khoá 1).
       mockPrisma.classModule.findMany.mockResolvedValue([
-        { sortOrder: 1, module: { id: 'm-1', title: 'Một' } },
-        { sortOrder: 0, module: { id: 'm-2', title: 'Hai' } },
+        { moduleId: 'm-1', sortOrder: 1 },
+        { moduleId: 'm-2', sortOrder: 0 },
       ]);
 
       const groups = await service.listClassContentGroups('cls-1', adminActor);
@@ -934,7 +949,7 @@ describe('CourseContentService — ClassContent methods', () => {
   // ─── listClassContentForStudent ───
 
   describe('listClassContentGroupsForStudent', () => {
-    it('groups only student-visible items, keeping empty added modules', async () => {
+    it('groups only student-visible items; chuyên đề không có tiết thì không có nhóm', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({
         id: 'cls-1',
         contentAccessExpiresAt: null,
@@ -957,8 +972,8 @@ describe('CourseContentService — ClassContent methods', () => {
         },
       ]);
       mockPrisma.classModule.findMany.mockResolvedValue([
-        { sortOrder: 0, module: { id: 'm-1', title: 'Một' } },
-        { sortOrder: 1, module: { id: 'm-2', title: 'Hai' } },
+        { moduleId: 'm-1', sortOrder: 0 },
+        { moduleId: 'm-2', sortOrder: 1 },
       ]);
 
       const groups = await service.listClassContentGroupsForStudent(
@@ -977,7 +992,6 @@ describe('CourseContentService — ClassContent methods', () => {
       );
       expect(groups.map((g) => [g.moduleId, g.theoryItems.length])).toEqual([
         ['m-1', 1],
-        ['m-2', 0],
       ]);
     });
 

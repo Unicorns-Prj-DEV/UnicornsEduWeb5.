@@ -121,17 +121,3 @@ export async function restoreClassModuleItems(
   });
   return itemIds;
 }
-
-/** Tiết lý thuyết mới vào chuyên đề → có mặt trên mọi lớp đã thêm chuyên đề đó. */
-export async function syncNewTheoryLessonToClasses(
-  tx: Tx,
-  moduleId: string,
-): Promise<void> {
-  const classModules = await tx.classModule.findMany({
-    where: { moduleId },
-    select: { classId: true },
-  });
-  for (const { classId } of classModules) {
-    await syncClassModuleTheoryLessons(tx, { classId, moduleId });
-  }
-}

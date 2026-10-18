@@ -31,6 +31,7 @@ const item = (
   isOpen,
   hiddenAt: null,
   hiddenByStaffId: null,
+  hiddenReason: null,
 });
 
 describe("student-module-cards", () => {

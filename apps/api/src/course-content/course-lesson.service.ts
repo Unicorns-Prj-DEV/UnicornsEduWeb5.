@@ -10,7 +10,6 @@ import {
   LessonUpdateDto,
   LessonResponseDto,
 } from 'src/dtos/course-content.dto';
-import { syncNewTheoryLessonToClasses } from './class-course-module-sync';
 import {
   ActionHistoryActor,
   ARCHIVED_LESSON_READ_ONLY_MESSAGE,
@@ -41,26 +40,21 @@ export class CourseLessonService extends CourseContentSupportService {
       await this.validateStaffClassAccess(dto.classId, actor);
     }
 
-    const lesson = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.lesson.create({
-        data: {
-          kind: dto.kind,
-          courseId: dto.courseId ?? null,
-          moduleId: dto.moduleId ?? null,
-          classId: dto.classId ?? null,
-          title: dto.title,
-          videoUrl: dto.videoUrl ?? null,
-          content: dto.content ?? null,
-          durationMinutes,
-          createdBy: actor.userId,
-          updatedBy: actor.userId,
-        },
-      });
-      // Tiết lý thuyết mới của chuyên đề → hiện trên mọi lớp đã thêm chuyên đề.
-      if (created.kind === LessonKind.theory && created.moduleId) {
-        await syncNewTheoryLessonToClasses(tx, created.moduleId);
-      }
-      return created;
+    // Tiết mới không tự hiện trên lớp nào: nội dung lớp là tập tiết gia sư đã thêm
+    // (ADR 2026-10-18-class-content-as-lesson-set).
+    const lesson = await this.prisma.lesson.create({
+      data: {
+        kind: dto.kind,
+        courseId: dto.courseId ?? null,
+        moduleId: dto.moduleId ?? null,
+        classId: dto.classId ?? null,
+        title: dto.title,
+        videoUrl: dto.videoUrl ?? null,
+        content: dto.content ?? null,
+        durationMinutes,
+        createdBy: actor.userId,
+        updatedBy: actor.userId,
+      },
     });
 
     this.logger.log(

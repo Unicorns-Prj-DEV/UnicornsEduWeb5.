@@ -318,6 +318,8 @@ export interface ClassContentItemResponseDto {
   isOpen: boolean;
   hiddenAt: Date | string | null;
   hiddenByStaffId: string | null;
+  /** `module_removed` = item đã gỡ khỏi lớp (không thuộc tập tiết của lớp); `manual` = gia sư Ẩn. */
+  hiddenReason: 'manual' | 'module_removed' | null;
 }
 
 /** Nội dung lớp gom theo chuyên đề (trang lớp admin/staff). */
@@ -325,7 +327,7 @@ export interface ClassContentModuleGroupDto {
   /** `null` = nhóm item không thuộc chuyên đề nào (xếp cuối). */
   moduleId: string | null;
   title: string;
-  /** `false` = lớp đã gỡ chuyên đề (còn lần giao thực hành / item ẩn) hoặc nhóm `null`. */
+  /** `true` với mọi nhóm chuyên đề; `false` chỉ ở nhóm `null`. */
   added: boolean;
   /** Theo `order` tiết trong chuyên đề. */
   theoryItems: ClassContentItemResponseDto[];

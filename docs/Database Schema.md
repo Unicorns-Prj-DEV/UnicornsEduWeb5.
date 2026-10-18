@@ -437,10 +437,11 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
 - Migration: `20261002120000_add_class_modules` — lớp có tiết lý thuyết thêm lẻ (đang hiện) được thêm nguyên chuyên đề + tiết lý thuyết còn thiếu (item + dòng timeline); lớp không bật thứ tự timeline tuỳ chỉnh được sắp lại theo thời gian; item + dòng timeline của tiết riêng lớp bị ẩn.
 - Migration: `20261005120000_class_module_order_and_hidden_reason` — thêm enum `ClassContentHiddenReason` + cột `hidden_reason`; backfill item đang ẩn (lý thuyết của chuyên đề lớp không còn = `module_removed`, còn lại `manual`); ẩn (`module_removed`) lần giao thực hành đang hiện thuộc chuyên đề lớp đã gỡ, kèm dòng timeline.
+- Migration: `20261018120000_class_content_lesson_set` — **nội dung lớp là tập tiết học** (ADR `docs/adr/2026-10-18-class-content-as-lesson-set.md`): materialize mỗi chuyên đề lớp đã thêm → tiết lý thuyết đang có (chưa lưu trữ) còn thiếu thành item + dòng timeline (idempotent; item có sẵn giữ trạng thái Ẩn), rồi sắp lại timeline theo thời gian. Từ đây tạo tiết mới ở khoá **không** tự thêm vào lớp.
 
 ### 4.4.0b-mod `class_modules` (Chuyên đề của lớp)
 
-- Một hàng = lớp đã thêm một Chuyên đề của khoá. Nguồn sự thật để đồng bộ tiết lý thuyết của chuyên đề vào `class_content_items`. Tiết thực hành không tự kéo theo.
+- Một hàng = lớp đã thêm một Chuyên đề của khoá; giữ **thứ tự nhóm** của lớp. Không còn là nguồn quyền xem: nội dung lớp và nhóm chuyên đề trên lớp đọc từ tập tiết `class_content_items` (item `hidden_reason = module_removed` = đã gỡ, không tạo nhóm). Thêm chuyên đề chép một lần các tiết lý thuyết đang có; tiết khoá thêm sau không tự lan.
 - `id` (UUID, PK), `class_id` (FK → `classes.id`, `onDelete: Cascade`), `module_id` (FK → `modules.id`, `onDelete: Cascade`), `sort_order` (`INT`, default 0), `created_at` (`TIMESTAMPTZ`).
 - `sort_order` — thứ tự nhóm chuyên đề **của riêng lớp** (nhỏ lên trước); admin/staff kéo-thả trên tab **Chuyên đề** (`PUT /class/:id/modules/order`), học sinh thấy cùng thứ tự. Thêm (hoặc thêm lại) chuyên đề → lên đầu. Không đọc/ghi `modules.sort_order` (thứ tự cấp khoá).
 - Gỡ chuyên đề = xoá hàng (coi như chưa từng thêm): tiết lý thuyết + lần giao thực hành của chuyên đề bị ẩn `hidden_reason = module_removed`.

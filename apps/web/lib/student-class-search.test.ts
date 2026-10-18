@@ -32,6 +32,7 @@ const item = (
   isOpen: true,
   hiddenAt: null,
   hiddenByStaffId: null,
+  hiddenReason: null,
 });
 
 const group = (

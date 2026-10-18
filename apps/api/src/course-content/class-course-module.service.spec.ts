@@ -23,7 +23,6 @@ import {
   hideClassModuleItems,
   restoreClassModuleItems,
   syncClassModuleTheoryLessons,
-  syncNewTheoryLessonToClasses,
 } from './class-course-module-sync';
 import { ClassCourseModuleService } from './class-course-module.service';
 import { CourseContentService } from './course-content.service';
@@ -232,26 +231,6 @@ describe('syncClassModuleTheoryLessons', () => {
       where: { classContentItemId: { in: ['i1', 'p1'] } },
       data: { hiddenAt, hiddenByStaffId: 'staff-1' },
     });
-  });
-
-  it('syncNewTheoryLessonToClasses: đồng bộ cho mọi lớp đã thêm chuyên đề', async () => {
-    prisma.classModule.findMany.mockResolvedValue([
-      { classId: 'cls-1' },
-      { classId: 'cls-2' },
-    ]);
-    prisma.lesson.findMany.mockResolvedValue([{ id: 't-new' }]);
-
-    await syncNewTheoryLessonToClasses(prisma as any, 'm-1');
-
-    expect(
-      createdRows(prisma.classContentItem.create).map((row) => [
-        row.classId,
-        row.lessonId,
-      ]),
-    ).toEqual([
-      ['cls-1', 't-new'],
-      ['cls-2', 't-new'],
-    ]);
   });
 });
 
@@ -509,7 +488,7 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
     );
   });
 
-  it('tạo tiết lý thuyết trong chuyên đề → có mặt trên mọi lớp đã thêm chuyên đề', async () => {
+  it('tạo tiết lý thuyết trong chuyên đề → không tự hiện trên lớp đã thêm chuyên đề', async () => {
     prisma.course.findUnique.mockResolvedValue({ id: 'course-1' });
     prisma.module.findUnique.mockResolvedValue({
       id: 'm-1',
@@ -534,15 +513,8 @@ describe('Nội dung lớp theo chuyên đề — hook tiết học/chuyên đ�
       adminActor,
     );
 
-    expect(prisma.classModule.findMany).toHaveBeenCalledWith({
-      where: { moduleId: 'm-1' },
-      select: { classId: true },
-    });
-    expect(prisma.classContentItem.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ classId: 'cls-1', lessonId: 't-new' }),
-      }),
-    );
+    expect(prisma.classModule.findMany).not.toHaveBeenCalled();
+    expect(prisma.classContentItem.create).not.toHaveBeenCalled();
   });
 
   it('tạo tiết thực hành không kéo vào lớp', async () => {

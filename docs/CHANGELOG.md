@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Nội dung lớp là tập tiết học (#230, prefactor):** migration materialize tiết lý thuyết của chuyên đề lớp đã thêm; nhóm chuyên đề trên lớp đọc từ tập tiết (`class_modules` chỉ giữ thứ tự nhóm); tiết khoá tạo mới không còn tự hiện trên lớp. Item nội dung lớp trả thêm `hiddenReason`.
 - **Hạn làm bài trên lần giao (#229):** cột `class_content_items.close_at` (backfill = hạn xem nội dung của lớp). Dialog giao/sửa lần giao có ô **Hạn làm bài** (theo hạn lớp / tự chọn / không hạn). Sau hạn không bắt đầu lượt mới; điểm và đáp án hiện ngay khi học sinh nộp, không chờ hạn.
 - Thời lượng làm bài chuyển lên tiết thực hành (#228): tạo tiết thực hành trong trang nội dung khoá bắt buộc chọn thời lượng (phút/lượt, 1–720), sửa ngay trên trang tiết và áp cho mọi lớp từ lượt bắt đầu sau đó. Form giao / sửa lần giao bỏ ô thời lượng (chỉ hiện thời lượng của tiết). Cột mới `lessons.duration_minutes`; migration backfill từ lần giao gần nhất (mặc định 60), lần giao cũ giữ thời lượng đã chốt, lượt đang làm giữ snapshot.
 - **Logo trơn trên mọi instance** (#227): `BrandLogo` / `BrandLogoLockup` bỏ logo đầy đủ UNI + «UNI EDUCATION» (`logo_full.png`), mọi nơi (navbar, sidebar, trang auth) dùng logo trơn `logo.png`. Favicon và watermark ảnh public không đổi. Docs: `UI-Schema.md`.

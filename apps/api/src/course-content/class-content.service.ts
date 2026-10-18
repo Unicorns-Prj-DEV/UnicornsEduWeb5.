@@ -227,8 +227,8 @@ export class ClassContentService extends CourseContentSupportService {
   // serve different purposes. Lesson.classId marks a legacy class-owned lesson —
   // no longer created and archived by the 2026-10-02 migration (`lessons.archived_at`).
   // class_content_items is the ordered list of course lessons shown in the class:
-  // theory items are materialized from the class's added modules (`class_modules`,
-  // see class-course-module-sync.ts); practice items are assigned one lesson at a time.
+  // the class content is the set of course lessons the class added (ADR
+  // 2026-10-18-class-content-as-lesson-set); `class_modules` only orders the groups.
 
   /**
    * Map a raw Prisma ClassContentItem (with included lesson/module) to the
@@ -246,6 +246,7 @@ export class ClassContentService extends CourseContentSupportService {
     shuffleQuestions?: boolean;
     hiddenAt?: Date | null;
     hiddenByStaffId?: string | null;
+    hiddenReason?: 'manual' | 'module_removed' | null;
     lesson?: {
       title: string;
       kind: string;
@@ -284,6 +285,7 @@ export class ClassContentService extends CourseContentSupportService {
       isOpen: this.isPracticeAssignmentOpen(lessonKind, openAt),
       hiddenAt: item.hiddenAt ?? null,
       hiddenByStaffId: item.hiddenByStaffId ?? null,
+      hiddenReason: item.hiddenReason ?? null,
     };
   }
 
@@ -498,23 +500,14 @@ export class ClassContentService extends CourseContentSupportService {
     classId: string,
     items: ClassContentItemResponseDto[],
   ): Promise<ClassContentModuleGroupDto[]> {
-    // Chỉ chuyên đề lớp đang có, theo thứ tự của lớp. Item chuyên đề đã gỡ đều đã ẩn
-    // (coi như chưa từng thêm) nên không có nhóm.
+    // Nhóm lấy từ tập tiết của lớp; `class_modules` chỉ giữ thứ tự nhóm của lớp.
     const classModules = await this.prisma.classModule.findMany({
       where: { classId },
-      select: {
-        sortOrder: true,
-        module: { select: { id: true, title: true } },
-      },
+      select: { moduleId: true, sortOrder: true },
     });
     return groupClassContentByModule(
       items,
-      classModules.map((classModule) => ({
-        id: classModule.module.id,
-        title: classModule.module.title,
-        sortOrder: classModule.sortOrder,
-        added: true,
-      })),
+      new Map(classModules.map((row) => [row.moduleId, row.sortOrder])),
     );
   }
 

@@ -18,6 +18,8 @@ export interface ClassContentItemDto {
   isOpen: boolean;
   hiddenAt: string | null;
   hiddenByStaffId: string | null;
+  /** `module_removed` = đã gỡ khỏi lớp; `manual` = gia sư Ẩn. */
+  hiddenReason: "manual" | "module_removed" | null;
 }
 
 /** Nội dung lớp gom theo chuyên đề (`GET /class/:id/content/groups`). */
