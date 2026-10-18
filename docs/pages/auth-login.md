@@ -46,6 +46,6 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 ## Học sinh
 
 - Bấm Đăng nhập gọi `POST /auth/student/login` trước; tài khoản không phải học sinh (`NOT_STUDENT_ACCOUNT`) mới rơi về luồng staff/admin.
-- Màn «Kiểm tra email của bạn» (chờ xác minh thiết bị) hiện «Đã gửi thành công tới `...abcd@domain`» từ `maskedEmail` của response.
+- Email học sinh đã xác minh → server set cookie ngay, FE nạp session rồi chuyển trang (không còn màn «Kiểm tra email của bạn» / poll xác minh thiết bị).
 - Email học sinh **chưa xác minh** (`EMAIL_NOT_VERIFIED`): server gửi luôn mail xác minh email trong cùng lần bấm. Có `maskedEmail` → màn «Xác minh email để đăng nhập» hiện email đã che, nút **Gửi lại** (gọi lại `student/login`, chờ 60 giây) và **Quay lại đăng nhập**. Không có `maskedEmail` (gửi lỗi / không có email) → chỉ toast.
 - Google button dùng backend URL từ `NEXT_PUBLIC_BACKEND_URL` (fallback localhost:3001).
