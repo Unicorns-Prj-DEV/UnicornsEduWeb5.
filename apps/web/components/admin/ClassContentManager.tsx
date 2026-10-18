@@ -52,6 +52,7 @@ import type {
   AssignmentCloseAtDraft,
   ClassContentItemDto,
 } from "@/dtos/class-content.dto";
+import type { CourseLessonForClassDto } from "@/dtos/course-content.dto";
 import { lessonKindBadgeClass } from "@/lib/course-content-labels";
 import * as classApi from "@/lib/apis/class.api";
 import CourseLessonPicker from "./CourseLessonPicker";
@@ -420,7 +421,7 @@ export default function ClassContentManager({
             className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-xs transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             <Plus className="size-4" />
-            Giao tiết thực hành
+            Thêm tiết
           </button>
         </div>
       )}
@@ -505,8 +506,8 @@ export default function ClassContentManager({
 }
 
 /**
- * Giao một tiết thực hành của khoá cho lớp. Tiết lý thuyết không thêm lẻ ở đây:
- * chúng vào lớp theo chuyên đề (`ClassModulesDialog`).
+ * Thêm lẻ một tiết của khoá vào lớp (ADR 2026-10-18). Tiết lý thuyết thêm thẳng;
+ * tiết thực hành qua bước **Đặt lần giao** (mở bài, hạn, trộn câu).
  */
 function AddContentDialog({
   classId,
@@ -518,7 +519,8 @@ function AddContentDialog({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [lessonId, setLessonId] = useState("");
+  const [lesson, setLesson] = useState<CourseLessonForClassDto | null>(null);
+  const isPractice = lesson?.kind === "practice";
   const [step, setStep] = useState<"pick" | "schedule">("pick");
   const [openDate, setOpenDate] = useState("");
   const [openTime, setOpenTime] = useState("");
@@ -535,30 +537,41 @@ function AddContentDialog({
 
   const createMutation = useMutation({
     mutationFn: () =>
-      classApi.createClassContent(classId, {
-        lessonId: lessonId.trim(),
-        ...(isOpenAtPairComplete(openDate, openTime)
-          ? { openAt: toOpenAtIso(openDate, openTime) }
-          : {}),
-        ...(closeAtValue === false || closeAtValue === undefined
-          ? {}
-          : { closeAt: closeAtValue }),
-        shuffleQuestions,
-      }),
+      classApi.createClassContent(
+        classId,
+        isPractice ? practicePayload() : { lessonId: lesson!.id },
+      ),
     onSuccess: () => {
-      toast.success("Đã giao tiết thực hành");
+      toast.success(
+        isPractice ? "Đã giao tiết thực hành" : "Đã thêm tiết lý thuyết",
+      );
       queryClient.invalidateQueries({
         queryKey: classKeys.courseLessons(classId),
       });
+      // Tiết đầu của chuyên đề mới tạo nhóm mới cho lớp.
+      queryClient.invalidateQueries({ queryKey: classKeys.modules(classId) });
       onSuccess();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Lỗi giao tiết thực hành");
+      toast.error(err?.response?.data?.message || "Lỗi thêm tiết vào lớp");
     },
   });
 
+  function practicePayload() {
+    return {
+      lessonId: lesson!.id,
+      ...(isOpenAtPairComplete(openDate, openTime)
+        ? { openAt: toOpenAtIso(openDate, openTime) }
+        : {}),
+      ...(closeAtValue === false || closeAtValue === undefined
+        ? {}
+        : { closeAt: closeAtValue }),
+      shuffleQuestions,
+    };
+  }
+
   const handlePrimary = () => {
-    if (step === "pick") {
+    if (step === "pick" && isPractice) {
       setStep("schedule");
       return;
     }
@@ -571,12 +584,12 @@ function AddContentDialog({
         <div className="flex items-center justify-between gap-3 border-b border-border-default pb-4 shrink-0">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-text-primary">
-              {step === "schedule" ? "Đặt lần giao" : "Giao tiết thực hành"}
+              {step === "schedule" ? "Đặt lần giao" : "Thêm tiết vào lớp"}
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
               {step === "schedule"
                 ? "Thời điểm mở bài và hạn làm bài thuộc lần giao của lớp này, không đụng đề."
-                : "Chọn chuyên đề lớp đã thêm, rồi chọn tiết thực hành. Tiết lý thuyết vào lớp theo chuyên đề."}
+                : "Chọn chuyên đề của khoá, rồi chọn tiết lý thuyết hoặc thực hành. Chuyên đề mới vào lớp đứng đầu danh sách."}
             </p>
           </div>
           <button
@@ -616,8 +629,8 @@ function AddContentDialog({
           ) : (
             <CourseLessonPicker
               classId={classId}
-              selectedLessonId={lessonId}
-              onSelect={(id) => setLessonId(id)}
+              selectedLessonId={lesson?.id ?? ""}
+              onSelect={setLesson}
             />
           )}
         </div>
@@ -643,17 +656,19 @@ function AddContentDialog({
             type="button"
             onClick={handlePrimary}
             disabled={
-              (step === "pick" && !lessonId.trim()) ||
+              (step === "pick" && !lesson) ||
               (step === "schedule" && !canSubmitSchedule) ||
               createMutation.isPending
             }
             className="cursor-pointer rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 shadow-xs"
           >
             {createMutation.isPending
-              ? "Đang giao..."
-              : step === "pick"
-                ? "Tiếp theo"
-                : "Giao đề"}
+              ? "Đang thêm..."
+              : step === "schedule"
+                ? "Giao đề"
+                : isPractice
+                  ? "Tiếp theo"
+                  : "Thêm tiết"}
           </button>
         </div>
       </ResponsiveDialogBody>

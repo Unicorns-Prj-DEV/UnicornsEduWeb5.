@@ -29,13 +29,14 @@ import {
 import {
   ActionHistoryActor,
   CLASS_OWNED_LESSON_DISABLED_MESSAGE,
-  PRACTICE_MODULE_NOT_ADDED_MESSAGE,
+  LESSON_NOT_IN_CLASS_COURSE_MESSAGE,
   CourseContentSupportService,
 } from './course-content-support.service';
 import { isAnswered } from '../attempt/grading';
 import { assignmentDurationMinutes } from '../attempt/assignment-window';
 import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
 import { groupClassContentByModule } from './class-content-groups';
+import { ensureClassModuleGroupOnTop } from './class-course-module-sync';
 
 const CLASS_CONTENT_CREATE_TRANSACTION_TIMEOUT_MS = 15_000;
 
@@ -361,7 +362,7 @@ export class ClassContentService extends CourseContentSupportService {
   ): Promise<ClassContentItemResponseDto> {
     await this.validateStaffClassAccess(classId, actor);
 
-    // Lớp không tạo tiết riêng nữa (ADR 2026-10-02): chỉ giao tiết thực hành có sẵn của khoá.
+    // Lớp không tạo tiết riêng nữa (ADR 2026-10-02): chỉ thêm tiết có sẵn của khoá.
     if (!dto.lessonId) {
       throw new BadRequestException(CLASS_OWNED_LESSON_DISABLED_MESSAGE);
     }
@@ -371,43 +372,61 @@ export class ClassContentService extends CourseContentSupportService {
     if (!topic || topic.archivedAt) {
       throw new NotFoundException(`Lesson ${dto.lessonId} not found`);
     }
-    if (topic.kind === LessonKind.theory) {
-      throw new BadRequestException(
-        'Tiết lý thuyết vào lớp theo chuyên đề. Hãy thêm chuyên đề chứa tiết này.',
-      );
-    }
     const lessonId = dto.lessonId;
     const lessonKind: string = topic.kind;
     const moduleId = topic.moduleId;
 
-    const openAt = this.parsePracticeOpenAt(lessonKind, dto, false);
     const classInfo = await this.prisma.class.findUnique({
       where: { id: classId },
-      select: { contentAccessExpiresAt: true },
+      select: { courseId: true, contentAccessExpiresAt: true },
     });
+    // Nội dung lớp là tập tiết của khoá (ADR 2026-10-18): tiết khoá khác / tiết riêng lớp khác → chặn.
+    if (topic.classId || !classInfo || topic.courseId !== classInfo.courseId) {
+      throw new BadRequestException(LESSON_NOT_IN_CLASS_COURSE_MESSAGE);
+    }
+
+    // Tiết lý thuyết không có lịch; tiết thực hành thành lần giao.
+    const isPractice = lessonKind === LessonKind.practice;
+    const openAt = this.parsePracticeOpenAt(lessonKind, dto, false);
     // Mặc định hạn làm bài = hạn xem nội dung của lớp (khoá vô hạn → không hạn).
-    const closeAt = this.parseAssignmentCloseAt(
-      dto.closeAt,
-      openAt,
-      classInfo?.contentAccessExpiresAt ?? null,
-    );
+    const closeAt = isPractice
+      ? this.parseAssignmentCloseAt(
+          dto.closeAt,
+          openAt,
+          classInfo.contentAccessExpiresAt ?? null,
+        )
+      : null;
 
     const item = await this.prisma.$transaction(
       async (tx) => {
-        // Chỉ giao tiết thực hành thuộc chuyên đề lớp đã thêm (cũng chặn tiết khoá khác).
-        const classModule = moduleId
-          ? await tx.classModule.findUnique({
-              where: { classId_moduleId: { classId, moduleId } },
-              select: { id: true },
-            })
-          : null;
-        if (!classModule) {
-          throw new BadRequestException(PRACTICE_MODULE_NOT_ADDED_MESSAGE);
+        // Tiết đầu của chuyên đề mới → nhóm chuyên đề hiện ở đầu danh sách nhóm.
+        if (moduleId) {
+          await ensureClassModuleGroupOnTop(tx, classId, moduleId);
         }
 
         const existing = await tx.classContentItem.findUnique({
           where: { classId_lessonId: { classId, lessonId } },
         });
+        if (
+          existing?.hiddenReason === ClassContentHiddenReason.module_removed
+        ) {
+          // Tiết từng gỡ khỏi lớp → thêm lại = hiện lại item cũ (giữ attempt/điểm), lịch theo lần thêm này.
+          const restored = await tx.classContentItem.update({
+            where: { id: existing.id },
+            data: {
+              hiddenAt: null,
+              hiddenByStaffId: null,
+              hiddenReason: null,
+              ...(isPractice ? { openAt, closeAt } : {}),
+            },
+            include: { lesson: { include: { module: true } } },
+          });
+          await tx.classTimelineItem.updateMany({
+            where: { classContentItemId: existing.id },
+            data: { hiddenAt: null, hiddenByStaffId: null },
+          });
+          return restored;
+        }
         if (existing) {
           if (existing.hiddenAt) {
             throw new BadRequestException(
@@ -434,7 +453,9 @@ export class ClassContentService extends CourseContentSupportService {
             openAt,
             closeAt,
             // Lần giao mới không chốt thời lượng — lượt làm đọc từ tiết thực hành.
-            shuffleQuestions: dto.shuffleQuestions ?? true,
+            ...(isPractice
+              ? { shuffleQuestions: dto.shuffleQuestions ?? true }
+              : {}),
           },
           include: {
             lesson: { include: { module: true } },
@@ -878,13 +899,11 @@ export class ClassContentService extends CourseContentSupportService {
 
     const [courseTopics, existingItemTopicIds] = await Promise.all([
       this.prisma.lesson.findMany({
-        // Tiết lý thuyết vào lớp theo chuyên đề; chỉ tiết thực hành của chuyên đề lớp đã thêm được giao từng tiết.
+        // Mọi tiết (lý thuyết + thực hành) chưa lưu trữ của khoá; picker nhóm theo chuyên đề.
         where: {
           courseId: cls.courseId,
           classId: null,
-          kind: LessonKind.practice,
           archivedAt: null,
-          module: { classModules: { some: { classId } } },
         },
         include: {
           module: { select: { id: true, title: true } },
@@ -892,8 +911,15 @@ export class ClassContentService extends CourseContentSupportService {
         },
         orderBy: [{ module: { sortOrder: 'asc' } }, { order: 'asc' }],
       }),
+      // Tiết đã gỡ khỏi lớp (module_removed) không tính là đã thêm.
       this.prisma.classContentItem.findMany({
-        where: { classId },
+        where: {
+          classId,
+          OR: [
+            { hiddenReason: null },
+            { hiddenReason: { not: ClassContentHiddenReason.module_removed } },
+          ],
+        },
         select: { lessonId: true },
       }),
     ]);

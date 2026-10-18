@@ -108,8 +108,8 @@ export default function ClassModulesDialog({
             </h2>
             <p id={descriptionId} className="mt-0.5 text-xs text-text-muted">
               Thêm chuyên đề để đưa mọi tiết lý thuyết đang có của nó vào lớp;
-              tiết khoá thêm vào chuyên đề sau này không tự hiện. Tiết thực hành
-              giao từng tiết.
+              tiết khoá thêm vào chuyên đề sau này không tự hiện. Thêm lẻ từng
+              tiết qua nút Thêm tiết.
             </p>
           </div>
           <button

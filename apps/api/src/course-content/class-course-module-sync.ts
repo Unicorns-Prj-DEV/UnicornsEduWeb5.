@@ -121,3 +121,26 @@ export async function restoreClassModuleItems(
   });
   return itemIds;
 }
+
+/**
+ * Bảo đảm lớp có dòng thứ tự nhóm cho chuyên đề. Chuyên đề mới vào lớp đứng đầu
+ * danh sách nhóm (`sortOrder = min − 1`); dòng đã có giữ nguyên vị trí.
+ */
+export async function ensureClassModuleGroupOnTop(
+  tx: Tx,
+  classId: string,
+  moduleId: string,
+): Promise<void> {
+  const existing = await tx.classModule.findUnique({
+    where: { classId_moduleId: { classId, moduleId } },
+    select: { id: true },
+  });
+  if (existing) return;
+  const min = await tx.classModule.aggregate({
+    where: { classId },
+    _min: { sortOrder: true },
+  });
+  await tx.classModule.create({
+    data: { classId, moduleId, sortOrder: (min._min.sortOrder ?? 1) - 1 },
+  });
+}

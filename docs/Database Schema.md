@@ -45,7 +45,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `cf_problem_tutorials` (tutorial theo bài Codeforces)
 - `modules` (chuyên đề — nhóm tiết học bên trong khoá học)
 - `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề của khoá — tiết riêng lớp cũ đã lưu trữ)
-- `class_modules` (chuyên đề lớp đã thêm — nguồn đồng bộ tiết lý thuyết vào lớp)
+- `class_modules` (thứ tự nhóm chuyên đề của lớp — dòng tạo khi thêm chuyên đề hoặc tiết đầu tiên của chuyên đề)
 - `shared_materials` (phần đầu Bộ câu hỏi — hồ sơ JP; câu trong bộ theo `questions.set_position`)
 - `audio_assets` (Audio tư liệu — hồ sơ JP; file trong bucket private `question-audio`)
 - `attempt_audio_plays` (số lần đã nghe từng audio trong một lượt làm — Giới hạn nghe)
@@ -415,7 +415,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 ### 4.4.0b `class_content_items` (Nội dung lớp học)
 
-- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `lesson`) trong danh sách nội dung của lớp. Với tiết luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): tiết (`lessons`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp. Với tiết lý thuyết, hàng được **materialize** từ `class_modules` (không thêm lẻ): thêm chuyên đề tạo/khôi phục item, gỡ chuyên đề ẩn mềm, tạo tiết lý thuyết trong chuyên đề đồng bộ sang mọi lớp đã thêm, xoá tiết lý thuyết xoá item của nó. ADR `docs/adr/2026-10-02-class-content-by-module.md`.
+- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `lesson`) trong danh sách nội dung của lớp. Với tiết luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): tiết (`lessons`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp. Nội dung lớp là **tập tiết học** (ADR `docs/adr/2026-10-18-class-content-as-lesson-set.md`): gia sư thêm lẻ từng tiết lý thuyết/thực hành của khoá (#231) hoặc thêm cả chuyên đề (chép một lần tiết lý thuyết đang có); gỡ chuyên đề ẩn mềm (`module_removed`); tạo tiết mới ở khoá không tự thêm vào lớp; xoá tiết lý thuyết xoá item của nó.
 - `class_id` (FK → `classes.id`, `onDelete: Cascade`)
 - `kind` (`ClassContentItemKind`, default `lesson`) — phân loại nội dung. Hiện tại chỉ có `lesson`.
 - `lesson_id` (nullable FK → `lessons.id`, `onDelete: Restrict`) — FK đến tiết học. Nullable để hỗ trợ future kinds không cần lesson. Không Cascade/SetNull: xóa Chuyên đề / Tiết học cấp khoá khi còn lần giao **tiết thực hành** (kể cả đã ẩn) bị chặn 409; item tiết lý thuyết được ứng dụng xoá trước trong cùng transaction. ADR `docs/adr/2026-09-07-class-content-soft-hide-restrict-knowledge-tree.md` (sửa bởi ADR 2026-10-02).

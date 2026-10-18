@@ -13,13 +13,13 @@ import { LessonCreateDto } from 'src/dtos/course-content.dto';
 import { LessonKind, StaffRole, UserRole } from 'generated/enums';
 
 export const CLASS_OWNED_LESSON_DISABLED_MESSAGE =
-  'Lớp không tạo tiết riêng nữa. Hãy thêm chuyên đề của khoá hoặc giao tiết thực hành có sẵn.';
+  'Lớp không tạo tiết riêng nữa. Hãy thêm tiết có sẵn của khoá.';
 
 export const ARCHIVED_LESSON_READ_ONLY_MESSAGE =
   'Tiết học đã lưu trữ, không sửa hay xoá được.';
 
-export const PRACTICE_MODULE_NOT_ADDED_MESSAGE =
-  'Lớp chưa thêm chuyên đề chứa tiết thực hành này. Hãy thêm chuyên đề trước khi giao.';
+export const LESSON_NOT_IN_CLASS_COURSE_MESSAGE =
+  'Tiết học không thuộc khoá của lớp.';
 
 export interface ActionHistoryActor {
   userId: string;

@@ -118,7 +118,10 @@ describe('CourseContentService — ClassContent methods', () => {
       expect(mockPrisma.classContentItem.create).not.toHaveBeenCalled();
     });
     it('should add an existing topic to class content', async () => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'cls-1',
+        courseId: 'course-1',
+      });
       mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
       mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
       mockPrisma.lesson.findUnique.mockResolvedValue({

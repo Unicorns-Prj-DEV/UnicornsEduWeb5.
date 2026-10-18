@@ -14,7 +14,7 @@ const TOOLBAR_BUTTON_CLASS =
   "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-bg-secondary";
 
 /**
- * Tab **Chuyên đề** trang lớp admin/staff: thêm/gỡ chuyên đề, giao tiết thực hành,
+ * Tab **Chuyên đề** trang lớp admin/staff: thêm/gỡ chuyên đề, thêm lẻ tiết,
  * nhóm nội dung theo thứ tự của lớp (kéo-thả khi `canManageContent`).
  */
 export default function ClassModulesTab({
@@ -23,7 +23,7 @@ export default function ClassModulesTab({
   practiceActionsBasePath,
 }: {
   classId: string;
-  /** Thêm/gỡ chuyên đề, giao tiết thực hành, sắp thứ tự, xem tiến độ lý thuyết. */
+  /** Thêm/gỡ chuyên đề, thêm lẻ tiết, sắp thứ tự, xem tiến độ lý thuyết. */
   canManageContent: boolean;
   /** Có thì hiện nút Thống kê / Chấm bài cho tiết thực hành. */
   practiceActionsBasePath?: string | null;
@@ -56,7 +56,7 @@ export default function ClassModulesTab({
             className={TOOLBAR_BUTTON_CLASS}
           >
             <Plus className="size-3.5" />
-            Tiết thực hành
+            Thêm tiết
           </button>
         </div>
       ) : null}

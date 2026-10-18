@@ -235,7 +235,7 @@ export interface ModuleResponseDto {
 export class ClassContentCreateDto {
   @ApiProperty({
     description:
-      'ID tiết thực hành có sẵn của khoá để giao cho lớp. Tiết lý thuyết vào lớp theo chuyên đề (POST /class/:classId/modules).',
+      'ID tiết (lý thuyết hoặc thực hành) có sẵn của khoá để thêm vào lớp. Tiết thực hành thành lần giao.',
   })
   @IsString()
   lessonId!: string;

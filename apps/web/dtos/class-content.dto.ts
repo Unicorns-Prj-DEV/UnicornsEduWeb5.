@@ -34,7 +34,7 @@ export interface ClassContentModuleGroupDto {
   practiceItems: ClassContentItemDto[];
 }
 
-/** Giao một tiết thực hành có sẵn của khoá; tiết lý thuyết vào lớp theo chuyên đề. */
+/** Thêm lẻ một tiết có sẵn của khoá; tiết thực hành thành lần giao (lịch tuỳ chọn). */
 export interface ClassContentCreatePayload {
   lessonId: string;
   /** ISO 8601. Omit for practice to default openAt to server time when the item is added. */
