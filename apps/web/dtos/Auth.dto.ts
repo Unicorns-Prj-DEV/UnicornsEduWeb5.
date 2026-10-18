@@ -105,12 +105,9 @@ export interface SetupPasswordDto {
   password: string;
 }
 
+/** `POST /auth/student/login` thành công: server đã set cookie phiên. */
 export interface StudentLoginInitResponse {
-  requestId: string;
-  activateSecret: string;
   message: string;
-  /** Email nhận liên kết, đã che dạng `...abcd@domain`. */
-  maskedEmail?: string;
 }
 
 /** Body lỗi 400 `EMAIL_NOT_VERIFIED` của `POST /auth/student/login`. */

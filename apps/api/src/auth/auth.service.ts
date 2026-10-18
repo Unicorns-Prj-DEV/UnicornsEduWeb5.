@@ -1101,12 +1101,8 @@ export class AuthService {
     deviceInfo?: DeviceInfo,
     ipAddress?: string,
     emailLinkOrigin?: PublicRequestOrigin,
-  ): Promise<{
-    requestId: string;
-    activateSecret: string;
-    message: string;
-    maskedEmail: string;
-  }> {
+    rememberMe = false,
+  ): Promise<TokenPair> {
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [{ accountHandle }, { email: accountHandle }],
@@ -1114,6 +1110,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        accountHandle: true,
         passwordHash: true,
         roleType: true,
         emailVerified: true,
@@ -1172,45 +1169,17 @@ export class AuthService {
       });
     }
 
-    // Create login request
-    const loginRequestToken =
-      this.userDeviceService.generateLoginRequestToken();
-    const activateSecret = this.userDeviceService.generateActivateSecret();
-    const loginRequest = await this.userDeviceService.createLoginRequest({
+    // Email đã xác minh (admin tick «Email đã xác thực» hoặc học sinh bấm link)
+    // thì cấp phiên luôn, không gửi magic link xác minh đăng nhập nữa. Vẫn giữ
+    // luật một thiết bị qua `hasActiveDevice` ở trên.
+    return this.issueStudentDeviceSession({
       userId: user.id,
-      token: loginRequestToken,
-      activateSecret,
+      accountHandle: user.accountHandle,
+      roleType: user.roleType,
       deviceInfo,
       ipAddress,
+      rememberMe,
     });
-
-    const frontendUrl = resolvePublicFrontendUrl({
-      configuredUrl: this.configService.get<string>('FRONTEND_URL'),
-      backendUrl: this.configService.get<string>('BACKEND_URL'),
-      publicHost: this.configService.get<string>('VPS_PUBLIC_HOST'),
-      requestHost: emailLinkOrigin?.host,
-      requestProtocol: emailLinkOrigin?.protocol,
-      nodeEnv: process.env.NODE_ENV,
-    });
-    const verifyUrl = `${frontendUrl}/auth/verify-login?token=${encodeURIComponent(loginRequestToken)}`;
-
-    try {
-      await this.mailService.sendLoginVerificationEmail(user.email, verifyUrl);
-    } catch (error) {
-      this.logger.error(
-        `Failed to send login verification email to ${user.email}`,
-        error instanceof Error ? error.stack : error,
-      );
-      // Don't fail the request — email sending is best-effort
-    }
-
-    return {
-      requestId: loginRequest.id,
-      activateSecret,
-      message:
-        'Đã gửi email xác minh. Vui lòng kiểm tra hộp thư và bấm liên kết để hoàn tất đăng nhập.',
-      maskedEmail: maskEmailAddress(user.email),
-    };
   }
 
   /**
@@ -1317,19 +1286,6 @@ export class AuthService {
       });
     }
 
-    // Remove any existing devices for this student (single-device rule)
-    await this.userDeviceService.removeAllDevicesForUser(request.userId);
-    this.authIdentityCacheService.invalidateHasActiveDevice(request.userId);
-
-    // Create the device
-    const deviceToken = this.userDeviceService.generateDeviceToken();
-    const device = await this.userDeviceService.createDevice({
-      userId: request.userId,
-      token: deviceToken,
-      deviceInfo: request.deviceInfo as DeviceInfo | undefined,
-      ipAddress: request.ipAddress ?? undefined,
-    });
-
     // Get user info for token generation
     const user = await this.prisma.user.findUnique({
       where: { id: request.userId },
@@ -1346,16 +1302,42 @@ export class AuthService {
       );
     }
 
-    // Generate JWT tokens
-    const tokenPair = await this.generateTokenPairAndSave(
-      user.id,
-      user.accountHandle,
-      user.roleType,
+    return this.issueStudentDeviceSession({
+      userId: user.id,
+      accountHandle: user.accountHandle,
+      roleType: user.roleType,
+      deviceInfo: request.deviceInfo as DeviceInfo | undefined,
+      ipAddress: request.ipAddress ?? undefined,
       rememberMe,
+    });
+  }
+
+  /** Thay mọi thiết bị cũ bằng thiết bị mới (luật một thiết bị) rồi cấp JWT. */
+  private async issueStudentDeviceSession(params: {
+    userId: string;
+    accountHandle: string;
+    roleType: UserRole;
+    deviceInfo?: DeviceInfo;
+    ipAddress?: string;
+    rememberMe: boolean;
+  }): Promise<TokenPair> {
+    await this.userDeviceService.removeAllDevicesForUser(params.userId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(params.userId);
+
+    const device = await this.userDeviceService.createDevice({
+      userId: params.userId,
+      token: this.userDeviceService.generateDeviceToken(),
+      deviceInfo: params.deviceInfo,
+      ipAddress: params.ipAddress,
+    });
+
+    return this.generateTokenPairAndSave(
+      params.userId,
+      params.accountHandle,
+      params.roleType,
+      params.rememberMe,
       device.id,
     );
-
-    return tokenPair;
   }
 
   /**

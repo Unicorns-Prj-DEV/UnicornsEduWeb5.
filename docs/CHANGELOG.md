@@ -37,6 +37,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - **ADR**: `adr/2026-10-12-trial-attendance-catch-up-charge.md` (Học thử + thu bù), `adr/2026-10-12-two-new-student-definitions.md` (hai định nghĩa Học sinh mới).
 - **Nhập từ AI đủ mọi loại câu JP**: prompt, kiểm tra JSON, màn soát và lưu hỗ trợ thêm Câu Đúng/Sai một nhận định (`tfAnswerKey: [bool]`, `tfLabelStyle`), Câu điền vào ô trống (`[[___]]` + `blankAnswerKey`), Câu sắp xếp (thẻ theo đúng thứ tự) và kiểu ô tự luận (`essayInputSize`). Prompt sinh theo bảng spec từng loại (`apps/web/lib/ai-import-prompt.ts`) — hồ sơ không có loại nào thì AI không thấy loại đó. `POST /questions/bulk` nhận và lưu `essayInputSize`, `tfLabelStyle`, `blankAnswerKey`. Chưa có: nhập cả Bộ câu hỏi (tư liệu + audio) từ AI.
 
+### Changed
+
+- **Học sinh đã xác minh email đăng nhập thẳng**: `POST /auth/student/login` cấp phiên + set cookie ngay khi `emailVerified = true` (admin tick «Email đã xác thực» là đủ), bỏ bước magic link «Kiểm tra email của bạn» mỗi lần đăng nhập. Vẫn giữ `EMAIL_NOT_VERIFIED` và luật một thiết bị (`DEVICE_ACTIVE`). FE login bỏ màn chờ + polling. Endpoint poll/verify-login/activate thành legacy. Docs: ADR `2026-10-18-student-login-skip-login-magic-link`, `pages/auth.md`, `pages/auth-login.md`.
+
 ### Removed
 
 - **Popup hồ sơ (`UserProfileDialog`)**: bấm avatar ở footer `StaffSidebar` chuyển thẳng tới `/user-profile?from=<trang hiện tại>`, bấm avatar + tên trên `StudentHeader` chuyển tới `/user-profile`; xoá `components/user-profile/UserProfileDialog.tsx`. Docs: `pages/auth.md`, `pages/staff.md`, `pages/student.md`.

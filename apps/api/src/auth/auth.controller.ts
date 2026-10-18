@@ -605,9 +605,9 @@ export class AuthController {
   @Post('student/login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
-    summary: 'Initiate student login',
+    summary: 'Student login',
     description:
-      'Validates credentials and sends a magic link to the student email. Returns a requestId for polling.',
+      'Validates credentials and, when the email is verified, replaces any inactive device with the current one and sets auth cookies directly (no login magic link).',
   })
   @ApiBody({
     type: UserAuthDto,
@@ -615,8 +615,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description:
-      'Login request created, verification email sent. Body includes `maskedEmail` (`...abcd@domain`).',
+    description: 'Logged in, auth cookies set. Body: `{ message }`.',
   })
   @ApiResponse({
     status: 400,
@@ -629,7 +628,11 @@ export class AuthController {
     description: 'Student already has an active device.',
   })
   @ApiResponse({ status: 429, description: 'Too many requests.' })
-  async studentLogin(@Body() body: UserAuthDto, @Req() req: Request) {
+  async studentLogin(
+    @Body() body: UserAuthDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const deviceInfo = {
       userAgent: req.headers['user-agent'],
       acceptLanguage: req.headers['accept-language'],
@@ -639,13 +642,17 @@ export class AuthController {
       req.socket.remoteAddress ||
       undefined;
 
-    return this.authService.studentLoginInit(
+    const rememberMe = body.rememberMe ?? false;
+    const tokenPair = await this.authService.studentLoginInit(
       body.accountHandle,
       body.password,
       deviceInfo,
       ipAddress,
       readProxyPublicOrigin(req),
+      rememberMe,
     );
+    this.setAuthCookies(res, tokenPair, rememberMe);
+    return { message: 'Đăng nhập thành công' };
   }
 
   @Public()

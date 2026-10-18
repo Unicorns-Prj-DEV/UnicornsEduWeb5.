@@ -843,6 +843,59 @@ describe('AuthService', () => {
     });
   });
 
+  describe('studentLoginInit with a verified email', () => {
+    const verifiedStudent = {
+      id: 'student-1',
+      email: 'hocsinh1@gmail.com',
+      accountHandle: 'hocsinh1',
+      passwordHash: 'hash',
+      roleType: UserRole.student,
+      emailVerified: true,
+    };
+
+    beforeEach(() => {
+      userDeviceService.generateDeviceToken = jest
+        .fn()
+        .mockReturnValue('device-token');
+      userDeviceService.createDevice = jest
+        .fn()
+        .mockResolvedValue({ id: 'device-1' });
+      jwtService.signAsync = jest.fn().mockResolvedValue('jwt-token');
+    });
+
+    it('issues tokens directly without sending a login magic link', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(verifiedStudent);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+      userDeviceService.hasActiveDevice.mockResolvedValueOnce(false);
+
+      await expect(
+        service.studentLoginInit('hocsinh1', 'secret'),
+      ).resolves.toMatchObject({
+        accessToken: 'jwt-token',
+        refreshToken: 'jwt-token',
+      });
+
+      expect(userDeviceService.removeAllDevicesForUser).toHaveBeenCalledWith(
+        'student-1',
+      );
+      expect(userDeviceService.createDevice).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'student-1' }),
+      );
+      expect(mailService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
+    it('still blocks when another device is active', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(verifiedStudent);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+      userDeviceService.hasActiveDevice.mockResolvedValueOnce(true);
+
+      await expect(
+        service.studentLoginInit('hocsinh1', 'secret'),
+      ).rejects.toThrow(ConflictException);
+      expect(userDeviceService.createDevice).not.toHaveBeenCalled();
+    });
+  });
+
   describe('activateStudentDevice', () => {
     const baseRequest = {
       id: 'req-1',

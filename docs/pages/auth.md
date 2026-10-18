@@ -95,7 +95,7 @@ export default async function SomePage() {
   - `POST /auth/login` body: `{ accountHandle, password, rememberMe? }`
     - Validation: `password` tối thiểu **6 ký tự** (`@MinLength(6)`). Nếu không đạt, API trả **400** (trước khi kiểm tra credentials); sai mật khẩu hợp lệ về độ dài thì **401**.
     - `accountHandle`: có thể là **email** hoặc **account handle** (username); backend tìm user theo accountHandle trước, không có thì theo email.
-    - Tài khoản `roleType=student` (đúng mật khẩu) → `400` `error: STUDENT_LOGIN_REQUIRED`: học sinh bắt buộc đi `POST /auth/student/login` (magic link + một thiết bị), không tạo `UserDevice` qua endpoint này.
+    - Tài khoản `roleType=student` (đúng mật khẩu) → `400` `error: STUDENT_LOGIN_REQUIRED`: học sinh bắt buộc đi `POST /auth/student/login` (một thiết bị), không tạo `UserDevice` qua endpoint này.
     - refresh token policy: mặc định 7 ngày, nếu `rememberMe=true` thì 30 ngày.
     - rate limit: `20` request / `5 phút` / IP.
   - `POST /auth/register` — **disabled**; luôn trả `403 Forbidden` với message đăng ký công khai không được hỗ trợ. Rate limit vẫn áp dụng nếu endpoint bị gọi.
@@ -143,9 +143,11 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
   - Nếu `roleType !== student` → trả `400` với `error: NOT_STUDENT_ACCOUNT`.
   - Nếu email chưa xác minh → gửi luôn mail xác minh email (token `email-verify`, như `resend-verification`) rồi trả `400` với `error: EMAIL_NOT_VERIFIED`, kèm `maskedEmail` (`...abcd@domain`) khi gửi được. Gửi lỗi hoặc không có email → không có `maskedEmail`. Sai mật khẩu thì không gửi gì.
   - Nếu student đã có device active → trả `409` với `error: DEVICE_ACTIVE`.
-  - Tạo `login_requests` record, gửi magic link email tới student (React Email `login-verification.email.tsx`: thời điểm yêu cầu, hiệu lực 10 phút, cảnh báo «Không phải bạn đăng nhập?»). Link mở `/auth/verify-login` trên origin public. Thứ tự: `FRONTEND_URL` nếu là HTTPS public; nếu giá trị đó còn là localhost thì `https://` + `VPS_PUBLIC_HOST`, rồi origin của `BACKEND_URL` (bỏ hậu tố `/api`), rồi `Host` + `X-Forwarded-Proto` khi host là `*.uniedu.vn` hoặc `*.unicornsedu.com`. Production không gửi link `localhost`. Host lạ bị từ chối.
-  - Response: `{ requestId, activateSecret, message, maskedEmail }` (`maskedEmail` từ `src/common/mask-email.util.ts`). `activateSecret` là one-time secret dùng ở bước activate; frontend lưu trong memory, không lưu localStorage.
+  - Email đã xác minh → **cấp phiên luôn, không gửi magic link** (ADR `docs/adr/2026-10-18-student-login-skip-login-magic-link.md`): xoá device cũ (idle), tạo `user_devices` mới, cấp JWT (`deviceId`), set cookies. Admin tick «Email đã xác thực» (`PATCH /users`, `emailVerified: true`) là học sinh vào thẳng.
+  - Response: `{ message }`.
   - Rate limit: `5` request / `60s` / IP.
+
+> **Legacy:** ba endpoint `student/login/poll`, `verify-login`, `student/activate` dưới đây không còn được FE dùng và `student/login` không tạo `login_requests` mới. Giữ lại để chờ dọn hẳn.
 
 - `POST /auth/student/login/poll` body: `{ requestId }`
   - Frontend poll mỗi 2s để kiểm tra trạng thái xác minh.
