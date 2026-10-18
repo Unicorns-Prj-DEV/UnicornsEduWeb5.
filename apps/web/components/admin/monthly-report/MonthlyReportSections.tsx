@@ -263,7 +263,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
                     >
                       <div className="flex flex-col items-end leading-tight">
                         <span className="font-semibold">
-                          {cell.earningCount > 0 ? formatMillions(cell.revenue) : "chưa học"}
+                          {formatMillions(cell.revenue)}
                         </span>
                         <span className="text-xs text-text-muted">{cell.newCount} HS</span>
                       </div>
@@ -271,20 +271,18 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
                   );
                 })}
                 <TableCell className="text-right font-semibold tabular-nums" title={`${formatVnInteger(total.revenue)} đ`}>
-                  {total.earningCount > 0 ? formatMillions(total.revenue) : "—"}
+                  {formatMillions(total.revenue)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {total.earningCount > 0 ? formatMillions(total.revenue / total.newCount) : "—"}
+                  {formatMillions(total.newCount > 0 ? total.revenue / total.newCount : 0)}
                 </TableCell>
                 <TableCell>
-                  {total.earningCount > 0 ? (
-                    <div className="flex min-w-[120px] items-center gap-2">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-secondary">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
-                      </div>
-                      <span className="text-xs tabular-nums text-text-muted">{share.toFixed(1)}%</span>
+                  <div className="flex min-w-[120px] items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-secondary">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
                     </div>
-                  ) : null}
+                    <span className="text-xs tabular-nums text-text-muted">{share.toFixed(1)}%</span>
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -295,7 +293,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
               const total = view.columnTotal(columnKey);
               return (
                 <TableCell key={columnKey} className="text-right tabular-nums">
-                  {total.earningCount > 0 ? formatMillions(total.revenue) : "—"}
+                  {formatMillions(total.revenue)}
                 </TableCell>
               );
             })}
@@ -303,7 +301,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
               {formatMillions(grand.revenue)}
             </TableCell>
             <TableCell className="text-right tabular-nums">
-              {grand.newCount > 0 ? formatMillions(grand.revenue / grand.newCount) : "—"}
+              {formatMillions(grand.newCount > 0 ? grand.revenue / grand.newCount : 0)}
             </TableCell>
             <TableCell />
           </TableRow>
