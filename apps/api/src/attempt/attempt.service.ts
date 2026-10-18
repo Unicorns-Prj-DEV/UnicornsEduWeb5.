@@ -55,7 +55,6 @@ import {
   shuffleWithinGroups,
 } from './shuffle';
 import {
-  assignmentCloseAt,
   assignmentDurationMinutes,
   isAssignmentClosed,
 } from './assignment-window';
@@ -104,7 +103,7 @@ export class AttemptService {
         },
       },
     });
-    const closeAt = assignmentCloseAt(item);
+    const closeAt = item.closeAt;
     const closed = isAssignmentClosed(closeAt);
     return {
       assignmentId: item.id,
@@ -120,10 +119,11 @@ export class AttemptService {
         status: a.status,
         startedAt: a.startedAt,
         submittedAt: a.submittedAt,
-        autoGradedScore: closed ? a.autoGradedScore : null,
-        autoGradedMax: closed ? a.autoGradedMax : null,
+        autoGradedScore: a.autoGradedScore,
+        autoGradedMax: a.autoGradedMax,
         scoreMax: this.scoreMaxOf(a),
-        ...this.releasedScores(a, closed),
+        // Điểm hiện ngay sau khi nộp / hết giờ, không chờ hạn lần giao.
+        ...this.releasedScores(a, true),
         hasUngradedEssay: a.hasUngradedEssay,
         scoring: a.scoring,
       })),
@@ -149,7 +149,7 @@ export class AttemptService {
       return this.finalizeIfExpired(existing);
     }
     // Lượt đang làm dở vẫn chạy hết giờ riêng; chỉ chặn lượt mới sau hạn.
-    if (isAssignmentClosed(assignmentCloseAt(item))) {
+    if (isAssignmentClosed(item.closeAt)) {
       throw new ForbiddenException('Đã hết hạn làm bài.');
     }
 
@@ -1079,9 +1079,9 @@ export class AttemptService {
         : null;
     };
     const endsAt = this.endsAt(attempt);
-    // Đã nộp nhưng chưa tới hạn lần giao: không lộ điểm/đáp án.
-    const closeAt = assignmentCloseAt(attempt.assignment);
-    const resultsReleased = isAssignmentClosed(closeAt);
+    // Kết quả công bố ngay khi lượt của chính học sinh đã nộp / hết giờ (#229).
+    const closeAt = attempt.assignment.closeAt;
+    const resultsReleased = attempt.status !== AttemptStatus.in_progress;
     const remainingMs = Math.max(0, endsAt.getTime() - Date.now());
     const questions: AttemptQuestionDto[] = attempt.answers.map((ans) => {
       const base: AttemptQuestionDto = {

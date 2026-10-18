@@ -56,12 +56,14 @@ describe('AttemptService', () => {
     lessonId: 'topic-1',
     durationMinutes: 10,
     openAt: new Date(Date.now() - 1000),
+    closeAt: new Date(Date.now() + 24 * 60 * 60_000),
     lesson: { id: 'topic-1', kind: 'practice', title: 'Đề A' },
   };
-  /** Lần giao đã qua hạn (openAt + durationMinutes) → công bố kết quả. */
+  /** Lần giao đã qua hạn làm bài (closeAt) → chặn bắt đầu lượt mới. */
   const pastAssignment = {
     ...assignment,
     openAt: new Date(Date.now() - 2 * 60 * 60_000),
+    closeAt: new Date(Date.now() - 60_000),
   };
 
   function makeAttempt(over: Record<string, unknown> = {}) {
@@ -366,7 +368,7 @@ describe('AttemptService', () => {
     expect(result.resultsReleased).toBe(true);
   });
 
-  it('submit trước hạn lần giao: ẩn điểm và đáp án', async () => {
+  it('submit trước hạn lần giao: hiện điểm và đáp án ngay', async () => {
     const row = makeAttempt();
     prisma.attempt.findUnique.mockResolvedValue(row);
     prisma.attempt.findUniqueOrThrow.mockResolvedValue(
@@ -385,17 +387,14 @@ describe('AttemptService', () => {
 
     const result = await service.submit('cls-1', 'att-1', 'stu-1');
     expect(result.status).toBe(AttemptStatus.submitted);
-    expect(result.resultsReleased).toBe(false);
-    expect(result.closeAt).toEqual(
-      new Date(assignment.openAt.getTime() + 10 * 60_000),
-    );
-    expect(result.autoGradedScore).toBeNull();
-    expect(result.autoGradedMax).toBeNull();
-    expect(result.electiveVoided).toBe(false);
+    expect(result.resultsReleased).toBe(true);
+    expect(result.closeAt).toEqual(assignment.closeAt);
+    expect(result.autoGradedScore).toBe(50);
+    expect(result.autoGradedMax).toBe(50);
     expect(result.questions[0].choiceIndex).toBe(1);
-    expect(result.questions[0].correctIndex).toBeUndefined();
-    expect(result.questions[0].isCorrect).toBeUndefined();
-    expect(result.questions[0].pointsAwarded).toBeUndefined();
+    expect(result.questions[0].correctIndex).toBe(1);
+    expect(result.questions[0].isCorrect).toBe(true);
+    expect(result.questions[0].pointsAwarded).toBe(50);
   });
 
   it('start sau hạn lần giao: 403, không tạo lượt mới', async () => {
@@ -816,7 +815,7 @@ describe('AttemptService', () => {
     });
   });
 
-  it('lobby trước hạn: ẩn điểm các lượt, closed = false', async () => {
+  it('lobby trước hạn: vẫn hiện điểm các lượt, closed = false', async () => {
     prisma.attempt.findMany.mockResolvedValue([
       makeAttempt({
         status: AttemptStatus.submitted,
@@ -826,11 +825,11 @@ describe('AttemptService', () => {
     ]);
     const lobby = await service.getLobby('cls-1', 'cci-1', 'stu-1');
     expect(lobby.closed).toBe(false);
-    expect(lobby.attempts[0].autoGradedScore).toBeNull();
-    expect(lobby.attempts[0].autoGradedMax).toBeNull();
+    expect(lobby.attempts[0].autoGradedScore).toBe(50);
+    expect(lobby.attempts[0].autoGradedMax).toBe(50);
   });
 
-  it('lobby sau hạn: công bố điểm, closed = true', async () => {
+  it('lobby sau hạn: closed = true', async () => {
     topicService.getPracticeAssignmentForStudent.mockResolvedValue(
       pastAssignment,
     );
@@ -868,7 +867,7 @@ describe('AttemptService', () => {
     expect(lobby.attempts[0].scoreMax).toBe(100);
   });
 
-  it('lobby trước hạn: ẩn cả điểm tự luận', async () => {
+  it('lobby trước hạn: hiện cả điểm tự luận đã chấm', async () => {
     const row = makeAttempt();
     prisma.attempt.findMany.mockResolvedValue([
       makeAttempt({
@@ -879,8 +878,8 @@ describe('AttemptService', () => {
       }),
     ]);
     const lobby = await service.getLobby('cls-1', 'cci-1', 'stu-1');
-    expect(lobby.attempts[0].essayScore).toBeNull();
-    expect(lobby.attempts[0].score).toBeNull();
+    expect(lobby.attempts[0].essayScore).toBe(30);
+    expect(lobby.attempts[0].score).toBe(80);
   });
 
   it('chi tiết sau hạn: trả điểm tổng gồm tự luận và nhận xét gia sư', async () => {

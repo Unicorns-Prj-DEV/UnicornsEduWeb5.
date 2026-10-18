@@ -20,6 +20,7 @@ function item(
     source: 'course',
     moduleId,
     openAt: null,
+    closeAt: null,
     durationMinutes: null,
     shuffleQuestions: true,
     isOpen: true,

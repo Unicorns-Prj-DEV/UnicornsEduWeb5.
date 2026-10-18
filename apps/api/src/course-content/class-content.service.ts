@@ -241,6 +241,7 @@ export class ClassContentService extends CourseContentSupportService {
     sortOrder: number;
     classId: string;
     openAt?: Date | null;
+    closeAt?: Date | null;
     durationMinutes?: number | null;
     shuffleQuestions?: boolean;
     hiddenAt?: Date | null;
@@ -277,6 +278,7 @@ export class ClassContentService extends CourseContentSupportService {
       moduleId: lesson?.module?.id,
       moduleTitle: lesson?.module?.title,
       openAt,
+      closeAt: item.closeAt ?? null,
       durationMinutes,
       shuffleQuestions: item.shuffleQuestions ?? true,
       isOpen: this.isPracticeAssignmentOpen(lessonKind, openAt),
@@ -324,6 +326,32 @@ export class ClassContentService extends CourseContentSupportService {
     return openAt;
   }
 
+  /**
+   * Hạn làm bài: `undefined` → `fallback`; `null`/rỗng → không hạn. Hạn phải sau
+   * thời điểm mở bài.
+   */
+  private parseAssignmentCloseAt(
+    raw: string | null | undefined,
+    openAt: Date | null,
+    fallback: Date | null,
+  ): Date | null {
+    let closeAt: Date | null;
+    if (raw === undefined) {
+      closeAt = fallback;
+    } else if (raw === null || !raw.trim()) {
+      closeAt = null;
+    } else {
+      closeAt = new Date(raw.trim());
+      if (Number.isNaN(closeAt.getTime())) {
+        throw new BadRequestException('closeAt is not a valid date');
+      }
+    }
+    if (closeAt && openAt && closeAt.getTime() <= openAt.getTime()) {
+      throw new BadRequestException('Hạn làm bài phải sau thời điểm mở bài.');
+    }
+    return closeAt;
+  }
+
   async createClassContentItem(
     classId: string,
     dto: ClassContentCreateDto,
@@ -351,6 +379,16 @@ export class ClassContentService extends CourseContentSupportService {
     const moduleId = topic.moduleId;
 
     const openAt = this.parsePracticeOpenAt(lessonKind, dto, false);
+    const classInfo = await this.prisma.class.findUnique({
+      where: { id: classId },
+      select: { contentAccessExpiresAt: true },
+    });
+    // Mặc định hạn làm bài = hạn xem nội dung của lớp (khoá vô hạn → không hạn).
+    const closeAt = this.parseAssignmentCloseAt(
+      dto.closeAt,
+      openAt,
+      classInfo?.contentAccessExpiresAt ?? null,
+    );
 
     const item = await this.prisma.$transaction(
       async (tx) => {
@@ -392,6 +430,7 @@ export class ClassContentService extends CourseContentSupportService {
             kind: 'lesson',
             sortOrder: nextSort,
             openAt,
+            closeAt,
             // Lần giao mới không chốt thời lượng — lượt làm đọc từ tiết thực hành.
             shuffleQuestions: dto.shuffleQuestions ?? true,
           },
@@ -770,11 +809,17 @@ export class ClassContentService extends CourseContentSupportService {
       throw new BadRequestException('Only practice assignments have openAt');
     }
     const openAt = this.parsePracticeOpenAt(lessonKind, dto, true);
+    const closeAt = this.parseAssignmentCloseAt(
+      dto.closeAt,
+      openAt,
+      item.closeAt,
+    );
     const updated = await this.prisma.$transaction(async (tx) => {
       const next = await tx.classContentItem.update({
         where: { id: itemId },
         data: {
           openAt,
+          closeAt,
           ...(dto.shuffleQuestions !== undefined
             ? { shuffleQuestions: dto.shuffleQuestions }
             : {}),

@@ -26,6 +26,7 @@ const item = (
   kindLabel: "",
   source: "course",
   openAt: null,
+  closeAt: null,
   durationMinutes: null,
   shuffleQuestions: true,
   isOpen: true,

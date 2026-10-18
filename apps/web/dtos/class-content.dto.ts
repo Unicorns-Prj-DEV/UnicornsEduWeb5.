@@ -10,6 +10,8 @@ export interface ClassContentItemDto {
   moduleId?: string;
   moduleTitle?: string;
   openAt: string | null;
+  /** Hạn làm bài của lần giao; null = không có hạn. */
+  closeAt: string | null;
   durationMinutes: number | null;
   /** Đảo câu + đảo phương án mỗi lượt làm. */
   shuffleQuestions: boolean;
@@ -35,13 +37,30 @@ export interface ClassContentCreatePayload {
   lessonId: string;
   /** ISO 8601. Omit for practice to default openAt to server time when the item is added. */
   openAt?: string;
+  /** ISO 8601. Bỏ qua = lấy hạn xem nội dung của lớp; null = không có hạn. */
+  closeAt?: string | null;
   /** Mặc định true. */
   shuffleQuestions?: boolean;
 }
 
 export interface ClassContentScheduleUpdatePayload {
   openAt: string;
+  /** ISO 8601. Bỏ qua = giữ hạn hiện tại; null = không có hạn. */
+  closeAt?: string | null;
   shuffleQuestions?: boolean;
+}
+
+/**
+ * Cách đặt hạn làm bài trong dialog lần giao:
+ * `class` = theo hạn xem nội dung của lớp (chỉ khi giao mới), `custom` = tự chọn ngày giờ,
+ * `none` = không có hạn.
+ */
+export type AssignmentCloseAtMode = "class" | "custom" | "none";
+
+export interface AssignmentCloseAtDraft {
+  mode: AssignmentCloseAtMode;
+  date: string;
+  time: string;
 }
 
 /** Tiết lý thuyết cần mở dialog Tiến độ (roster đã xem / hoàn thành). */

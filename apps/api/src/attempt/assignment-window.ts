@@ -14,24 +14,13 @@ export function assignmentDurationMinutes(
 }
 
 /**
- * Hạn của lần giao = thời điểm mở bài + thời lượng. Trước hạn, học sinh đã nộp
- * chưa được xem điểm/đáp án (bạn cùng lớp có thể chưa làm); từ hạn trở đi lần
- * giao đóng: không bắt đầu lượt mới, kết quả được công bố.
- *
- * Lần giao cũ không có `openAt` → không có hạn: xem kết quả ngay, không khoá.
+ * Hạn làm bài của lần giao (#229): từ mốc này không bắt đầu lượt mới; lượt đang
+ * làm dở vẫn chạy hết thời lượng riêng. `null` = không có hạn. Hạn chỉ chặn bắt
+ * đầu lượt — điểm/đáp án hiện ngay sau khi học sinh nộp lượt của mình.
  */
-export function assignmentCloseAt(
-  item: AssignmentDurationSource & { openAt: Date | null },
-): Date | null {
-  const durationMinutes = assignmentDurationMinutes(item);
-  if (!item.openAt || durationMinutes == null) return null;
-  return new Date(item.openAt.getTime() + durationMinutes * 60_000);
-}
-
-/** Đã tới hạn (hoặc không có hạn) → công bố điểm/đáp án, khoá lượt mới. */
 export function isAssignmentClosed(
   closeAt: Date | null,
   now: number = Date.now(),
 ): boolean {
-  return closeAt == null || now >= closeAt.getTime();
+  return closeAt != null && now >= closeAt.getTime();
 }

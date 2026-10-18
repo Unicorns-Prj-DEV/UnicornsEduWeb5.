@@ -48,7 +48,10 @@ import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
-import type { ClassContentItemDto } from "@/dtos/class-content.dto";
+import type {
+  AssignmentCloseAtDraft,
+  ClassContentItemDto,
+} from "@/dtos/class-content.dto";
 import { lessonKindBadgeClass } from "@/lib/course-content-labels";
 import * as classApi from "@/lib/apis/class.api";
 import CourseLessonPicker from "./CourseLessonPicker";
@@ -58,8 +61,11 @@ import {
   fromOpenAtIso,
   toOpenAtIso,
 } from "./AssignmentScheduleFields";
+import { AssignmentCloseAtField } from "./AssignmentCloseAtField";
 import { ShuffleQuestionsField } from "./ShuffleQuestionsField";
 import {
+  closeAtDraftFromIso,
+  closeAtPayload,
   isOpenAtPairComplete,
   isOpenAtPairPartial,
 } from "@/lib/assignment-schedule.helpers";
@@ -150,7 +156,7 @@ function SortableContentRow({
             {item.lessonKind === "practice" && (
               <p className="mt-1 text-xs text-text-muted">
                 {item.openAt
-                  ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút`
+                  ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút${item.closeAt ? ` · hạn ${formatOpenAt(item.closeAt)}` : ""}`
                   : "Chưa đặt thời điểm mở"}
               </p>
             )}
@@ -516,10 +522,16 @@ function AddContentDialog({
   const [step, setStep] = useState<"pick" | "schedule">("pick");
   const [openDate, setOpenDate] = useState("");
   const [openTime, setOpenTime] = useState("");
+  const [closeAt, setCloseAt] = useState<AssignmentCloseAtDraft>({
+    mode: "class",
+    date: "",
+    time: "",
+  });
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
 
   const openAtPartial = isOpenAtPairPartial(openDate, openTime);
-  const canSubmitSchedule = !openAtPartial;
+  const closeAtValue = closeAtPayload(closeAt);
+  const canSubmitSchedule = !openAtPartial && closeAtValue !== false;
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -528,6 +540,9 @@ function AddContentDialog({
         ...(isOpenAtPairComplete(openDate, openTime)
           ? { openAt: toOpenAtIso(openDate, openTime) }
           : {}),
+        ...(closeAtValue === false || closeAtValue === undefined
+          ? {}
+          : { closeAt: closeAtValue }),
         shuffleQuestions,
       }),
     onSuccess: () => {
@@ -560,7 +575,7 @@ function AddContentDialog({
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
               {step === "schedule"
-                ? "Thời điểm mở bài thuộc lần giao của lớp này, không đụng đề."
+                ? "Thời điểm mở bài và hạn làm bài thuộc lần giao của lớp này, không đụng đề."
                 : "Chọn chuyên đề lớp đã thêm, rồi chọn tiết thực hành. Tiết lý thuyết vào lớp theo chuyên đề."}
             </p>
           </div>
@@ -588,6 +603,11 @@ function AddContentDialog({
                   Nhập cả ngày và giờ, hoặc để trống cả hai.
                 </p>
               ) : null}
+              <AssignmentCloseAtField
+                value={closeAt}
+                onChange={setCloseAt}
+                allowClassDefault
+              />
               <ShuffleQuestionsField
                 checked={shuffleQuestions}
                 onCheckedChange={setShuffleQuestions}
@@ -658,16 +678,23 @@ function EditScheduleDialog({
     : { date: fallback.openDate, time: fallback.openTime };
   const [openDate, setOpenDate] = useState(parsed.date);
   const [openTime, setOpenTime] = useState(parsed.time);
+  const [closeAt, setCloseAt] = useState(() =>
+    closeAtDraftFromIso(item.closeAt),
+  );
   const [shuffleQuestions, setShuffleQuestions] = useState(
     item.shuffleQuestions,
   );
+  const closeAtValue = closeAtPayload(closeAt);
   const canSave =
-    Boolean(openDate && openTime) && !isOpenAtPairPartial(openDate, openTime);
+    Boolean(openDate && openTime) &&
+    !isOpenAtPairPartial(openDate, openTime) &&
+    closeAtValue !== false;
 
   const mutation = useMutation({
     mutationFn: () =>
       classApi.updateClassContentSchedule(classId, item.id, {
         openAt: toOpenAtIso(openDate, openTime),
+        closeAt: closeAtValue === false ? undefined : closeAtValue,
         shuffleQuestions,
       }),
     onSuccess: () => {
@@ -707,6 +734,7 @@ function EditScheduleDialog({
             onOpenDateChange={setOpenDate}
             onOpenTimeChange={setOpenTime}
           />
+          <AssignmentCloseAtField value={closeAt} onChange={setCloseAt} />
           <ShuffleQuestionsField
             checked={shuffleQuestions}
             onCheckedChange={setShuffleQuestions}
@@ -895,7 +923,7 @@ function ViewContentDialog({
           {item.lessonKind === "practice" ? (
             <p>
               {item.openAt
-                ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút`
+                ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút${item.closeAt ? ` · hạn ${formatOpenAt(item.closeAt)}` : ""}`
                 : "Chưa đặt thời điểm mở"}
             </p>
           ) : (

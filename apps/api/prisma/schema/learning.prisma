@@ -47,6 +47,9 @@ model ClassContentItem {
   sortOrder        Int                       @default(0) @map("sort_order")
   /// Thời điểm mở bài của lần giao (riêng lớp). Null với tiết lý thuyết.
   openAt           DateTime?                 @map("open_at") @db.Timestamptz(6)
+  /// Hạn làm bài của lần giao: từ mốc này không bắt đầu lượt mới (lượt dở vẫn chạy hết giờ).
+  /// Mặc định = hạn xem nội dung của lớp lúc giao; null = không hạn. Null với tiết lý thuyết.
+  closeAt          DateTime?                 @map("close_at") @db.Timestamptz(6)
   /// Thời lượng đã chốt của lần giao tạo trước khi thời lượng chuyển lên tiết (legacy).
   /// Lần giao mới để null → đọc `lessons.duration_minutes`.
   durationMinutes  Int?                      @map("duration_minutes")

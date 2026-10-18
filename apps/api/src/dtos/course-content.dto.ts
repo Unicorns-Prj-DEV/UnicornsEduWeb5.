@@ -251,6 +251,16 @@ export class ClassContentCreateDto {
 
   @ApiPropertyOptional({
     description:
+      'Hạn làm bài của lần giao (ISO 8601): từ mốc này không bắt đầu lượt mới; lượt dở vẫn chạy hết thời lượng. Bỏ qua khi tạo = hạn xem nội dung của lớp (lớp không hạn → không hạn). `null` = không có hạn. Phải sau `openAt`.',
+    nullable: true,
+    example: '2026-12-31T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  closeAt?: string | null;
+
+  @ApiPropertyOptional({
+    description:
       'Đảo câu: mỗi lượt làm xáo thứ tự câu (đề IT xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2) và thứ tự phương án, nhận định. Câu có phương án nhắc vị trí (vd «Cả A và B», «ở trên») giữ nguyên thứ tự phương án. Mặc định true khi tạo; chỉ áp cho lượt bắt đầu sau khi đổi.',
     example: true,
   })
@@ -266,6 +276,16 @@ export class ClassContentScheduleUpdateDto {
   })
   @IsDateString()
   openAt: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Hạn làm bài của lần giao (ISO 8601): từ mốc này không bắt đầu lượt mới; lượt dở vẫn chạy hết thời lượng. Bỏ qua = giữ hạn hiện tại. `null` = không có hạn. Phải sau `openAt`.',
+    nullable: true,
+    example: '2026-12-31T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  closeAt?: string | null;
 
   @ApiPropertyOptional({
     description:
@@ -289,6 +309,8 @@ export interface ClassContentItemResponseDto {
   moduleId?: string;
   moduleTitle?: string;
   openAt: Date | string | null;
+  /** Hạn làm bài của lần giao; null = không hạn. */
+  closeAt: Date | string | null;
   /** Thời lượng hiệu lực: đã chốt trên lần giao cũ, không thì của tiết thực hành. */
   durationMinutes: number | null;
   /** Đảo câu + đảo phương án mỗi lượt làm. */

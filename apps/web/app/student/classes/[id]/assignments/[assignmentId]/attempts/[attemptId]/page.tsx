@@ -19,8 +19,6 @@ import type {
   TrueFalseChoices,
 } from "@/dtos/attempt.dto";
 import { formatScore, formatScoreValue } from "@/lib/attempt-score";
-import { refetchIntervalUntilClose } from "@/lib/assignment-window";
-import { formatDateTime } from "@/lib/class.helpers";
 import {
   buildExamLayout,
   isElectiveConflict,
@@ -76,15 +74,9 @@ export default function StudentAttemptPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["attempt", classId, attemptId],
     queryFn: () => getAttempt(classId, attemptId),
-    // Đang làm: đồng bộ 15s. Đã nộp mà chưa tới hạn: refetch đúng lúc công bố.
-    refetchInterval: (q) => {
-      const d = q.state.data;
-      if (d?.status === "in_progress") return 15_000;
-      return refetchIntervalUntilClose(
-        d?.closeAt,
-        d ? !d.resultsReleased : false,
-      );
-    },
+    // Đang làm: đồng bộ 15s. Đã nộp: kết quả đã công bố, không cần refetch.
+    refetchInterval: (q) =>
+      q.state.data?.status === "in_progress" ? 15_000 : false,
   });
 
   const saveMutation = useMutation({
@@ -517,41 +509,31 @@ function StudentAttemptInProgress({
                   ? "Hết giờ — đã chốt bài"
                   : "Đã nộp"}
               </p>
-              {!attempt.resultsReleased ? (
-                <p className="mt-1 text-sm text-text-muted">
-                  Điểm và đáp án sẽ công bố khi hết hạn làm bài
-                  {attempt.closeAt
-                    ? ` (${formatDateTime(attempt.closeAt)})`
-                    : ""}
-                  .
+              <div className="mt-1 space-y-0.5 text-sm text-text-muted">
+                <p>
+                  Điểm:{" "}
+                  <span className="font-semibold tabular-nums text-text-primary">
+                    {formatScore(
+                      attempt.score ?? 0,
+                      attempt.scoreMax,
+                      attempt.scoring,
+                    )}
+                  </span>
                 </p>
-              ) : (
-                <div className="mt-1 space-y-0.5 text-sm text-text-muted">
-                  <p>
-                    Điểm:{" "}
-                    <span className="font-semibold tabular-nums text-text-primary">
-                      {formatScore(
-                        attempt.score ?? 0,
-                        attempt.scoreMax,
-                        attempt.scoring,
-                      )}
-                    </span>
+                {attempt.essayScore != null ? (
+                  <p className="tabular-nums">
+                    Trắc nghiệm:{" "}
+                    {formatScoreValue(
+                      attempt.autoGradedScore ?? 0,
+                      attempt.scoring,
+                    )}
+                    {" · Tự luận: "}
+                    {attempt.hasUngradedEssay
+                      ? "đang chờ chấm"
+                      : formatScoreValue(attempt.essayScore, attempt.scoring)}
                   </p>
-                  {attempt.essayScore != null ? (
-                    <p className="tabular-nums">
-                      Trắc nghiệm:{" "}
-                      {formatScoreValue(
-                        attempt.autoGradedScore ?? 0,
-                        attempt.scoring,
-                      )}
-                      {" · Tự luận: "}
-                      {attempt.hasUngradedEssay
-                        ? "đang chờ chấm"
-                        : formatScoreValue(attempt.essayScore, attempt.scoring)}
-                    </p>
-                  ) : null}
-                </div>
-              )}
+                ) : null}
+              </div>
               {attempt.electiveVoided ? (
                 <p className="mt-2 text-sm text-error">
                   Bạn đã làm cả hai nhóm tự chọn nên phần tự chọn bị tính 0

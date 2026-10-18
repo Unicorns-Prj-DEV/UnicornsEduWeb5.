@@ -422,6 +422,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `sort_order` (`INT`, default 0) — thứ tự hiển thị trong danh sách nội dung lớp.
 - `open_at` (`TIMESTAMPTZ`, nullable) — thời điểm mở bài của **lần giao**. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`. Khi `POST /class/:id/content` luyện tập **không** gửi `openAt`, backend ghi thời điểm tạo lần giao (đồng hồ server), không lấy giờ máy client.
 - `duration_minutes` (`INT`, nullable) — **thời lượng đã chốt** của lần giao tạo trước #228 (legacy). Lần giao mới để `NULL`: thời lượng hiệu lực = `COALESCE(class_content_items.duration_minutes, lessons.duration_minutes)` (`assignmentDurationMinutes`), dùng cho snapshot lượt làm, hạn lần giao và DTO. Sửa lịch lần giao không còn nhận thời lượng.
+- `close_at` (`TIMESTAMPTZ(6)`, nullable, #229) — **hạn làm bài** của lần giao: từ mốc này không bắt đầu lượt mới (lượt đang làm dở chạy hết thời lượng). `NULL` = không có hạn. Giao mới bỏ qua `closeAt` → lấy hạn xem nội dung của lớp (`classes.content_access_expires_at`). Phải sau `open_at`. Không còn suy ra từ `open_at + duration_minutes`; kết quả lượt hiện ngay khi nộp, không chờ hạn.
 - `shuffle_questions` (`BOOLEAN`, default `true`) — **Đảo câu**: mỗi lượt làm bắt đầu sau đó xáo thứ tự câu (hồ sơ IT: xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2, giữ thứ tự nhóm) và thứ tự phương án / nhận định. Câu có phương án nhắc vị trí (`isPositionDependent`: «ở trên», «Cả A và B», «ý a»…) giữ thứ tự phương án. Đổi cờ không ảnh hưởng lượt đã bắt đầu.
 - `hidden_at` (`TIMESTAMPTZ`, nullable, default null) — thời điểm ẩn mềm khỏi học sinh. Null = đang hiện.
 - `hidden_by_staff_id` (nullable FK → `staff_info.id`, `onDelete: SetNull`) — staff đã ẩn.
@@ -430,6 +431,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Migration: `20260910000000_add_class_content_items` — tạo bảng + backfill các topic (cũ) `class_id IS NOT NULL`.
 - Migration: `20260912000000_add_class_content_assignment_schedule` — thêm `open_at` + `duration_minutes`.
 - Migration: `20261018100000_practice_lesson_duration` — thời lượng chuyển lên `lessons.duration_minutes`; lần giao cũ giữ giá trị đã chốt.
+- Migration: `20261018110000_assignment_close_at` — thêm `close_at`; backfill lần giao thực hành = `classes.content_access_expires_at` (lớp không có hạn → `NULL`).
 - Migration: `20261008000000_assignment_shuffle` — thêm `class_content_items.shuffle_questions` (default true, kể cả lần giao cũ) + `attempt_answers.option_order`.
 - Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
 - Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
