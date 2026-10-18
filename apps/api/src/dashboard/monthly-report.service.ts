@@ -159,6 +159,7 @@ export function buildAdminMonthlyReport(
   const sourceByNewStudent = new Map(
     newStudents.map((student) => [student.id, student.customerSource]),
   );
+  const revenueByNewStudent = new Map<string, number>();
   for (const row of input.revenueInMonth) {
     const customerSource = sourceByNewStudent.get(row.studentId);
     if (customerSource == null || row.revenue <= 0) continue;
@@ -166,6 +167,10 @@ export function buildAdminMonthlyReport(
     const cell = cellOf(customerSource, row.courseId);
     cell.earningCount += 1;
     cell.revenue += row.revenue;
+    revenueByNewStudent.set(
+      row.studentId,
+      (revenueByNewStudent.get(row.studentId) ?? 0) + row.revenue,
+    );
   }
 
   // Bảng theo CSKH.
@@ -232,6 +237,7 @@ export function buildAdminMonthlyReport(
         customerSource: student.customerSource,
         firstTopUpAt: input.firstTopUpInMonth.get(student.id)!.toISOString(),
         totalTopUp: topUpByStudent.get(student.id)?.toMonthEndAmount ?? 0,
+        revenueInMonth: revenueByNewStudent.get(student.id) ?? 0,
         isEarlyDrop: isEarlyDrop(student),
         earlyDropKind: isEarlyDrop(student)
           ? isOldDropped(student)

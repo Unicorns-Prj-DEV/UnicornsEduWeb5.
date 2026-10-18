@@ -1178,6 +1178,8 @@ export interface MonthlyReportNewStudentDto {
   customerSource: StudentCustomerSource;
   firstTopUpAt: string;
   totalTopUp: number;
+  /** Doanh thu mới của học sinh trong tháng (Học phí đã học, mọi khoá). */
+  revenueInMonth: number;
   /** Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ. */
   isEarlyDrop: boolean;
   /** `old` = cũ nghỉ, `trial` = thử nghỉ; `null` khi chưa nghỉ. */

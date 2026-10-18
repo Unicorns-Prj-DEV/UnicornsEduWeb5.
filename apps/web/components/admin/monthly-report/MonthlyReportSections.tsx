@@ -12,6 +12,7 @@ import {
   MONTHLY_REPORT_NONE_KEY,
   MONTHLY_REPORT_UNPLACED_LABEL,
   buildMonthlyReportMatrix,
+  countEarningNewStudents,
   formatCustomerSourceKey,
   formatEarlyDropBreakdown,
   formatMillions,
@@ -217,6 +218,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
   const { view, columnLabel, rowLabel } = useMatrix(report);
   if (view.rowKeys.length === 0) return null;
   const grand = view.grandTotal;
+  const grandEarners = countEarningNewStudents(report.newStudents);
 
   return (
     <ScrollTable>
@@ -237,13 +239,14 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
         <TableBody>
           {view.rowKeys.map((rowKey) => {
             const total = view.rowTotal(rowKey);
+            const earners = countEarningNewStudents(report.newStudents, rowKey as StudentCustomerSource);
             const share = grand.revenue > 0 ? (total.revenue / grand.revenue) * 100 : 0;
             return (
               <TableRow key={rowKey}>
                 <TableCell className="sticky left-0 bg-bg-surface font-medium">{rowLabel(rowKey)}</TableCell>
                 {view.columnKeys.map((columnKey) => {
                   const cell = view.cell(rowKey, columnKey);
-                  if (cell.newCount === 0 && cell.earningCount === 0) {
+                  if (cell.earningCount === 0) {
                     return (
                       <TableCell key={columnKey} className="text-right text-text-muted">
                         ·
@@ -265,7 +268,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
                         <span className="font-semibold">
                           {formatMillions(cell.revenue)}
                         </span>
-                        <span className="text-xs text-text-muted">{cell.newCount} HS</span>
+                        <span className="text-xs text-text-muted">{cell.earningCount} HS</span>
                       </div>
                     </TableCell>
                   );
@@ -274,7 +277,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
                   {formatMillions(total.revenue)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatMillions(total.newCount > 0 ? total.revenue / total.newCount : 0)}
+                  {formatMillions(earners > 0 ? total.revenue / earners : 0)}
                 </TableCell>
                 <TableCell>
                   <div className="flex min-w-[120px] items-center gap-2">
@@ -301,7 +304,7 @@ export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyRep
               {formatMillions(grand.revenue)}
             </TableCell>
             <TableCell className="text-right tabular-nums">
-              {formatMillions(grand.newCount > 0 ? grand.revenue / grand.newCount : 0)}
+              {formatMillions(grandEarners > 0 ? grand.revenue / grandEarners : 0)}
             </TableCell>
             <TableCell />
           </TableRow>

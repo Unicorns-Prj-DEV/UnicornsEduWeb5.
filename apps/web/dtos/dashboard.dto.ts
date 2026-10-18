@@ -583,6 +583,8 @@ export interface MonthlyReportNewStudent {
   customerSource: StudentCustomerSource;
   firstTopUpAt: string;
   totalTopUp: number;
+  /** Doanh thu mới của học sinh trong tháng (Học phí đã học, mọi khoá). */
+  revenueInMonth: number;
   isEarlyDrop: boolean;
   earlyDropKind: MonthlyReportEarlyDropKind | null;
   dropOutDate: string | null;

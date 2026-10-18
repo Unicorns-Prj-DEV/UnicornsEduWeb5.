@@ -286,7 +286,10 @@ describe('buildAdminMonthlyReport', () => {
       'new-dropped',
       'new-unplaced',
     ]);
-    expect(report.newStudents[0].totalTopUp).toBe(3_000_000);
+    expect(report.newStudents[0]).toMatchObject({
+      totalTopUp: 3_000_000,
+      revenueInMonth: 1_200_000,
+    });
     expect(report.newStudents[1]).toMatchObject({
       isEarlyDrop: true,
       earlyDropKind: 'old',
@@ -297,6 +300,7 @@ describe('buildAdminMonthlyReport', () => {
       className: null,
       courseId: null,
       totalTopUp: 0,
+      revenueInMonth: 0,
     });
   });
 

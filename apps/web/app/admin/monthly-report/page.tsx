@@ -115,7 +115,7 @@ export default function AdminMonthlyReportPage() {
 
             <ReportSection
               title="Doanh thu mới theo nguồn và khoá học"
-              description="Học phí đã học trong tháng của mỗi học sinh mới (kể cả thu bù học thử và gói bán một lần), tính theo khoá của lớp có buổi (đổi lớp sang khoá khác thì doanh thu theo lớp mới). Không có doanh thu thì hiện 0 đ. TB/HS chia cho mọi học sinh mới. Ô đậm hơn là doanh thu cao hơn."
+              description="Học phí đã học trong tháng của mỗi học sinh mới (kể cả thu bù học thử và gói bán một lần), tính theo khoá của lớp có buổi (đổi lớp sang khoá khác thì doanh thu theo lớp mới). Không có doanh thu thì hiện 0 đ. Chỉ đếm học sinh có doanh thu; TB/HS chia cho số học sinh đó. Ô đậm hơn là doanh thu cao hơn."
             >
               <MonthlyReportRevenueMatrix report={report} />
             </ReportSection>

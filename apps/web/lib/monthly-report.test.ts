@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { MonthlyReportNewStudent } from "@/dtos/dashboard.dto";
 import {
   MONTHLY_REPORT_NONE_KEY,
   buildMonthlyReportMatrix,
+  countEarningNewStudents,
   formatEarlyDropBreakdown,
   formatMillions,
   formatSignedCount,
@@ -52,5 +54,16 @@ describe("monthly report formatters", () => {
   it("splits early drops into old and trial dropped students", () => {
     expect(formatEarlyDropBreakdown(3, 2)).toBe("2 cũ · 1 thử");
     expect(formatEarlyDropBreakdown(0, 0)).toBeNull();
+  });
+});
+
+describe("countEarningNewStudents", () => {
+  const student = (customerSource: "tiktok" | "facebook", revenueInMonth: number) =>
+    ({ customerSource, revenueInMonth }) as MonthlyReportNewStudent;
+
+  it("counts only new students with revenue, optionally per source", () => {
+    const students = [student("tiktok", 1_100_000), student("tiktok", 0), student("facebook", 500_000)];
+    expect(countEarningNewStudents(students)).toBe(2);
+    expect(countEarningNewStudents(students, "tiktok")).toBe(1);
   });
 });

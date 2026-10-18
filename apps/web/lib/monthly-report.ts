@@ -1,4 +1,4 @@
-import type { MonthlyReportMatrixCell } from "@/dtos/dashboard.dto";
+import type { MonthlyReportMatrixCell, MonthlyReportNewStudent } from "@/dtos/dashboard.dto";
 import {
   STUDENT_CUSTOMER_SOURCE_LABELS,
   STUDENT_CUSTOMER_SOURCES,
@@ -109,4 +109,17 @@ export function buildMonthlyReportMatrix(
     grandTotal: rowKeys.reduce((total, rowKey) => addTotals(total, rowTotal(rowKey)), EMPTY_TOTALS),
     maxCellRevenue: Math.max(0, ...[...byKey.values()].map((totals) => totals.revenue)),
   };
+}
+
+/**
+ * Số học sinh mới có doanh thu > 0 trong tháng (đếm không trùng dù học nhiều
+ * khoá); `source` lọc theo một nguồn khách. Mẫu số TB/HS của heatmap doanh thu.
+ */
+export function countEarningNewStudents(
+  students: MonthlyReportNewStudent[],
+  source?: StudentCustomerSource,
+): number {
+  return students.filter(
+    (student) => student.revenueInMonth > 0 && (source == null || student.customerSource === source),
+  ).length;
 }
