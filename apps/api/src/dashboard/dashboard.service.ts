@@ -1265,13 +1265,25 @@ export class DashboardService {
   private async getMonthlyTrend(params: {
     /** YYYY-MM for the viewed month; drives DATE bounds without TZ drift vs generate_series. */
     anchorMonthKey: string;
+    /** YYYY-MM đầu chuỗi; có thì trả mọi tháng từ đây tới `anchorMonthKey` (vd cả năm cho bảng theo quý). */
+    fromMonthKey?: string;
   }): Promise<MonthlyTrendNormalizedRow[]> {
+    const range = params.fromMonthKey
+      ? buildMonthRangeStrings(params.fromMonthKey, params.anchorMonthKey)
+      : null;
     const {
       periodStartStr,
       periodEndExclusiveStr,
       yearStartMonthKey,
       yearEndMonthKeyExclusive,
-    } = buildCalendarPeriodStrings(params.anchorMonthKey);
+    } = range
+      ? {
+          periodStartStr: range.periodStartStr,
+          periodEndExclusiveStr: range.periodEndExclusiveStr,
+          yearStartMonthKey: range.fromMonthKey,
+          yearEndMonthKeyExclusive: range.toMonthKeyExclusive,
+        }
+      : buildCalendarPeriodStrings(params.anchorMonthKey);
 
     const periodStartDate = prismaSqlDateLiteral(periodStartStr);
     const periodEndExclusiveDate = prismaSqlDateLiteral(periodEndExclusiveStr);
@@ -4789,8 +4801,10 @@ export class DashboardService {
             monthStart: period.monthStart,
             monthEnd: period.monthEnd,
           }),
+          // Cả năm (T1–T12) để bảng "theo quý" đủ 4 quý; tháng đang chọn lấy lại theo monthKey.
           this.getMonthlyTrend({
-            anchorMonthKey: period.monthKey,
+            fromMonthKey: `${period.year}-01`,
+            anchorMonthKey: `${period.year}-12`,
           }),
           this.getPrepaidTuitionTotal(),
           this.getExpiringStudents(alertLimit),
@@ -4805,8 +4819,8 @@ export class DashboardService {
             limit: alertLimit,
           }),
           this.getQuarterClassCounts({
-            monthStart: period.monthStart,
-            monthEnd: period.monthEnd,
+            monthStart: period.yearStart,
+            monthEnd: period.yearEnd,
           }),
           this.getPendingCollectionTotal(),
           this.getCustomerSourceStats({
