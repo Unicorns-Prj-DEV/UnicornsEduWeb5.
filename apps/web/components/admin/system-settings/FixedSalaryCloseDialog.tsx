@@ -153,6 +153,9 @@ export function FixedSalaryCloseDialog({
   const candidatesQuery = useQuery({
     queryKey: FIXED_SALARY_CLOSE_CANDIDATES_QUERY_KEY,
     queryFn: fixedSalarySettingsApi.getFixedSalaryCloseCandidates,
+    // Danh sách quyết định sinh khoản tiền: mỗi lần mở dialog lấy số mới,
+    // không dùng cache 30s mặc định.
+    refetchOnMount: "always",
   });
 
   const closeMutation = useMutation({
