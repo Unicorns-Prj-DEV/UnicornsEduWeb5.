@@ -54,6 +54,7 @@ import {
 import {
   buildSessionCommentZaloText,
   findSessionReviewFormError,
+  findSessionReviewFormFormatError,
   isChargeableAttendanceStatus,
   isRichTextNonEmpty,
   resolveSessionCommentDisplayContent,
@@ -157,6 +158,11 @@ type Props = {
   allowDeleteSession?: boolean;
   enableBulkPaymentStatusEdit?: boolean;
   readOnlySessionDetails?: boolean;
+  /**
+   * Admin/trợ lí/kế toán: lưu được khi Nhận xét buổi học còn trống field bắt buộc
+   * (khớp `PUT /sessions/:id` skipRequired). Gia sư (staff-ops) để false.
+   */
+  skipRequiredReviewValidation?: boolean;
   /** Hiện toggle Dạy thử (coefficient = 0) khi sửa buổi — chỉ admin/trợ lí. */
   allowTrialTeachingToggle?: boolean;
   showTrainingManagerAllowance?: boolean;
@@ -884,6 +890,7 @@ export default function SessionHistoryTable({
   allowDeleteSession = true,
   enableBulkPaymentStatusEdit = false,
   readOnlySessionDetails = false,
+  skipRequiredReviewValidation = false,
   allowTrialTeachingToggle = false,
   showTrainingManagerAllowance = false,
   updateSessionFn = sessionApi.updateSession,
@@ -968,12 +975,14 @@ export default function SessionHistoryTable({
   const [manualAllowanceGrossOverride, setManualAllowanceGrossOverride] =
     useState<number | null>(null);
   const allowanceOverrideInitSessionIdRef = useRef<string | null>(null);
+  // Người dùng có tự sửa ô trợ cấp trong lần mở form này không (khác override suy ra lúc load).
+  const allowanceTouchedRef = useRef(false);
   const editBaselineSessionIdRef = useRef<string | null>(null);
   const [editFormBaseline, setEditFormBaseline] = useState<string | null>(null);
   const [unsavedConfirmOpen, setUnsavedConfirmOpen] = useState(false);
   const canEditAllowance = allowAllowanceEdit ?? allowFinancialEdits;
-  // Khoá trợ cấp/giờ theo trạng thái ĐÃ LƯU, không theo giá trị đang chọn trong form:
-  // đổi unpaid → paid và chỉnh trợ cấp trong cùng một lần lưu vẫn phải gửi trợ cấp.
+  // Khoá giờ theo trạng thái ĐÃ LƯU, không theo giá trị đang chọn trong form.
+  // Trợ cấp buổi paid/deposit vẫn chỉnh tay được, nhưng chỉ gửi khi người dùng tự sửa.
   const isSavedPaymentLocked = isSessionPaymentLockedStatus(
     editingSession?.teacherPaymentStatus,
   );
@@ -1297,6 +1306,7 @@ export default function SessionHistoryTable({
     setEditPaymentStatus(
       status === "paid" ? "paid" : status === "deposit" ? "deposit" : "unpaid",
     );
+    allowanceTouchedRef.current = false;
     loadTeachersForEdit(session);
     loadAttendanceForEdit(session);
   };
@@ -1323,6 +1333,7 @@ export default function SessionHistoryTable({
     setAttendanceLoading(false);
     setManualAllowanceGrossOverride(null);
     allowanceOverrideInitSessionIdRef.current = null;
+    allowanceTouchedRef.current = false;
     editBaselineSessionIdRef.current = null;
     setEditFormBaseline(null);
     setUnsavedConfirmOpen(false);
@@ -1407,20 +1418,22 @@ export default function SessionHistoryTable({
       toast.error("Vui lòng chọn gia sư phụ trách.");
       return;
     }
-    if (!isRichTextNonEmpty(editLessonContent)) {
-      setLessonContentError("Vui lòng nhập nội dung bài học.");
-      toast.error("Vui lòng nhập nội dung bài học.");
-      return;
-    }
-    if (!isRichTextNonEmpty(editHomework)) {
-      setHomeworkError("Vui lòng nhập bài tập về nhà.");
-      toast.error("Vui lòng nhập bài tập về nhà.");
-      return;
-    }
-    if (!isRichTextNonEmpty(editTutorial)) {
-      setTutorialError("Vui lòng nhập tutorial các buổi học.");
-      toast.error("Vui lòng nhập tutorial các buổi học.");
-      return;
+    if (!skipRequiredReviewValidation) {
+      if (!isRichTextNonEmpty(editLessonContent)) {
+        setLessonContentError("Vui lòng nhập nội dung bài học.");
+        toast.error("Vui lòng nhập nội dung bài học.");
+        return;
+      }
+      if (!isRichTextNonEmpty(editHomework)) {
+        setHomeworkError("Vui lòng nhập bài tập về nhà.");
+        toast.error("Vui lòng nhập bài tập về nhà.");
+        return;
+      }
+      if (!isRichTextNonEmpty(editTutorial)) {
+        setTutorialError("Vui lòng nhập tutorial các buổi học.");
+        toast.error("Vui lòng nhập tutorial các buổi học.");
+        return;
+      }
     }
     const sessionTextTooLong = firstOverLimit([
       {
@@ -1450,7 +1463,15 @@ export default function SessionHistoryTable({
     }
     const reviewError =
       findSessionReviewFormInputError(editReview) ??
-      findSessionReviewFormError(editSessionReviewPayload, editReviewStudents);
+      (skipRequiredReviewValidation
+        ? findSessionReviewFormFormatError(
+            editSessionReviewPayload,
+            editReviewStudents,
+          )
+        : findSessionReviewFormError(
+            editSessionReviewPayload,
+            editReviewStudents,
+          ));
     if (reviewError) {
       toast.error(reviewError);
       return;
@@ -1490,8 +1511,7 @@ export default function SessionHistoryTable({
     if (
       canEditAllowance &&
       manualAllowanceGrossOverride !== null &&
-      coeffNum !== 0 &&
-      !isSavedPaymentLocked
+      coeffNum !== 0
     ) {
       if (
         !Number.isFinite(manualAllowanceGrossOverride) ||
@@ -1530,6 +1550,8 @@ export default function SessionHistoryTable({
       attendance: attendancePayload,
     };
 
+    // Chụp trước closeEdit(): closeEdit reset ref, còn action chạy sau đó.
+    const allowanceTouched = allowanceTouchedRef.current;
     closeEdit();
     runBackgroundSave({
       loadingMessage: "Đang lưu buổi học...",
@@ -1559,7 +1581,9 @@ export default function SessionHistoryTable({
           canEditAllowance &&
           manualAllowanceGrossOverride !== null &&
           (payload.coefficient ?? coefficientForAllowancePreview) > 0 &&
-          !isSavedPaymentLocked
+          // Buổi đã paid/deposit: không gửi lại override suy ra lúc load
+          // (quy đổi gross → raw có thể lệch số đã chi), chỉ gửi khi tự sửa.
+          (!isSavedPaymentLocked || allowanceTouched)
         ) {
           data.allowanceAmount = grossAllowanceToRawBaseVnd(
             manualAllowanceGrossOverride,
@@ -1770,13 +1794,15 @@ export default function SessionHistoryTable({
     previewBlockCount,
   ]);
 
-  const isAllowancePaymentLocked = isSavedPaymentLocked;
-  const isAllowanceEditLocked = isTrialLesson || isAllowancePaymentLocked;
+  const isAllowanceEditLocked = isTrialLesson;
   const allowanceEditLockedReason = isTrialLesson
     ? "Buổi dạy thử không tính trợ cấp."
-    : isAllowancePaymentLocked
-      ? "Buổi đã thanh toán hoặc ghi cọc — không chỉnh trợ cấp."
-      : null;
+    : null;
+  const isSavedPaidStatus =
+    (editingSession?.teacherPaymentStatus ?? "").toLowerCase() === "paid";
+  const allowancePaidFootnote = isSavedPaymentLocked
+    ? "Buổi đã thanh toán hoặc ghi cọc — sửa trợ cấp sẽ đổi số đã chi cho gia sư."
+    : null;
 
   const editTutorAllowanceTotal = useMemo(() => {
     if (manualAllowanceGrossOverride !== null) {
@@ -1928,6 +1954,7 @@ export default function SessionHistoryTable({
   ]);
 
   const handleManualAllowanceGrossChange = (grossAmount: number) => {
+    allowanceTouchedRef.current = true;
     setManualAllowanceGrossOverride(grossAmount);
   };
 
@@ -2981,7 +3008,7 @@ export default function SessionHistoryTable({
                               onChange={(e) => setEditStartTime(e.target.value)}
                               disabled={
                                 readOnlySessionDetails ||
-                                isAllowancePaymentLocked
+                                isSavedPaymentLocked
                               }
                               className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 font-mono text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
@@ -3001,7 +3028,7 @@ export default function SessionHistoryTable({
                               onChange={(e) => setEditEndTime(e.target.value)}
                               disabled={
                                 readOnlySessionDetails ||
-                                isAllowancePaymentLocked
+                                isSavedPaymentLocked
                               }
                               className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 font-mono text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
@@ -3012,7 +3039,7 @@ export default function SessionHistoryTable({
                             Thời lượng: {editDurationLabel}
                           </p>
                         ) : null}
-                        {isAllowancePaymentLocked ? (
+                        {isSavedPaymentLocked ? (
                           <p className="mt-1.5 text-xs text-text-muted">
                             Buổi đã thanh toán hoặc ghi cọc — không chỉnh giờ.
                           </p>
@@ -3101,6 +3128,7 @@ export default function SessionHistoryTable({
                           canEdit={canEditAllowance && !readOnlySessionDetails}
                           editLocked={isAllowanceEditLocked}
                           editLockedReason={allowanceEditLockedReason}
+                          footnote={allowancePaidFootnote}
                           onManualGrossChange={
                             canEditAllowance && !readOnlySessionDetails
                               ? handleManualAllowanceGrossChange
@@ -3109,7 +3137,9 @@ export default function SessionHistoryTable({
                           onClearManualOverride={
                             canEditAllowance &&
                             !readOnlySessionDetails &&
-                            !isAllowanceEditLocked
+                            !isAllowanceEditLocked &&
+                            // Buổi paid không được backend tính lại trợ cấp → xoá chỉnh tay vô nghĩa.
+                            !isSavedPaidStatus
                               ? handleClearManualAllowanceOverride
                               : undefined
                           }

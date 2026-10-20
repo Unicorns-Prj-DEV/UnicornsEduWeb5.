@@ -95,10 +95,12 @@ function splitVnDateTime(iso: string | null | undefined): {
 export function sessionReviewFormFromSession(
   session: SessionReviewFields | null | undefined,
 ): SessionReviewFormValue {
-  if (!session?.progressStatus) return emptySessionReviewForm();
+  // Không chặn theo `progressStatus`: admin/trợ lí/kế toán được lưu nhận xét thiếu
+  // tiến độ, form phải seed lại các field khác để lần lưu sau không ghi đè thành null.
+  if (!session) return emptySessionReviewForm();
   const due = splitVnDateTime(session.homeworkDueAt);
   return {
-    progressStatus: session.progressStatus,
+    progressStatus: session.progressStatus ?? "",
     progressDone: session.progressDone ?? "",
     progressRemaining: session.progressRemaining ?? "",
     hasInClassTest: session.hasInClassTest === true,

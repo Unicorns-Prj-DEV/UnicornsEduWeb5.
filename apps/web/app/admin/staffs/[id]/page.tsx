@@ -366,6 +366,8 @@ export default function AdminStaffDetailPage({
   const canEditTaxSettings = isAdmin || isAssistant || isAccountantExpense;
   const canPayAll = isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canEditSessionDetails = isAdmin || isAssistant;
+  // Khớp quyền `PUT /sessions/:id`: được lưu khi Nhận xét buổi học còn trống field bắt buộc.
+  const canSkipRequiredSessionReview = isAdmin || isAssistant || isAccountant;
   const canEditSessionPaymentStatus =
     isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
   const canManageMissedTeachingAlerts = isAdmin || isAssistant;
@@ -2726,6 +2728,7 @@ export default function AdminStaffDetailPage({
                 allowTeacherSelection={canEditSessionDetails}
                 allowTrialTeachingToggle={canEditSessionDetails}
                 allowFinancialEdits={canEditSessionDetails}
+                skipRequiredReviewValidation={canSkipRequiredSessionReview}
                 allowAllowanceEdit={canEditSessionDetails}
                 allowAttendanceTuitionEdits={canEditSessionDetails}
                 allowPaymentStatusEdit={canEditSessionPaymentStatus}

@@ -36,15 +36,23 @@ export interface SessionReviewInput {
   retestContent?: string | null;
 }
 
+/**
+ * `skipRequired`: admin/trợ lí/kế toán sửa buổi qua `PUT /sessions/:id` được lưu khi
+ * còn trống field bắt buộc của Nhận xét buổi học. Kiểm tra định dạng/khoảng giá trị vẫn chạy.
+ */
+export interface ReviewValidationOptions {
+  skipRequired?: boolean;
+}
+
 export interface SessionReviewData {
-  progressStatus: SessionProgressStatus;
+  progressStatus: SessionProgressStatus | null;
   progressDone: string | null;
   progressRemaining: string | null;
   hasInClassTest: boolean;
   inClassTestContent: string | null;
   inClassTestTotal: number | null;
   homeworkDueAt: Date | null;
-  nextSessionPlan: string;
+  nextSessionPlan: string | null;
   hasRetest: boolean;
   retestContent: string | null;
 }
@@ -267,7 +275,7 @@ export class SessionValidationService {
           notes?: string | null;
         }>
       | undefined,
-    options: { required: boolean },
+    options: { required: boolean } & ReviewValidationOptions,
   ) {
     if (attendance === undefined) {
       if (options.required) {
@@ -309,7 +317,9 @@ export class SessionValidationService {
     }
 
     // Nghỉ phép phải ghi lý do vào `notes`.
-    const hasExcusedWithoutReason = attendance.some(
+    const hasExcusedWithoutReason =
+      !options.skipRequired &&
+      attendance.some(
       (item) =>
         item?.status === AttendanceStatus.excused &&
         !this.normalizeReviewText(item.notes),
@@ -482,9 +492,13 @@ export class SessionValidationService {
    * Validate + chuẩn hoá phần chung của Nhận xét buổi học có cấu trúc.
    * Trả về object ghi thẳng vào `sessions` (field không áp dụng bị xoá về null).
    */
-  resolveSessionReviewFields(data: SessionReviewInput): SessionReviewData {
-    const progressStatus = data.progressStatus;
-    if (!progressStatus) {
+  resolveSessionReviewFields(
+    data: SessionReviewInput,
+    options: ReviewValidationOptions = {},
+  ): SessionReviewData {
+    const requireFilled = !options.skipRequired;
+    const progressStatus = data.progressStatus ?? null;
+    if (!progressStatus && requireFilled) {
       throw new BadRequestException('Tiến độ buổi là bắt buộc.');
     }
 
@@ -493,7 +507,7 @@ export class SessionValidationService {
     if (progressStatus === SessionProgressStatus.completed) {
       progressDone = null;
       progressRemaining = null;
-    } else {
+    } else if (requireFilled) {
       if (progressStatus === SessionProgressStatus.partial && !progressDone) {
         throw new BadRequestException('Tiến độ «Đã xong» là bắt buộc.');
       }
@@ -512,13 +526,13 @@ export class SessionValidationService {
       ? (data.inClassTestTotal ?? null)
       : null;
     if (hasInClassTest) {
-      if (!inClassTestContent) {
+      if (!inClassTestContent && requireFilled) {
         throw new BadRequestException('Nội dung kiểm tra là bắt buộc.');
       }
       if (
-        inClassTestTotal === null ||
-        !Number.isInteger(inClassTestTotal) ||
-        inClassTestTotal < 1
+        (inClassTestTotal === null && requireFilled) ||
+        (inClassTestTotal !== null &&
+          (!Number.isInteger(inClassTestTotal) || inClassTestTotal < 1))
       ) {
         throw new BadRequestException('Tổng số câu kiểm tra phải ≥ 1.');
       }
@@ -533,7 +547,7 @@ export class SessionValidationService {
     }
 
     const nextSessionPlan = this.normalizeReviewText(data.nextSessionPlan);
-    if (!nextSessionPlan) {
+    if (!nextSessionPlan && requireFilled) {
       throw new BadRequestException('Nội dung buổi sau là bắt buộc.');
     }
 
@@ -541,7 +555,7 @@ export class SessionValidationService {
     const retestContent = hasRetest
       ? this.normalizeReviewText(data.retestContent)
       : null;
-    if (hasRetest && !retestContent) {
+    if (hasRetest && !retestContent && requireFilled) {
       throw new BadRequestException('Nội dung kiểm tra lại là bắt buộc.');
     }
 
@@ -573,6 +587,7 @@ export class SessionValidationService {
       studentFullName?: string | null;
     },
     test: { hasInClassTest: boolean; inClassTestTotal: number | null },
+    options: ReviewValidationOptions = {},
   ): AttendanceReviewData {
     const empty: AttendanceReviewData = {
       testCorrectCount: null,
@@ -590,7 +605,9 @@ export class SessionValidationService {
     }
 
     const studentName = String(item.studentFullName ?? '').trim();
-    const fail = (field: string): never => {
+    // skipRequired: field trống lưu null thay vì báo lỗi.
+    const fail = (field: string): null => {
+      if (options.skipRequired) return null;
       throw new BadRequestException(
         studentName
           ? `${field} của học sinh ${studentName} là bắt buộc.`
@@ -601,10 +618,19 @@ export class SessionValidationService {
     const result: AttendanceReviewData = { ...empty };
     if (test.hasInClassTest && this.lmsProfile.config.inClassTest) {
       const total = test.inClassTestTotal ?? 0;
+      // skipRequired + chưa nhập tổng câu: không có trần để so.
+      const maxCorrect =
+        test.inClassTestTotal === null && options.skipRequired
+          ? Number.POSITIVE_INFINITY
+          : total;
       const correct = item.testCorrectCount;
       if (correct === undefined || correct === null) {
         fail('Số câu đúng');
-      } else if (!Number.isInteger(correct) || correct < 0 || correct > total) {
+      } else if (
+        !Number.isInteger(correct) ||
+        correct < 0 ||
+        correct > maxCorrect
+      ) {
         throw new BadRequestException(
           `Số câu đúng${studentName ? ` của học sinh ${studentName}` : ''} phải trong khoảng 0–${total}.`,
         );

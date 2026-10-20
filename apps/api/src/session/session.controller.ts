@@ -101,7 +101,7 @@ export class SessionController {
   @ApiOperation({
     summary: 'Cập nhật session',
     description:
-      'Nếu payload có startTime/endTime thì cả hai phải có và giờ kết thúc phải sau giờ bắt đầu. Buổi paid/deposit từ chối đổi giờ.',
+      'Nếu payload có startTime/endTime thì cả hai phải có và giờ kết thúc phải sau giờ bắt đầu. Buổi paid/deposit từ chối đổi giờ. Không bắt buộc nhập đủ Nhận xét buổi học (nội dung, BTVN, tutorial, tiến độ, buổi sau, nhận xét từng học sinh, lý do nghỉ phép) — field trống lưu null; kiểm tra định dạng/khoảng giá trị vẫn áp dụng.',
   })
   @ApiParam({ name: 'id', description: 'ID session' })
   @ApiBody({ type: SessionUpdateDto, description: 'Session update payload' })
@@ -113,6 +113,8 @@ export class SessionController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() data: SessionUpdateDto,
   ) {
+    // Route chỉ mở cho admin/trợ lí/kế toán → được lưu khi Nhận xét buổi học còn trống
+    // field bắt buộc. Gia sư sửa buổi qua staff-ops vẫn bị kiểm tra đủ.
     return this.sessionService.updateSession(
       { ...data, id },
       {
@@ -120,6 +122,7 @@ export class SessionController {
         userEmail: user.email,
         roleType: user.roleType,
       },
+      { skipRequired: true },
     );
   }
 

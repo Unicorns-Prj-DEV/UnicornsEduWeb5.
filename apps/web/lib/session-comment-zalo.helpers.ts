@@ -646,6 +646,34 @@ function buildStructuredSessionReviewText(
 }
 
 /**
+ * Như `findSessionReviewFormError` nhưng bỏ qua field bắt buộc còn trống — chỉ bắt giá trị
+ * sai định dạng/khoảng. Dùng khi admin/trợ lí/kế toán lưu buổi (`PUT /sessions/:id` skipRequired).
+ */
+export function findSessionReviewFormFormatError(
+  review: SessionReviewFields,
+  students: SessionCommentZaloStudent[],
+): string | null {
+  const total = review.hasInClassTest ? review.inClassTestTotal : null;
+  if (total != null && total < 1) return "Tổng số câu kiểm tra phải ≥ 1.";
+  if (!review.hasInClassTest) return null;
+
+  for (const student of students) {
+    if (student.status !== "present" && student.status !== "trial") continue;
+    const correct = student.testCorrectCount;
+    if (correct == null) continue;
+    if (
+      !Number.isInteger(correct) ||
+      correct < 0 ||
+      (total != null && correct > total)
+    ) {
+      const name = student.fullName.trim() || "học sinh";
+      return `Số câu đúng của ${name} phải trong khoảng 0–${total ?? 0}.`;
+    }
+  }
+  return null;
+}
+
+/**
  * Lỗi đầu tiên của form Nhận xét buổi học (để toast), null khi hợp lệ.
  * Khớp quy tắc `SessionValidationService` ở API.
  */

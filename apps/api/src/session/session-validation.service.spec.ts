@@ -380,6 +380,80 @@ describe('SessionValidationService', () => {
     });
   });
 
+  describe('skipRequired (admin/trợ lí/kế toán sửa buổi)', () => {
+    const skip = { skipRequired: true };
+
+    it('saves an empty session review as nulls', () => {
+      expect(
+        service.resolveSessionReviewFields({ hasRetest: true }, skip),
+      ).toMatchObject({
+        progressStatus: null,
+        progressDone: null,
+        progressRemaining: null,
+        nextSessionPlan: null,
+        hasRetest: true,
+        retestContent: null,
+      });
+    });
+
+    it('still rejects an invalid test total or homework due date', () => {
+      expect(() =>
+        service.resolveSessionReviewFields(
+          { hasInClassTest: true, inClassTestTotal: 0 },
+          skip,
+        ),
+      ).toThrow(new BadRequestException('Tổng số câu kiểm tra phải ≥ 1.'));
+      expect(() =>
+        service.resolveSessionReviewFields(
+          { homeworkDueAt: 'not-a-date' },
+          skip,
+        ),
+      ).toThrow(new BadRequestException('Hạn BTVN không hợp lệ.'));
+    });
+
+    it('saves an empty student review as nulls', () => {
+      expect(
+        service.resolveAttendanceReview(
+          { status: AttendanceStatus.present },
+          { hasInClassTest: true, inClassTestTotal: 10 },
+          skip,
+        ),
+      ).toEqual({
+        testCorrectCount: null,
+        testComment: null,
+        strengths: null,
+        improvements: null,
+        homeworkQuality: null,
+        homeworkComment: null,
+      });
+    });
+
+    it('still rejects a correct count above the test total', () => {
+      expect(() =>
+        service.resolveAttendanceReview(
+          { status: AttendanceStatus.present, testCorrectCount: 11 },
+          { hasInClassTest: true, inClassTestTotal: 10 },
+          skip,
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('allows an excused student without a reason', () => {
+      expect(() =>
+        service.validateAttendanceItems(
+          [{ studentId: 's1', status: AttendanceStatus.excused }],
+          { required: false, ...skip },
+        ),
+      ).not.toThrow();
+      expect(() =>
+        service.validateAttendanceItems(
+          [{ studentId: 's1', status: AttendanceStatus.excused }],
+          { required: false },
+        ),
+      ).toThrow(BadRequestException);
+    });
+  });
+
   describe('instance IT (không có Kiểm tra trong buổi)', () => {
     const itService = () =>
       new SessionValidationService({

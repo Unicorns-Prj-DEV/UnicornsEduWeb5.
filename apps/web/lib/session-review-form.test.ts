@@ -60,6 +60,15 @@ describe("sessionReviewFormFromSession", () => {
       emptySessionReviewForm(),
     );
   });
+
+  it("giữ field đã lưu dù thiếu tiến độ (admin lưu bỏ qua bắt buộc)", () => {
+    const form = sessionReviewFormFromSession({
+      progressStatus: null,
+      nextSessionPlan: "Ôn chương 2",
+    });
+    expect(form.progressStatus).toBe("");
+    expect(form.nextSessionPlan).toBe("Ôn chương 2");
+  });
 });
 
 describe("findSessionReviewFormInputError", () => {
