@@ -9,7 +9,7 @@ import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import type { ActionHistoryActor } from 'src/course-content/course-content.service';
-import { NOT_ARCHIVED_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';
+import { PRESENT_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
 import { loadSessionOrdinals } from 'src/session/session-ordinal.util';
 import type {
@@ -17,6 +17,7 @@ import type {
   ClassTimelineItemDto,
   ClassTimelinePageDto,
 } from 'src/dtos/class-timeline.dto';
+import { assignmentDurationMinutes } from 'src/attempt/assignment-window';
 
 /**
  * Include dùng chung cho cả staff và student. `studentId` chỉ lọc `studentAssessments`
@@ -103,7 +104,7 @@ export class ClassTimelineService {
     const rows = await findTimelineItems(
       this.prisma,
       {
-        where: { classId, ...NOT_ARCHIVED_TIMELINE_ITEM },
+        where: { classId, ...PRESENT_TIMELINE_ITEM },
         orderBy: { sortOrder: 'asc' },
       },
       null,
@@ -137,7 +138,7 @@ export class ClassTimelineService {
         where: {
           classId,
           hiddenAt: null,
-          ...NOT_ARCHIVED_TIMELINE_ITEM,
+          ...PRESENT_TIMELINE_ITEM,
           OR: [
             { classContentItemId: null },
             { classContentItem: { hiddenAt: null } },
@@ -326,7 +327,7 @@ export class ClassTimelineService {
       lessonKind,
       isOpen,
       openAt: content?.openAt?.toISOString() ?? null,
-      durationMinutes: content?.durationMinutes ?? null,
+      durationMinutes: content ? assignmentDurationMinutes(content) : null,
       hiddenAt:
         row.hiddenAt?.toISOString() ?? content?.hiddenAt?.toISOString() ?? null,
       session: null,

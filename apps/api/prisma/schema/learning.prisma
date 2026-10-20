@@ -47,15 +47,23 @@ model ClassContentItem {
   sortOrder        Int                       @default(0) @map("sort_order")
   /// Thời điểm mở bài của lần giao (riêng lớp). Null với tiết lý thuyết.
   openAt           DateTime?                 @map("open_at") @db.Timestamptz(6)
-  /// Thời lượng làm bài (phút) của lần giao. Null với tiết lý thuyết.
+  /// Hạn làm bài của lần giao: từ mốc này không bắt đầu lượt mới (lượt dở vẫn chạy hết giờ).
+  /// Mặc định = hạn xem nội dung của lớp lúc giao; null = không hạn. Null với tiết lý thuyết.
+  closeAt          DateTime?                 @map("close_at") @db.Timestamptz(6)
+  /// Thời lượng đã chốt của lần giao tạo trước khi thời lượng chuyển lên tiết (legacy).
+  /// Lần giao mới để null → đọc `lessons.duration_minutes`.
   durationMinutes  Int?                      @map("duration_minutes")
   /// Đảo câu: mỗi lượt làm xáo thứ tự câu (đề IT xáo trong từng nhóm) và thứ tự phương án/nhận định.
   shuffleQuestions Boolean                   @default(true) @map("shuffle_questions")
   /// Null = hiện với học sinh. Có giá trị = ẩn mềm; không xoá Attempt.
   hiddenAt         DateTime?                 @map("hidden_at") @db.Timestamptz(6)
   hiddenByStaffId  String?                   @map("hidden_by_staff_id")
-  /// Null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ chuyên đề.
+  /// Null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ khỏi lớp (tiết/chuyên đề).
   hiddenReason     ClassContentHiddenReason? @map("hidden_reason")
+  /// Có giá trị = tiết đã **gỡ khỏi lớp** (không thuộc tập tiết của lớp): biến mất ở mọi phía.
+  /// Khác Ẩn: item đang hiện thì gỡ kèm ẩn (`module_removed`); item đang Ẩn tay giữ `manual`.
+  /// Thêm lại tiết/chuyên đề xoá cột này. Attempt/điểm/lượt xem giữ nguyên.
+  removedAt        DateTime?                 @map("removed_at") @db.Timestamptz(6)
   createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -529,6 +537,9 @@ model Lesson {
   /// Tên hai nhóm tự chọn của tiết thực hành (hồ sơ IT).
   elective1Name String?    @map("elective_1_name")
   elective2Name String?    @map("elective_2_name")
+  /// Thời lượng làm bài (phút/lượt, 1–720) của tiết thực hành; null với tiết lý thuyết.
+  /// Lượt mới của mọi lần giao đọc từ đây (trừ lần giao cũ đã chốt `class_content_items.duration_minutes`).
+  durationMinutes Int?     @map("duration_minutes")
   /// Lưu trữ mềm (không xoá). Tiết riêng của lớp cũ bị lưu trữ khi chuyển sang nội dung theo chuyên đề.
   archivedAt    DateTime?  @map("archived_at") @db.Timestamptz(6)
   createdBy     String?    @map("created_by")

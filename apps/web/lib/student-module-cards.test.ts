@@ -25,11 +25,13 @@ const item = (
   kindLabel: "",
   source: "course",
   openAt: null,
+  closeAt: null,
   durationMinutes: null,
   shuffleQuestions: true,
   isOpen,
   hiddenAt: null,
   hiddenByStaffId: null,
+  hiddenReason: null,
 });
 
 describe("student-module-cards", () => {

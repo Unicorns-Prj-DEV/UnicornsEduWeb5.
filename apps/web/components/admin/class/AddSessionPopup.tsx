@@ -61,6 +61,7 @@ import {
   SessionReviewProgressFields,
   SessionTeacherAllowanceEstimateCard,
   SessionUnsavedChangesDialog,
+  TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
@@ -78,6 +79,7 @@ import {
   emptySessionReviewForm,
   emptyStudentReviewForm,
   findSessionReviewFormInputError,
+  toAttendanceNotes,
   toAttendanceReviewPayload,
   toSessionReviewPayload,
   type SessionReviewFormValue,
@@ -157,6 +159,8 @@ type Props = {
   ) => Promise<SessionNextOrdinalResponse>;
   /** Phân biệt cache admin/staff cho query ordinal. */
   ordinalQueryScope?: "admin" | "staff";
+  /** Hiện toggle Dạy thử (coefficient = 0) — chỉ admin/trợ lí. */
+  allowTrialTeachingToggle?: boolean;
   onClose: () => void;
   onCreated?: (session: SessionItem) => void;
 };
@@ -243,7 +247,7 @@ function toAttendancePayload(
   return items.map((item) => ({
     studentId: item.studentId,
     status: item.status,
-    notes: null,
+    notes: toAttendanceNotes(item.status, item.review),
     ...toAttendanceReviewPayload(item.status, item.review, hasInClassTest),
     ...(includeTuition && item.tuitionFee.trim() !== ""
       ? { tuitionFee: parseMoneyInput(item.tuitionFee) ?? 0 }
@@ -305,6 +309,7 @@ export default function AddSessionPopup({
   createSessionFn = sessionApi.createSession,
   fetchNextOrdinal = sessionApi.getNextSessionOrdinal,
   ordinalQueryScope = "admin",
+  allowTrialTeachingToggle = false,
   onClose,
   onCreated,
 }: Props) {
@@ -353,6 +358,7 @@ export default function AddSessionPopup({
   );
   const [manualAllowanceGrossOverride, setManualAllowanceGrossOverride] =
     useState<number | null>(null);
+  const [isTrialLesson, setIsTrialLesson] = useState(false);
   const [unsavedConfirmOpen, setUnsavedConfirmOpen] = useState(false);
   const [createFormBaseline, setCreateFormBaseline] = useState<string | null>(
     null,
@@ -371,6 +377,7 @@ export default function AddSessionPopup({
       teacherPaymentStatus,
       teacherId: selectedTeacherId,
       manualAllowanceGrossOverride,
+      isTrialLesson,
       attendance: attendanceItems.map((item) => ({
         studentId: item.studentId,
         status: item.status,
@@ -383,6 +390,7 @@ export default function AddSessionPopup({
       date,
       endTime,
       homework,
+      isTrialLesson,
       lessonContent,
       manualAllowanceGrossOverride,
       recordingUrl,
@@ -428,6 +436,7 @@ export default function AddSessionPopup({
   useEffect(() => {
     if (!open) {
       setManualAllowanceGrossOverride(null);
+      setIsTrialLesson(false);
     }
   }, [open]);
 
@@ -594,7 +603,8 @@ export default function AddSessionPopup({
     chargeableAttendanceCount,
   ]);
 
-  const coefficientForPreview = 1;
+  const isTrialLessonActive = allowTrialTeachingToggle && isTrialLesson;
+  const coefficientForPreview = isTrialLessonActive ? 0 : 1;
 
   const expectedAllowanceGrossPreview = useMemo(() => {
     if (allowanceRawBasePreview == null || !classPricing) return null;
@@ -668,6 +678,7 @@ export default function AddSessionPopup({
         : attendanceItems.map((item) => ({
             fullName: item.fullName,
             status: item.status,
+            notes: toAttendanceNotes(item.status, item.review),
             ...toAttendanceReviewPayload(
               item.status,
               item.review,
@@ -856,10 +867,11 @@ export default function AddSessionPopup({
       }
     }
 
-    const coeffNum = 1;
+    const coeffNum = coefficientForPreview;
 
     if (
       canEditAllowance &&
+      !isTrialLessonActive &&
       manualAllowanceGrossOverride !== null
     ) {
       if (
@@ -886,6 +898,7 @@ export default function AddSessionPopup({
       coefficient: coeffNum,
       ...(allowFinancialFields ? { teacherPaymentStatus } : {}),
       ...(canEditAllowance &&
+      !isTrialLessonActive &&
       manualAllowanceGrossOverride !== null
         ? {
             allowanceAmount: grossAllowanceToRawBaseVnd(
@@ -1028,6 +1041,16 @@ export default function AddSessionPopup({
                       </div>
                     )}
 
+                    {allowTrialTeachingToggle ? (
+                      <TrialLessonToggle
+                        checked={isTrialLesson}
+                        onChange={(value) => {
+                          setIsTrialLesson(value);
+                          if (value) setManualAllowanceGrossOverride(null);
+                        }}
+                      />
+                    ) : null}
+
                     {(canEditAllowance || showAllowancePreview) && classPricing ? (
                       <SessionTeacherAllowanceEstimateCard
                         amount={finalAllowancePreview}
@@ -1041,6 +1064,12 @@ export default function AddSessionPopup({
                         usesSnapshot={false}
                         isManualOverride={manualAllowanceGrossOverride !== null}
                         canEdit={canEditAllowance}
+                        editLocked={isTrialLessonActive}
+                        editLockedReason={
+                          isTrialLessonActive
+                            ? "Buổi dạy thử không tính trợ cấp."
+                            : null
+                        }
                         footnote={
                           canEditAllowance
                             ? null

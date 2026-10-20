@@ -1,7 +1,7 @@
 /**
- * Khoảng refetch để trang tự cập nhật đúng lúc tới hạn lần giao (điểm/đáp án
- * được công bố, nút làm bài khoá). Chia nhỏ tối đa 60s để chịu lệch giờ máy.
- * Trả `false` khi không cần chờ (không có hạn hoặc đã công bố).
+ * Khoảng refetch để trang tự cập nhật đúng lúc tới hạn lần giao (nút làm bài
+ * khoá). Chia nhỏ tối đa 60s để chịu lệch giờ máy.
+ * Trả `false` khi không cần chờ (không có hạn hoặc đã đóng).
  */
 export function refetchIntervalUntilClose(
   closeAt: string | null | undefined,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   emptySessionReviewForm,
   emptyStudentReviewForm,
+  toAttendanceNotes,
   findSessionReviewFormInputError,
   sessionReviewFormFromSession,
   toAttendanceReviewPayload,
@@ -59,6 +60,15 @@ describe("sessionReviewFormFromSession", () => {
       emptySessionReviewForm(),
     );
   });
+
+  it("giữ field đã lưu dù thiếu tiến độ (admin lưu bỏ qua bắt buộc)", () => {
+    const form = sessionReviewFormFromSession({
+      progressStatus: null,
+      nextSessionPlan: "Ôn chương 2",
+    });
+    expect(form.progressStatus).toBe("");
+    expect(form.nextSessionPlan).toBe("Ôn chương 2");
+  });
 });
 
 describe("findSessionReviewFormInputError", () => {
@@ -100,5 +110,18 @@ describe("toAttendanceReviewPayload", () => {
     const payload = toAttendanceReviewPayload("present", filled, false);
     expect(payload.testCorrectCount).toBeNull();
     expect(payload.homeworkQuality).toBe("passed");
+  });
+});
+
+describe("toAttendanceNotes", () => {
+  const form = { ...emptyStudentReviewForm(), excusedReason: "  Ốm  " };
+
+  it("nghỉ phép gửi lý do đã trim", () => {
+    expect(toAttendanceNotes("excused", form)).toBe("Ốm");
+  });
+
+  it("trạng thái khác gửi null", () => {
+    expect(toAttendanceNotes("present", form)).toBeNull();
+    expect(toAttendanceNotes("absent", form)).toBeNull();
   });
 });

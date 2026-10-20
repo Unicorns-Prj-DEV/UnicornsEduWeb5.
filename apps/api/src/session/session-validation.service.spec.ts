@@ -4,6 +4,8 @@ import {
   HomeworkQuality,
   SessionProgressStatus,
 } from '../../generated/enums';
+import { lmsProfileConfig } from '../lms-profile/lms-profile';
+import { LmsProfileService } from '../lms-profile/lms-profile.service';
 import { SessionValidationService } from './session-validation.service';
 
 describe('SessionValidationService', () => {
@@ -44,6 +46,40 @@ describe('SessionValidationService', () => {
         { required: true },
       ),
     ).toThrow(new BadRequestException('attendance.tuitionFee không hợp lệ.'));
+  });
+
+  it('rejects excused attendance without a reason', () => {
+    expect(() =>
+      service.validateAttendanceItems(
+        [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.excused,
+            notes: '   ',
+          },
+        ],
+        { required: true },
+      ),
+    ).toThrow(
+      new BadRequestException(
+        'Học sinh nghỉ phép phải có lý do nghỉ (attendance.notes).',
+      ),
+    );
+  });
+
+  it('accepts excused attendance with a reason', () => {
+    expect(() =>
+      service.validateAttendanceItems(
+        [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.excused,
+            notes: 'Ốm',
+          },
+        ],
+        { required: true },
+      ),
+    ).not.toThrow();
   });
 
   it('uses default tuition when present attendance has no override', () => {
@@ -341,6 +377,119 @@ describe('SessionValidationService', () => {
           { hasInClassTest: true, inClassTestTotal: 10 },
         ),
       ).toThrow(new BadRequestException('Số câu đúng phải trong khoảng 0–10.'));
+    });
+  });
+
+  describe('skipRequired (admin/trợ lí/kế toán sửa buổi)', () => {
+    const skip = { skipRequired: true };
+
+    it('saves an empty session review as nulls', () => {
+      expect(
+        service.resolveSessionReviewFields({ hasRetest: true }, skip),
+      ).toMatchObject({
+        progressStatus: null,
+        progressDone: null,
+        progressRemaining: null,
+        nextSessionPlan: null,
+        hasRetest: true,
+        retestContent: null,
+      });
+    });
+
+    it('still rejects an invalid test total or homework due date', () => {
+      expect(() =>
+        service.resolveSessionReviewFields(
+          { hasInClassTest: true, inClassTestTotal: 0 },
+          skip,
+        ),
+      ).toThrow(new BadRequestException('Tổng số câu kiểm tra phải ≥ 1.'));
+      expect(() =>
+        service.resolveSessionReviewFields(
+          { homeworkDueAt: 'not-a-date' },
+          skip,
+        ),
+      ).toThrow(new BadRequestException('Hạn BTVN không hợp lệ.'));
+    });
+
+    it('saves an empty student review as nulls', () => {
+      expect(
+        service.resolveAttendanceReview(
+          { status: AttendanceStatus.present },
+          { hasInClassTest: true, inClassTestTotal: 10 },
+          skip,
+        ),
+      ).toEqual({
+        testCorrectCount: null,
+        testComment: null,
+        strengths: null,
+        improvements: null,
+        homeworkQuality: null,
+        homeworkComment: null,
+      });
+    });
+
+    it('still rejects a correct count above the test total', () => {
+      expect(() =>
+        service.resolveAttendanceReview(
+          { status: AttendanceStatus.present, testCorrectCount: 11 },
+          { hasInClassTest: true, inClassTestTotal: 10 },
+          skip,
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('allows an excused student without a reason', () => {
+      expect(() =>
+        service.validateAttendanceItems(
+          [{ studentId: 's1', status: AttendanceStatus.excused }],
+          { required: false, ...skip },
+        ),
+      ).not.toThrow();
+      expect(() =>
+        service.validateAttendanceItems(
+          [{ studentId: 's1', status: AttendanceStatus.excused }],
+          { required: false },
+        ),
+      ).toThrow(BadRequestException);
+    });
+  });
+
+  describe('instance IT (không có Kiểm tra trong buổi)', () => {
+    const itService = () =>
+      new SessionValidationService({
+        config: lmsProfileConfig('it'),
+      } as LmsProfileService);
+
+    it('drops in-class test fields even when ticked', () => {
+      const result = itService().resolveSessionReviewFields({
+        progressStatus: SessionProgressStatus.completed,
+        nextSessionPlan: 'Ôn tập',
+        hasInClassTest: true,
+        inClassTestContent: 'Đề 1',
+        inClassTestTotal: 10,
+      });
+      expect(result).toMatchObject({
+        hasInClassTest: false,
+        inClassTestContent: null,
+        inClassTestTotal: null,
+      });
+    });
+
+    it('skips per-student test score on stored test sessions', () => {
+      const result = itService().resolveAttendanceReview(
+        {
+          status: AttendanceStatus.present,
+          strengths: 'Tốt',
+          improvements: 'Chữ',
+          homeworkQuality: HomeworkQuality.passed,
+          homeworkComment: 'Đủ',
+        },
+        { hasInClassTest: true, inClassTestTotal: 10 },
+      );
+      expect(result).toMatchObject({
+        testCorrectCount: null,
+        testComment: null,
+      });
     });
   });
 

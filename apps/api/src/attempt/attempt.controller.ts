@@ -49,7 +49,7 @@ export class StudentAttemptController {
   @ApiOperation({
     summary: 'Lobby lần giao luyện tập',
     description:
-      'Danh sách lượt làm của học sinh cho một ClassContentItem (assignment). Chặn trước openAt và khi lớp hết hạn xem. `closeAt` = openAt + durationMinutes; trước hạn điểm các lượt là null, `closed` = true từ hạn trở đi.',
+      'Danh sách lượt làm của học sinh cho một ClassContentItem (assignment). Chặn trước openAt và khi lớp hết hạn xem. `closeAt` = hạn làm bài của lần giao (null = không có hạn); `closed` = true từ hạn trở đi. Điểm các lượt đã nộp luôn trả.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiParam({ name: 'assignmentId', description: 'class_content_items.id' })
@@ -71,7 +71,7 @@ export class StudentAttemptController {
   @ApiOperation({
     summary: 'Bắt đầu hoặc tiếp tục Attempt',
     description:
-      'Tạo lượt mới gắn assignmentId. Nếu đang có lượt in_progress thì trả lại lượt đó (đồng hồ không reset). Từ hạn lần giao (openAt + durationMinutes) không tạo lượt mới.',
+      'Tạo lượt mới gắn assignmentId. Nếu đang có lượt in_progress thì trả lại lượt đó (đồng hồ không reset). Từ hạn làm bài của lần giao (`closeAt`) không tạo lượt mới.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiParam({ name: 'assignmentId', description: 'class_content_items.id' })
@@ -96,7 +96,7 @@ export class StudentAttemptController {
   @ApiOperation({
     summary: 'Chi tiết Attempt',
     description:
-      'Nếu hết giờ thì chốt câu đã trả lời và chấm MCQ (không huỷ bài). Cron mỗi phút cũng chốt lượt in_progress đã quá endsAt khi học sinh không quay lại. Đã nộp nhưng chưa tới hạn lần giao (`resultsReleased = false`): ẩn điểm và đáp án từng câu.',
+      'Nếu hết giờ thì chốt câu đã trả lời và chấm MCQ (không huỷ bài). Cron mỗi phút cũng chốt lượt in_progress đã quá endsAt khi học sinh không quay lại. Đã nộp/hết giờ thì `resultsReleased = true`: trả điểm và đáp án từng câu ngay, không chờ hạn.',
   })
   @ApiParam({ name: 'classId', description: 'Class ID' })
   @ApiParam({ name: 'attemptId', description: 'Attempt ID' })

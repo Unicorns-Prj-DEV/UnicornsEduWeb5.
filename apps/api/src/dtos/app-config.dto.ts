@@ -75,4 +75,10 @@ export class AppConfigResponseDto implements LmsProfileConfig {
       'Tư liệu có audio: tải lên cho tư liệu dùng chung và từng câu (JP)',
   })
   questionAudio!: boolean;
+
+  @ApiProperty({
+    description:
+      'Nhận xét buổi học có phần Kiểm tra trong buổi (IT tắt; JP/ENG bật)',
+  })
+  inClassTest!: boolean;
 }

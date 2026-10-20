@@ -33,6 +33,7 @@ import {
   AttendanceReviewInput,
   pickAttendanceReviewInput,
   pickSessionReviewInput,
+  ReviewValidationOptions,
   SessionReviewInput,
   SessionValidationService,
 } from './session-validation.service';
@@ -424,19 +425,24 @@ export class SessionUpdateService {
     );
   }
 
-  async updateSession(data: SessionUpdateDto, actor?: ActionHistoryActor) {
+  async updateSession(
+    data: SessionUpdateDto,
+    actor?: ActionHistoryActor,
+    reviewOptions: ReviewValidationOptions = {},
+  ) {
     if (!data.id) {
       throw new BadRequestException('Session id is required');
     }
 
     this.sessionValidationService.validateAttendanceItems(data.attendance, {
       required: false,
+      ...reviewOptions,
     });
     const hasSessionContentPayload =
       data.lessonContent !== undefined ||
       data.homework !== undefined ||
       data.tutorial !== undefined;
-    if (hasSessionContentPayload) {
+    if (hasSessionContentPayload && !reviewOptions.skipRequired) {
       this.sessionValidationService.validateSessionCommentFields(
         {
           lessonContent: data.lessonContent,
@@ -451,7 +457,10 @@ export class SessionUpdateService {
     const sessionReview =
       hasSessionContentPayload ||
       this.sessionValidationService.hasAnySessionReviewField(data)
-        ? this.sessionValidationService.resolveSessionReviewFields(data)
+        ? this.sessionValidationService.resolveSessionReviewFields(
+            data,
+            reviewOptions,
+          )
         : undefined;
 
     const sessionId = data.id;
@@ -556,6 +565,7 @@ export class SessionUpdateService {
               this.sessionValidationService.resolveAttendanceReview(
                 attendanceItem,
                 testContext,
+                reviewOptions,
               ),
             );
           }
@@ -1836,7 +1846,10 @@ export class SessionUpdateService {
         tutorial: data.tutorial,
         ...pickSessionReviewInput(data),
         recordingUrl: data.recordingUrl,
-        coefficient: data.coefficient,
+        // Dạy thử chỉ admin/trợ lí đổi; gia sư sửa buổi giữ nguyên hệ số.
+        coefficient: actor.roles.includes(StaffRole.assistant)
+          ? data.coefficient
+          : undefined,
         attendance: enrichedAttendance,
       },
       auditActor,

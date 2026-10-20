@@ -45,7 +45,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - `cf_problem_tutorials` (tutorial theo bài Codeforces)
 - `modules` (chuyên đề — nhóm tiết học bên trong khoá học)
 - `lessons` (tiết học — lý thuyết hoặc thực hành; thuộc chuyên đề của khoá — tiết riêng lớp cũ đã lưu trữ)
-- `class_modules` (chuyên đề lớp đã thêm — nguồn đồng bộ tiết lý thuyết vào lớp)
+- `class_modules` (thứ tự nhóm chuyên đề của lớp — dòng tạo khi thêm chuyên đề hoặc tiết đầu tiên của chuyên đề)
 - `shared_materials` (phần đầu Bộ câu hỏi — hồ sơ JP; câu trong bộ theo `questions.set_position`)
 - `audio_assets` (Audio tư liệu — hồ sơ JP; file trong bucket private `question-audio`)
 - `attempt_audio_plays` (số lần đã nghe từng audio trong một lượt làm — Giới hạn nghe)
@@ -233,8 +233,9 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `drop_out_reason` (`VARCHAR(500)`, nullable): **lý do nghỉ học**. Từ 10/2026 bắt buộc khi chuyển `status` `active` → `inactive` (qua `PATCH /student/:id/status` field `reason` hoặc `PATCH /student/:id` field `drop_out_reason`), backend trim và từ chối khi trống. **Không xoá** khi học sinh học lại, lần nghỉ sau ghi đè. Học sinh đã nghỉ có thể sửa lý do bằng `drop_out_reason` (không nhận chuỗi trống, không nhận cho học sinh đang học). Tạo hồ sơ mới với `status = inactive` chưa bắt lý do. Migration `20261003020000_add_student_drop_out_reason`; hồ sơ nghỉ trước đó để `NULL`.
 - `parent_email` là email nhận biên nhận nạp ví SePay của phụ huynh; không fallback sang email học sinh.
 - `parent_receipt_email_enabled` (`BOOLEAN`, mặc định `true`): khi `false`, webhook SePay **không** gửi email biên lai nạp ví cho phụ huynh lẫn CSKH (ví vẫn được cộng bình thường).
-- `customer_source` (`StudentCustomerSource`, nullable): **Nguồn khách** trên hồ sơ. Tập đóng `tiktok`, `fanpage_hoc_tin`, `fanpage_luyen_tin`, `referral`, `personal`, `returning_customer` (Khách cũ), `other`. `NULL` là **Chưa gán**, không phải một giá trị enum. Hồ sơ tạo mới phải có giá trị. Migration `20260929220000_backfill_student_customer_source` gán mọi hồ sơ còn `NULL` thành `other` với `customer_source_note = 'Nguồn cũ'`. Migration `20261003010000_add_returning_customer_source` thêm `returning_customer` ngay trước `other`, không đổi dữ liệu nguồn đang có.
-- `customer_source_note` (`VARCHAR(200)`, nullable): chú thích nguồn thực tế, chỉ khi `customer_source = other`. Đổi sang nguồn khác thì cột về `NULL`. Thống kê dashboard đọc nguồn hiện tại, không khóa nguồn tại buổi học.
+- `customer_source` (`StudentCustomerSource`, NOT NULL, default `acquaintance`): **Nguồn khách** trên hồ sơ. Tập đóng 4 giá trị theo thứ tự hiển thị: `tiktok`, `fanpage_hoc_tin`, `fanpage_luyen_tin`, `acquaintance` (**Người quen**). Không còn trạng thái Chưa gán. Migration `20261018090000_customer_source_merge_acquaintance` gộp `referral`, `personal`, `returning_customer`, `other` và `NULL` vào `acquaintance` (ADR `2026-10-18-customer-source-merge-into-acquaintance`). Thống kê dashboard đọc nguồn hiện tại, không khóa nguồn tại buổi học.
+- `legacy_customer_source` (`VARCHAR(32)`, nullable): nguồn trước khi gộp vào Người quen (`referral`/`personal`/`returning_customer`/`other`, hoặc `unassigned` khi trước đó `NULL`). Chỉ lưu DB để tra cứu, không hiện UI, API không đọc/ghi.
+- `legacy_customer_source_note` (`VARCHAR(200)`, nullable): chú thích nguồn «Khác» cũ (đổi tên từ `customer_source_note`). Chỉ lưu DB, không hiện UI.
 - Được tham chiếu bởi: `users`, `student_classes`, `attendance`, `wallet_transactions_history`, `student_wallet_sepay_orders`, `customer_care_service`, `student_exam_schedules`, `student_achievements`, `student_gallery_items`
 
 ### 4.3.0 `student_achievements`
@@ -414,32 +415,38 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 ### 4.4.0b `class_content_items` (Nội dung lớp học)
 
-- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `lesson`) trong danh sách nội dung của lớp. Với tiết luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): tiết (`lessons`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp. Với tiết lý thuyết, hàng được **materialize** từ `class_modules` (không thêm lẻ): thêm chuyên đề tạo/khôi phục item, gỡ chuyên đề ẩn mềm, tạo tiết lý thuyết trong chuyên đề đồng bộ sang mọi lớp đã thêm, xoá tiết lý thuyết xoá item của nó. ADR `docs/adr/2026-10-02-class-content-by-module.md`.
+- Bảng liên kết lớp ↔ nội dung: mỗi hàng là một mục nội dung (hiện tại chỉ `lesson`) trong danh sách nội dung của lớp. Với tiết luyện tập, hàng này chính là **lần giao** (xem `CONTEXT.md`): tiết (`lessons`/`question_links`) dùng chung nhiều lớp; lịch mở bài thuộc lớp. Nội dung lớp là **tập tiết học** (ADR `docs/adr/2026-10-18-class-content-as-lesson-set.md`): gia sư thêm lẻ từng tiết lý thuyết/thực hành của khoá (#231) hoặc thêm cả chuyên đề (chép một lần tiết lý thuyết đang có); gỡ tiết/chuyên đề đánh dấu `removed_at` (#233); tạo tiết mới ở khoá không tự thêm vào lớp; xoá tiết lý thuyết xoá item của nó.
 - `class_id` (FK → `classes.id`, `onDelete: Cascade`)
 - `kind` (`ClassContentItemKind`, default `lesson`) — phân loại nội dung. Hiện tại chỉ có `lesson`.
 - `lesson_id` (nullable FK → `lessons.id`, `onDelete: Restrict`) — FK đến tiết học. Nullable để hỗ trợ future kinds không cần lesson. Không Cascade/SetNull: xóa Chuyên đề / Tiết học cấp khoá khi còn lần giao **tiết thực hành** (kể cả đã ẩn) bị chặn 409; item tiết lý thuyết được ứng dụng xoá trước trong cùng transaction. ADR `docs/adr/2026-09-07-class-content-soft-hide-restrict-knowledge-tree.md` (sửa bởi ADR 2026-10-02).
 - `sort_order` (`INT`, default 0) — thứ tự hiển thị trong danh sách nội dung lớp.
 - `open_at` (`TIMESTAMPTZ`, nullable) — thời điểm mở bài của **lần giao**. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`. Khi `POST /class/:id/content` luyện tập **không** gửi `openAt`, backend ghi thời điểm tạo lần giao (đồng hồ server), không lấy giờ máy client.
-- `duration_minutes` (`INT`, nullable) — thời lượng làm bài (phút) của lần giao. 1–720. Chỉ dùng khi lesson `kind = practice`. Không nằm trên `lessons`.
+- `duration_minutes` (`INT`, nullable) — **thời lượng đã chốt** của lần giao tạo trước #228 (legacy). Lần giao mới để `NULL`: thời lượng hiệu lực = `COALESCE(class_content_items.duration_minutes, lessons.duration_minutes)` (`assignmentDurationMinutes`), dùng cho snapshot lượt làm, hạn lần giao và DTO. Sửa lịch lần giao không còn nhận thời lượng.
+- `close_at` (`TIMESTAMPTZ(6)`, nullable, #229) — **hạn làm bài** của lần giao: từ mốc này không bắt đầu lượt mới (lượt đang làm dở chạy hết thời lượng). `NULL` = không có hạn. Giao mới bỏ qua `closeAt` → lấy hạn xem nội dung của lớp (`classes.content_access_expires_at`). Phải sau `open_at`. Không còn suy ra từ `open_at + duration_minutes`; kết quả lượt hiện ngay khi nộp, không chờ hạn.
 - `shuffle_questions` (`BOOLEAN`, default `true`) — **Đảo câu**: mỗi lượt làm bắt đầu sau đó xáo thứ tự câu (hồ sơ IT: xáo trong từng nhóm Phần I / bắt buộc / Tự chọn 1 / Tự chọn 2, giữ thứ tự nhóm) và thứ tự phương án / nhận định. Câu có phương án nhắc vị trí (`isPositionDependent`: «ở trên», «Cả A và B», «ý a»…) giữ thứ tự phương án. Đổi cờ không ảnh hưởng lượt đã bắt đầu.
 - `hidden_at` (`TIMESTAMPTZ`, nullable, default null) — thời điểm ẩn mềm khỏi học sinh. Null = đang hiện.
 - `hidden_by_staff_id` (nullable FK → `staff_info.id`, `onDelete: SetNull`) — staff đã ẩn.
-- `hidden_reason` (`ClassContentHiddenReason`, nullable) — null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn do gỡ chuyên đề (cả tiết lý thuyết lẫn **lần giao tiết thực hành** của chuyên đề; attempt giữ nguyên). Thêm lại chuyên đề chỉ hiện lại item `module_removed`, item `manual` vẫn ẩn. ADR `docs/adr/2026-10-05-class-module-order-and-removal.md`.
+- `hidden_reason` (`ClassContentHiddenReason`, nullable) — null khi đang hiện. `manual` = gia sư tự ẩn; `module_removed` = ẩn kèm lần gỡ (item đang hiện lúc gỡ tiết/chuyên đề). Thêm lại chỉ hiện lại item `module_removed`, item `manual` vẫn ẩn.
+- `removed_at` (`TIMESTAMPTZ(6)`, nullable, #233) — thời điểm **gỡ khỏi lớp** (khác Ẩn): item có `removed_at` không hiện ở **mọi** phía (staff lẫn học sinh, timeline, nhóm chuyên đề, khoá `alreadyAdded`), kể cả item đang Ẩn tay. Gỡ lẻ một tiết hoặc cả chuyên đề; bài làm, điểm, lượt xem giữ nguyên. Thêm lại tiết/chuyên đề xoá `removed_at`, giữ trạng thái Ẩn tay. Gỡ tiết cuối của chuyên đề thì xoá dòng `class_modules`. ADR `docs/adr/2026-10-05-class-module-order-and-removal.md`.
 - Unique constraint: `(class_id, lesson_id)` — mỗi tiết chỉ xuất hiện tối đa 1 lần trong nội dung của một lớp; cùng một tiết vẫn giao được cho nhiều lớp (mỗi lớp một hàng độc lập). Item đã ẩn vẫn chiếm unique — khôi phục, không thêm lại.
 - Migration: `20260910000000_add_class_content_items` — tạo bảng + backfill các topic (cũ) `class_id IS NOT NULL`.
 - Migration: `20260912000000_add_class_content_assignment_schedule` — thêm `open_at` + `duration_minutes`.
+- Migration: `20261018100000_practice_lesson_duration` — thời lượng chuyển lên `lessons.duration_minutes`; lần giao cũ giữ giá trị đã chốt.
+- Migration: `20261018110000_assignment_close_at` — thêm `close_at`; backfill lần giao thực hành = `classes.content_access_expires_at` (lớp không có hạn → `NULL`).
 - Migration: `20261008000000_assignment_shuffle` — thêm `class_content_items.shuffle_questions` (default true, kể cả lần giao cũ) + `attempt_answers.option_order`.
 - Migration: `20260918000000_soft_hide_class_content` — `hidden_at` / `hidden_by_staff_id`; FK Cascade → Restrict; `attempts.assignment_id` Cascade → Restrict.
 - Migration: `20260921000000_rename_three_level_content` — `topic_id` → `lesson_id`; enum value `topic` → `lesson`; lớp từng gán một chuyên đề lý thuyết N bài có N hàng (ẩn/người ẩn copy nguyên trạng).
 - Migration: `20261002120000_add_class_modules` — lớp có tiết lý thuyết thêm lẻ (đang hiện) được thêm nguyên chuyên đề + tiết lý thuyết còn thiếu (item + dòng timeline); lớp không bật thứ tự timeline tuỳ chỉnh được sắp lại theo thời gian; item + dòng timeline của tiết riêng lớp bị ẩn.
 - Migration: `20261005120000_class_module_order_and_hidden_reason` — thêm enum `ClassContentHiddenReason` + cột `hidden_reason`; backfill item đang ẩn (lý thuyết của chuyên đề lớp không còn = `module_removed`, còn lại `manual`); ẩn (`module_removed`) lần giao thực hành đang hiện thuộc chuyên đề lớp đã gỡ, kèm dòng timeline.
+- Migration: `20261018130000_class_content_removed_at` — thêm `removed_at`; backfill item `hidden_reason = module_removed` (= `hidden_at`) và item đang ẩn thuộc chuyên đề lớp không còn dòng `class_modules` (= `NOW()`).
+- Migration: `20261018120000_class_content_lesson_set` — **nội dung lớp là tập tiết học** (ADR `docs/adr/2026-10-18-class-content-as-lesson-set.md`): materialize mỗi chuyên đề lớp đã thêm → tiết lý thuyết đang có (chưa lưu trữ) còn thiếu thành item + dòng timeline (idempotent; item có sẵn giữ trạng thái Ẩn), rồi sắp lại timeline theo thời gian. Từ đây tạo tiết mới ở khoá **không** tự thêm vào lớp.
 
 ### 4.4.0b-mod `class_modules` (Chuyên đề của lớp)
 
-- Một hàng = lớp đã thêm một Chuyên đề của khoá. Nguồn sự thật để đồng bộ tiết lý thuyết của chuyên đề vào `class_content_items`. Tiết thực hành không tự kéo theo.
+- Một hàng = lớp đã thêm một Chuyên đề của khoá; giữ **thứ tự nhóm** của lớp. Không còn là nguồn quyền xem: nội dung lớp và nhóm chuyên đề trên lớp đọc từ tập tiết `class_content_items` (item có `removed_at` = đã gỡ, không tạo nhóm). Thêm chuyên đề chép một lần các tiết lý thuyết đang có; tiết khoá thêm sau không tự lan.
 - `id` (UUID, PK), `class_id` (FK → `classes.id`, `onDelete: Cascade`), `module_id` (FK → `modules.id`, `onDelete: Cascade`), `sort_order` (`INT`, default 0), `created_at` (`TIMESTAMPTZ`).
 - `sort_order` — thứ tự nhóm chuyên đề **của riêng lớp** (nhỏ lên trước); admin/staff kéo-thả trên tab **Chuyên đề** (`PUT /class/:id/modules/order`), học sinh thấy cùng thứ tự. Thêm (hoặc thêm lại) chuyên đề → lên đầu. Không đọc/ghi `modules.sort_order` (thứ tự cấp khoá).
-- Gỡ chuyên đề = xoá hàng (coi như chưa từng thêm): tiết lý thuyết + lần giao thực hành của chuyên đề bị ẩn `hidden_reason = module_removed`.
+- Gỡ chuyên đề = xoá hàng (coi như chưa từng thêm): mọi item của chuyên đề trong lớp nhận `removed_at` (item đang hiện thêm `hidden_reason = module_removed`). Gỡ lẻ tiết cuối cùng của chuyên đề cũng xoá hàng.
 - Unique `(class_id, module_id)`; index `(module_id)` (tra lớp khi tạo tiết lý thuyết mới), `(class_id, sort_order)`.
 - Chuyên đề phải thuộc khoá của lớp (guard ứng dụng, 400).
 - Migration: `20261002120000_add_class_modules` (test SQL: `apps/api/prisma/tests/20261002120000_add_class_modules.test.sql`).
@@ -471,7 +478,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Mỗi `attempts` là **một lượt** học sinh làm một lần giao luyện tập. FK `assignment_id` → `class_content_items.id` (không có `topic_id`) — cùng một đề giao nhiều lớp cho ra bảng điểm độc lập (ADR live-link). `onDelete: Restrict` — không xoá lịch sử khi ẩn/cố xoá lần giao.
 - `student_id` (FK → `student_info.id`, `onDelete: Cascade`)
 - `started_at` — mốc đồng hồ **của học sinh này** (lúc bấm bắt đầu), không phải `open_at` của lớp.
-- `duration_minutes` — snapshot thời lượng lần giao lúc bắt đầu; sửa lịch lớp sau đó không đổi đồng hồ lượt đang chạy.
+- `duration_minutes` — snapshot thời lượng hiệu lực (lần giao cũ đã chốt, không thì của tiết thực hành) lúc bắt đầu; sửa thời lượng tiết sau đó không đổi đồng hồ lượt đang chạy.
 - `status` (`AttemptStatus`): `in_progress` | `submitted` | `timed_out`. Hết giờ → `timed_out`, chốt câu đã trả lời và chấm MCQ, **không huỷ**. `endsAt` là trường tính (`started_at + duration_minutes`), không lưu cột. Cron `@nestjs/schedule` `EVERY_MINUTE` (`AttemptExpiryJob` → `AttemptService.finalizeExpiredInProgress`) quét `in_progress` đã quá `endsAt` và gọi cùng `gradeAndClose` với GET/nộp — học sinh đóng tab không làm lượt kẹt. Claim bằng `updateMany` `WHERE id AND status = in_progress` trong transaction: trùng nút Nộp không double-grade. Job log số lượt đã chốt; 0 bản ghi không nổ. `ScheduleModule.forRoot` tắt cron khi `NODE_ENV=test`.
 - Unique partial: tối đa một `in_progress` trên `(assignment_id, student_id)`. Làm lại = tạo lượt mới; lượt cũ giữ nguyên.
 - `attempt_answers`: một hàng / câu. Lúc `start` snapshot toàn bộ đề: `type`, `content`, `options`, `correct_index`, `explanation`, `answer_guide`, `difficulty_label`, thứ tự, và `points_possible`. `points_possible` = chia 100 đều N câu (Hamilton: phần dư +1 từ câu đầu); **không** lấy `question_links.points` — trừ hồ sơ JP: chia 100 theo trọng số `question_links.points` (null = 1, Hamilton theo phần lẻ lớn nhất), ADR `docs/adr/2026-10-09-jp-weighted-scoring.md`. Chấm MCQ/tự luận chỉ đọc snapshot, không join `questions` live. `onDelete: Restrict` với `questions`. Không cascade theo `question_links`.
@@ -593,8 +600,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - **Nhận xét buổi học có cấu trúc — phần từng học sinh** (cùng migration `20261017090000_structured_session_review`), plain text ≤ 2.000:
   - `present`/`trial`: bắt buộc `strengths` (Điểm tốt), `improvements` (Cần cải thiện); buổi có kiểm tra thì bắt buộc `test_correct_count` (`INTEGER`, 0..`sessions.in_class_test_total`) + `test_comment`.
   - Chỉ `present`: bắt buộc `homework_quality` (`HomeworkQuality`) + `homework_comment` (**Chất lượng BTVN buổi trước**; không nộp tính là `failed`).
-  - `excused`/`absent`: mọi field null (không đánh giá, copy chỉ in tên + trạng thái). **Buổi không điểm danh**: bỏ toàn bộ phần này.
-  - `notes` (`TEXT`, DTO ≤ 500): **legacy** — nhận xét tự do của buổi trước mô hình có cấu trúc; form mới không còn ô nhập và gửi `notes: null`.
+  - `excused`/`absent`: mọi field nhận xét null (không đánh giá, copy chỉ in tên + trạng thái). **Buổi không điểm danh**: bỏ toàn bộ phần này.
+  - `notes` (`TEXT`, DTO ≤ 500): với `excused` là **Lý do nghỉ**, bắt buộc (`SessionValidationService.validateAttendanceItems` trả `400` *«Học sinh nghỉ phép phải có lý do nghỉ (attendance.notes).»* ở `POST /sessions` và `PATCH` có `attendance`; form web toast *«Vui lòng nhập lý do nghỉ phép của …»*). Lý do nghỉ không in vào bản copy nhận xét Zalo. Trạng thái khác: form gửi `notes: null`; giá trị cũ là **legacy** — nhận xét tự do của buổi trước mô hình có cấu trúc. Sửa buổi cũ có HS nghỉ phép chưa có lý do phải nhập bổ sung mới lưu được.
 - `trial_catch_up_fee` (`INTEGER`, nullable): phần **thu bù học thử** đã gộp vào `tuition_fee` của buổi đích (buổi `present`/`excused` đầu tiên sau buổi học thử, cùng lớp, học phí gốc > 0). Buổi đích vì vậy có `tuition_fee` = học phí gốc × 2, nên doanh thu và hoa hồng tự tính gấp đôi. Null = không gộp. Học phí gốc = `tuition_fee − coalesce(trial_catch_up_fee, 0)`.
 - `trial_catch_up_transaction_id` (nullable, unique FK → `wallet_transactions_history.id`, `ON DELETE SET NULL`): dòng ví `extend` thứ hai (note «Thu bù học thử lớp …») trừ phần thu bù; tách khỏi `transaction_id` (dòng thu học phí gốc). `SessionTrialCatchUpService.reconcile` chạy cuối tạo/sửa/xoá buổi và đổi giá lớp để chuyển, hoàn (`topup`) hoặc thu lại phần bù cho đúng buổi đích. Migration `20261012120000_attendance_trial_catch_up` (thêm enum value + 2 cột).
 - Index read path:
@@ -658,6 +665,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `content` (`TEXT`, nullable) — chỉ tiết lý thuyết
   - `order` (`INTEGER`, default 0) — thứ tự trong chuyên đề (hoặc trong lớp, với tiết riêng lớp)
   - `elective_1_name`, `elective_2_name` (`TEXT`, nullable) — tên hai nhóm tự chọn của tiết thực hành (hồ sơ IT, vd "Khoa học máy tính" / "Tin học ứng dụng"); sửa qua `PATCH` tiết học.
+  - `duration_minutes` (`INTEGER`, nullable) — **thời lượng làm bài** (phút/lượt, 1–720, tính từ lúc học sinh bấm bắt đầu) của tiết thực hành; `NULL` với tiết lý thuyết. Bắt buộc khi tạo tiết thực hành (`400` nếu thiếu); `PATCH` trên tiết lý thuyết → `400`. Sửa áp cho mọi lớp từ lượt bắt đầu sau đó; lượt đang làm giữ `attempts.duration_minutes`. Migration `20261018100000_practice_lesson_duration` backfill từ lần giao gần nhất của tiết, chưa giao lần nào → 60.
   - `archived_at` (`TIMESTAMPTZ`, nullable) — tiết đã lưu trữ (hiện chỉ tiết riêng lớp cũ). Tiết lưu trữ không đồng bộ theo chuyên đề, không giao/khôi phục vào lớp được.
   - `created_by`, `updated_by` (nullable FK → `users.id`)
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)

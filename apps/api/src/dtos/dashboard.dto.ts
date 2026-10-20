@@ -11,10 +11,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import {
-  STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-} from './student.dto';
+import { STUDENT_CUSTOMER_SOURCE_VALUES } from './student.dto';
 
 export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
   'topup',
@@ -29,10 +26,8 @@ export const ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS = [
   'customer-source',
 ] as const;
 
-export const ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS = [
-  ...STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-] as const;
+export const ADMIN_DASHBOARD_CUSTOMER_SOURCE_KEYS =
+  STUDENT_CUSTOMER_SOURCE_VALUES;
 
 export type AdminDashboardFinancialDetailRowKeyDto =
   (typeof ADMIN_DASHBOARD_FINANCIAL_DETAIL_ROW_KEYS)[number];
@@ -214,6 +209,7 @@ export class GetAdminStudentBalanceDetailsQueryDto {
 export const ADMIN_DASHBOARD_STUDENT_CHURN_TYPES = [
   'new',
   'dropped',
+  'trial_dropped',
   'active',
 ] as const;
 
@@ -223,7 +219,7 @@ export type AdminDashboardStudentChurnTypeDto =
 export class GetAdminStudentChurnDetailsQueryDto {
   @ApiProperty({
     description:
-      'Churn type: new (enrolled in period) or dropped (left in period).',
+      'Churn type: new (enrolled in period), dropped (Học sinh cũ nghỉ in period), trial_dropped (Học sinh thử nghỉ in period) or active (snapshot).',
     enum: ADMIN_DASHBOARD_STUDENT_CHURN_TYPES,
     example: 'new',
   })
@@ -373,8 +369,10 @@ export interface AdminDashboardSummaryDto {
   activeStudents: number;
   /** All StudentInfo (toàn hệ thống, không lọc theo CSKH) có createdAt rơi trong kỳ đang chọn. */
   newStudentsThisMonth: number;
-  /** All StudentInfo (toàn hệ thống, không lọc theo CSKH) có dropOutDate rơi trong kỳ đang chọn. */
+  /** Học sinh cũ nghỉ (toàn hệ thống): dropOutDate rơi trong kỳ, đã nạp ví thành công và học ≥2 buổi. */
   droppedStudentsThisMonth: number;
+  /** Học sinh thử nghỉ (toàn hệ thống): dropOutDate rơi trong kỳ, không đủ điều kiện cũ nghỉ. */
+  trialDroppedStudentsThisMonth: number;
   monthlyTopupTotal: number;
   totalLearnedTuition: number;
   monthlyRevenue: number;
@@ -624,6 +622,8 @@ export interface AdminDashboardStudentChurnItemDto {
   studentName: string;
   className: string;
   eventDate: string;
+  /** Chỉ có ở `dropped` / `trial_dropped`: lý do nghỉ trên hồ sơ, `null` khi chưa điền. */
+  dropOutReason?: string | null;
 }
 
 /** Một khoá học (phân loại lớp) đang có lớp `running`. */
@@ -660,8 +660,6 @@ export interface AdminDashboardFinancialDetailItemDto {
   secondaryLabel: string | null;
   amount: number;
   note: string | null;
-  /** Chú thích nguồn thực tế. Chỉ có trên dòng Khác. */
-  sourceNote?: string | null;
   /**
    * Số tiền theo `sources[].key` (có dấu, phạt âm). Có trên Chi phí nhân sự và
    * Trợ cấp chờ thanh toán; FE dùng để lọc theo thẻ nguồn.
@@ -1121,8 +1119,13 @@ export interface MonthlyReportKpiDto {
   /** Học sinh đang học tại lúc xem (snapshot). */
   activeStudents: number;
   newStudents: number;
+  /** Học sinh cũ nghỉ trong tháng. */
   droppedStudents: number;
+  /** Học sinh thử nghỉ trong tháng (không trừ vào tăng ròng). */
+  trialDroppedStudents: number;
   netChange: number;
+  /** Số học sinh nghỉ sớm thuộc nhóm cũ nghỉ; phần còn lại là thử nghỉ. */
+  earlyDropOldCount: number;
   newStillActive: number;
 }
 
@@ -1132,16 +1135,23 @@ export interface MonthlyReportCourseDto {
 }
 
 export interface MonthlyReportMatrixCellDto {
-  /** `null` = chưa gán nguồn khách. */
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   /** `null` = Chưa xếp lớp. */
   courseId: string | null;
+  /** Học sinh mới có lớp đầu tiên thuộc khoá của ô. */
   newCount: number;
+  /** Tổng nghỉ sớm (cũ nghỉ + thử nghỉ). */
   earlyDropCount: number;
-  /** Số học sinh trong ô đã có tổng nạp > 0. */
-  paidCount: number;
-  /** Tổng nạp từ lần nạp đầu tới hết tháng báo cáo. */
-  totalTopUp: number;
+  earlyDropOldCount: number;
+  /** Số học sinh mới có doanh thu > 0 ở khoá của ô trong tháng. */
+  earningCount: number;
+  /**
+   * Doanh thu mới: Học phí đã học trong tháng (attendance present/excused,
+   * gồm thu bù học thử và gói bán một lần) của học sinh mới cùng nguồn, tính
+   * theo khoá của lớp có buổi — học sinh đổi sang lớp khoá khác thì doanh thu
+   * nằm ở ô khoá mới (ô có thể có doanh thu mà `newCount = 0`).
+   */
+  revenue: number;
 }
 
 export interface MonthlyReportCustomerCareRowDto {
@@ -1153,6 +1163,7 @@ export interface MonthlyReportCustomerCareRowDto {
   droppedStudents: number;
   netChange: number;
   earlyDropCount: number;
+  earlyDropOldCount: number;
   totalTopUpInMonth: number;
   topUpTransactionCount: number;
 }
@@ -1164,11 +1175,15 @@ export interface MonthlyReportNewStudentDto {
   className: string | null;
   courseId: string | null;
   courseName: string | null;
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   firstTopUpAt: string;
   totalTopUp: number;
+  /** Doanh thu mới của học sinh trong tháng (Học phí đã học, mọi khoá). */
+  revenueInMonth: number;
   /** Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ. */
   isEarlyDrop: boolean;
+  /** `old` = cũ nghỉ, `trial` = thử nghỉ; `null` khi chưa nghỉ. */
+  earlyDropKind: 'old' | 'trial' | null;
   dropOutDate: string | null;
 }
 

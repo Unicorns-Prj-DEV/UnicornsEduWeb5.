@@ -96,6 +96,42 @@ describe('AuthAccessService', () => {
     );
   });
 
+  it.each([
+    [0, false],
+    [1, true],
+  ])(
+    'requires teacher staff to have achievements (count=%i -> complete=%s)',
+    async (achievementCount, expectedComplete) => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...currentConsent,
+        staffInfo: {
+          ...completeStaffInfo,
+          _count: { achievements: achievementCount },
+        },
+        studentInfo: null,
+      });
+      authIdentityCacheService.getStaffRoles.mockResolvedValue([
+        StaffRole.teacher,
+      ]);
+
+      await expect(
+        service.resolveForIdentity({
+          id: 'user-teacher',
+          email: 'teacher@example.com',
+          accountHandle: 'teacher',
+          roleType: UserRole.staff,
+          status: 'active',
+          emailVerified: true,
+          avatarPath: 'users/user-teacher/avatar',
+          requiresPasswordSetup: false,
+        }),
+      ).resolves.toMatchObject({
+        staffProfileComplete: expectedComplete,
+        access: { staff: { profileComplete: expectedComplete } },
+      });
+    },
+  );
+
   it('uses staff as the login landing workspace for non-admin staff roles', async () => {
     prisma.user.findUnique.mockResolvedValue({
       ...currentConsent,

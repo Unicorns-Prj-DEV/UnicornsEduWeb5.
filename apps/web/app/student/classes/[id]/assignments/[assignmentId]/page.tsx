@@ -32,7 +32,7 @@ export default function StudentAssignmentLobbyPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["assignment-lobby", classId, assignmentId],
     queryFn: () => getAssignmentLobby(classId, assignmentId),
-    // Tới hạn: khoá nút làm bài + hiện điểm mà không cần F5.
+    // Tới hạn: khoá nút làm bài mà không cần F5.
     refetchInterval: (q) =>
       refetchIntervalUntilClose(
         q.state.data?.closeAt,
@@ -108,7 +108,6 @@ export default function StudentAssignmentLobbyPage() {
             <span className="font-medium text-text-primary">
               {formatDateTime(data.closeAt)}
             </span>
-            {data.closed ? "" : " — điểm và đáp án công bố sau hạn."}
           </p>
         ) : null}
         {data.closed && !inProgress ? (
@@ -162,7 +161,7 @@ export default function StudentAssignmentLobbyPage() {
                       {statusLabel(att.status)}
                     </span>
                     <span className="text-xs text-text-muted">
-                      {attemptScoreLabel(att, data.closed)}
+                      {attemptScoreLabel(att)}
                     </span>
                   </Link>
                 </li>

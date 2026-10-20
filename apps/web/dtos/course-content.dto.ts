@@ -37,6 +37,8 @@ export interface CourseLesson {
   /** Tên nhóm tự chọn (tiết thực hành IT). */
   elective1Name?: string | null;
   elective2Name?: string | null;
+  /** Thời lượng làm bài (phút/lượt) — chỉ tiết thực hành. */
+  durationMinutes?: number | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt?: string;
@@ -67,6 +69,8 @@ export interface CreateCourseLessonPayload {
   title: string;
   videoUrl?: string | null;
   content?: string | null;
+  /** Bắt buộc với tiết thực hành. Integer 1–720. */
+  durationMinutes?: number;
 }
 
 export interface UpdateCourseLessonPayload {
@@ -75,6 +79,8 @@ export interface UpdateCourseLessonPayload {
   content?: string | null;
   elective1Name?: string | null;
   elective2Name?: string | null;
+  /** Chỉ tiết thực hành. Integer 1–720. */
+  durationMinutes?: number;
 }
 
 export interface QuestionLinkQuestion {
@@ -236,15 +242,28 @@ export interface ClassModuleDto {
   classSortOrder: number | null;
   theoryLessonCount: number;
   practiceLessonCount: number;
+  /** Số tiết của chuyên đề lớp đang có (không tính tiết đã gỡ). */
+  inClassLessonCount: number;
   added: boolean;
   addedAt: string | null;
 }
 
-/** Ảnh hưởng nếu gỡ chuyên đề — dialog xác nhận báo trước, không chặn gỡ. */
-export interface ClassModuleRemovalImpactDto {
-  moduleId: string;
+/** Ảnh hưởng nếu gỡ khỏi lớp — dialog xác nhận báo trước, không chặn gỡ. */
+export interface ClassContentRemovalImpactDto {
   ungradedEssayCount: number;
   inProgressStudentCount: number;
+}
+
+/** Ảnh hưởng nếu gỡ cả chuyên đề. */
+export interface ClassModuleRemovalImpactDto
+  extends ClassContentRemovalImpactDto {
+  moduleId: string;
+}
+
+/** Ảnh hưởng nếu gỡ một tiết khỏi lớp. */
+export interface ClassContentItemRemovalImpactDto
+  extends ClassContentRemovalImpactDto {
+  itemId: string;
 }
 
 export interface ExamLibraryItem extends CourseLesson {

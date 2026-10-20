@@ -232,6 +232,8 @@ export default function AdminClassDetailPage() {
   const canEditSessionPaymentStatus =
     isAdmin || isAssistant || adminAccess.isAccountantExpense || adminAccess.isAccountantIncome;
   const canEditSessions = isAdmin || isAssistant;
+  // Khớp quyền `PUT /sessions/:id`: được lưu khi Nhận xét buổi học còn trống field bắt buộc.
+  const canSkipRequiredSessionReview = isAdmin || isAssistant || isAccountant;
   const canManageClassStatus = isAdmin || isAssistant;
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
@@ -770,6 +772,7 @@ export default function AdminClassDetailPage() {
       {addSessionPopupOpen ? (
         <AddSessionPopup
           open={addSessionPopupOpen}
+          allowTrialTeachingToggle={canEditSessions}
           classId={id}
           className={classDetail.name}
           defaultTeacherId={currentClassTeacherId}
@@ -1405,7 +1408,9 @@ export default function AdminClassDetailPage() {
                           editorLayout="wide"
                           enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
                           allowTeacherSelection={canEditSessions}
+                          allowTrialTeachingToggle={canEditSessions}
                           allowFinancialEdits={canEditSessions}
+                          skipRequiredReviewValidation={canSkipRequiredSessionReview}
                           allowAllowanceEdit={canEditSessions}
                           allowAttendanceTuitionEdits={canEditSessions}
                           allowPaymentStatusEdit={canEditSessionPaymentStatus}

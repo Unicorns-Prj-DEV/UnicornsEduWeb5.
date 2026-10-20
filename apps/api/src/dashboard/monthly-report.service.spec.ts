@@ -38,10 +38,10 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
         dropOutDate: new Date('2026-09-20T00:00:00.000Z'),
         dropOutReason: 'Học thử không hợp',
       }),
-      // Mới, chưa xếp lớp, không có nguồn, không có CSKH.
+      // Mới, chưa xếp lớp, nguồn Người quen, không có CSKH.
       student({
         id: 'new-unplaced',
-        customerSource: null,
+        customerSource: 'acquaintance',
         customerCareStaffId: null,
       }),
       // Cũ, nghỉ trong tháng.
@@ -120,6 +120,21 @@ function buildInput(overrides: Partial<MonthlyReportInput> = {}) {
       ['cs-1', 'Nguyễn Ngọc Linh'],
       ['cs-2', 'Phan Đàm Thu Thảo'],
     ]),
+    // Doanh thu ≠ tổng nạp: new-dropped nạp nhưng chưa học buổi nào.
+    revenueInMonth: [
+      {
+        studentId: 'new-active',
+        courseId: 'c-basic',
+        courseName: 'BASIC',
+        revenue: 1_200_000,
+      },
+    ],
+    // Mặc định mọi học sinh đang nghỉ đều là cũ nghỉ.
+    oldDroppedStudentIds: new Set([
+      'new-dropped',
+      'old-dropped',
+      'old-dropped-august',
+    ]),
     ...overrides,
   };
   return input;
@@ -135,12 +150,14 @@ describe('buildAdminMonthlyReport', () => {
       activeStudents: 3,
       newStudents: 3,
       droppedStudents: 2,
+      trialDroppedStudents: 0,
       netChange: 1,
+      earlyDropOldCount: 1,
       newStillActive: 2,
     });
   });
 
-  it('builds the source × first-class course matrix with an unplaced column', () => {
+  it('builds the source × first-class course revenue matrix with an unplaced column', () => {
     const report = buildAdminMonthlyReport(buildInput());
 
     expect(report.courses).toEqual([
@@ -153,18 +170,73 @@ describe('buildAdminMonthlyReport', () => {
           courseId: 'c-basic',
           newCount: 2,
           earlyDropCount: 1,
-          paidCount: 2,
-          totalTopUp: 3_500_000,
+          earlyDropOldCount: 1,
+          earningCount: 1,
+          revenue: 1_200_000,
         },
         {
-          customerSource: null,
+          customerSource: 'acquaintance',
           courseId: null,
           newCount: 1,
           earlyDropCount: 0,
-          paidCount: 0,
-          totalTopUp: 0,
+          earlyDropOldCount: 0,
+          earningCount: 0,
+          revenue: 0,
         },
       ]),
+    );
+  });
+
+  it('puts revenue under the course of the attended class when the student switched course', () => {
+    // new-active vào lớp BASIC đầu tiên rồi đổi sang lớp ADVANCED và học ở đó.
+    const report = buildAdminMonthlyReport(
+      buildInput({
+        revenueInMonth: [
+          {
+            studentId: 'new-active',
+            courseId: 'c-adv',
+            courseName: 'ADVANCED',
+            revenue: 1_100_000,
+          },
+          {
+            studentId: 'old-active',
+            courseId: 'c-adv',
+            courseName: 'ADVANCED',
+            revenue: 9_000_000,
+          },
+        ],
+      }),
+    );
+
+    expect(report.courses).toEqual([
+      { courseId: 'c-adv', courseName: 'ADVANCED' },
+      { courseId: 'c-basic', courseName: 'BASIC' },
+    ]);
+    expect(report.matrix).toEqual(
+      expect.arrayContaining([
+        {
+          customerSource: 'tiktok',
+          courseId: 'c-basic',
+          newCount: 2,
+          earlyDropCount: 1,
+          earlyDropOldCount: 1,
+          earningCount: 0,
+          revenue: 0,
+        },
+        {
+          customerSource: 'tiktok',
+          courseId: 'c-adv',
+          newCount: 0,
+          earlyDropCount: 0,
+          earlyDropOldCount: 0,
+          earningCount: 1,
+          revenue: 1_100_000,
+        },
+      ]),
+    );
+    // Học sinh cũ không vào ma trận.
+    expect(report.matrix.reduce((total, cell) => total + cell.revenue, 0)).toBe(
+      1_100_000,
     );
   });
 
@@ -214,8 +286,13 @@ describe('buildAdminMonthlyReport', () => {
       'new-dropped',
       'new-unplaced',
     ]);
+    expect(report.newStudents[0]).toMatchObject({
+      totalTopUp: 3_000_000,
+      revenueInMonth: 1_200_000,
+    });
     expect(report.newStudents[1]).toMatchObject({
       isEarlyDrop: true,
+      earlyDropKind: 'old',
       dropOutDate: '2026-09-20',
       courseName: 'BASIC',
     });
@@ -223,6 +300,36 @@ describe('buildAdminMonthlyReport', () => {
       className: null,
       courseId: null,
       totalTopUp: 0,
+      revenueInMonth: 0,
+    });
+  });
+
+  it('counts trial-dropped students apart: not in net change nor appendix B, but still early drops', () => {
+    const report = buildAdminMonthlyReport(
+      buildInput({
+        oldDroppedStudentIds: new Set(['old-dropped', 'old-dropped-august']),
+      }),
+    );
+
+    expect(report.kpi).toMatchObject({
+      droppedStudents: 1,
+      trialDroppedStudents: 1,
+      netChange: 2,
+      earlyDropOldCount: 0,
+      newStillActive: 2,
+    });
+    expect(report.droppedStudents.map((row) => row.studentId)).toEqual([
+      'old-dropped',
+    ]);
+    expect(report.newStudents[1]).toMatchObject({
+      isEarlyDrop: true,
+      earlyDropKind: 'trial',
+    });
+    expect(report.customerCare[0]).toMatchObject({
+      droppedStudents: 0,
+      netChange: 2,
+      earlyDropCount: 1,
+      earlyDropOldCount: 0,
     });
   });
 });

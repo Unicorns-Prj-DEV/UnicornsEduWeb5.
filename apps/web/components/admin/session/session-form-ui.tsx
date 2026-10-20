@@ -28,6 +28,7 @@ import {
 } from "@/lib/money-input.helpers";
 import type { SessionCommentDisplayContent } from "@/lib/session-comment-zalo.helpers";
 import { sanitizeRichTextContent } from "@/lib/sanitize";
+import { useInClassTestEnabled } from "@/lib/hooks/useInClassTestEnabled";
 
 /** Chuẩn hóa "HH:mm" hoặc "HH:mm:ss" để tính phút. */
 function parseTimeToMinutes(time: string): number | null {
@@ -66,6 +67,62 @@ export function formatVnSessionDuration(startTime: string, endTime: string): str
 
 export function RequiredMark() {
   return <span className="text-error">*</span>;
+}
+
+type TrialLessonToggleProps = {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+};
+
+/** Dạy thử (coefficient = 0) — chỉ admin/trợ lí bật; buổi không tính trợ cấp. */
+export function TrialLessonToggle({
+  checked,
+  onChange,
+  disabled = false,
+  className = "",
+}: TrialLessonToggleProps) {
+  return (
+    <label
+      className={cn(
+        "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+        checked
+          ? "border-primary/35 bg-primary/8"
+          : "border-border-default bg-bg-secondary/35",
+        disabled ? "cursor-not-allowed opacity-70" : "hover:border-primary/25",
+        className,
+      )}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="size-5 shrink-0 rounded border-border-default text-primary focus:ring-border-focus"
+      />
+      <span className="text-sm font-semibold text-text-primary">Dạy thử</span>
+      <span className="text-xs text-text-muted">
+        {checked
+          ? "Không tính trợ cấp buổi (hệ số = 0)"
+          : "Buổi học chính thức"}
+      </span>
+    </label>
+  );
+}
+
+/** Nhãn chỉ đọc cho buổi Dạy thử (gia sư thấy, không đổi được). */
+export function TrialLessonBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary",
+        className,
+      )}
+    >
+      Dạy thử
+    </span>
+  );
 }
 
 type SessionTeacherAllowanceEstimateCardProps = {
@@ -663,6 +720,7 @@ type ReviewTextareaProps = {
   placeholder?: string;
   rows?: number;
   hint?: string;
+  maxLength?: number;
 };
 
 /** Textarea plain text, mỗi dòng 1 ý. */
@@ -675,6 +733,7 @@ export function ReviewTextarea({
   placeholder,
   rows = 3,
   hint,
+  maxLength = CONTENT_LIMITS.sessionReviewText,
 }: ReviewTextareaProps) {
   return (
     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
@@ -686,7 +745,7 @@ export function ReviewTextarea({
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         rows={rows}
-        maxLength={CONTENT_LIMITS.sessionReviewText}
+        maxLength={maxLength}
         placeholder={placeholder}
         className={cn(REVIEW_INPUT_CLASS, "resize-y font-normal")}
       />
@@ -741,6 +800,7 @@ export function SessionReviewProgressFields({
   idPrefix,
   disabled = false,
 }: SessionReviewFieldsProps) {
+  const inClassTestEnabled = useInClassTestEnabled();
   const showProgressDetail =
     value.progressStatus === "partial" || value.progressStatus === "not_completed";
 
@@ -785,6 +845,7 @@ export function SessionReviewProgressFields({
         </div>
       ) : null}
 
+      {inClassTestEnabled ? (
       <div className="space-y-3 rounded-lg border border-border-default bg-bg-secondary/30 p-3">
         <ReviewToggle
           id={`${idPrefix}-has-test`}
@@ -823,6 +884,7 @@ export function SessionReviewProgressFields({
           </>
         ) : null}
       </div>
+      ) : null}
     </div>
   );
 }
@@ -920,7 +982,7 @@ type SessionStudentReviewFieldsProps = {
   disabled?: boolean;
 };
 
-/** Phần từng HS: nghỉ phép/vắng không nhập gì; học thử bỏ mục BTVN. */
+/** Phần từng HS: nghỉ phép chỉ nhập lý do nghỉ; vắng không nhập gì; học thử bỏ mục BTVN. */
 export function SessionStudentReviewFields({
   fullName,
   status,
@@ -931,12 +993,23 @@ export function SessionStudentReviewFields({
   inClassTestTotal,
   disabled = false,
 }: SessionStudentReviewFieldsProps) {
-  if (status !== "present" && status !== "trial") {
+  if (status === "excused") {
     return (
-      <p className="text-xs text-text-muted">
-        {status === "excused" ? "Nghỉ phép" : "Vắng"} — không cần nhận xét.
-      </p>
+      <ReviewTextarea
+        label="Lý do nghỉ"
+        value={value.excusedReason}
+        onChange={(excusedReason) => onChange({ excusedReason })}
+        required
+        disabled={disabled}
+        placeholder="Ví dụ: ốm, đi du lịch cùng gia đình…"
+        rows={2}
+        maxLength={CONTENT_LIMITS.attendanceNotes}
+      />
     );
+  }
+
+  if (status !== "present" && status !== "trial") {
+    return <p className="text-xs text-text-muted">Vắng — không cần nhận xét.</p>;
   }
 
   return (
@@ -1123,7 +1196,7 @@ type SessionStudentAttendanceCommentRowProps = {
 
 /**
  * Card một học sinh. Header: tên + quick-pick (+ học phí buổi khi có quyền) trên một hàng
- * từ `sm`; thân: các ô nhận xét. Nghỉ phép/vắng chỉ còn header + một dòng ghi chú.
+ * từ `sm`; thân: các ô nhận xét. Nghỉ phép chỉ còn ô lý do nghỉ; vắng chỉ còn một dòng ghi chú.
  */
 export function SessionStudentAttendanceCommentRow({
   studentId,

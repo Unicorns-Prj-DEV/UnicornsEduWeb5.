@@ -1692,8 +1692,7 @@ describe('StudentService', () => {
         id: 'student-1',
         status,
         userId: 'user-1',
-        customerSource: null,
-        customerSourceNote: null,
+        customerSource: 'acquaintance',
       });
       mockPrisma.studentInfo.findUnique.mockResolvedValue(
         buildStudentDetail(status),

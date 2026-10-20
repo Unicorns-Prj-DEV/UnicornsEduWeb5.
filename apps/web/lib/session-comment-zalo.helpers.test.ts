@@ -5,8 +5,10 @@ import {
   findSessionReviewFormError,
   formatHomeworkDueAtLabel,
   formatStudentCommentBlock,
+  resolveSessionCommentDisplayContent,
   resolveStudentCommentLines,
   richTextToPlainTextPreservingStructure,
+  stripLegacyStudentCommentsSection,
 } from "./session-comment-zalo.helpers";
 
 const baseInput = {
@@ -293,12 +295,93 @@ describe("findSessionReviewFormError", () => {
     ).toBe("Số câu đúng của A phải trong khoảng 0–5.");
   });
 
-  it("skips excused students and homework for trial", () => {
+  it("requires a reason for excused students", () => {
     expect(
       findSessionReviewFormError(validReview, [
-        { fullName: "A", status: "excused" },
+        { fullName: "A", status: "excused", notes: "  " },
+      ]),
+    ).toBe("Vui lòng nhập lý do nghỉ phép của A.");
+  });
+
+  it("skips review fields for excused students and homework for trial", () => {
+    expect(
+      findSessionReviewFormError(validReview, [
+        { fullName: "A", status: "excused", notes: "Ốm" },
         { fullName: "B", status: "trial", strengths: "x", improvements: "y" },
       ]),
     ).toBeNull();
+  });
+});
+
+describe("Buổi không điểm danh — bỏ nhận xét từng học sinh", () => {
+  const students = [
+    { fullName: "Nguyễn Văn A", status: "present" as const, notes: "Tốt" },
+    { fullName: "Trần Thị B", status: "absent" as const },
+  ];
+
+  it("omits section 3 and (vắng) in the legacy format", () => {
+    const text = buildSessionCommentZaloText({
+      ...baseInput,
+      noAttendance: true,
+      students,
+    });
+    expect(text).not.toContain("3️⃣");
+    expect(text).not.toContain("(vắng)");
+    expect(text).not.toContain("Nguyễn Văn A");
+    expect(text).toContain("4️⃣ Bài tập về nhà");
+  });
+
+  it("omits student blocks in the structured format", () => {
+    const text = buildSessionCommentZaloText({
+      ...baseInput,
+      review: { progressStatus: "completed" as const },
+      noAttendance: true,
+      students,
+    });
+    expect(text).not.toContain("👤");
+    expect(text).not.toContain("(vắng)");
+  });
+
+  it("keeps every student for sessions with attendance", () => {
+    const text = buildSessionCommentZaloText({ ...baseInput, students });
+    expect(text).toContain("3️⃣ Nhận xét từng học sinh");
+    expect(text).toContain("Trần Thị B (vắng)");
+  });
+
+  it("strips section 3 from legacy notes of a no-attendance session", () => {
+    const notes = [
+      "📚 Nhận xét buổi học lớp A — 24/06/2026",
+      "",
+      "2️⃣ Nội dung bài học",
+      "Nội dung",
+      "",
+      "3️⃣ Cụ thể từng học sinh",
+      "Nguyễn Văn A (có mặt)",
+      "Trần Thị B (vắng)",
+      "",
+      "4️⃣ Bài tập về nhà",
+      "Bài tập",
+    ].join("\n");
+    expect(stripLegacyStudentCommentsSection(notes)).toBe(
+      [
+        "📚 Nhận xét buổi học lớp A — 24/06/2026",
+        "",
+        "2️⃣ Nội dung bài học",
+        "Nội dung",
+        "",
+        "4️⃣ Bài tập về nhà",
+        "Bài tập",
+      ].join("\n"),
+    );
+    expect(
+      resolveSessionCommentDisplayContent({
+        date: "2026-06-24",
+        notes,
+        snapshotNoAttendance: true,
+      }).text,
+    ).not.toContain("(vắng)");
+    expect(
+      resolveSessionCommentDisplayContent({ date: "2026-06-24", notes }).text,
+    ).toBe(notes);
   });
 });

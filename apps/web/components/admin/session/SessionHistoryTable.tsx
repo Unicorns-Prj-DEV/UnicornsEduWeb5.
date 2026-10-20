@@ -54,6 +54,7 @@ import {
 import {
   buildSessionCommentZaloText,
   findSessionReviewFormError,
+  findSessionReviewFormFormatError,
   isChargeableAttendanceStatus,
   isRichTextNonEmpty,
   resolveSessionCommentDisplayContent,
@@ -78,7 +79,10 @@ import {
   SessionReviewProgressFields,
   SessionTeacherAllowanceEstimateCard,
   SessionUnsavedChangesDialog,
+  TrialLessonBadge,
+  TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
+import { useInClassTestEnabled } from "@/lib/hooks/useInClassTestEnabled";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
@@ -95,6 +99,7 @@ import {
   findSessionReviewFormInputError,
   sessionReviewFormFromSession,
   studentReviewFormFromAttendance,
+  toAttendanceNotes,
   toAttendanceReviewPayload,
   toSessionReviewPayload,
   type SessionReviewFormValue,
@@ -153,6 +158,13 @@ type Props = {
   allowDeleteSession?: boolean;
   enableBulkPaymentStatusEdit?: boolean;
   readOnlySessionDetails?: boolean;
+  /**
+   * Admin/trợ lí/kế toán: lưu được khi Nhận xét buổi học còn trống field bắt buộc
+   * (khớp `PUT /sessions/:id` skipRequired). Gia sư (staff-ops) để false.
+   */
+  skipRequiredReviewValidation?: boolean;
+  /** Hiện toggle Dạy thử (coefficient = 0) khi sửa buổi — chỉ admin/trợ lí. */
+  allowTrialTeachingToggle?: boolean;
   showTrainingManagerAllowance?: boolean;
   updateSessionFn?: (
     id: string,
@@ -583,7 +595,7 @@ function SelectionCheckbox({
 }: SelectionCheckboxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+   
   useEffect(() => {
     if (!inputRef.current) return;
     inputRef.current.indeterminate = indeterminate;
@@ -823,6 +835,7 @@ export function ClassDetailInfoColumn({
             {renderCoefficientLabel(session.coefficient)}
           </span>
         </div>
+        {Number(session.coefficient ?? 1) === 0 ? <TrialLessonBadge /> : null}
         <div className="inline-flex items-center justify-center gap-0.5">
           <svg
             className="size-3.5 text-text-muted"
@@ -877,6 +890,8 @@ export default function SessionHistoryTable({
   allowDeleteSession = true,
   enableBulkPaymentStatusEdit = false,
   readOnlySessionDetails = false,
+  skipRequiredReviewValidation = false,
+  allowTrialTeachingToggle = false,
   showTrainingManagerAllowance = false,
   updateSessionFn = sessionApi.updateSession,
   deleteSessionFn = sessionApi.deleteSession,
@@ -916,7 +931,15 @@ export default function SessionHistoryTable({
   const [editingSession, setEditingSession] = useState<SessionItem | null>(
     null,
   );
-  const isLegacyTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
+  const inClassTestEnabled = useInClassTestEnabled();
+  const isSavedTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
+  const [editIsTrialLesson, setEditIsTrialLesson] = useState(false);
+  const showTrialLessonToggle =
+    allowTrialTeachingToggle && !readOnlySessionDetails;
+  // Gia sư không đổi được Dạy thử: giữ đúng trạng thái đã lưu.
+  const isTrialLesson = showTrialLessonToggle
+    ? editIsTrialLesson
+    : isSavedTrialLesson;
   const [sessionToDelete, setSessionToDelete] = useState<SessionItem | null>(
     null,
   );
@@ -952,10 +975,17 @@ export default function SessionHistoryTable({
   const [manualAllowanceGrossOverride, setManualAllowanceGrossOverride] =
     useState<number | null>(null);
   const allowanceOverrideInitSessionIdRef = useRef<string | null>(null);
+  // Người dùng có tự sửa ô trợ cấp trong lần mở form này không (khác override suy ra lúc load).
+  const allowanceTouchedRef = useRef(false);
   const editBaselineSessionIdRef = useRef<string | null>(null);
   const [editFormBaseline, setEditFormBaseline] = useState<string | null>(null);
   const [unsavedConfirmOpen, setUnsavedConfirmOpen] = useState(false);
   const canEditAllowance = allowAllowanceEdit ?? allowFinancialEdits;
+  // Khoá giờ theo trạng thái ĐÃ LƯU, không theo giá trị đang chọn trong form.
+  // Trợ cấp buổi paid/deposit vẫn chỉnh tay được, nhưng chỉ gửi khi người dùng tự sửa.
+  const isSavedPaymentLocked = isSessionPaymentLockedStatus(
+    editingSession?.teacherPaymentStatus,
+  );
   const canEditAttendanceTuition =
     allowAttendanceTuitionEdits ?? allowFinancialEdits;
   const showTeacherInput =
@@ -1251,6 +1281,7 @@ export default function SessionHistoryTable({
 
   const openEdit = (session: SessionItem) => {
     setEditingSession(session);
+    setEditIsTrialLesson(Number(session.coefficient ?? 1) === 0);
     setEditDate(toDateInputValue(session.date));
     setEditStartTime(toTimeInputValue(session.startTime) || "18:00");
     setEditEndTime(toTimeInputValue(session.endTime) || "20:00");
@@ -1260,7 +1291,12 @@ export default function SessionHistoryTable({
     setEditHomework(session.homework ?? "");
     setEditTutorial(session.tutorial ?? "");
     setEditRecordingUrl(session.recordingUrl ?? "");
-    setEditReview(sessionReviewFormFromSession(session));
+    const seededReview = sessionReviewFormFromSession(session);
+    setEditReview(
+      inClassTestEnabled
+        ? seededReview
+        : { ...seededReview, hasInClassTest: false },
+    );
     setLessonContentError("");
     setHomeworkError("");
     setTutorialError("");
@@ -1270,6 +1306,7 @@ export default function SessionHistoryTable({
     setEditPaymentStatus(
       status === "paid" ? "paid" : status === "deposit" ? "deposit" : "unpaid",
     );
+    allowanceTouchedRef.current = false;
     loadTeachersForEdit(session);
     loadAttendanceForEdit(session);
   };
@@ -1296,6 +1333,7 @@ export default function SessionHistoryTable({
     setAttendanceLoading(false);
     setManualAllowanceGrossOverride(null);
     allowanceOverrideInitSessionIdRef.current = null;
+    allowanceTouchedRef.current = false;
     editBaselineSessionIdRef.current = null;
     setEditFormBaseline(null);
     setUnsavedConfirmOpen(false);
@@ -1314,6 +1352,7 @@ export default function SessionHistoryTable({
       teacherPaymentStatus: editPaymentStatus,
       teacherId: editTeacherId,
       manualAllowanceGrossOverride,
+      isTrialLesson: editIsTrialLesson,
       attendance: attendanceItems.map((item) => ({
         studentId: item.studentId,
         status: item.status,
@@ -1326,6 +1365,7 @@ export default function SessionHistoryTable({
       editDate,
       editEndTime,
       editHomework,
+      editIsTrialLesson,
       editLessonContent,
       editPaymentStatus,
       editRecordingUrl,
@@ -1358,7 +1398,7 @@ export default function SessionHistoryTable({
 
   const handleSaveEdit = () => {
     if (!editingSession) return;
-    const isTimeLocked = isSessionPaymentLockedStatus(editPaymentStatus);
+    const isTimeLocked = isSavedPaymentLocked;
     if (!isTimeLocked) {
       const timeError = getSessionTimeSubmitError(editStartTime, editEndTime, {
         required: editingClassDetail?.pricingMode === "per_block",
@@ -1378,20 +1418,22 @@ export default function SessionHistoryTable({
       toast.error("Vui lòng chọn gia sư phụ trách.");
       return;
     }
-    if (!isRichTextNonEmpty(editLessonContent)) {
-      setLessonContentError("Vui lòng nhập nội dung bài học.");
-      toast.error("Vui lòng nhập nội dung bài học.");
-      return;
-    }
-    if (!isRichTextNonEmpty(editHomework)) {
-      setHomeworkError("Vui lòng nhập bài tập về nhà.");
-      toast.error("Vui lòng nhập bài tập về nhà.");
-      return;
-    }
-    if (!isRichTextNonEmpty(editTutorial)) {
-      setTutorialError("Vui lòng nhập tutorial các buổi học.");
-      toast.error("Vui lòng nhập tutorial các buổi học.");
-      return;
+    if (!skipRequiredReviewValidation) {
+      if (!isRichTextNonEmpty(editLessonContent)) {
+        setLessonContentError("Vui lòng nhập nội dung bài học.");
+        toast.error("Vui lòng nhập nội dung bài học.");
+        return;
+      }
+      if (!isRichTextNonEmpty(editHomework)) {
+        setHomeworkError("Vui lòng nhập bài tập về nhà.");
+        toast.error("Vui lòng nhập bài tập về nhà.");
+        return;
+      }
+      if (!isRichTextNonEmpty(editTutorial)) {
+        setTutorialError("Vui lòng nhập tutorial các buổi học.");
+        toast.error("Vui lòng nhập tutorial các buổi học.");
+        return;
+      }
     }
     const sessionTextTooLong = firstOverLimit([
       {
@@ -1421,7 +1463,15 @@ export default function SessionHistoryTable({
     }
     const reviewError =
       findSessionReviewFormInputError(editReview) ??
-      findSessionReviewFormError(editSessionReviewPayload, editReviewStudents);
+      (skipRequiredReviewValidation
+        ? findSessionReviewFormFormatError(
+            editSessionReviewPayload,
+            editReviewStudents,
+          )
+        : findSessionReviewFormError(
+            editSessionReviewPayload,
+            editReviewStudents,
+          ));
     if (reviewError) {
       toast.error(reviewError);
       return;
@@ -1438,7 +1488,7 @@ export default function SessionHistoryTable({
         ? attendanceItems.map((item) => ({
             studentId: item.studentId,
             status: item.status,
-            notes: null,
+            notes: toAttendanceNotes(item.status, item.review),
             ...toAttendanceReviewPayload(
               item.status,
               item.review,
@@ -1449,14 +1499,19 @@ export default function SessionHistoryTable({
               : {}),
           }))
         : [];
-    // Hệ số buổi giữ nguyên khi sửa (buổi Dạy thử cũ có hệ số 0); học thử giờ là trạng thái điểm danh.
-    const coeffNum = isLegacyTrialLesson ? 0 : undefined;
+    // Chỉ gửi hệ số khi admin/trợ lí đổi Dạy thử; còn lại giữ nguyên hệ số đã lưu.
+    const coeffNum =
+      isTrialLesson !== isSavedTrialLesson
+        ? isTrialLesson
+          ? 0
+          : 1
+        : isSavedTrialLesson
+          ? 0
+          : undefined;
     if (
       canEditAllowance &&
       manualAllowanceGrossOverride !== null &&
-      coeffNum !== 0 &&
-      editPaymentStatus !== "paid" &&
-      editPaymentStatus !== "deposit"
+      coeffNum !== 0
     ) {
       if (
         !Number.isFinite(manualAllowanceGrossOverride) ||
@@ -1495,6 +1550,8 @@ export default function SessionHistoryTable({
       attendance: attendancePayload,
     };
 
+    // Chụp trước closeEdit(): closeEdit reset ref, còn action chạy sau đó.
+    const allowanceTouched = allowanceTouchedRef.current;
     closeEdit();
     runBackgroundSave({
       loadingMessage: "Đang lưu buổi học...",
@@ -1524,8 +1581,9 @@ export default function SessionHistoryTable({
           canEditAllowance &&
           manualAllowanceGrossOverride !== null &&
           (payload.coefficient ?? coefficientForAllowancePreview) > 0 &&
-          editPaymentStatus !== "paid" &&
-          editPaymentStatus !== "deposit"
+          // Buổi đã paid/deposit: không gửi lại override suy ra lúc load
+          // (quy đổi gross → raw có thể lệch số đã chi), chỉ gửi khi tự sửa.
+          (!isSavedPaymentLocked || allowanceTouched)
         ) {
           data.allowanceAmount = grossAllowanceToRawBaseVnd(
             manualAllowanceGrossOverride,
@@ -1604,11 +1662,13 @@ export default function SessionHistoryTable({
         ["accountant", "accountant_income"].includes(role),
       ));
   const coefficientForAllowancePreview = useMemo(() => {
+    if (isTrialLesson) return 0;
+    if (isSavedTrialLesson) return 1;
     const s = editingSession?.coefficient;
     const c = typeof s === "number" ? s : Number(s);
     if (Number.isFinite(c) && c >= 0 && c <= 1) return c;
     return 1;
-  }, [editingSession?.coefficient]);
+  }, [editingSession?.coefficient, isSavedTrialLesson, isTrialLesson]);
 
   const selectedTeacherId =
     editTeacherId.trim() || editingSession?.teacherId || "";
@@ -1734,14 +1794,15 @@ export default function SessionHistoryTable({
     previewBlockCount,
   ]);
 
-  const isAllowancePaymentLocked =
-    isSessionPaymentLockedStatus(editPaymentStatus);
-  const isAllowanceEditLocked = isLegacyTrialLesson || isAllowancePaymentLocked;
-  const allowanceEditLockedReason = isLegacyTrialLesson
-    ? "Buổi dạy thử (dữ liệu cũ) không tính trợ cấp."
-    : isAllowancePaymentLocked
-      ? "Buổi đã thanh toán hoặc ghi cọc — không chỉnh trợ cấp."
-      : null;
+  const isAllowanceEditLocked = isTrialLesson;
+  const allowanceEditLockedReason = isTrialLesson
+    ? "Buổi dạy thử không tính trợ cấp."
+    : null;
+  const isSavedPaidStatus =
+    (editingSession?.teacherPaymentStatus ?? "").toLowerCase() === "paid";
+  const allowancePaidFootnote = isSavedPaymentLocked
+    ? "Buổi đã thanh toán hoặc ghi cọc — sửa trợ cấp sẽ đổi số đã chi cho gia sư."
+    : null;
 
   const editTutorAllowanceTotal = useMemo(() => {
     if (manualAllowanceGrossOverride !== null) {
@@ -1848,6 +1909,7 @@ export default function SessionHistoryTable({
         : attendanceItems.map((item) => ({
             fullName: item.fullName,
             status: item.status,
+            notes: toAttendanceNotes(item.status, item.review),
             ...toAttendanceReviewPayload(
               item.status,
               item.review,
@@ -1892,6 +1954,7 @@ export default function SessionHistoryTable({
   ]);
 
   const handleManualAllowanceGrossChange = (grossAmount: number) => {
+    allowanceTouchedRef.current = true;
     setManualAllowanceGrossOverride(grossAmount);
   };
 
@@ -1966,6 +2029,7 @@ export default function SessionHistoryTable({
             const status = renderSessionStatus(session, statusMode);
             const commentDisplay = resolveSessionCommentDisplayContent({
               ...session,
+              hasInClassTest: inClassTestEnabled && session.hasInClassTest,
               className: session.class?.name,
               date: session.date,
               startTime: session.startTime,
@@ -2133,6 +2197,9 @@ export default function SessionHistoryTable({
                               {renderCoefficientLabel(session.coefficient)}
                             </span>
                           </div>
+                          {Number(session.coefficient ?? 1) === 0 ? (
+                            <TrialLessonBadge />
+                          ) : null}
                           <div className="inline-flex items-center gap-1">
                             <svg
                               className="size-3.5 text-text-muted"
@@ -2297,6 +2364,7 @@ export default function SessionHistoryTable({
                   const status = renderSessionStatus(session, "payment");
                   const commentDisplay = resolveSessionCommentDisplayContent({
                     ...session,
+                    hasInClassTest: inClassTestEnabled && session.hasInClassTest,
                     className: session.class?.name,
                     date: session.date,
                     startTime: session.startTime,
@@ -2536,6 +2604,7 @@ export default function SessionHistoryTable({
                   const status = renderSessionStatus(session, statusMode);
                   const commentDisplay = resolveSessionCommentDisplayContent({
                     ...session,
+                    hasInClassTest: inClassTestEnabled && session.hasInClassTest,
                     className: session.class?.name,
                     date: session.date,
                     startTime: session.startTime,
@@ -2939,7 +3008,7 @@ export default function SessionHistoryTable({
                               onChange={(e) => setEditStartTime(e.target.value)}
                               disabled={
                                 readOnlySessionDetails ||
-                                isAllowancePaymentLocked
+                                isSavedPaymentLocked
                               }
                               className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 font-mono text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
@@ -2959,7 +3028,7 @@ export default function SessionHistoryTable({
                               onChange={(e) => setEditEndTime(e.target.value)}
                               disabled={
                                 readOnlySessionDetails ||
-                                isAllowancePaymentLocked
+                                isSavedPaymentLocked
                               }
                               className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 font-mono text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                             />
@@ -2970,7 +3039,7 @@ export default function SessionHistoryTable({
                             Thời lượng: {editDurationLabel}
                           </p>
                         ) : null}
-                        {isAllowancePaymentLocked ? (
+                        {isSavedPaymentLocked ? (
                           <p className="mt-1.5 text-xs text-text-muted">
                             Buổi đã thanh toán hoặc ghi cọc — không chỉnh giờ.
                           </p>
@@ -3030,6 +3099,21 @@ export default function SessionHistoryTable({
                         </label>
                       ) : null}
 
+                      {showTrialLessonToggle ? (
+                        <TrialLessonToggle
+                          className={fullWidthFieldClass}
+                          checked={editIsTrialLesson}
+                          onChange={(value) => {
+                            setEditIsTrialLesson(value);
+                            if (value) setManualAllowanceGrossOverride(null);
+                          }}
+                        />
+                      ) : isSavedTrialLesson ? (
+                        <div className={fullWidthFieldClass}>
+                          <TrialLessonBadge />
+                        </div>
+                      ) : null}
+
                       {showEditAllowanceEstimate ? (
                         <SessionTeacherAllowanceEstimateCard
                           className={fullWidthFieldClass}
@@ -3044,6 +3128,7 @@ export default function SessionHistoryTable({
                           canEdit={canEditAllowance && !readOnlySessionDetails}
                           editLocked={isAllowanceEditLocked}
                           editLockedReason={allowanceEditLockedReason}
+                          footnote={allowancePaidFootnote}
                           onManualGrossChange={
                             canEditAllowance && !readOnlySessionDetails
                               ? handleManualAllowanceGrossChange
@@ -3052,7 +3137,9 @@ export default function SessionHistoryTable({
                           onClearManualOverride={
                             canEditAllowance &&
                             !readOnlySessionDetails &&
-                            !isAllowanceEditLocked
+                            !isAllowanceEditLocked &&
+                            // Buổi paid không được backend tính lại trợ cấp → xoá chỉnh tay vô nghĩa.
+                            !isSavedPaidStatus
                               ? handleClearManualAllowanceOverride
                               : undefined
                           }

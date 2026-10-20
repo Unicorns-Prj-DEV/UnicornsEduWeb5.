@@ -1,4 +1,4 @@
-import type { MonthlyReportMatrixCell } from "@/dtos/dashboard.dto";
+import type { MonthlyReportMatrixCell, MonthlyReportNewStudent } from "@/dtos/dashboard.dto";
 import {
   STUDENT_CUSTOMER_SOURCE_LABELS,
   STUDENT_CUSTOMER_SOURCES,
@@ -6,13 +6,12 @@ import {
 } from "@/dtos/student.dto";
 import { formatVnInteger } from "@/lib/formatters";
 
-/** Cột/hàng «không có» trong ma trận: chưa gán nguồn hoặc chưa xếp lớp. */
+/** Cột «không có» trong ma trận: chưa xếp lớp. */
 export const MONTHLY_REPORT_NONE_KEY = "__none__";
 export const MONTHLY_REPORT_UNPLACED_LABEL = "Chưa xếp lớp";
-export const MONTHLY_REPORT_NO_SOURCE_LABEL = "Chưa gán nguồn";
 
-export function formatCustomerSourceKey(source: StudentCustomerSource | null): string {
-  return source ? STUDENT_CUSTOMER_SOURCE_LABELS[source] : MONTHLY_REPORT_NO_SOURCE_LABEL;
+export function formatCustomerSourceKey(source: StudentCustomerSource): string {
+  return STUDENT_CUSTOMER_SOURCE_LABELS[source];
 }
 
 /** «12,5 tr» cho số tiền lớn; dưới 1 triệu hiện đủ số. */
@@ -27,31 +26,39 @@ export function formatSignedCount(value: number): string {
   return "0";
 }
 
+/** «2 cũ · 1 thử» cho số nghỉ sớm; `null` khi không có ai nghỉ sớm. */
+export function formatEarlyDropBreakdown(total: number, oldCount: number): string | null {
+  if (total <= 0) return null;
+  return `${oldCount} cũ · ${total - oldCount} thử`;
+}
+
 export type MonthlyReportMatrixTotals = {
   newCount: number;
   earlyDropCount: number;
-  paidCount: number;
-  totalTopUp: number;
+  earlyDropOldCount: number;
+  earningCount: number;
+  revenue: number;
 };
 
 export type MonthlyReportMatrixView = {
   /** Thứ tự cột: id khoá, cuối cùng là `MONTHLY_REPORT_NONE_KEY` nếu có học sinh chưa xếp lớp. */
   columnKeys: string[];
-  /** Thứ tự hàng theo enum nguồn khách, chỉ nguồn có học sinh; chưa gán nguồn ở cuối. */
+  /** Thứ tự hàng theo enum nguồn khách, chỉ nguồn có học sinh. */
   rowKeys: string[];
   cell: (rowKey: string, columnKey: string) => MonthlyReportMatrixTotals;
   rowTotal: (rowKey: string) => MonthlyReportMatrixTotals;
   columnTotal: (columnKey: string) => MonthlyReportMatrixTotals;
   grandTotal: MonthlyReportMatrixTotals;
-  /** Ô tổng nạp lớn nhất, dùng chuẩn hoá heatmap. */
-  maxCellTopUp: number;
+  /** Ô doanh thu lớn nhất, dùng chuẩn hoá heatmap. */
+  maxCellRevenue: number;
 };
 
 const EMPTY_TOTALS: MonthlyReportMatrixTotals = {
   newCount: 0,
   earlyDropCount: 0,
-  paidCount: 0,
-  totalTopUp: 0,
+  earlyDropOldCount: 0,
+  earningCount: 0,
+  revenue: 0,
 };
 
 function addTotals(
@@ -61,8 +68,9 @@ function addTotals(
   return {
     newCount: a.newCount + b.newCount,
     earlyDropCount: a.earlyDropCount + b.earlyDropCount,
-    paidCount: a.paidCount + b.paidCount,
-    totalTopUp: a.totalTopUp + b.totalTopUp,
+    earlyDropOldCount: a.earlyDropOldCount + b.earlyDropOldCount,
+    earningCount: a.earningCount + b.earningCount,
+    revenue: a.revenue + b.revenue,
   };
 }
 
@@ -75,7 +83,7 @@ export function buildMonthlyReportMatrix(
   const rowSet = new Set<string>();
   let hasUnplaced = false;
   for (const cell of cells) {
-    const rowKey = cell.customerSource ?? MONTHLY_REPORT_NONE_KEY;
+    const rowKey = cell.customerSource;
     const columnKey = cell.courseId ?? MONTHLY_REPORT_NONE_KEY;
     if (columnKey === MONTHLY_REPORT_NONE_KEY) hasUnplaced = true;
     rowSet.add(rowKey);
@@ -84,10 +92,7 @@ export function buildMonthlyReportMatrix(
   }
 
   const columnKeys = hasUnplaced ? [...courseIds, MONTHLY_REPORT_NONE_KEY] : [...courseIds];
-  const rowKeys = [
-    ...STUDENT_CUSTOMER_SOURCES.filter((source) => rowSet.has(source)),
-    ...(rowSet.has(MONTHLY_REPORT_NONE_KEY) ? [MONTHLY_REPORT_NONE_KEY] : []),
-  ];
+  const rowKeys = STUDENT_CUSTOMER_SOURCES.filter((source) => rowSet.has(source));
   const cell = (rowKey: string, columnKey: string) =>
     byKey.get(`${rowKey}|${columnKey}`) ?? EMPTY_TOTALS;
   const rowTotal = (rowKey: string) =>
@@ -102,6 +107,19 @@ export function buildMonthlyReportMatrix(
     rowTotal,
     columnTotal,
     grandTotal: rowKeys.reduce((total, rowKey) => addTotals(total, rowTotal(rowKey)), EMPTY_TOTALS),
-    maxCellTopUp: Math.max(0, ...[...byKey.values()].map((totals) => totals.totalTopUp)),
+    maxCellRevenue: Math.max(0, ...[...byKey.values()].map((totals) => totals.revenue)),
   };
+}
+
+/**
+ * Số học sinh mới có doanh thu > 0 trong tháng (đếm không trùng dù học nhiều
+ * khoá); `source` lọc theo một nguồn khách. Mẫu số TB/HS của heatmap doanh thu.
+ */
+export function countEarningNewStudents(
+  students: MonthlyReportNewStudent[],
+  source?: StudentCustomerSource,
+): number {
+  return students.filter(
+    (student) => student.revenueInMonth > 0 && (source == null || student.customerSource === source),
+  ).length;
 }

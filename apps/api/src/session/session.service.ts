@@ -15,6 +15,7 @@ import { SessionCreateService } from './session-create.service';
 import { SessionDeleteService } from './session-delete.service';
 import { SessionReportingService } from './session-reporting.service';
 import { SessionUpdateService } from './session-update.service';
+import { ReviewValidationOptions } from './session-validation.service';
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { MissedTeachingExplanationService } from './missed-teaching-explanation.service';
 import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
@@ -65,8 +66,12 @@ export class SessionService {
     );
   }
 
-  updateSession(data: SessionUpdateDto, actor?: ActionHistoryActor) {
-    return this.sessionUpdateService.updateSession(data, actor);
+  updateSession(
+    data: SessionUpdateDto,
+    actor?: ActionHistoryActor,
+    reviewOptions?: ReviewValidationOptions,
+  ) {
+    return this.sessionUpdateService.updateSession(data, actor, reviewOptions);
   }
 
   updateSessionPaymentStatuses(

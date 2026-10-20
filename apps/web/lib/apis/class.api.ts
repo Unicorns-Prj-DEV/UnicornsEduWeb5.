@@ -54,6 +54,7 @@ import type {
 } from "@/dtos/class-timeline.dto";
 import type {
   ClassModuleDto,
+  ClassContentItemRemovalImpactDto,
   ClassModuleRemovalImpactDto,
   CourseLessonForClassDto,
 } from "@/dtos/course-content.dto";
@@ -490,6 +491,32 @@ export async function restoreClassContentItem(
   return response.data;
 }
 
+/** Gỡ tiết khỏi lớp (khác Ẩn): tiết biến mất ở mọi phía, bài làm/điểm giữ nguyên. */
+export async function removeClassContentItem(
+  classId: string,
+  itemId: string,
+): Promise<ClassContentItemDto[]> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeItemId = encodeURIComponent(itemId);
+  const response = await api.post<ClassContentItemDto[]>(
+    `/class/${safeClassId}/content/${safeItemId}/remove`,
+  );
+  return response.data;
+}
+
+/** Số bài tự luận chưa chấm + học sinh đang làm dở nếu gỡ một tiết. */
+export async function getClassContentItemRemovalImpact(
+  classId: string,
+  itemId: string,
+): Promise<ClassContentItemRemovalImpactDto> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeItemId = encodeURIComponent(itemId);
+  const response = await api.get<ClassContentItemRemovalImpactDto>(
+    `/class/${safeClassId}/content/${safeItemId}/removal-impact`,
+  );
+  return response.data;
+}
+
 export async function getStudentClassContentGroups(
   classId: string,
 ): Promise<ClassContentModuleGroupDto[]> {
@@ -548,7 +575,7 @@ export async function addClassModule(
   return response.data;
 }
 
-/** Gỡ chuyên đề (coi như chưa từng thêm): ẩn mềm tiết lý thuyết và lần giao của chuyên đề. */
+/** Gỡ chuyên đề: mọi tiết của chuyên đề (kể cả đang Ẩn) biến mất khỏi lớp. */
 export async function removeClassModule(
   classId: string,
   moduleId: string,

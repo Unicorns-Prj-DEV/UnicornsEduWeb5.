@@ -20,6 +20,10 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AUTH_FULL_PROFILE_QUERY_KEY,
+  PROFILE_FULL_QUERY_KEY,
+} from "@/lib/profile-full-query";
+import {
   Check,
   Download,
   GripVertical,
@@ -526,6 +530,19 @@ export default function AchievementListEditor({
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey });
 
+  // Gia sư cần >= 1 thành tích để qua gate hồ sơ: thêm/xoá của chính mình thì
+  // tải lại hồ sơ + session để form và gate nhận số thành tích mới.
+  const refreshSelfProfileGate = () =>
+    owner.kind === "staff" && owner.mode === "self"
+      ? Promise.all([
+          queryClient.invalidateQueries({ queryKey: PROFILE_FULL_QUERY_KEY }),
+          queryClient.invalidateQueries({
+            queryKey: AUTH_FULL_PROFILE_QUERY_KEY,
+          }),
+          queryClient.invalidateQueries({ queryKey: ["auth", "session"] }),
+        ])
+      : Promise.resolve();
+
   const createMutation = useMutation({
     mutationFn: async ({
       payload,
@@ -554,7 +571,7 @@ export default function AchievementListEditor({
         courseLabel: "",
       });
       setDraftStudentFile(null);
-      await invalidate();
+      await Promise.all([invalidate(), refreshSelfProfileGate()]);
       toast.success("Đã thêm thành tích.");
     },
     onError: () => toast.error("Không thể thêm thành tích."),
@@ -578,7 +595,7 @@ export default function AchievementListEditor({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => achievementApi.deleteAchievement(owner, id),
     onSuccess: async () => {
-      await invalidate();
+      await Promise.all([invalidate(), refreshSelfProfileGate()]);
       toast.success("Đã xoá thành tích.");
     },
     onError: () => toast.error("Không thể xoá thành tích."),

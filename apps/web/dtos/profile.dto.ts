@@ -19,6 +19,8 @@ export interface ProfileStaffInfoDto {
   bankQrLink?: string | null;
   status: StaffStatus;
   roles: string[];
+  /** Số thành tích của nhân sự; gia sư (`teacher`) cần >= 1 để hồ sơ đủ. */
+  achievementCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

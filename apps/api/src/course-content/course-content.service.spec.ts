@@ -20,7 +20,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from 'generated/enums';
-import { NOT_ARCHIVED_CONTENT_ITEM } from './archived-lesson-filter';
+import { PRESENT_CONTENT_ITEM } from './archived-lesson-filter';
 
 describe('CourseContentService — ClassContent methods', () => {
   let service: CourseContentService;
@@ -118,7 +118,10 @@ describe('CourseContentService — ClassContent methods', () => {
       expect(mockPrisma.classContentItem.create).not.toHaveBeenCalled();
     });
     it('should add an existing topic to class content', async () => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'cls-1',
+        courseId: 'course-1',
+      });
       mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
       mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
       mockPrisma.lesson.findUnique.mockResolvedValue({
@@ -153,7 +156,6 @@ describe('CourseContentService — ClassContent methods', () => {
         {
           lessonId: 'topic-existing',
           openAt: '2026-09-07T13:00:00.000Z',
-          durationMinutes: 60,
         },
         adminActor,
       );
@@ -166,7 +168,6 @@ describe('CourseContentService — ClassContent methods', () => {
           data: expect.objectContaining({
             lessonId: 'topic-existing',
             openAt: new Date('2026-09-07T13:00:00.000Z'),
-            durationMinutes: 60,
           }),
         }),
       );
@@ -188,27 +189,6 @@ describe('CourseContentService — ClassContent methods', () => {
           adminActor,
         ),
       ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should reject practice assignment without durationMinutes', async () => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
-      mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
-      mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
-      mockPrisma.lesson.findUnique.mockResolvedValue({
-        id: 'topic-practice',
-        kind: 'practice',
-        moduleId: 'm-1',
-      });
-      mockPrisma.classContentItem.findUnique.mockResolvedValue(null);
-
-      await expect(
-        service.createClassContentItem(
-          'cls-1',
-          { lessonId: 'topic-practice' },
-          adminActor,
-        ),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockPrisma.classContentItem.create).not.toHaveBeenCalled();
     });
 
     it('defaults openAt to server now when practice is created without openAt', async () => {
@@ -244,37 +224,16 @@ describe('CourseContentService — ClassContent methods', () => {
       const before = Date.now();
       await service.createClassContentItem(
         'cls-1',
-        { lessonId: 'topic-practice', durationMinutes: 60 },
+        { lessonId: 'topic-practice' },
         adminActor,
       );
       const after = Date.now();
 
       const created = mockPrisma.classContentItem.create.mock.calls[0][0];
-      expect(created.data.durationMinutes).toBe(60);
+      expect(created.data.durationMinutes).toBeUndefined();
       expect(created.data.openAt).toBeInstanceOf(Date);
       expect(created.data.openAt.getTime()).toBeGreaterThanOrEqual(before);
       expect(created.data.openAt.getTime()).toBeLessThanOrEqual(after);
-    });
-
-    it('rejects durationMinutes of 0 on create', async () => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
-      mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
-      mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
-      mockPrisma.lesson.findUnique.mockResolvedValue({
-        id: 'topic-practice',
-        kind: 'practice',
-        moduleId: 'm-1',
-      });
-      mockPrisma.classContentItem.findUnique.mockResolvedValue(null);
-
-      await expect(
-        service.createClassContentItem(
-          'cls-1',
-          { lessonId: 'topic-practice', durationMinutes: 0 },
-          adminActor,
-        ),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockPrisma.classContentItem.create).not.toHaveBeenCalled();
     });
 
     it('runs create + timeline append inside one $transaction', async () => {
@@ -307,7 +266,7 @@ describe('CourseContentService — ClassContent methods', () => {
 
       await service.createClassContentItem(
         'cls-1',
-        { lessonId: 'topic-practice', durationMinutes: 60 },
+        { lessonId: 'topic-practice' },
         adminActor,
       );
 
@@ -396,7 +355,7 @@ describe('CourseContentService — ClassContent methods', () => {
       await expect(
         service.createClassContentItem(
           'cls-1',
-          { lessonId: 'topic-practice', durationMinutes: 60 },
+          { lessonId: 'topic-practice' },
           adminActor,
         ),
       ).rejects.toThrow('timeline write failed');
@@ -466,7 +425,7 @@ describe('CourseContentService — ClassContent methods', () => {
         expect.objectContaining({
           where: {
             classId: 'cls-1',
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );
@@ -492,7 +451,7 @@ describe('CourseContentService — ClassContent methods', () => {
           where: {
             id: { in: ['cci-1', 'cci-archived'] },
             classId: 'cls-1',
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );
@@ -662,7 +621,7 @@ describe('CourseContentService — ClassContent methods', () => {
   });
 
   describe('updateClassContentSchedule', () => {
-    it('updates openAt/durationMinutes on this class only, not the topic', async () => {
+    it('updates openAt on this class only; duration read from the practice lesson', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
       mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
@@ -685,10 +644,11 @@ describe('CourseContentService — ClassContent methods', () => {
         kind: 'lesson',
         sortOrder: 0,
         openAt: new Date('2026-09-08T10:00:00.000Z'),
-        durationMinutes: 90,
+        durationMinutes: null,
         lesson: {
           kind: 'practice',
           title: 'Đề chung',
+          durationMinutes: 90,
           classId: null,
           module: null,
           quizzes: [],
@@ -698,7 +658,7 @@ describe('CourseContentService — ClassContent methods', () => {
       const result = await service.updateClassContentSchedule(
         'cls-1',
         'cci-a',
-        { openAt: '2026-09-08T10:00:00.000Z', durationMinutes: 90 },
+        { openAt: '2026-09-08T10:00:00.000Z' },
         adminActor,
       );
 
@@ -709,31 +669,9 @@ describe('CourseContentService — ClassContent methods', () => {
         where: { id: 'cci-a' },
         data: {
           openAt: new Date('2026-09-08T10:00:00.000Z'),
-          durationMinutes: 90,
         },
         include: { lesson: { include: { module: true } } },
       });
-    });
-
-    it('rejects durationMinutes of 0', async () => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
-      mockPrisma.classTeacher.findFirst.mockResolvedValue({ id: 'ct-1' });
-      mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: 'staff-1' });
-      mockPrisma.classContentItem.findUnique.mockResolvedValue({
-        id: 'cci-a',
-        classId: 'cls-1',
-        lesson: { kind: 'practice', title: 'Đề chung', classId: null },
-      });
-
-      await expect(
-        service.updateClassContentSchedule(
-          'cls-1',
-          'cci-a',
-          { openAt: '2026-09-08T10:07:00.000Z', durationMinutes: 0 },
-          adminActor,
-        ),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockPrisma.classContentItem.update).not.toHaveBeenCalled();
     });
 
     it('requires openAt on schedule update', async () => {
@@ -750,7 +688,7 @@ describe('CourseContentService — ClassContent methods', () => {
         service.updateClassContentSchedule(
           'cls-1',
           'cci-a',
-          { durationMinutes: 45 } as any,
+          {} as any,
           adminActor,
         ),
       ).rejects.toThrow(BadRequestException);
@@ -793,7 +731,7 @@ describe('CourseContentService — ClassContent methods', () => {
       await service.updateClassContentSchedule(
         'cls-1',
         'cci-a',
-        { openAt: '2026-09-08T10:07:00.000Z', durationMinutes: 45 },
+        { openAt: '2026-09-08T10:07:00.000Z' },
         adminActor,
       );
 
@@ -801,7 +739,6 @@ describe('CourseContentService — ClassContent methods', () => {
         expect.objectContaining({
           data: {
             openAt: new Date('2026-09-08T10:07:00.000Z'),
-            durationMinutes: 45,
           },
         }),
       );
@@ -821,7 +758,7 @@ describe('CourseContentService — ClassContent methods', () => {
         service.updateClassContentSchedule(
           'cls-1',
           'cci-t',
-          { openAt: '2026-09-08T10:00:00.000Z', durationMinutes: 45 },
+          { openAt: '2026-09-08T10:00:00.000Z' },
           adminActor,
         ),
       ).rejects.toThrow(BadRequestException);
@@ -830,24 +767,9 @@ describe('CourseContentService — ClassContent methods', () => {
   });
 
   describe('listClassContentGroups', () => {
-    it('groups by the class module order and drops items of removed modules', async () => {
+    it('nhóm theo tập tiết, thứ tự nhóm của lớp, truy vấn bỏ item đã gỡ', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({ id: 'cls-1' });
       mockPrisma.classContentItem.findMany.mockResolvedValue([
-        {
-          id: 'cci-p',
-          lessonId: 'p1',
-          kind: 'lesson',
-          sortOrder: 0,
-          classId: 'cls-1',
-          hiddenAt: new Date(),
-          lesson: {
-            title: 'Đề',
-            kind: 'practice',
-            order: 0,
-            classId: null,
-            module: { id: 'm-old', title: 'Cũ', sortOrder: 0 },
-          },
-        },
         {
           id: 'cci-t',
           lessonId: 't1',
@@ -862,15 +784,34 @@ describe('CourseContentService — ClassContent methods', () => {
             module: { id: 'm-1', title: 'Một', sortOrder: 1 },
           },
         },
+        {
+          id: 'cci-t2',
+          lessonId: 't2',
+          kind: 'lesson',
+          sortOrder: 2,
+          classId: 'cls-1',
+          lesson: {
+            title: 'Lý thuyết 2',
+            kind: 'theory',
+            order: 0,
+            classId: null,
+            module: { id: 'm-2', title: 'Hai', sortOrder: 2 },
+          },
+        },
       ]);
       // Thứ tự lớp ngược thứ tự khoá: m-2 (khoá 2) lên trước m-1 (khoá 1).
       mockPrisma.classModule.findMany.mockResolvedValue([
-        { sortOrder: 1, module: { id: 'm-1', title: 'Một' } },
-        { sortOrder: 0, module: { id: 'm-2', title: 'Hai' } },
+        { moduleId: 'm-1', sortOrder: 1 },
+        { moduleId: 'm-2', sortOrder: 0 },
       ]);
 
       const groups = await service.listClassContentGroups('cls-1', adminActor);
 
+      expect(mockPrisma.classContentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ removedAt: null }),
+        }),
+      );
       expect(mockPrisma.classModule.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { classId: 'cls-1' } }),
       );
@@ -1000,7 +941,7 @@ describe('CourseContentService — ClassContent methods', () => {
   // ─── listClassContentForStudent ───
 
   describe('listClassContentGroupsForStudent', () => {
-    it('groups only student-visible items, keeping empty added modules', async () => {
+    it('groups only student-visible items; chuyên đề không có tiết thì không có nhóm', async () => {
       mockPrisma.class.findUnique.mockResolvedValue({
         id: 'cls-1',
         contentAccessExpiresAt: null,
@@ -1023,8 +964,8 @@ describe('CourseContentService — ClassContent methods', () => {
         },
       ]);
       mockPrisma.classModule.findMany.mockResolvedValue([
-        { sortOrder: 0, module: { id: 'm-1', title: 'Một' } },
-        { sortOrder: 1, module: { id: 'm-2', title: 'Hai' } },
+        { moduleId: 'm-1', sortOrder: 0 },
+        { moduleId: 'm-2', sortOrder: 1 },
       ]);
 
       const groups = await service.listClassContentGroupsForStudent(
@@ -1037,13 +978,12 @@ describe('CourseContentService — ClassContent methods', () => {
           where: {
             classId: 'cls-1',
             hiddenAt: null,
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );
       expect(groups.map((g) => [g.moduleId, g.theoryItems.length])).toEqual([
         ['m-1', 1],
-        ['m-2', 0],
       ]);
     });
 
@@ -1095,7 +1035,7 @@ describe('CourseContentService — ClassContent methods', () => {
           where: {
             classId: 'cls-1',
             hiddenAt: null,
-            ...NOT_ARCHIVED_CONTENT_ITEM,
+            ...PRESENT_CONTENT_ITEM,
           },
         }),
       );
@@ -2249,6 +2189,7 @@ describe('CourseContentService — ClassContent methods', () => {
             kind: 'practice' as const,
             title: 'Đề thi thư viện',
             moduleId: 'ch-1',
+            durationMinutes: 45,
           },
           adminActor,
         );
@@ -2262,6 +2203,7 @@ describe('CourseContentService — ClassContent methods', () => {
               moduleId: 'ch-1',
               classId: null,
               title: 'Đề thi thư viện',
+              durationMinutes: 45,
             }),
           }),
         );

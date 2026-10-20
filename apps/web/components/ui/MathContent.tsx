@@ -7,11 +7,14 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { renderMathInHtml } from "@/lib/math-render";
 import { prepareRichHtml } from "@/lib/rich-html";
+import { expandMarkdownInRichHtml } from "@/lib/rich-markdown";
 import { cn } from "@/lib/utils";
 
 interface MathContentProps {
   content: string;
   className?: string;
+  /** Nội dung soạn bằng markdown raw trong TipTap (tiết lý thuyết): render heading, bảng, … */
+  markdown?: boolean;
 }
 
 /**
@@ -25,16 +28,17 @@ function isHtmlContent(text: string): boolean {
   );
 }
 
-export default function MathContent({ content, className }: MathContentProps) {
+export default function MathContent({ content, className, markdown = false }: MathContentProps) {
   const isHtml = useMemo(() => isHtmlContent(content || ""), [content]);
 
   const renderedHtml = useMemo(() => {
     if (!content) return "";
     if (isHtml) {
-      return renderMathInHtml(prepareRichHtml(content));
+      const html = markdown ? expandMarkdownInRichHtml(content) : content;
+      return renderMathInHtml(prepareRichHtml(html));
     }
     return "";
-  }, [content, isHtml]);
+  }, [content, isHtml, markdown]);
 
   if (!content) {
     return null;

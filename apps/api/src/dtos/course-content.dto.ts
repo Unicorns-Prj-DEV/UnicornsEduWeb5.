@@ -22,7 +22,7 @@ import { LessonKind } from 'generated/enums';
 import { BlankAnswerConstraint } from './attempt.dto';
 import { CONTENT_LIMITS, HTTP_URL_OPTIONS } from './content-limits';
 
-/** Product cap for practice lần giao duration (12 hours). Matches FE + schema docs. */
+/** Product cap for practice lesson duration (12 hours). Matches FE + schema docs. */
 export const PRACTICE_DURATION_MIN_MINUTES = 1;
 export const PRACTICE_DURATION_MAX_MINUTES = 720;
 
@@ -89,6 +89,17 @@ export class LessonCreateDto {
   @IsString()
   @MaxLength(CONTENT_LIMITS.theoryContent)
   content?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Thời lượng làm bài (phút/lượt, tính từ lúc học sinh bấm bắt đầu) của tiết thực hành. Bắt buộc khi tạo tiết thực hành; tiết lý thuyết bị bỏ qua. 1–720.',
+    example: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(PRACTICE_DURATION_MIN_MINUTES)
+  @Max(PRACTICE_DURATION_MAX_MINUTES)
+  durationMinutes?: number;
 }
 
 export class LessonUpdateDto {
@@ -139,6 +150,17 @@ export class LessonUpdateDto {
   @IsString()
   @MaxLength(120)
   elective2Name?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Thời lượng làm bài (phút/lượt, tính từ lúc học sinh bấm bắt đầu) của tiết thực hành. Áp cho mọi lớp từ lượt bắt đầu sau khi sửa; lượt đang làm giữ snapshot. Tiết lý thuyết bị từ chối. 1–720.',
+    example: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(PRACTICE_DURATION_MIN_MINUTES)
+  @Max(PRACTICE_DURATION_MAX_MINUTES)
+  durationMinutes?: number;
 }
 
 export interface LessonResponseDto {
@@ -154,6 +176,8 @@ export interface LessonResponseDto {
   /** Tên nhóm tự chọn (tiết thực hành IT). */
   elective1Name?: string | null;
   elective2Name?: string | null;
+  /** Thời lượng làm bài (phút/lượt) — chỉ tiết thực hành. */
+  durationMinutes?: number | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: Date;
@@ -211,7 +235,7 @@ export interface ModuleResponseDto {
 export class ClassContentCreateDto {
   @ApiProperty({
     description:
-      'ID tiết thực hành có sẵn của khoá để giao cho lớp. Tiết lý thuyết vào lớp theo chuyên đề (POST /class/:classId/modules).',
+      'ID tiết (lý thuyết hoặc thực hành) có sẵn của khoá để thêm vào lớp. Tiết thực hành thành lần giao.',
   })
   @IsString()
   lessonId!: string;
@@ -227,14 +251,13 @@ export class ClassContentCreateDto {
 
   @ApiPropertyOptional({
     description:
-      'Thời lượng làm bài (phút) của lần giao. Bắt buộc khi tiết thực hành. 1–720.',
-    example: 60,
+      'Hạn làm bài của lần giao (ISO 8601): từ mốc này không bắt đầu lượt mới; lượt dở vẫn chạy hết thời lượng. Bỏ qua khi tạo = hạn xem nội dung của lớp (lớp không hạn → không hạn). `null` = không có hạn. Phải sau `openAt`.',
+    nullable: true,
+    example: '2026-12-31T00:00:00.000Z',
   })
   @IsOptional()
-  @IsInt()
-  @Min(PRACTICE_DURATION_MIN_MINUTES)
-  @Max(PRACTICE_DURATION_MAX_MINUTES)
-  durationMinutes?: number;
+  @IsDateString()
+  closeAt?: string | null;
 
   @ApiPropertyOptional({
     description:
@@ -254,15 +277,15 @@ export class ClassContentScheduleUpdateDto {
   @IsDateString()
   openAt: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
-      'Thời lượng làm bài (phút) của lần giao. 1–720. Không đụng đề.',
-    example: 90,
+      'Hạn làm bài của lần giao (ISO 8601): từ mốc này không bắt đầu lượt mới; lượt dở vẫn chạy hết thời lượng. Bỏ qua = giữ hạn hiện tại. `null` = không có hạn. Phải sau `openAt`.',
+    nullable: true,
+    example: '2026-12-31T00:00:00.000Z',
   })
-  @IsInt()
-  @Min(PRACTICE_DURATION_MIN_MINUTES)
-  @Max(PRACTICE_DURATION_MAX_MINUTES)
-  durationMinutes: number;
+  @IsOptional()
+  @IsDateString()
+  closeAt?: string | null;
 
   @ApiPropertyOptional({
     description:
@@ -286,12 +309,17 @@ export interface ClassContentItemResponseDto {
   moduleId?: string;
   moduleTitle?: string;
   openAt: Date | string | null;
+  /** Hạn làm bài của lần giao; null = không hạn. */
+  closeAt: Date | string | null;
+  /** Thời lượng hiệu lực: đã chốt trên lần giao cũ, không thì của tiết thực hành. */
   durationMinutes: number | null;
   /** Đảo câu + đảo phương án mỗi lượt làm. */
   shuffleQuestions: boolean;
   isOpen: boolean;
   hiddenAt: Date | string | null;
   hiddenByStaffId: string | null;
+  /** `module_removed` = ẩn kèm khi gỡ khỏi lớp (item đã gỡ không trả về staff); `manual` = gia sư Ẩn. */
+  hiddenReason: 'manual' | 'module_removed' | null;
 }
 
 /** Nội dung lớp gom theo chuyên đề (trang lớp admin/staff). */
@@ -299,7 +327,7 @@ export interface ClassContentModuleGroupDto {
   /** `null` = nhóm item không thuộc chuyên đề nào (xếp cuối). */
   moduleId: string | null;
   title: string;
-  /** `false` = lớp đã gỡ chuyên đề (còn lần giao thực hành / item ẩn) hoặc nhóm `null`. */
+  /** `true` với mọi nhóm chuyên đề; `false` chỉ ở nhóm `null`. */
   added: boolean;
   /** Theo `order` tiết trong chuyên đề. */
   theoryItems: ClassContentItemResponseDto[];
@@ -599,13 +627,22 @@ export class ClassModuleReorderDto {
   moduleIds: string[];
 }
 
-/** Ảnh hưởng nếu gỡ chuyên đề: dialog xác nhận báo trước, không chặn gỡ. */
-export interface ClassModuleRemovalImpactDto {
-  moduleId: string;
-  /** Số câu tự luận đã nộp nhưng chưa chấm, thuộc lần giao của chuyên đề trong lớp. */
+/** Ảnh hưởng nếu gỡ khỏi lớp: dialog xác nhận báo trước, không chặn gỡ. */
+export interface ClassContentRemovalImpactDto {
+  /** Số câu tự luận đã nộp nhưng chưa chấm, thuộc lần giao bị gỡ. */
   ungradedEssayCount: number;
-  /** Số học sinh đang làm dở (bài chưa nộp) lần giao của chuyên đề trong lớp. */
+  /** Số học sinh đang làm dở (bài chưa nộp) lần giao bị gỡ. */
   inProgressStudentCount: number;
+}
+
+/** Ảnh hưởng nếu gỡ cả chuyên đề. */
+export interface ClassModuleRemovalImpactDto extends ClassContentRemovalImpactDto {
+  moduleId: string;
+}
+
+/** Ảnh hưởng nếu gỡ một tiết khỏi lớp. */
+export interface ClassContentItemRemovalImpactDto extends ClassContentRemovalImpactDto {
+  itemId: string;
 }
 
 /** Một chuyên đề của khoá, nhìn từ một lớp: đã thêm hay chưa + số tiết. */
@@ -618,6 +655,8 @@ export interface ClassModuleResponseDto {
   classSortOrder: number | null;
   theoryLessonCount: number;
   practiceLessonCount: number;
+  /** Số tiết (chưa lưu trữ) của chuyên đề lớp đang có, không tính tiết đã gỡ. */
+  inClassLessonCount: number;
   added: boolean;
   addedAt: Date | string | null;
 }

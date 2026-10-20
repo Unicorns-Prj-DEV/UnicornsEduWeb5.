@@ -3,8 +3,6 @@ import { Prisma } from '../../generated/client';
 import {
   STUDENT_CUSTOMER_SOURCE_LABELS,
   STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-  UNASSIGNED_CUSTOMER_SOURCE_LABEL,
 } from '../dtos/student.dto';
 import {
   ASSISTANT_SHARE_EXCLUDE_SELF_MANAGED_SQL,
@@ -16,6 +14,10 @@ import {
   firstTopUpInRangeSql,
   studentCreatedInRangeSql,
 } from './first-wallet-top-up.sql';
+import {
+  OLD_DROPPED_STUDENT_WHERE_SQL,
+  droppedStudentKindSql,
+} from './dropped-student.sql';
 import {
   AttendanceStatus,
   ClassStatus,
@@ -109,6 +111,7 @@ type ActiveClassBreakdownSqlRow = {
 type StudentChurnCountRow = {
   newStudentsThisMonth: number | string | null;
   droppedStudentsThisMonth: number | string | null;
+  trialDroppedStudentsThisMonth: number | string | null;
 };
 
 type CustomerCareStaffDebtAggregateRow = {
@@ -297,6 +300,7 @@ type StudentChurnDetailSqlRow = {
   studentName: string;
   className: string;
   eventDate: Date | string;
+  dropOutReason?: string | null;
 };
 
 type LearnedTuitionByStudentSqlRow = {
@@ -305,19 +309,15 @@ type LearnedTuitionByStudentSqlRow = {
   className: string;
   totalAmount: number | string | null;
   attendanceCount: number | string | null;
-  customerSourceNote?: string | null;
 };
 
 type CustomerSourceAggregateSqlRow = {
-  customerSource: string | null;
+  customerSource: string;
   studentCount: number | string | null;
   revenue: number | string | null;
 };
 
-const CUSTOMER_SOURCE_ROW_ORDER = [
-  ...STUDENT_CUSTOMER_SOURCE_VALUES,
-  UNASSIGNED_CUSTOMER_SOURCE_KEY,
-] as const;
+const CUSTOMER_SOURCE_ROW_ORDER = STUDENT_CUSTOMER_SOURCE_VALUES;
 
 function allocateSharePercents(amounts: number[]): number[] {
   const total = amounts.reduce((sum, amount) => sum + amount, 0);
@@ -327,7 +327,7 @@ function allocateSharePercents(amounts: number[]): number[] {
 
   const numerators = amounts.map((amount) => amount * 1000);
   const floors = numerators.map((numerator) => Math.floor(numerator / total));
-  let leftover = 1000 - floors.reduce((sum, value) => sum + value, 0);
+  const leftover = 1000 - floors.reduce((sum, value) => sum + value, 0);
   const ranked = numerators
     .map((numerator, index) => ({
       index,
@@ -1046,6 +1046,7 @@ export class DashboardService {
   /**
    * System-wide (all StudentInfo, not scoped by CSKH staff) new/dropped counts for the selected period.
    * Học sinh mới = lần nạp ví thành công đầu tiên rơi trong kỳ.
+   * `droppedStudentsThisMonth` = Học sinh cũ nghỉ; `trialDroppedStudentsThisMonth` = Học sinh thử nghỉ.
    */
   private async getStudentChurnCounts(period: {
     monthStart: Date;
@@ -1053,28 +1054,36 @@ export class DashboardService {
   }): Promise<{
     newStudentsThisMonth: number;
     droppedStudentsThisMonth: number;
+    trialDroppedStudentsThisMonth: number;
   }> {
     const [row] = await this.prisma.$queryRaw<StudentChurnCountRow[]>(
       Prisma.sql`
+        WITH dropped_in_period AS (
+          SELECT ${OLD_DROPPED_STUDENT_WHERE_SQL} AS is_old
+          FROM student_info
+          WHERE student_info.drop_out_date IS NOT NULL
+            AND student_info.drop_out_date >= ${period.monthStart}
+            AND student_info.drop_out_date < ${period.monthEnd}
+        )
         SELECT
           (
             SELECT COUNT(*)
             FROM (${FIRST_WALLET_TOP_UP_SQL}) AS first_wallet_top_up
             WHERE ${firstTopUpInRangeSql(period)}
           ) AS "newStudentsThisMonth",
-          (
-            SELECT COUNT(*)
-            FROM student_info
-            WHERE student_info.drop_out_date IS NOT NULL
-              AND student_info.drop_out_date >= ${period.monthStart}
-              AND student_info.drop_out_date < ${period.monthEnd}
-          ) AS "droppedStudentsThisMonth"
+          (SELECT COUNT(*) FROM dropped_in_period WHERE is_old)
+            AS "droppedStudentsThisMonth",
+          (SELECT COUNT(*) FROM dropped_in_period WHERE NOT is_old)
+            AS "trialDroppedStudentsThisMonth"
       `,
     );
 
     return {
       newStudentsThisMonth: normalizeInteger(row?.newStudentsThisMonth),
       droppedStudentsThisMonth: normalizeInteger(row?.droppedStudentsThisMonth),
+      trialDroppedStudentsThisMonth: normalizeInteger(
+        row?.trialDroppedStudentsThisMonth,
+      ),
     };
   }
 
@@ -1124,29 +1133,61 @@ export class DashboardService {
     `);
   }
 
+  /**
+   * CTE `new_students` (Học sinh mới của kỳ = nạp đầu trong kỳ) và
+   * `new_student_revenue` (Học phí đã học trong kỳ của nhóm đó).
+   */
+  private newStudentRevenueCtes(params: {
+    monthStart: Date;
+    monthEnd: Date;
+  }): Prisma.Sql {
+    return Prisma.sql`
+      new_students AS (
+        SELECT first_wallet_top_up.student_id
+        FROM (${FIRST_WALLET_TOP_UP_SQL}) AS first_wallet_top_up
+        WHERE ${firstTopUpInRangeSql(params)}
+      ),
+      new_student_revenue AS (
+        SELECT
+          attendance.student_id,
+          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS amount,
+          COUNT(attendance.id) AS attendance_count,
+          STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name) AS class_names
+        FROM attendance
+        INNER JOIN sessions ON sessions.id = attendance.session_id
+        INNER JOIN classes ON classes.id = sessions.class_id
+        WHERE attendance.status IN ('present', 'excused')
+          AND sessions.date >= ${params.monthStart}
+          AND sessions.date < ${params.monthEnd}
+          AND attendance.student_id IN (SELECT student_id FROM new_students)
+        GROUP BY attendance.student_id
+      )
+    `;
+  }
+
+  /** Nguồn khách mới: Học sinh mới của kỳ và Doanh thu mới theo nguồn. */
   private async getCustomerSourceStats(params: {
     monthStart: Date;
     monthEnd: Date;
   }): Promise<AdminDashboardCustomerSourceRowDto[]> {
     const rows = await this.prisma.$queryRaw<CustomerSourceAggregateSqlRow[]>(
       Prisma.sql`
+        WITH ${this.newStudentRevenueCtes(params)}
         SELECT
           student_info.customer_source::text AS "customerSource",
-          COUNT(DISTINCT student_info.id) AS "studentCount",
-          COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
-        FROM attendance
-        INNER JOIN sessions ON sessions.id = attendance.session_id
-        INNER JOIN student_info ON student_info.id = attendance.student_id
-        WHERE attendance.status IN ('present', 'excused')
-          AND sessions.date >= ${params.monthStart}
-          AND sessions.date < ${params.monthEnd}
+          COUNT(*) AS "studentCount",
+          COALESCE(SUM(new_student_revenue.amount), 0) AS revenue
+        FROM new_students
+        INNER JOIN student_info ON student_info.id = new_students.student_id
+        LEFT JOIN new_student_revenue
+          ON new_student_revenue.student_id = new_students.student_id
         GROUP BY student_info.customer_source
       `,
     );
 
     const byKey = new Map(
       rows.map((row) => [
-        row.customerSource ?? UNASSIGNED_CUSTOMER_SOURCE_KEY,
+        row.customerSource,
         {
           studentCount: normalizeInteger(row.studentCount),
           revenue: normalizeMoneyAmount(row.revenue),
@@ -1160,47 +1201,33 @@ export class DashboardService {
 
     return CUSTOMER_SOURCE_ROW_ORDER.map((key, index) => ({
       key,
-      label:
-        key === UNASSIGNED_CUSTOMER_SOURCE_KEY
-          ? UNASSIGNED_CUSTOMER_SOURCE_LABEL
-          : STUDENT_CUSTOMER_SOURCE_LABELS[key],
+      label: STUDENT_CUSTOMER_SOURCE_LABELS[key],
       studentCount: byKey.get(key)?.studentCount ?? 0,
       revenue: amounts[index],
       sharePercent: shares[index],
     }));
   }
 
-  private async getLearnedTuitionByStudentForCustomerSource(params: {
+  /** Từng Học sinh mới của kỳ mang nguồn đó, kể cả em chưa học (0đ). */
+  private async getNewStudentRevenueForCustomerSource(params: {
     monthStart: Date;
     monthEnd: Date;
     limit: number;
     customerSource: (typeof CUSTOMER_SOURCE_ROW_ORDER)[number];
   }) {
-    const sourceFilter =
-      params.customerSource === UNASSIGNED_CUSTOMER_SOURCE_KEY
-        ? Prisma.sql`student_info.customer_source IS NULL`
-        : Prisma.sql`student_info.customer_source::text = ${params.customerSource}`;
-
     return this.prisma.$queryRaw<LearnedTuitionByStudentSqlRow[]>(Prisma.sql`
+      WITH ${this.newStudentRevenueCtes(params)}
       SELECT
         student_info.id AS "studentId",
         student_info.full_name AS "studentName",
-        COALESCE(
-          STRING_AGG(DISTINCT classes.name, ', ' ORDER BY classes.name),
-          ''
-        ) AS "className",
-        COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "totalAmount",
-        COUNT(attendance.id) AS "attendanceCount",
-        student_info.customer_source_note AS "customerSourceNote"
-      FROM attendance
-      INNER JOIN sessions ON sessions.id = attendance.session_id
-      INNER JOIN classes ON classes.id = sessions.class_id
-      INNER JOIN student_info ON student_info.id = attendance.student_id
-      WHERE attendance.status IN ('present', 'excused')
-        AND sessions.date >= ${params.monthStart}
-        AND sessions.date < ${params.monthEnd}
-        AND ${sourceFilter}
-      GROUP BY student_info.id, student_info.full_name, student_info.customer_source_note
+        COALESCE(new_student_revenue.class_names, '') AS "className",
+        COALESCE(new_student_revenue.amount, 0) AS "totalAmount",
+        COALESCE(new_student_revenue.attendance_count, 0) AS "attendanceCount"
+      FROM new_students
+      INNER JOIN student_info ON student_info.id = new_students.student_id
+      LEFT JOIN new_student_revenue
+        ON new_student_revenue.student_id = new_students.student_id
+      WHERE student_info.customer_source::text = ${params.customerSource}
       ORDER BY "totalAmount" DESC, student_info.full_name ASC
       LIMIT ${params.limit}
     `);
@@ -1238,13 +1265,25 @@ export class DashboardService {
   private async getMonthlyTrend(params: {
     /** YYYY-MM for the viewed month; drives DATE bounds without TZ drift vs generate_series. */
     anchorMonthKey: string;
+    /** YYYY-MM đầu chuỗi; có thì trả mọi tháng từ đây tới `anchorMonthKey` (vd cả năm cho bảng theo quý). */
+    fromMonthKey?: string;
   }): Promise<MonthlyTrendNormalizedRow[]> {
+    const range = params.fromMonthKey
+      ? buildMonthRangeStrings(params.fromMonthKey, params.anchorMonthKey)
+      : null;
     const {
       periodStartStr,
       periodEndExclusiveStr,
       yearStartMonthKey,
       yearEndMonthKeyExclusive,
-    } = buildCalendarPeriodStrings(params.anchorMonthKey);
+    } = range
+      ? {
+          periodStartStr: range.periodStartStr,
+          periodEndExclusiveStr: range.periodEndExclusiveStr,
+          yearStartMonthKey: range.fromMonthKey,
+          yearEndMonthKeyExclusive: range.toMonthKeyExclusive,
+        }
+      : buildCalendarPeriodStrings(params.anchorMonthKey);
 
     const periodStartDate = prismaSqlDateLiteral(periodStartStr);
     const periodEndExclusiveDate = prismaSqlDateLiteral(periodEndExclusiveStr);
@@ -4707,6 +4746,8 @@ export class DashboardService {
               newStudentsThisMonth: studentChurnCounts.newStudentsThisMonth,
               droppedStudentsThisMonth:
                 studentChurnCounts.droppedStudentsThisMonth,
+              trialDroppedStudentsThisMonth:
+                studentChurnCounts.trialDroppedStudentsThisMonth,
               monthlyTopupTotal,
               totalLearnedTuition: rangeTotals.revenue,
               monthlyRevenue: rangeTotals.revenue,
@@ -4760,8 +4801,10 @@ export class DashboardService {
             monthStart: period.monthStart,
             monthEnd: period.monthEnd,
           }),
+          // Cả năm (T1–T12) để bảng "theo quý" đủ 4 quý; tháng đang chọn lấy lại theo monthKey.
           this.getMonthlyTrend({
-            anchorMonthKey: period.monthKey,
+            fromMonthKey: `${period.year}-01`,
+            anchorMonthKey: `${period.year}-12`,
           }),
           this.getPrepaidTuitionTotal(),
           this.getExpiringStudents(alertLimit),
@@ -4776,8 +4819,8 @@ export class DashboardService {
             limit: alertLimit,
           }),
           this.getQuarterClassCounts({
-            monthStart: period.monthStart,
-            monthEnd: period.monthEnd,
+            monthStart: period.yearStart,
+            monthEnd: period.yearEnd,
           }),
           this.getPendingCollectionTotal(),
           this.getCustomerSourceStats({
@@ -4936,6 +4979,8 @@ export class DashboardService {
             newStudentsThisMonth: studentChurnCounts.newStudentsThisMonth,
             droppedStudentsThisMonth:
               studentChurnCounts.droppedStudentsThisMonth,
+            trialDroppedStudentsThisMonth:
+              studentChurnCounts.trialDroppedStudentsThisMonth,
             monthlyTopupTotal,
             totalLearnedTuition,
             monthlyRevenue: selectedMonthTrend.revenue,
@@ -5330,7 +5375,7 @@ export class DashboardService {
                 monthStart: period.monthStart,
                 monthEnd: period.monthEnd,
               }),
-              this.getLearnedTuitionByStudentForCustomerSource({
+              this.getNewStudentRevenueForCustomerSource({
                 monthStart: period.monthStart,
                 monthEnd: period.monthEnd,
                 limit,
@@ -5343,13 +5388,13 @@ export class DashboardService {
 
             return {
               rowKey: query.rowKey,
-              title: `Chi tiết nguồn khách · ${label}`,
-              description: `Học sinh đang mang nguồn ${label} và có học phí đã học trong ${periodLabel}.`,
+              title: `Chi tiết nguồn khách mới · ${label}`,
+              description: `Học sinh mới trong ${periodLabel} đang mang nguồn ${label}, kể cả em chưa học buổi nào. Doanh thu mới = học phí đã học trong kỳ.`,
               amount,
               sources: [
                 {
                   key: sourceKey,
-                  label: `Học phí đã học · ${label}`,
+                  label: `Doanh thu mới · ${label}`,
                   amount,
                   note: `${sourceRow?.studentCount ?? 0} học sinh · tỷ trọng ${sourceRow?.sharePercent ?? 0}%`,
                   tone: 'positive',
@@ -5362,13 +5407,9 @@ export class DashboardService {
                   secondaryLabel: row.className || null,
                   amount: normalizeMoneyAmount(row.totalAmount),
                   note: `${normalizeInteger(row.attendanceCount)} lượt học có mặt/vắng phép`,
-                  ...(sourceKey === 'other'
-                    ? { sourceNote: row.customerSourceNote?.trim() || null }
-                    : {}),
                 }),
               ),
-              emptyState:
-                'Chưa có học sinh nào phát sinh học phí đã học từ nguồn này trong kỳ.',
+              emptyState: 'Chưa có học sinh mới nào từ nguồn này trong kỳ.',
             };
           }
           case 'prepaid': {
@@ -6089,6 +6130,13 @@ export class DashboardService {
       query.type === 'new'
         ? 'first_wallet_top_up.first_top_up_at'
         : 'student_info.drop_out_date';
+    // `dropped` = Học sinh cũ nghỉ, `trial_dropped` = Học sinh thử nghỉ.
+    const droppedKindFilter =
+      query.type === 'dropped'
+        ? Prisma.sql`AND ${droppedStudentKindSql('old')}`
+        : query.type === 'trial_dropped'
+          ? Prisma.sql`AND ${droppedStudentKindSql('trial')}`
+          : Prisma.empty;
     // Học sinh mới: ngày vào học = lần nạp ví thành công đầu tiên; điều kiện
     // kỳ trên `dateColumn` loại học sinh chưa nạp nên LEFT JOIN đủ.
     const firstTopUpJoin =
@@ -6120,16 +6168,19 @@ export class DashboardService {
                 STRING_AGG(DISTINCT classes.name, ' - ' ORDER BY classes.name),
                 ''
               ) AS "className",
-              ${Prisma.raw(dateColumn)} AS "eventDate"
+              ${Prisma.raw(dateColumn)} AS "eventDate",
+              student_info.drop_out_reason AS "dropOutReason"
             FROM student_info
             ${firstTopUpJoin}
             LEFT JOIN student_classes ON student_classes.student_id = student_info.id
             LEFT JOIN classes ON classes.id = student_classes.class_id
             WHERE ${Prisma.raw(dateColumn)} >= ${period.monthStart}
               AND ${Prisma.raw(dateColumn)} < ${period.monthEnd}
+              ${droppedKindFilter}
             GROUP BY
               student_info.id,
               student_info.full_name,
+              student_info.drop_out_reason,
               ${Prisma.raw(dateColumn)}
             ORDER BY ${Prisma.raw(dateColumn)} DESC, student_info.full_name ASC
             LIMIT ${limit}
@@ -6144,6 +6195,9 @@ export class DashboardService {
             row.eventDate instanceof Date
               ? row.eventDate.toISOString()
               : new Date(row.eventDate).toISOString(),
+          ...(query.type === 'new'
+            ? {}
+            : { dropOutReason: row.dropOutReason?.trim() || null }),
         }));
       },
     });

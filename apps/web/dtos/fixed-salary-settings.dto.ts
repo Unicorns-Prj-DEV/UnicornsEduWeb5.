@@ -145,3 +145,31 @@ export interface CloseFixedSalaryMonthResponse {
   skippedCount: number;
   items: StaffFixedSalaryPayable[];
 }
+
+export interface CloseFixedSalaryMonthPayload {
+  /** Bỏ trống = chốt mọi nhân sự active chưa chốt đủ. */
+  staffIds?: string[];
+}
+
+export type FixedSalaryCloseRoleStatus = "closed" | "unclosed";
+
+export interface FixedSalaryCloseCandidateRole {
+  roleType: ClosedFixedSalaryRole;
+  status: FixedSalaryCloseRoleStatus;
+  /** `closed`: số đóng băng của khoản; `unclosed`: số dự kiến nếu chốt bây giờ. */
+  grossAmount: number;
+  netAmount: number;
+}
+
+export interface FixedSalaryCloseCandidate {
+  staffId: string;
+  staffFullName: string;
+  totalGrossAmount: number;
+  closedRoleCount: number;
+  roles: FixedSalaryCloseCandidateRole[];
+}
+
+export interface FixedSalaryCloseCandidatesResponse {
+  month: string;
+  items: FixedSalaryCloseCandidate[];
+}

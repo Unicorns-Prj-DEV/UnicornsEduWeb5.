@@ -14,6 +14,11 @@ import {
   MANUAL_TOP_UP_NOTE_PREFIX,
 } from './first-wallet-top-up.sql';
 import {
+  COUNTED_ATTENDANCE_STATUSES,
+  OLD_DROPPED_MIN_SESSIONS,
+  OLD_DROPPED_STUDENT_WHERE_SQL,
+} from './dropped-student.sql';
+import {
   DashboardService,
   buildPersonnelCostBreakdown,
   buildStaffPendingPayrollSources,
@@ -629,7 +634,11 @@ describe('DashboardService new students by first wallet top-up', () => {
 
   it('uses the first top-up for system-wide churn counts instead of profile creation', async () => {
     prisma.$queryRaw.mockResolvedValue([
-      { newStudentsThisMonth: 3, droppedStudentsThisMonth: 1 },
+      {
+        newStudentsThisMonth: 3,
+        droppedStudentsThisMonth: 1,
+        trialDroppedStudentsThisMonth: 2,
+      },
     ]);
 
     await expect(
@@ -640,21 +649,75 @@ describe('DashboardService new students by first wallet top-up', () => {
     ).resolves.toEqual({
       newStudentsThisMonth: 3,
       droppedStudentsThisMonth: 1,
+      trialDroppedStudentsThisMonth: 2,
     });
     const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
     expect(sql.sql).toContain(FIRST_WALLET_TOP_UP_SQL.sql);
     expect(sql.sql).not.toContain('student_info.created_at');
+  });
+
+  it('defines Học sinh cũ nghỉ as qualifying top-up + ≥2 present/excused/trial sessions', () => {
+    const { sql, values } = OLD_DROPPED_STUDENT_WHERE_SQL;
+    expect(OLD_DROPPED_MIN_SESSIONS).toBe(2);
+    expect([...COUNTED_ATTENDANCE_STATUSES].sort()).toEqual(
+      [
+        AttendanceStatus.excused,
+        AttendanceStatus.present,
+        AttendanceStatus.trial,
+      ].sort(),
+    );
+    expect(values).not.toContain(AttendanceStatus.absent);
+    expect(values).toEqual(
+      expect.arrayContaining([...COUNTED_ATTENDANCE_STATUSES, 2]),
+    );
+    expect(sql).toContain('wallet_transactions_history.type');
+    expect(sql).toContain('counted_attendance.student_id = student_info.id');
+  });
+
+  it('returns the drop-out reason on dropped churn rows only', async () => {
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        studentId: 's1',
+        studentName: 'A',
+        className: 'L1',
+        eventDate: new Date('2026-09-10T00:00:00.000Z'),
+        dropOutReason: '  Lịch học bận ',
+      },
+    ]);
+
+    const rows = await service.getAdminStudentChurnDetails({
+      type: 'trial_dropped',
+      month: '09',
+      year: '2026',
+    });
+
+    expect(rows[0].dropOutReason).toBe('Lịch học bận');
+    const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
+    expect(sql.sql).toContain('student_info.drop_out_reason');
+    expect(sql.sql).toContain('NOT (');
+  });
+
+  it('splits dropped students into old (paid + ≥2 counted sessions) and trial', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    await service['getStudentChurnCounts']({
+      monthStart: new Date('2026-09-01T00:00:00.000Z'),
+      monthEnd: new Date('2026-10-01T00:00:00.000Z'),
+    });
+
+    const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
+    expect(sql.sql).toContain(OLD_DROPPED_STUDENT_WHERE_SQL.sql);
+    expect(sql.sql).toContain('WHERE NOT is_old');
   });
 });
 
 describe('DashboardService customer source stats', () => {
   const prisma = { $queryRaw: jest.fn() };
 
-  it('lists Khách cũ right before Khác, then Chưa gán', async () => {
+  it('always lists the four customer sources in closed-set order, Người quen last', async () => {
     prisma.$queryRaw.mockResolvedValue([
-      { customerSource: 'returning_customer', studentCount: 2, revenue: 300 },
-      { customerSource: 'other', studentCount: 1, revenue: 100 },
-      { customerSource: null, studentCount: 1, revenue: 100 },
+      { customerSource: 'acquaintance', studentCount: 3, revenue: 300 },
+      { customerSource: 'tiktok', studentCount: 1, revenue: 100 },
     ]);
     const service = new DashboardService(
       prisma as never,
@@ -671,16 +734,42 @@ describe('DashboardService customer source stats', () => {
       'tiktok',
       'fanpage_hoc_tin',
       'fanpage_luyen_tin',
-      'referral',
-      'personal',
-      'returning_customer',
-      'other',
-      'unassigned',
+      'acquaintance',
     ]);
-    expect(rows.find((row) => row.key === 'returning_customer')).toMatchObject({
-      label: 'Khách cũ',
-      studentCount: 2,
+    expect(rows.find((row) => row.key === 'acquaintance')).toMatchObject({
+      label: 'Người quen',
+      studentCount: 3,
     });
+    expect(rows.find((row) => row.key === 'fanpage_hoc_tin')).toMatchObject({
+      studentCount: 0,
+    });
+  });
+
+  it('counts only new students of the period, keeping those without lessons', async () => {
+    prisma.$queryRaw.mockReset();
+    prisma.$queryRaw.mockResolvedValue([
+      { customerSource: 'tiktok', studentCount: 2, revenue: 300 },
+      { customerSource: 'acquaintance', studentCount: 1, revenue: 100 },
+    ]);
+    const service = new DashboardService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    const rows = (await service['getCustomerSourceStats']({
+      monthStart: new Date('2026-09-01T00:00:00.000Z'),
+      monthEnd: new Date('2026-10-01T00:00:00.000Z'),
+    })) as Array<{ key: string; sharePercent: number }>;
+
+    const [sql] = prisma.$queryRaw.mock.calls[0] as [Prisma.Sql];
+    expect(sql.sql).toContain(FIRST_WALLET_TOP_UP_SQL.sql);
+    expect(sql.sql).toMatch(
+      /FROM new_students[\s\S]*LEFT JOIN new_student_revenue/,
+    );
+    expect(rows.reduce((sum, row) => sum + row.sharePercent, 0)).toBeCloseTo(
+      100,
+    );
   });
 });
 

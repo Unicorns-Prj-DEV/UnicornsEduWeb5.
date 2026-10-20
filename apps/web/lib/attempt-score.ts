@@ -37,10 +37,8 @@ export function attemptScoreLabel(
     scoring: AttemptScoringDto;
     hasUngradedEssay: boolean;
   },
-  resultsReleased: boolean,
 ): string {
   if (attempt.status === "in_progress") return "—";
-  if (!resultsReleased) return "Điểm công bố sau hạn";
   if (attempt.score == null) return "—";
   const total = `${formatScore(attempt.score, attempt.scoreMax, attempt.scoring)} điểm`;
   return attempt.hasUngradedEssay ? `${total} · chờ chấm tự luận` : total;

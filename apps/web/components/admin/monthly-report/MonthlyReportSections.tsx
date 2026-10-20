@@ -12,7 +12,9 @@ import {
   MONTHLY_REPORT_NONE_KEY,
   MONTHLY_REPORT_UNPLACED_LABEL,
   buildMonthlyReportMatrix,
+  countEarningNewStudents,
   formatCustomerSourceKey,
+  formatEarlyDropBreakdown,
   formatMillions,
   formatSignedCount,
 } from "@/lib/monthly-report";
@@ -65,6 +67,19 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: ReactNode
   );
 }
 
+/** «2/5» kèm dòng phụ «1 cũ · 1 thử» khi có nghỉ sớm. */
+function EarlyDropRatio({ total, oldCount, newCount }: { total: number; oldCount: number; newCount: number }) {
+  const breakdown = formatEarlyDropBreakdown(total, oldCount);
+  return (
+    <div className="flex flex-col items-end leading-tight">
+      <span className={cn(total > 0 ? "text-error" : "text-success")}>
+        {total}/{newCount}
+      </span>
+      {breakdown ? <span className="text-xs font-normal text-text-muted">{breakdown}</span> : null}
+    </div>
+  );
+}
+
 export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
   const { kpi } = report;
   const stillActivePercent = kpi.newStudents > 0 ? Math.round((kpi.newStillActive / kpi.newStudents) * 100) : null;
@@ -80,9 +95,9 @@ export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
       <KpiCard label="Đang học" value={formatVnInteger(kpi.activeStudents)} hint={`qua ${careStaffCount} nhân sự CSKH`} />
       <KpiCard label="Học sinh mới" value={`+${kpi.newStudents}`} hint="theo lần nạp đầu" tone="up" />
       <KpiCard
-        label="Học sinh nghỉ"
+        label="Học sinh cũ nghỉ"
         value={kpi.droppedStudents > 0 ? `−${kpi.droppedStudents}` : "0"}
-        hint="theo ngày nghỉ trong tháng"
+        hint={`+ ${kpi.trialDroppedStudents} thử nghỉ (không tính)`}
         tone={kpi.droppedStudents > 0 ? "down" : undefined}
       />
       <KpiCard
@@ -97,7 +112,11 @@ export function MonthlyReportKpis({ report }: { report: AdminMonthlyReport }) {
         hint={
           stillActivePercent == null
             ? "chưa có học sinh mới"
-            : `${stillActivePercent}% · ${kpi.newStudents - kpi.newStillActive} em nghỉ sớm`
+            : `${stillActivePercent}% · ${kpi.newStudents - kpi.newStillActive} em nghỉ sớm${
+                kpi.newStudents > kpi.newStillActive
+                  ? ` (${formatEarlyDropBreakdown(kpi.newStudents - kpi.newStillActive, kpi.earlyDropOldCount)})`
+                  : ""
+              }`
         }
       />
     </div>
@@ -113,7 +132,7 @@ function useMatrix(report: AdminMonthlyReport) {
   const columnLabel = (key: string) =>
     key === MONTHLY_REPORT_NONE_KEY ? MONTHLY_REPORT_UNPLACED_LABEL : (courseNames.get(key) ?? key);
   const rowLabel = (key: string) =>
-    formatCustomerSourceKey(key === MONTHLY_REPORT_NONE_KEY ? null : (key as StudentCustomerSource));
+    formatCustomerSourceKey(key as StudentCustomerSource);
   return { view, columnLabel, rowLabel };
 }
 
@@ -152,7 +171,12 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
                         <div className="flex flex-col items-end leading-tight">
                           <span className="font-semibold">{cell.newCount}</span>
                           {cell.earlyDropCount > 0 ? (
-                            <span className="text-xs text-error">{cell.earlyDropCount} nghỉ</span>
+                            <span
+                              className="text-xs text-error"
+                              title={formatEarlyDropBreakdown(cell.earlyDropCount, cell.earlyDropOldCount) ?? undefined}
+                            >
+                              {cell.earlyDropCount} nghỉ
+                            </span>
                           ) : null}
                         </div>
                       ) : (
@@ -163,9 +187,7 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
                 })}
                 <TableCell className="text-right font-semibold tabular-nums">{total.newCount}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  <span className={cn(total.earlyDropCount > 0 ? "text-error" : "text-success")}>
-                    {total.earlyDropCount}/{total.newCount}
-                  </span>
+                  <EarlyDropRatio total={total.earlyDropCount} oldCount={total.earlyDropOldCount} newCount={total.newCount} />
                 </TableCell>
               </TableRow>
             );
@@ -179,7 +201,11 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
             ))}
             <TableCell className="text-right tabular-nums">{view.grandTotal.newCount}</TableCell>
             <TableCell className="text-right tabular-nums">
-              {view.grandTotal.earlyDropCount}/{view.grandTotal.newCount}
+              <EarlyDropRatio
+                total={view.grandTotal.earlyDropCount}
+                oldCount={view.grandTotal.earlyDropOldCount}
+                newCount={view.grandTotal.newCount}
+              />
             </TableCell>
           </TableRow>
         </TableBody>
@@ -188,10 +214,11 @@ export function MonthlyReportNewStudentMatrix({ report }: { report: AdminMonthly
   );
 }
 
-export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyReport }) {
+export function MonthlyReportRevenueMatrix({ report }: { report: AdminMonthlyReport }) {
   const { view, columnLabel, rowLabel } = useMatrix(report);
   if (view.rowKeys.length === 0) return null;
   const grand = view.grandTotal;
+  const grandEarners = countEarningNewStudents(report.newStudents);
 
   return (
     <ScrollTable>
@@ -212,13 +239,14 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
         <TableBody>
           {view.rowKeys.map((rowKey) => {
             const total = view.rowTotal(rowKey);
-            const share = grand.totalTopUp > 0 ? (total.totalTopUp / grand.totalTopUp) * 100 : 0;
+            const earners = countEarningNewStudents(report.newStudents, rowKey as StudentCustomerSource);
+            const share = grand.revenue > 0 ? (total.revenue / grand.revenue) * 100 : 0;
             return (
               <TableRow key={rowKey}>
                 <TableCell className="sticky left-0 bg-bg-surface font-medium">{rowLabel(rowKey)}</TableCell>
                 {view.columnKeys.map((columnKey) => {
                   const cell = view.cell(rowKey, columnKey);
-                  if (cell.newCount === 0) {
+                  if (cell.earningCount === 0) {
                     return (
                       <TableCell key={columnKey} className="text-right text-text-muted">
                         ·
@@ -226,7 +254,7 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
                     );
                   }
                   const intensity =
-                    view.maxCellTopUp > 0 ? Math.round((cell.totalTopUp / view.maxCellTopUp) * 24) : 0;
+                    view.maxCellRevenue > 0 ? Math.round((cell.revenue / view.maxCellRevenue) * 24) : 0;
                   return (
                     <TableCell
                       key={columnKey}
@@ -234,34 +262,30 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
                       style={{
                         background: `color-mix(in srgb, var(--color-text-primary, currentColor) ${intensity}%, transparent)`,
                       }}
-                      title={`${formatVnInteger(cell.totalTopUp)} đ`}
+                      title={`${formatVnInteger(cell.revenue)} đ`}
                     >
                       <div className="flex flex-col items-end leading-tight">
                         <span className="font-semibold">
-                          {cell.paidCount > 0 ? formatMillions(cell.totalTopUp) : "chưa có"}
+                          {formatMillions(cell.revenue)}
                         </span>
-                        <span className="text-xs text-text-muted">
-                          {cell.paidCount > 0 ? cell.paidCount : cell.newCount} HS
-                        </span>
+                        <span className="text-xs text-text-muted">{cell.earningCount} HS</span>
                       </div>
                     </TableCell>
                   );
                 })}
-                <TableCell className="text-right font-semibold tabular-nums" title={`${formatVnInteger(total.totalTopUp)} đ`}>
-                  {total.paidCount > 0 ? formatMillions(total.totalTopUp) : "—"}
+                <TableCell className="text-right font-semibold tabular-nums" title={`${formatVnInteger(total.revenue)} đ`}>
+                  {formatMillions(total.revenue)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {total.paidCount > 0 ? formatMillions(total.totalTopUp / total.paidCount) : "—"}
+                  {formatMillions(earners > 0 ? total.revenue / earners : 0)}
                 </TableCell>
                 <TableCell>
-                  {total.paidCount > 0 ? (
-                    <div className="flex min-w-[120px] items-center gap-2">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-secondary">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
-                      </div>
-                      <span className="text-xs tabular-nums text-text-muted">{share.toFixed(1)}%</span>
+                  <div className="flex min-w-[120px] items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-secondary">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
                     </div>
-                  ) : null}
+                    <span className="text-xs tabular-nums text-text-muted">{share.toFixed(1)}%</span>
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -272,15 +296,15 @@ export function MonthlyReportTopUpMatrix({ report }: { report: AdminMonthlyRepor
               const total = view.columnTotal(columnKey);
               return (
                 <TableCell key={columnKey} className="text-right tabular-nums">
-                  {total.paidCount > 0 ? formatMillions(total.totalTopUp) : "—"}
+                  {formatMillions(total.revenue)}
                 </TableCell>
               );
             })}
-            <TableCell className="text-right tabular-nums" title={`${formatVnInteger(grand.totalTopUp)} đ`}>
-              {formatMillions(grand.totalTopUp)}
+            <TableCell className="text-right tabular-nums" title={`${formatVnInteger(grand.revenue)} đ`}>
+              {formatMillions(grand.revenue)}
             </TableCell>
             <TableCell className="text-right tabular-nums">
-              {grand.paidCount > 0 ? formatMillions(grand.totalTopUp / grand.paidCount) : "—"}
+              {formatMillions(grandEarners > 0 ? grand.revenue / grandEarners : 0)}
             </TableCell>
             <TableCell />
           </TableRow>
@@ -355,7 +379,11 @@ export function MonthlyReportCustomerCareTable({ rows }: { rows: MonthlyReportCu
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{row.topUpTransactionCount}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {row.newStudents > 0 ? `${row.earlyDropCount}/${row.newStudents}` : "—"}
+                  {row.newStudents > 0 ? (
+                    <EarlyDropRatio total={row.earlyDropCount} oldCount={row.earlyDropOldCount} newCount={row.newStudents} />
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
               </TableRow>
             );
@@ -405,7 +433,14 @@ export function MonthlyReportNewStudentAppendix({
               <TableCell>{formatCustomerSourceKey(row.customerSource)}</TableCell>
               <TableCell className="text-right tabular-nums">{formatVnInteger(row.totalTopUp)} đ</TableCell>
               <TableCell className={cn(row.isEarlyDrop ? "text-error" : "text-text-muted")}>
-                {row.isEarlyDrop ? (row.dropOutDate ? formatVnDate(row.dropOutDate) : "Đã nghỉ") : "—"}
+                {row.isEarlyDrop ? (
+                  <div className="flex flex-col leading-tight">
+                    <span>{row.dropOutDate ? formatVnDate(row.dropOutDate) : "Đã nghỉ"}</span>
+                    <span className="text-xs text-text-muted">{row.earlyDropKind === "old" ? "Cũ nghỉ" : "Thử nghỉ"}</span>
+                  </div>
+                ) : (
+                  "—"
+                )}
               </TableCell>
             </TableRow>
           ))}

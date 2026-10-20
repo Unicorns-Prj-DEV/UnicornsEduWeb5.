@@ -48,7 +48,11 @@ import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
-import type { ClassContentItemDto } from "@/dtos/class-content.dto";
+import type {
+  AssignmentCloseAtDraft,
+  ClassContentItemDto,
+} from "@/dtos/class-content.dto";
+import type { CourseLessonForClassDto } from "@/dtos/course-content.dto";
 import { lessonKindBadgeClass } from "@/lib/course-content-labels";
 import * as classApi from "@/lib/apis/class.api";
 import CourseLessonPicker from "./CourseLessonPicker";
@@ -58,11 +62,13 @@ import {
   fromOpenAtIso,
   toOpenAtIso,
 } from "./AssignmentScheduleFields";
+import { AssignmentCloseAtField } from "./AssignmentCloseAtField";
 import { ShuffleQuestionsField } from "./ShuffleQuestionsField";
 import {
+  closeAtDraftFromIso,
+  closeAtPayload,
   isOpenAtPairComplete,
   isOpenAtPairPartial,
-  parseAssignmentDurationMinutes,
 } from "@/lib/assignment-schedule.helpers";
 import { formatVnDateTime } from "@/lib/formatters";
 
@@ -151,7 +157,7 @@ function SortableContentRow({
             {item.lessonKind === "practice" && (
               <p className="mt-1 text-xs text-text-muted">
                 {item.openAt
-                  ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút`
+                  ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút${item.closeAt ? ` · hạn ${formatOpenAt(item.closeAt)}` : ""}`
                   : "Chưa đặt thời điểm mở"}
               </p>
             )}
@@ -415,7 +421,7 @@ export default function ClassContentManager({
             className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-xs transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
           >
             <Plus className="size-4" />
-            Giao tiết thực hành
+            Thêm tiết
           </button>
         </div>
       )}
@@ -500,8 +506,8 @@ export default function ClassContentManager({
 }
 
 /**
- * Giao một tiết thực hành của khoá cho lớp. Tiết lý thuyết không thêm lẻ ở đây:
- * chúng vào lớp theo chuyên đề (`ClassModulesDialog`).
+ * Thêm lẻ một tiết của khoá vào lớp (ADR 2026-10-18). Tiết lý thuyết thêm thẳng;
+ * tiết thực hành qua bước **Đặt lần giao** (mở bài, hạn, trộn câu).
  */
 function AddContentDialog({
   classId,
@@ -513,50 +519,59 @@ function AddContentDialog({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [lessonId, setLessonId] = useState("");
+  const [lesson, setLesson] = useState<CourseLessonForClassDto | null>(null);
+  const isPractice = lesson?.kind === "practice";
   const [step, setStep] = useState<"pick" | "schedule">("pick");
-  const defaults = defaultAssignmentSchedule();
   const [openDate, setOpenDate] = useState("");
   const [openTime, setOpenTime] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState(
-    defaults.durationMinutes,
-  );
+  const [closeAt, setCloseAt] = useState<AssignmentCloseAtDraft>({
+    mode: "class",
+    date: "",
+    time: "",
+  });
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
 
-  const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
-  const durationError =
-    parsedDuration == null ? "Thời lượng phải từ 1 đến 720 phút." : null;
   const openAtPartial = isOpenAtPairPartial(openDate, openTime);
-  const canSubmitSchedule = parsedDuration != null && !openAtPartial;
+  const closeAtValue = closeAtPayload(closeAt);
+  const canSubmitSchedule = !openAtPartial && closeAtValue !== false;
 
   const createMutation = useMutation({
-    mutationFn: () => {
-      if (parsedDuration == null) {
-        return Promise.reject(new Error("invalid-duration"));
-      }
-      return classApi.createClassContent(classId, {
-        lessonId: lessonId.trim(),
-        ...(isOpenAtPairComplete(openDate, openTime)
-          ? { openAt: toOpenAtIso(openDate, openTime) }
-          : {}),
-        durationMinutes: parsedDuration,
-        shuffleQuestions,
-      });
-    },
+    mutationFn: () =>
+      classApi.createClassContent(
+        classId,
+        isPractice ? practicePayload() : { lessonId: lesson!.id },
+      ),
     onSuccess: () => {
-      toast.success("Đã giao tiết thực hành");
+      toast.success(
+        isPractice ? "Đã giao tiết thực hành" : "Đã thêm tiết lý thuyết",
+      );
       queryClient.invalidateQueries({
         queryKey: classKeys.courseLessons(classId),
       });
+      // Tiết đầu của chuyên đề mới tạo nhóm mới cho lớp.
+      queryClient.invalidateQueries({ queryKey: classKeys.modules(classId) });
       onSuccess();
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err?.response?.data?.message || "Lỗi giao tiết thực hành");
+      toast.error(err?.response?.data?.message || "Lỗi thêm tiết vào lớp");
     },
   });
 
+  function practicePayload() {
+    return {
+      lessonId: lesson!.id,
+      ...(isOpenAtPairComplete(openDate, openTime)
+        ? { openAt: toOpenAtIso(openDate, openTime) }
+        : {}),
+      ...(closeAtValue === false || closeAtValue === undefined
+        ? {}
+        : { closeAt: closeAtValue }),
+      shuffleQuestions,
+    };
+  }
+
   const handlePrimary = () => {
-    if (step === "pick") {
+    if (step === "pick" && isPractice) {
       setStep("schedule");
       return;
     }
@@ -569,12 +584,12 @@ function AddContentDialog({
         <div className="flex items-center justify-between gap-3 border-b border-border-default pb-4 shrink-0">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-text-primary">
-              {step === "schedule" ? "Đặt lần giao" : "Giao tiết thực hành"}
+              {step === "schedule" ? "Đặt lần giao" : "Thêm tiết vào lớp"}
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
               {step === "schedule"
-                ? "Thời điểm mở bài và thời lượng thuộc lần giao của lớp này, không đụng đề."
-                : "Chọn chuyên đề lớp đã thêm, rồi chọn tiết thực hành. Tiết lý thuyết vào lớp theo chuyên đề."}
+                ? "Thời điểm mở bài và hạn làm bài thuộc lần giao của lớp này, không đụng đề."
+                : "Chọn chuyên đề của khoá, rồi chọn tiết lý thuyết hoặc thực hành. Chuyên đề mới vào lớp đứng đầu danh sách."}
             </p>
           </div>
           <button
@@ -592,18 +607,20 @@ function AddContentDialog({
               <AssignmentScheduleFields
                 openDate={openDate}
                 openTime={openTime}
-                durationMinutes={durationMinutes}
                 openAtOptional
-                durationError={durationError}
                 onOpenDateChange={setOpenDate}
                 onOpenTimeChange={setOpenTime}
-                onDurationChange={setDurationMinutes}
               />
               {openAtPartial ? (
                 <p className="text-xs text-error">
                   Nhập cả ngày và giờ, hoặc để trống cả hai.
                 </p>
               ) : null}
+              <AssignmentCloseAtField
+                value={closeAt}
+                onChange={setCloseAt}
+                allowClassDefault
+              />
               <ShuffleQuestionsField
                 checked={shuffleQuestions}
                 onCheckedChange={setShuffleQuestions}
@@ -612,8 +629,8 @@ function AddContentDialog({
           ) : (
             <CourseLessonPicker
               classId={classId}
-              selectedLessonId={lessonId}
-              onSelect={(id) => setLessonId(id)}
+              selectedLessonId={lesson?.id ?? ""}
+              onSelect={setLesson}
             />
           )}
         </div>
@@ -639,17 +656,19 @@ function AddContentDialog({
             type="button"
             onClick={handlePrimary}
             disabled={
-              (step === "pick" && !lessonId.trim()) ||
+              (step === "pick" && !lesson) ||
               (step === "schedule" && !canSubmitSchedule) ||
               createMutation.isPending
             }
             className="cursor-pointer rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-text-inverse transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 shadow-xs"
           >
             {createMutation.isPending
-              ? "Đang giao..."
-              : step === "pick"
-                ? "Tiếp theo"
-                : "Giao đề"}
+              ? "Đang thêm..."
+              : step === "schedule"
+                ? "Giao đề"
+                : isPractice
+                  ? "Tiếp theo"
+                  : "Thêm tiết"}
           </button>
         </div>
       </ResponsiveDialogBody>
@@ -674,30 +693,25 @@ function EditScheduleDialog({
     : { date: fallback.openDate, time: fallback.openTime };
   const [openDate, setOpenDate] = useState(parsed.date);
   const [openTime, setOpenTime] = useState(parsed.time);
-  const [durationMinutes, setDurationMinutes] = useState(
-    String(item.durationMinutes ?? 60),
+  const [closeAt, setCloseAt] = useState(() =>
+    closeAtDraftFromIso(item.closeAt),
   );
   const [shuffleQuestions, setShuffleQuestions] = useState(
     item.shuffleQuestions,
   );
-  const parsedDuration = parseAssignmentDurationMinutes(durationMinutes);
-  const durationError =
-    parsedDuration == null ? "Thời lượng phải từ 1 đến 720 phút." : null;
+  const closeAtValue = closeAtPayload(closeAt);
   const canSave =
-    Boolean(openDate && openTime && parsedDuration != null) &&
-    !isOpenAtPairPartial(openDate, openTime);
+    Boolean(openDate && openTime) &&
+    !isOpenAtPairPartial(openDate, openTime) &&
+    closeAtValue !== false;
 
   const mutation = useMutation({
-    mutationFn: () => {
-      if (parsedDuration == null) {
-        return Promise.reject(new Error("invalid-duration"));
-      }
-      return classApi.updateClassContentSchedule(classId, item.id, {
+    mutationFn: () =>
+      classApi.updateClassContentSchedule(classId, item.id, {
         openAt: toOpenAtIso(openDate, openTime),
-        durationMinutes: parsedDuration,
+        closeAt: closeAtValue === false ? undefined : closeAtValue,
         shuffleQuestions,
-      });
-    },
+      }),
     onSuccess: () => {
       toast.success("Đã cập nhật lần giao");
       onSuccess();
@@ -731,12 +745,11 @@ function EditScheduleDialog({
           <AssignmentScheduleFields
             openDate={openDate}
             openTime={openTime}
-            durationMinutes={durationMinutes}
-            durationError={durationError}
+            durationMinutes={item.durationMinutes}
             onOpenDateChange={setOpenDate}
             onOpenTimeChange={setOpenTime}
-            onDurationChange={setDurationMinutes}
           />
+          <AssignmentCloseAtField value={closeAt} onChange={setCloseAt} />
           <ShuffleQuestionsField
             checked={shuffleQuestions}
             onCheckedChange={setShuffleQuestions}
@@ -866,6 +879,7 @@ function TheoryLessonInlineEditor({
             ariaLabel="Nội dung lý thuyết"
             placeholder="Nhập nội dung tiết lý thuyết..."
             minHeight="min-h-[120px]"
+            markdown
           />
         </div>
       </div>
@@ -925,7 +939,7 @@ function ViewContentDialog({
           {item.lessonKind === "practice" ? (
             <p>
               {item.openAt
-                ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút`
+                ? `Mở ${formatOpenAt(item.openAt)} · ${item.durationMinutes ?? "—"} phút${item.closeAt ? ` · hạn ${formatOpenAt(item.closeAt)}` : ""}`
                 : "Chưa đặt thời điểm mở"}
             </p>
           ) : (

@@ -31,6 +31,8 @@ export type StudentReviewFormValue = {
   improvements: string;
   homeworkQuality: HomeworkQuality | "";
   homeworkComment: string;
+  /** Lý do nghỉ phép (lưu vào `attendance.notes`), bắt buộc khi status = excused. */
+  excusedReason: string;
 };
 
 const VN_UTC_OFFSET = "+07:00";
@@ -60,6 +62,7 @@ export function emptyStudentReviewForm(): StudentReviewFormValue {
     improvements: "",
     homeworkQuality: "",
     homeworkComment: "",
+    excusedReason: "",
   };
 }
 
@@ -92,10 +95,12 @@ function splitVnDateTime(iso: string | null | undefined): {
 export function sessionReviewFormFromSession(
   session: SessionReviewFields | null | undefined,
 ): SessionReviewFormValue {
-  if (!session?.progressStatus) return emptySessionReviewForm();
+  // Không chặn theo `progressStatus`: admin/trợ lí/kế toán được lưu nhận xét thiếu
+  // tiến độ, form phải seed lại các field khác để lần lưu sau không ghi đè thành null.
+  if (!session) return emptySessionReviewForm();
   const due = splitVnDateTime(session.homeworkDueAt);
   return {
-    progressStatus: session.progressStatus,
+    progressStatus: session.progressStatus ?? "",
     progressDone: session.progressDone ?? "",
     progressRemaining: session.progressRemaining ?? "",
     hasInClassTest: session.hasInClassTest === true,
@@ -111,7 +116,13 @@ export function sessionReviewFormFromSession(
 }
 
 export function studentReviewFormFromAttendance(
-  record: AttendanceReviewFields | null | undefined,
+  record:
+    | (AttendanceReviewFields & {
+        status?: SessionAttendanceStatus | null;
+        notes?: string | null;
+      })
+    | null
+    | undefined,
 ): StudentReviewFormValue {
   return {
     testCorrectCount:
@@ -121,6 +132,8 @@ export function studentReviewFormFromAttendance(
     improvements: record?.improvements ?? "",
     homeworkQuality: record?.homeworkQuality ?? "",
     homeworkComment: record?.homeworkComment ?? "",
+    // `notes` của HS có mặt là nhận xét legacy, không phải lý do nghỉ.
+    excusedReason: record?.status === "excused" ? (record.notes ?? "") : "",
   };
 }
 
@@ -194,6 +207,14 @@ export function toAttendanceReviewPayload(
       withHomework && form.homeworkQuality ? form.homeworkQuality : null,
     homeworkComment: withHomework ? textOrNull(form.homeworkComment) : null,
   };
+}
+
+/** `attendance.notes`: chỉ nghỉ phép mang lý do nghỉ, trạng thái khác gửi null. */
+export function toAttendanceNotes(
+  status: SessionAttendanceStatus,
+  form: StudentReviewFormValue,
+): string | null {
+  return status === "excused" ? textOrNull(form.excusedReason) : null;
 }
 
 /** Chỉ lấy field review phần chung (dùng khi map payload sang API khác, vd staff-ops). */

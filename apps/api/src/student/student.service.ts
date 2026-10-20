@@ -472,7 +472,6 @@ export class StudentService {
       dropOutDate: student.dropOutDate,
       dropOutReason: student.dropOutReason,
       customerSource: student.customerSource,
-      customerSourceNote: student.customerSourceNote,
       customerCare: student.customerCareServices
         ? {
             staff: {
@@ -933,61 +932,6 @@ export class StudentService {
       select: { staffId: true },
     });
     return assignment?.staffId ?? null;
-  }
-
-  private resolveCustomerSourceWrite(
-    source: StudentCustomerSource,
-    note: string | null | undefined,
-  ): {
-    customerSource: StudentCustomerSource;
-    customerSourceNote: string | null;
-  } {
-    if (source !== StudentCustomerSource.other) {
-      return { customerSource: source, customerSourceNote: null };
-    }
-
-    const normalized = note?.trim() ?? '';
-    if (!normalized) {
-      throw new BadRequestException(
-        'Chú thích nguồn là bắt buộc khi chọn Khác.',
-      );
-    }
-
-    return { customerSource: source, customerSourceNote: normalized };
-  }
-
-  private resolveCustomerSourceUpdate(
-    dto: UpdateStudentBodyDto,
-    current: {
-      customerSource: StudentCustomerSource | null;
-      customerSourceNote: string | null;
-    },
-  ): {
-    customerSource?: StudentCustomerSource;
-    customerSourceNote?: string | null;
-  } {
-    if (
-      dto.customer_source === undefined &&
-      dto.customer_source_note === undefined
-    ) {
-      return {};
-    }
-
-    if (dto.customer_source !== undefined) {
-      return this.resolveCustomerSourceWrite(
-        dto.customer_source,
-        dto.customer_source_note,
-      );
-    }
-
-    if (current.customerSource !== StudentCustomerSource.other) {
-      throw new BadRequestException('Chú thích nguồn chỉ dùng khi chọn Khác.');
-    }
-
-    return this.resolveCustomerSourceWrite(
-      StudentCustomerSource.other,
-      dto.customer_source_note,
-    );
   }
 
   /**
@@ -2633,7 +2577,9 @@ export class StudentService {
 
     const updateData = {
       ...this.buildUpdateData(dto),
-      ...this.resolveCustomerSourceUpdate(dto, student),
+      ...(dto.customer_source !== undefined
+        ? { customerSource: dto.customer_source }
+        : {}),
       ...this.resolveDropOutReasonWrite({
         currentStatus: student.status,
         nextStatus: dto.status,
@@ -3040,18 +2986,12 @@ export class StudentService {
       throw new BadRequestException('Student full name is required.');
     }
 
-    const customerSource = this.resolveCustomerSourceWrite(
-      data.customer_source,
-      data.customer_source_note,
-    );
-
     return this.withEntityIdRetry(() =>
       this.createStudentOnce(
         data,
         auditActor,
         user,
         trimmedFullName,
-        customerSource,
       ),
     );
   }
@@ -3066,18 +3006,13 @@ export class StudentService {
       roleType: UserRole;
     },
     trimmedFullName: string,
-    customerSource: {
-      customerSource: StudentCustomerSource;
-      customerSourceNote: string | null;
-    },
   ) {
     return this.prisma.$transaction(async (tx) => {
       const createdStudent = await tx.studentInfo.create({
         data: {
           id: generateStudentId(),
           fullName: trimmedFullName,
-          customerSource: customerSource.customerSource,
-          customerSourceNote: customerSource.customerSourceNote,
+          customerSource: data.customer_source,
           email: normalizeOptionalText(data.email) ?? user.email,
           school: normalizeOptionalText(data.school),
           province:

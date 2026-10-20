@@ -47,6 +47,8 @@ export interface LmsProfileConfig {
   sharedMaterials: boolean;
   /** Tư liệu có audio (tải lên, phát trong bài làm / ôn nhẹ / xem lại). */
   questionAudio: boolean;
+  /** Nhận xét buổi học có phần Kiểm tra trong buổi (IT bỏ). */
+  inClassTest: boolean;
 }
 
 const OPTION_COUNT = { min: 2, max: 6, default: 4 };
@@ -63,6 +65,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     essayInputSizes: false,
     sharedMaterials: false,
     questionAudio: false,
+    inClassTest: false,
   },
   jp: {
     profile: 'jp',
@@ -81,6 +84,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     essayInputSizes: true,
     sharedMaterials: true,
     questionAudio: true,
+    inClassTest: true,
   },
   eng: {
     profile: 'eng',
@@ -93,6 +97,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     essayInputSizes: false,
     sharedMaterials: false,
     questionAudio: false,
+    inClassTest: true,
   },
 };
 

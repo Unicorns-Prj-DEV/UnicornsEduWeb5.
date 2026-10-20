@@ -13,12 +13,13 @@ import {
   FIRST_WALLET_TOP_UP_SQL,
   QUALIFYING_TOP_UP_WHERE_SQL,
 } from './first-wallet-top-up.sql';
+import { OLD_DROPPED_STUDENT_WHERE_SQL } from './dropped-student.sql';
 
 export interface MonthlyReportStudentInput {
   id: string;
   fullName: string;
   status: StudentStatus;
-  customerSource: StudentCustomerSource | null;
+  customerSource: StudentCustomerSource;
   dropOutDate: Date | null;
   dropOutReason: string | null;
   customerCareStaffId: string | null;
@@ -40,6 +41,14 @@ export interface MonthlyReportClassInput {
   courseName: string;
 }
 
+/** Học phí đã học trong tháng của một học sinh ở một khoá (khoá của lớp có buổi). */
+export interface MonthlyReportRevenueInput {
+  studentId: string;
+  courseId: string;
+  courseName: string;
+  revenue: number;
+}
+
 export interface MonthlyReportInput {
   month: string;
   year: string;
@@ -55,6 +64,13 @@ export interface MonthlyReportInput {
   /** Lớp gần nhất học sinh vào (cho phụ lục học sinh nghỉ). */
   latestClassByStudent: Map<string, MonthlyReportClassInput>;
   staffNames: Map<string, string>;
+  /**
+   * Học phí đã học trong tháng (doanh thu) của học sinh mới, tách theo khoá của
+   * lớp có buổi — học sinh đổi lớp sang khoá khác thì doanh thu theo lớp mới.
+   */
+  revenueInMonth: MonthlyReportRevenueInput[];
+  /** Học sinh đang nghỉ thoả định nghĩa **Học sinh cũ nghỉ**; còn lại là thử nghỉ. */
+  oldDroppedStudentIds: Set<string>;
 }
 
 const UNASSIGNED_STAFF_NAME = 'Chưa có CSKH';
@@ -67,8 +83,10 @@ function toDateKey(value: Date): string {
  * Tổng hợp **Báo cáo tháng** từ dữ liệu đã truy vấn. Hàm thuần, không đụng DB.
  *
  * - Học sinh mới: lần nạp hợp lệ đầu tiên rơi vào tháng (góc nhìn admin).
- * - Học sinh nghỉ: hiện đang nghỉ và `dropOutDate` trong tháng.
- * - Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ.
+ * - Học sinh nghỉ: **Học sinh cũ nghỉ** hiện đang nghỉ và `dropOutDate` trong
+ *   tháng; học sinh thử nghỉ chỉ được đếm riêng ở KPI.
+ * - Nghỉ sớm: học sinh mới của tháng mà hiện đang nghỉ (cả cũ nghỉ lẫn thử
+ *   nghỉ), tách số theo nhóm.
  */
 export function buildAdminMonthlyReport(
   input: MonthlyReportInput,
@@ -82,11 +100,17 @@ export function buildAdminMonthlyReport(
   const newStudents = input.students.filter((student) =>
     input.firstTopUpInMonth.has(student.id),
   );
-  const droppedStudents = input.students
-    .filter(
-      (student) =>
-        student.status === 'inactive' && isInMonth(student.dropOutDate),
-    )
+  const droppedInMonth = input.students.filter(
+    (student) =>
+      student.status === 'inactive' && isInMonth(student.dropOutDate),
+  );
+  const isOldDropped = (student: MonthlyReportStudentInput) =>
+    input.oldDroppedStudentIds.has(student.id);
+  const trialDroppedCount = droppedInMonth.filter(
+    (student) => !isOldDropped(student),
+  ).length;
+  const droppedStudents = droppedInMonth
+    .filter(isOldDropped)
     .sort(
       (a, b) =>
         (a.dropOutDate?.getTime() ?? 0) - (b.dropOutDate?.getTime() ?? 0) ||
@@ -94,31 +118,59 @@ export function buildAdminMonthlyReport(
     );
   const isEarlyDrop = (student: MonthlyReportStudentInput) =>
     student.status === 'inactive';
+  const isEarlyDropOld = (student: MonthlyReportStudentInput) =>
+    isEarlyDrop(student) && isOldDropped(student);
   const staffNameOf = (staffId: string | null) =>
     staffId ? (input.staffNames.get(staffId) ?? null) : null;
 
-  // Ma trận Nguồn khách × Khoá học của lớp đầu tiên.
+  // Ma trận Nguồn khách × Khoá học: số học sinh theo khoá của lớp đầu tiên,
+  // doanh thu theo khoá của lớp có buổi (đổi lớp sang khoá khác không kéo
+  // doanh thu về khoá cũ).
   const cells = new Map<string, MonthlyReportMatrixCellDto>();
   const courseNames = new Map<string, string>();
+  const cellOf = (
+    customerSource: StudentCustomerSource,
+    courseId: string | null,
+  ) => {
+    const key = `${customerSource}|${courseId ?? ''}`;
+    let cell = cells.get(key);
+    if (!cell) {
+      cell = {
+        customerSource,
+        courseId,
+        newCount: 0,
+        earlyDropCount: 0,
+        earlyDropOldCount: 0,
+        earningCount: 0,
+        revenue: 0,
+      };
+      cells.set(key, cell);
+    }
+    return cell;
+  };
   for (const student of newStudents) {
     const firstClass = input.firstClassByStudent.get(student.id) ?? null;
     if (firstClass) courseNames.set(firstClass.courseId, firstClass.courseName);
-    const courseId = firstClass?.courseId ?? null;
-    const key = `${student.customerSource ?? ''}|${courseId ?? ''}`;
-    const cell = cells.get(key) ?? {
-      customerSource: student.customerSource,
-      courseId,
-      newCount: 0,
-      earlyDropCount: 0,
-      paidCount: 0,
-      totalTopUp: 0,
-    };
-    const totalTopUp = topUpByStudent.get(student.id)?.toMonthEndAmount ?? 0;
+    const cell = cellOf(student.customerSource, firstClass?.courseId ?? null);
     cell.newCount += 1;
     if (isEarlyDrop(student)) cell.earlyDropCount += 1;
-    if (totalTopUp > 0) cell.paidCount += 1;
-    cell.totalTopUp += totalTopUp;
-    cells.set(key, cell);
+    if (isEarlyDropOld(student)) cell.earlyDropOldCount += 1;
+  }
+  const sourceByNewStudent = new Map(
+    newStudents.map((student) => [student.id, student.customerSource]),
+  );
+  const revenueByNewStudent = new Map<string, number>();
+  for (const row of input.revenueInMonth) {
+    const customerSource = sourceByNewStudent.get(row.studentId);
+    if (customerSource == null || row.revenue <= 0) continue;
+    courseNames.set(row.courseId, row.courseName);
+    const cell = cellOf(customerSource, row.courseId);
+    cell.earningCount += 1;
+    cell.revenue += row.revenue;
+    revenueByNewStudent.set(
+      row.studentId,
+      (revenueByNewStudent.get(row.studentId) ?? 0) + row.revenue,
+    );
   }
 
   // Bảng theo CSKH.
@@ -160,6 +212,7 @@ export function buildAdminMonthlyReport(
         droppedStudents: ownedDropped.length,
         netChange: ownedNew.length - ownedDropped.length,
         earlyDropCount: ownedNew.filter(isEarlyDrop).length,
+        earlyDropOldCount: ownedNew.filter(isEarlyDropOld).length,
         totalTopUpInMonth,
         topUpTransactionCount,
       };
@@ -184,7 +237,13 @@ export function buildAdminMonthlyReport(
         customerSource: student.customerSource,
         firstTopUpAt: input.firstTopUpInMonth.get(student.id)!.toISOString(),
         totalTopUp: topUpByStudent.get(student.id)?.toMonthEndAmount ?? 0,
+        revenueInMonth: revenueByNewStudent.get(student.id) ?? 0,
         isEarlyDrop: isEarlyDrop(student),
+        earlyDropKind: isEarlyDrop(student)
+          ? isOldDropped(student)
+            ? ('old' as const)
+            : ('trial' as const)
+          : null,
         dropOutDate:
           isEarlyDrop(student) && student.dropOutDate
             ? toDateKey(student.dropOutDate)
@@ -217,7 +276,9 @@ export function buildAdminMonthlyReport(
       ).length,
       newStudents: newStudents.length,
       droppedStudents: droppedStudents.length,
+      trialDroppedStudents: trialDroppedCount,
       netChange: newStudents.length - droppedStudents.length,
+      earlyDropOldCount: newStudents.filter(isEarlyDropOld).length,
       newStillActive: newStudents.length - earlyDropCount,
     },
     courses: [...courseNames.entries()]
@@ -319,19 +380,26 @@ export class MonthlyReportService {
     const firstTopUpInMonth = new Map(
       firstTopUps.map((row) => [row.student_id, row.first_top_up_at]),
     );
+    const inactiveIds = students
+      .filter((student) => student.status === 'inactive')
+      .map((student) => student.id);
+    const oldDroppedStudentIds =
+      await this.findOldDroppedStudentIds(inactiveIds);
     const droppedIds = students
       .filter(
         (student) =>
-          student.status === 'inactive' &&
+          oldDroppedStudentIds.has(student.id) &&
           student.dropOutDate != null &&
           student.dropOutDate >= monthStart &&
           student.dropOutDate < monthEnd,
       )
       .map((student) => student.id);
 
-    const [firstClasses, latestClasses] = await Promise.all([
-      this.findClassPerStudent([...firstTopUpInMonth.keys()], 'first'),
+    const newStudentIds = [...firstTopUpInMonth.keys()];
+    const [firstClasses, latestClasses, revenueInMonth] = await Promise.all([
+      this.findClassPerStudent(newStudentIds, 'first'),
       this.findClassPerStudent(droppedIds, 'latest'),
+      this.findRevenueInMonth(newStudentIds, monthStart, monthEnd),
     ]);
 
     return buildAdminMonthlyReport({
@@ -361,7 +429,66 @@ export class MonthlyReportService {
       staffNames: new Map(
         staffRows.map((row) => [row.id, row.full_name ?? 'Nhân sự']),
       ),
+      revenueInMonth,
+      oldDroppedStudentIds,
     });
+  }
+
+  /**
+   * Học phí đã học trong tháng theo học sinh × khoá của lớp có buổi:
+   * `tuition_fee` của buổi có mặt/nghỉ phép có `sessions.date` trong tháng.
+   * `tuition_fee` đã gồm thu bù học thử và tổng gói của lớp bán một lần, khớp
+   * doanh thu dashboard.
+   */
+  private async findRevenueInMonth(
+    studentIds: string[],
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<MonthlyReportRevenueInput[]> {
+    if (studentIds.length === 0) return [];
+    const rows = await this.prisma.$queryRaw<
+      {
+        student_id: string;
+        course_id: string;
+        course_name: string;
+        revenue: bigint | number | null;
+      }[]
+    >(Prisma.sql`
+      SELECT
+        attendance.student_id AS student_id,
+        courses.id AS course_id,
+        courses.name AS course_name,
+        COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS revenue
+      FROM attendance
+      INNER JOIN sessions ON sessions.id = attendance.session_id
+      INNER JOIN classes ON classes.id = sessions.class_id
+      INNER JOIN courses ON courses.id = classes.course_id
+      WHERE attendance.student_id IN (${Prisma.join(studentIds)})
+        AND attendance.status IN ('present', 'excused')
+        AND sessions.date >= ${monthStart}
+        AND sessions.date < ${monthEnd}
+      GROUP BY attendance.student_id, courses.id, courses.name
+    `);
+    return rows.map((row) => ({
+      studentId: row.student_id,
+      courseId: row.course_id,
+      courseName: row.course_name,
+      revenue: Number(row.revenue ?? 0),
+    }));
+  }
+
+  /** Lọc trong `studentIds` những học sinh thoả định nghĩa **Học sinh cũ nghỉ**. */
+  private async findOldDroppedStudentIds(
+    studentIds: string[],
+  ): Promise<Set<string>> {
+    if (studentIds.length === 0) return new Set();
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT student_info.id
+      FROM student_info
+      WHERE student_info.id IN (${Prisma.join(studentIds)})
+        AND ${OLD_DROPPED_STUDENT_WHERE_SQL}
+    `);
+    return new Set(rows.map((row) => row.id));
   }
 
   /** Lớp đầu tiên (hoặc gần nhất) học sinh vào, theo `student_classes.created_at`. */

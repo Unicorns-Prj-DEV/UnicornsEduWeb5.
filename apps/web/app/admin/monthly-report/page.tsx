@@ -11,7 +11,7 @@ import {
   MonthlyReportKpis,
   MonthlyReportNewStudentAppendix,
   MonthlyReportNewStudentMatrix,
-  MonthlyReportTopUpMatrix,
+  MonthlyReportRevenueMatrix,
   ReportSection,
 } from "@/components/admin/monthly-report/MonthlyReportSections";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -108,16 +108,16 @@ export default function AdminMonthlyReportPage() {
 
             <ReportSection
               title="Học sinh mới theo nguồn và khoá học"
-              description="Cột là khoá học của lớp đầu tiên học sinh vào; mỗi học sinh nằm đúng một cột. Số đỏ là học sinh nghỉ sớm (học sinh mới của tháng mà hiện đang nghỉ)."
+              description="Cột là khoá học của lớp đầu tiên học sinh vào; mỗi học sinh nằm đúng một cột. Số đỏ là học sinh nghỉ sớm (học sinh mới của tháng mà hiện đang nghỉ), tách cũ nghỉ / thử nghỉ."
             >
               <MonthlyReportNewStudentMatrix report={report} />
             </ReportSection>
 
             <ReportSection
-              title="Tổng nạp của học sinh mới theo nguồn và khoá học"
-              description="Tổng nạp ví hợp lệ của mỗi học sinh mới, từ lần nạp đầu tới hết tháng báo cáo. Ô đậm hơn là tổng nạp cao hơn."
+              title="Doanh thu mới theo nguồn và khoá học"
+              description="Học phí đã học trong tháng của mỗi học sinh mới (kể cả thu bù học thử và gói bán một lần), tính theo khoá của lớp có buổi (đổi lớp sang khoá khác thì doanh thu theo lớp mới). Không có doanh thu thì hiện 0 đ. Chỉ đếm học sinh có doanh thu; TB/HS chia cho số học sinh đó. Ô đậm hơn là doanh thu cao hơn."
             >
-              <MonthlyReportTopUpMatrix report={report} />
+              <MonthlyReportRevenueMatrix report={report} />
             </ReportSection>
 
             <ReportSection
@@ -127,11 +127,11 @@ export default function AdminMonthlyReportPage() {
               <MonthlyReportCustomerCareTable rows={report.customerCare} />
             </ReportSection>
 
-            <ReportSection title="Phụ lục A · Danh sách học sinh mới" description="Bấm vào dòng để mở hồ sơ học sinh.">
+            <ReportSection title={`Phụ lục A · Danh sách học sinh mới (${report.newStudents.length})`} description="Bấm vào dòng để mở hồ sơ học sinh.">
               <MonthlyReportNewStudentAppendix report={report} studentHref={studentHref} />
             </ReportSection>
 
-            <ReportSection title="Phụ lục B · Danh sách học sinh nghỉ" description="Bấm vào dòng để mở hồ sơ học sinh.">
+            <ReportSection title={`Phụ lục B · Danh sách học sinh cũ nghỉ (${report.droppedStudents.length})`} description="Bấm vào dòng để mở hồ sơ học sinh.">
               <MonthlyReportDroppedAppendix report={report} studentHref={studentHref} />
             </ReportSection>
 
@@ -141,7 +141,13 @@ export default function AdminMonthlyReportPage() {
                   Học sinh mới = học sinh có lần nạp ví hợp lệ đầu tiên (QR hoàn tất hoặc nạp thẳng đã duyệt) trong tháng.
                   Khác với «Học sinh mới» trên khối CSKH (tính theo ngày tạo hồ sơ).
                 </li>
-                <li>Tổng nạp là tiền nạp vào ví, không phải doanh thu ghi nhận theo buổi học.</li>
+                <li>
+                  Học sinh cũ nghỉ = đã nạp ví thành công và đã học từ 2 buổi trở lên (có mặt, nghỉ phép hoặc học thử; cộng
+                  mọi lớp). Chỉ cũ nghỉ được trừ vào tăng ròng và nằm ở Phụ lục B; thử nghỉ chỉ đếm riêng.
+                </li>
+                <li>
+                  Ma trận doanh thu dùng Học phí đã học trong tháng; bảng CSKH và Phụ lục A dùng Tổng nạp (tiền nạp vào ví).
+                </li>
                 <li>Số liệu tính lúc {formatVnDateTime(report.generatedAt)}; trạng thái học sinh có thể đổi sau đó.</li>
               </ul>
             </ReportSection>

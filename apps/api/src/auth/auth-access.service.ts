@@ -63,6 +63,7 @@ type StaffProfileForAccess = {
   highSchool: string | null;
   bankAccount: string | null;
   bankQrLink: string | null;
+  _count?: { achievements: number };
 };
 
 type StudentProfileForAccess = {
@@ -115,6 +116,14 @@ function isStaffProfileComplete(
     hasText(staff.bankAccount) &&
     hasText(staff.bankQrLink)
   );
+}
+
+/** Gia sư (`teacher`) phải có ít nhất 1 thành tích thì hồ sơ mới tính là đủ. */
+export function hasRequiredStaffAchievements(
+  staffRoles: StaffRole[],
+  achievementCount: number,
+) {
+  return !staffRoles.includes(StaffRole.teacher) || achievementCount > 0;
 }
 
 function hasCurrentStaffDataConsent(consent: StaffConsentForAccess) {
@@ -257,6 +266,7 @@ export class AuthAccessService {
             highSchool: true,
             bankAccount: true,
             bankQrLink: true,
+            _count: { select: { achievements: true } },
           },
         },
         studentInfo: { select: { id: true, status: true } },
@@ -324,6 +334,10 @@ export class AuthAccessService {
     const staffProfileComplete =
       hasStaffProfile &&
       isStaffProfileComplete(staffProfile, user.avatarPath) &&
+      hasRequiredStaffAchievements(
+        staffRoles,
+        staffProfile?._count?.achievements ?? 0,
+      ) &&
       hasCurrentStaffDataConsent({
         dataProcessingConsentAcceptedAt:
           profileLinks?.dataProcessingConsentAcceptedAt ?? null,

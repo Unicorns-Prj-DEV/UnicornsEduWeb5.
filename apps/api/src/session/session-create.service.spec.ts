@@ -250,7 +250,7 @@ describe('SessionCreateService', () => {
         classId: 'class-1',
         teacherId: 'teacher-1',
         date: '2026-03-20',
-        coefficient: 1.5,
+        coefficient: undefined,
         startTime: '19:00:00',
         endTime: '20:30:00',
         notes: 'Buổi thử',
@@ -272,6 +272,30 @@ describe('SessionCreateService', () => {
       },
     );
     expect(createSessionSpy.mock.calls[0][0].allowanceAmount).toBeUndefined();
+  });
+
+  it('lets an assistant mark Dạy thử (coefficient 0) via staff-ops', async () => {
+    accessService.resolveActor.mockResolvedValue({
+      id: 'assistant-1',
+      roles: [StaffRole.assistant],
+    });
+    accessService.resolveSingleTeacherForClass.mockResolvedValue('teacher-1');
+    const createSessionSpy = jest
+      .spyOn(service, 'createSession')
+      .mockResolvedValue({ id: 'session-4' } as never);
+
+    await service.createSessionForStaff('user-2', UserRole.staff, 'class-1', {
+      date: '2026-10-10',
+      coefficient: 0,
+      lessonContent: '<p>Nội dung</p>',
+      homework: '<p>BTVN</p>',
+      tutorial: '<p>Tutorial</p>',
+    });
+
+    expect(createSessionSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ coefficient: 0 }),
+      undefined,
+    );
   });
 
   it('resolves the class teacher when admin creates a staff-ops session', async () => {
