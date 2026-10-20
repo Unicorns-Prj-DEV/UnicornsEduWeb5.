@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 import {
+  ACHIEVEMENTS_FIELD_KEY,
   AVATAR_FIELD_KEY,
   DATA_CONSENT_FIELD_KEY,
   buildProfilePatches,
@@ -68,6 +69,29 @@ describe("validateProfileForm", () => {
     ]);
     expect(result.missingCount).toBe(4);
     expect(result.hasBlockingError).toBe(false);
+  });
+
+  it("gia sư chưa có thành tích thì báo thiếu, role khác không bị yêu cầu", () => {
+    const teacher = makeProfile({
+      staffInfo: { ...completeStaff, roles: ["teacher"], achievementCount: 0 },
+    });
+    const teacherResult = validateProfileForm(
+      teacher,
+      getProfileFormValues(teacher),
+    );
+    expect(teacherResult.orderedKeys).toEqual([ACHIEVEMENTS_FIELD_KEY]);
+    expect(teacherResult.missingCount).toBe(1);
+    expect(teacherResult.hasBlockingError).toBe(false);
+
+    for (const staffInfo of [
+      { ...completeStaff, roles: ["teacher"], achievementCount: 1 },
+      { ...completeStaff, roles: ["accountant"], achievementCount: 0 },
+    ]) {
+      const profile = makeProfile({ staffInfo });
+      expect(
+        validateProfileForm(profile, getProfileFormValues(profile)).missingCount,
+      ).toBe(0);
+    }
   });
 
   it("lỗi định dạng và xoá ô không được để trống thì chặn lưu", () => {

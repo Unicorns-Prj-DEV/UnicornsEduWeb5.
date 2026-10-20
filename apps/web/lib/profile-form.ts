@@ -4,6 +4,7 @@ import type {
   UpdateMyStaffProfileDto,
   UpdateMyStudentProfileDto,
 } from "@/dtos/profile.dto";
+import { isMissingRequiredStaffAchievement } from "@/lib/staff-achievement-requirement";
 
 /**
  * Form hồ sơ của chính người dùng, lưu bằng một nút "Lưu" chung.
@@ -38,6 +39,7 @@ export type ProfileFormValues = Record<string, string>;
 /** Khoá giả cho trường bắt buộc không nằm trong form Lưu chung. */
 export const AVATAR_FIELD_KEY = "avatar";
 export const DATA_CONSENT_FIELD_KEY = "dataConsent";
+export const ACHIEVEMENTS_FIELD_KEY = "achievements";
 
 export type ProfileFieldError = { kind: "missing" | "invalid"; message: string };
 
@@ -144,6 +146,7 @@ const STUDENT_FIELDS: ProfileFieldDef[] = [
 export function getProfileFieldDomId(key: string): string {
   if (key === AVATAR_FIELD_KEY) return "profile-avatar-upload";
   if (key === DATA_CONSENT_FIELD_KEY) return "profile-data-consent";
+  if (key === ACHIEVEMENTS_FIELD_KEY) return "profile-staff-achievements";
   return `profile-field-${key.replace(".", "-")}`;
 }
 
@@ -279,6 +282,12 @@ export function validateProfileForm(
   checkFields(ACCOUNT_FIELDS);
   if (isStaff) {
     checkFields(STAFF_FIELDS);
+    if (isMissingRequiredStaffAchievement(profile.staffInfo)) {
+      add(ACHIEVEMENTS_FIELD_KEY, {
+        kind: "missing",
+        message: "Gia sư cần có ít nhất 1 thành tích.",
+      });
+    }
     if (!hasAcceptedDataConsent(profile)) {
       add(DATA_CONSENT_FIELD_KEY, {
         kind: "missing",

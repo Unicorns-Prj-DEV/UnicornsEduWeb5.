@@ -1,6 +1,7 @@
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 import { canPublishNotifications } from "@/lib/notification-publisher-access";
+import { isMissingRequiredStaffAchievement } from "@/lib/staff-achievement-requirement";
 import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
 
 type StaffShellProfile = FullProfileDto | UserInfoDto | null | undefined;
@@ -126,7 +127,8 @@ function isCompleteFullProfileStaffInfo(profile: FullProfileDto): boolean {
     hasText(staffInfo.university) &&
     hasText(staffInfo.highSchool) &&
     hasText(staffInfo.bankAccount) &&
-    hasText(staffInfo.bankQrLink)
+    hasText(staffInfo.bankQrLink) &&
+    !isMissingRequiredStaffAchievement(staffInfo)
   );
 }
 

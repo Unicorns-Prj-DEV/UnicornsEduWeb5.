@@ -59,6 +59,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Gia sư bắt buộc có ít nhất 1 thành tích**: nhân sự có role `teacher` mà chưa có thành tích nào thì `staffProfileComplete=false`, bị chuyển về `/user-profile?profile_required=1`; form hồ sơ báo thiếu ngay dưới khối Thành tích và tính thành tích vào % hoàn thiện. `GET /users/me/full` trả thêm `staffInfo.achievementCount`. Thêm/xoá thành tích của chính mình refresh session + full profile. Role khác không đổi. ADR: `docs/adr/2026-10-20-teacher-achievement-required.md` (thay thế một phần ADR 2026-08-11). Không cần migration.
 - **Học sinh đã xác minh email đăng nhập thẳng**: `POST /auth/student/login` cấp phiên + set cookie ngay khi `emailVerified = true` (admin tick «Email đã xác thực» là đủ), bỏ bước magic link «Kiểm tra email của bạn» mỗi lần đăng nhập. Vẫn giữ `EMAIL_NOT_VERIFIED` và luật một thiết bị (`DEVICE_ACTIVE`). FE login bỏ màn chờ + polling. Endpoint poll/verify-login/activate thành legacy. Docs: ADR `2026-10-18-student-login-skip-login-magic-link`, `pages/auth.md`, `pages/auth-login.md`.
 
 ### Removed

@@ -29,6 +29,7 @@ import {
 } from "@/lib/profile-full-query";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 import {
+  ACHIEVEMENTS_FIELD_KEY,
   AVATAR_FIELD_KEY,
   DATA_CONSENT_FIELD_KEY,
   buildProfilePatches,
@@ -907,9 +908,16 @@ export default function UserProfileEditor({
                   }
                 />
               </div>
-              <div className="mt-6 border-t border-border-default pt-6">
+              <div
+                id={getProfileFieldDomId(ACHIEVEMENTS_FIELD_KEY)}
+                className="mt-6 border-t border-border-default pt-6"
+              >
                 <AchievementListEditor
                   owner={{ kind: "staff", mode: "self" }}
+                />
+                <FieldError
+                  id={`${getProfileFieldDomId(ACHIEVEMENTS_FIELD_KEY)}-error`}
+                  message={errorFor(ACHIEVEMENTS_FIELD_KEY)}
                 />
               </div>
             </ProfileSection>
