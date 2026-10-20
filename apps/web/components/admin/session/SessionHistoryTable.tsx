@@ -972,6 +972,11 @@ export default function SessionHistoryTable({
   const [editFormBaseline, setEditFormBaseline] = useState<string | null>(null);
   const [unsavedConfirmOpen, setUnsavedConfirmOpen] = useState(false);
   const canEditAllowance = allowAllowanceEdit ?? allowFinancialEdits;
+  // Khoá trợ cấp/giờ theo trạng thái ĐÃ LƯU, không theo giá trị đang chọn trong form:
+  // đổi unpaid → paid và chỉnh trợ cấp trong cùng một lần lưu vẫn phải gửi trợ cấp.
+  const isSavedPaymentLocked = isSessionPaymentLockedStatus(
+    editingSession?.teacherPaymentStatus,
+  );
   const canEditAttendanceTuition =
     allowAttendanceTuitionEdits ?? allowFinancialEdits;
   const showTeacherInput =
@@ -1382,7 +1387,7 @@ export default function SessionHistoryTable({
 
   const handleSaveEdit = () => {
     if (!editingSession) return;
-    const isTimeLocked = isSessionPaymentLockedStatus(editPaymentStatus);
+    const isTimeLocked = isSavedPaymentLocked;
     if (!isTimeLocked) {
       const timeError = getSessionTimeSubmitError(editStartTime, editEndTime, {
         required: editingClassDetail?.pricingMode === "per_block",
@@ -1486,8 +1491,7 @@ export default function SessionHistoryTable({
       canEditAllowance &&
       manualAllowanceGrossOverride !== null &&
       coeffNum !== 0 &&
-      editPaymentStatus !== "paid" &&
-      editPaymentStatus !== "deposit"
+      !isSavedPaymentLocked
     ) {
       if (
         !Number.isFinite(manualAllowanceGrossOverride) ||
@@ -1555,8 +1559,7 @@ export default function SessionHistoryTable({
           canEditAllowance &&
           manualAllowanceGrossOverride !== null &&
           (payload.coefficient ?? coefficientForAllowancePreview) > 0 &&
-          editPaymentStatus !== "paid" &&
-          editPaymentStatus !== "deposit"
+          !isSavedPaymentLocked
         ) {
           data.allowanceAmount = grossAllowanceToRawBaseVnd(
             manualAllowanceGrossOverride,
@@ -1767,8 +1770,7 @@ export default function SessionHistoryTable({
     previewBlockCount,
   ]);
 
-  const isAllowancePaymentLocked =
-    isSessionPaymentLockedStatus(editPaymentStatus);
+  const isAllowancePaymentLocked = isSavedPaymentLocked;
   const isAllowanceEditLocked = isTrialLesson || isAllowancePaymentLocked;
   const allowanceEditLockedReason = isTrialLesson
     ? "Buổi dạy thử không tính trợ cấp."
