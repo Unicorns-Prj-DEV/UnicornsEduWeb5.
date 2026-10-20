@@ -264,6 +264,7 @@ export class SessionValidationService {
           studentId: string;
           status?: AttendanceStatus;
           tuitionFee?: number | null;
+          notes?: string | null;
         }>
       | undefined,
     options: { required: boolean },
@@ -305,6 +306,18 @@ export class SessionValidationService {
 
     if (hasInvalidTuitionFee) {
       throw new BadRequestException('attendance.tuitionFee không hợp lệ.');
+    }
+
+    // Nghỉ phép phải ghi lý do vào `notes`.
+    const hasExcusedWithoutReason = attendance.some(
+      (item) =>
+        item?.status === AttendanceStatus.excused &&
+        !this.normalizeReviewText(item.notes),
+    );
+    if (hasExcusedWithoutReason) {
+      throw new BadRequestException(
+        'Học sinh nghỉ phép phải có lý do nghỉ (attendance.notes).',
+      );
     }
   }
 

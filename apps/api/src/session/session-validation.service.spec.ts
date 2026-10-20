@@ -48,6 +48,40 @@ describe('SessionValidationService', () => {
     ).toThrow(new BadRequestException('attendance.tuitionFee không hợp lệ.'));
   });
 
+  it('rejects excused attendance without a reason', () => {
+    expect(() =>
+      service.validateAttendanceItems(
+        [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.excused,
+            notes: '   ',
+          },
+        ],
+        { required: true },
+      ),
+    ).toThrow(
+      new BadRequestException(
+        'Học sinh nghỉ phép phải có lý do nghỉ (attendance.notes).',
+      ),
+    );
+  });
+
+  it('accepts excused attendance with a reason', () => {
+    expect(() =>
+      service.validateAttendanceItems(
+        [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.excused,
+            notes: 'Ốm',
+          },
+        ],
+        { required: true },
+      ),
+    ).not.toThrow();
+  });
+
   it('uses default tuition when present attendance has no override', () => {
     expect(
       service.resolveChargeableAttendanceTuitionFee(

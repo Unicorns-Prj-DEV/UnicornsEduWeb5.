@@ -79,6 +79,7 @@ import {
   emptySessionReviewForm,
   emptyStudentReviewForm,
   findSessionReviewFormInputError,
+  toAttendanceNotes,
   toAttendanceReviewPayload,
   toSessionReviewPayload,
   type SessionReviewFormValue,
@@ -246,7 +247,7 @@ function toAttendancePayload(
   return items.map((item) => ({
     studentId: item.studentId,
     status: item.status,
-    notes: null,
+    notes: toAttendanceNotes(item.status, item.review),
     ...toAttendanceReviewPayload(item.status, item.review, hasInClassTest),
     ...(includeTuition && item.tuitionFee.trim() !== ""
       ? { tuitionFee: parseMoneyInput(item.tuitionFee) ?? 0 }
@@ -677,6 +678,7 @@ export default function AddSessionPopup({
         : attendanceItems.map((item) => ({
             fullName: item.fullName,
             status: item.status,
+            notes: toAttendanceNotes(item.status, item.review),
             ...toAttendanceReviewPayload(
               item.status,
               item.review,

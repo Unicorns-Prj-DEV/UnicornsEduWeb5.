@@ -98,6 +98,7 @@ import {
   findSessionReviewFormInputError,
   sessionReviewFormFromSession,
   studentReviewFormFromAttendance,
+  toAttendanceNotes,
   toAttendanceReviewPayload,
   toSessionReviewPayload,
   type SessionReviewFormValue,
@@ -1461,7 +1462,7 @@ export default function SessionHistoryTable({
         ? attendanceItems.map((item) => ({
             studentId: item.studentId,
             status: item.status,
-            notes: null,
+            notes: toAttendanceNotes(item.status, item.review),
             ...toAttendanceReviewPayload(
               item.status,
               item.review,
@@ -1880,6 +1881,7 @@ export default function SessionHistoryTable({
         : attendanceItems.map((item) => ({
             fullName: item.fullName,
             status: item.status,
+            notes: toAttendanceNotes(item.status, item.review),
             ...toAttendanceReviewPayload(
               item.status,
               item.review,

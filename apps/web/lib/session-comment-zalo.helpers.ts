@@ -679,8 +679,11 @@ export function findSessionReviewFormError(
   }
 
   for (const student of students) {
-    if (student.status !== "present" && student.status !== "trial") continue;
     const name = student.fullName.trim() || "học sinh";
+    if (student.status === "excused" && !student.notes?.trim()) {
+      return `Vui lòng nhập lý do nghỉ phép của ${name}.`;
+    }
+    if (student.status !== "present" && student.status !== "trial") continue;
     if (review.hasInClassTest) {
       const total = review.inClassTestTotal ?? 0;
       const correct = student.testCorrectCount;

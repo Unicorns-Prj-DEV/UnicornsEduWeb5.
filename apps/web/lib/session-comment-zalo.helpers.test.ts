@@ -295,10 +295,18 @@ describe("findSessionReviewFormError", () => {
     ).toBe("Số câu đúng của A phải trong khoảng 0–5.");
   });
 
-  it("skips excused students and homework for trial", () => {
+  it("requires a reason for excused students", () => {
     expect(
       findSessionReviewFormError(validReview, [
-        { fullName: "A", status: "excused" },
+        { fullName: "A", status: "excused", notes: "  " },
+      ]),
+    ).toBe("Vui lòng nhập lý do nghỉ phép của A.");
+  });
+
+  it("skips review fields for excused students and homework for trial", () => {
+    expect(
+      findSessionReviewFormError(validReview, [
+        { fullName: "A", status: "excused", notes: "Ốm" },
         { fullName: "B", status: "trial", strengths: "x", improvements: "y" },
       ]),
     ).toBeNull();

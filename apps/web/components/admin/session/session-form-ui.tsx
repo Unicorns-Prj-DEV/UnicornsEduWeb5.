@@ -720,6 +720,7 @@ type ReviewTextareaProps = {
   placeholder?: string;
   rows?: number;
   hint?: string;
+  maxLength?: number;
 };
 
 /** Textarea plain text, mỗi dòng 1 ý. */
@@ -732,6 +733,7 @@ export function ReviewTextarea({
   placeholder,
   rows = 3,
   hint,
+  maxLength = CONTENT_LIMITS.sessionReviewText,
 }: ReviewTextareaProps) {
   return (
     <label className="flex flex-col gap-1.5 text-sm font-medium text-text-primary">
@@ -743,7 +745,7 @@ export function ReviewTextarea({
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         rows={rows}
-        maxLength={CONTENT_LIMITS.sessionReviewText}
+        maxLength={maxLength}
         placeholder={placeholder}
         className={cn(REVIEW_INPUT_CLASS, "resize-y font-normal")}
       />
@@ -980,7 +982,7 @@ type SessionStudentReviewFieldsProps = {
   disabled?: boolean;
 };
 
-/** Phần từng HS: nghỉ phép/vắng không nhập gì; học thử bỏ mục BTVN. */
+/** Phần từng HS: nghỉ phép chỉ nhập lý do nghỉ; vắng không nhập gì; học thử bỏ mục BTVN. */
 export function SessionStudentReviewFields({
   fullName,
   status,
@@ -991,12 +993,23 @@ export function SessionStudentReviewFields({
   inClassTestTotal,
   disabled = false,
 }: SessionStudentReviewFieldsProps) {
-  if (status !== "present" && status !== "trial") {
+  if (status === "excused") {
     return (
-      <p className="text-xs text-text-muted">
-        {status === "excused" ? "Nghỉ phép" : "Vắng"} — không cần nhận xét.
-      </p>
+      <ReviewTextarea
+        label="Lý do nghỉ"
+        value={value.excusedReason}
+        onChange={(excusedReason) => onChange({ excusedReason })}
+        required
+        disabled={disabled}
+        placeholder="Ví dụ: ốm, đi du lịch cùng gia đình…"
+        rows={2}
+        maxLength={CONTENT_LIMITS.attendanceNotes}
+      />
     );
+  }
+
+  if (status !== "present" && status !== "trial") {
+    return <p className="text-xs text-text-muted">Vắng — không cần nhận xét.</p>;
   }
 
   return (
@@ -1183,7 +1196,7 @@ type SessionStudentAttendanceCommentRowProps = {
 
 /**
  * Card một học sinh. Header: tên + quick-pick (+ học phí buổi khi có quyền) trên một hàng
- * từ `sm`; thân: các ô nhận xét. Nghỉ phép/vắng chỉ còn header + một dòng ghi chú.
+ * từ `sm`; thân: các ô nhận xét. Nghỉ phép chỉ còn ô lý do nghỉ; vắng chỉ còn một dòng ghi chú.
  */
 export function SessionStudentAttendanceCommentRow({
   studentId,
