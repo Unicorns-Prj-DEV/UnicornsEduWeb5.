@@ -13,6 +13,7 @@ import {
   MANUAL_FIRST_TOP_UP_MAX_DAYS,
   MANUAL_TOP_UP_NOTE_PREFIX,
 } from './first-wallet-top-up.sql';
+import { LEGACY_MANUAL_TOP_UP_NOTE_PREFIX } from '../common/manual-top-up-note';
 import {
   COUNTED_ATTENDANCE_STATUSES,
   OLD_DROPPED_MIN_SESSIONS,
@@ -672,6 +673,17 @@ describe('DashboardService new students by first wallet top-up', () => {
     );
     expect(sql).toContain('wallet_transactions_history.type');
     expect(sql).toContain('counted_attendance.student_id = student_info.id');
+  });
+
+  it('counts every positive manual top-up (new and legacy notes) toward Học sinh cũ nghỉ', () => {
+    const { sql, values } = OLD_DROPPED_STUDENT_WHERE_SQL;
+    expect(values).toEqual(
+      expect.arrayContaining([
+        `${MANUAL_TOP_UP_NOTE_PREFIX}%`,
+        `${LEGACY_MANUAL_TOP_UP_NOTE_PREFIX}%`,
+      ]),
+    );
+    expect(sql).toContain('wallet_transactions_history.amount > 0');
   });
 
   it('returns the drop-out reason on dropped churn rows only', async () => {

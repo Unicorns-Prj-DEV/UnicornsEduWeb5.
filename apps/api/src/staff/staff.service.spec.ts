@@ -2911,8 +2911,11 @@ describe('StaffService', () => {
             },
           },
           classTeachers: {
+            where: {
+              OR: [{ status: null }, { status: 'active' }],
+              class: { status: 'running' },
+            },
             select: {
-              status: true,
               class: { select: { id: true, name: true } },
             },
           },
@@ -2934,58 +2937,32 @@ describe('StaffService', () => {
     expect(result.data[0]).not.toHaveProperty('_count');
   });
 
-  it('hides inactive class_teachers without remaining allowance on staff list', async () => {
-    mockPrisma.staffInfo.count.mockResolvedValue(1);
-    mockPrisma.staffInfo.findMany.mockResolvedValue([
-      {
-        id: 'staff-1',
-        fullName: 'Teacher A',
-        status: 'active',
-        roles: [StaffRole.teacher],
-        user: {
-          first_name: 'Teacher',
-          last_name: 'A',
-          accountHandle: 'teacher-a',
-          email: 'teacher@example.com',
-          province: 'Hanoi',
-          avatarPath: null,
-        },
-        classTeachers: [
-          {
-            status: 'active',
-            class: { id: 'class-active', name: 'BASIC 08' },
-          },
-          {
-            status: 'inactive',
-            class: { id: 'class-retired-zero', name: 'BASIC 07' },
-          },
-          {
-            status: 'inactive',
-            class: { id: 'class-retired-unpaid', name: 'ADVANCED 10' },
-          },
-        ],
-        _count: { achievements: 0 },
-      },
-    ]);
+  it('filters staff list class filter to current teaching classes only', async () => {
+    mockPrisma.staffInfo.count.mockResolvedValue(0);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     jest
       .spyOn(service as any, 'getUnpaidTotalsByStaffIds')
-      .mockResolvedValue(new Map([['staff-1', 380000]]));
-    jest
-      .spyOn(service as any, 'getListVisibleClassIdsByTeacherIds')
-      .mockResolvedValue(
-        new Map([['staff-1', new Set(['class-retired-unpaid'])]]),
-      );
+      .mockResolvedValue(new Map());
 
-    const result = await service.getStaff({
+    await service.getStaff({
       page: 1,
       limit: 20,
+      className: 'BASIC 32',
     });
 
-    expect(result.data[0].classTeachers).toEqual([
-      { class: { id: 'class-active', name: 'BASIC 08' } },
-      { class: { id: 'class-retired-unpaid', name: 'ADVANCED 10' } },
-    ]);
-    expect(result.data[0].unpaidAmountTotal).toBe(380000);
+    expect(mockPrisma.staffInfo.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        classTeachers: {
+          some: {
+            OR: [{ status: null }, { status: 'active' }],
+            class: {
+              status: 'running',
+              name: { contains: 'BASIC 32', mode: 'insensitive' },
+            },
+          },
+        },
+      }),
+    });
   });
 
   it('attaches signed avatar URL to staff detail user without exposing storage path', async () => {

@@ -98,7 +98,8 @@ function formatActiveClassNames(
   studentClasses?: StudentListItem["studentClasses"],
 ): string {
   const names = (studentClasses ?? [])
-    .filter((sc) => sc.status === "active")
+    // Lớp đang học: còn trên roster và lớp chưa kết thúc.
+    .filter((sc) => sc.status === "active" && sc.class?.status !== "ended")
     .map((sc) => sc.class?.name?.trim())
     .filter((name): name is string => Boolean(name));
   return names.length > 0 ? names.join(", ") : "Chưa xếp lớp";
@@ -306,8 +307,11 @@ function AdminStudentsPageContent() {
 
   const handleCopyQr = async (student: StudentListItem) => {
     try {
-      const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      await copyStudentWalletQrWithToast(qr.qrCodeUrl, student);
+      // Không await API trước: clipboard.write phải chạy trong user gesture (Safari).
+      const qrCodeUrl = studentApi
+        .getStudentSePayStaticQr(student.id)
+        .then((qr) => qr.qrCodeUrl);
+      await copyStudentWalletQrWithToast(qrCodeUrl, student);
     } catch {
       toast.error("Không thể sao chép QR. Vui lòng thử lại.");
     }
