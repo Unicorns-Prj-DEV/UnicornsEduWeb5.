@@ -98,7 +98,8 @@ function formatActiveClassNames(
   studentClasses?: StudentListItem["studentClasses"],
 ): string {
   const names = (studentClasses ?? [])
-    .filter((sc) => sc.status === "active")
+    // Lớp đang học: còn trên roster và lớp chưa kết thúc.
+    .filter((sc) => sc.status === "active" && sc.class?.status !== "ended")
     .map((sc) => sc.class?.name?.trim())
     .filter((name): name is string => Boolean(name));
   return names.length > 0 ? names.join(", ") : "Chưa xếp lớp";

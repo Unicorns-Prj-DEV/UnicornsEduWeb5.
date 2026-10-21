@@ -1259,9 +1259,12 @@ export class StudentService {
       ...(genderFilter ? { gender: genderFilter } : {}),
       ...(trimmedClassName
         ? {
+            // Chỉ khớp lớp đang học: còn trên roster và lớp chưa kết thúc.
             studentClasses: {
               some: {
+                status: StudentClassStatus.active,
                 class: {
+                  status: ClassStatus.running,
                   name: {
                     contains: trimmedClassName,
                     mode: 'insensitive' as const,
