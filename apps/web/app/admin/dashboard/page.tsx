@@ -52,6 +52,14 @@ import {
   PersonnelCostBreakdown,
   getPersonnelBreakdownItems,
 } from "@/components/admin/dashboard/overview/PersonnelCostBreakdown";
+import {
+  DASHBOARD_CONTAINER,
+  DASHBOARD_HEADER_GRID,
+  DASHBOARD_KPI_GRID,
+  DASHBOARD_PERIOD_GRID,
+  DASHBOARD_STATUS_GRID,
+  DASHBOARD_STATUS_TRAILING_SPAN,
+} from "@/components/admin/dashboard/overview/layout";
 import { StudentClassSection } from "@/components/admin/dashboard/overview/StudentClassSection";
 import {
   YearQuarterSection,
@@ -397,7 +405,7 @@ export default function AdminDashboardTabPage() {
   // Header luôn giữ nguyên khi đổi tháng — chỉ phần thân hiện skeleton, tránh chớp cả trang.
   const headerNode = (
     <>
-      <header className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+      <header className={DASHBOARD_HEADER_GRID}>
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-text-secondary">
             Quản trị · Tổng quan
@@ -412,7 +420,7 @@ export default function AdminDashboardTabPage() {
 
         {/* Khoảng ngày: ẩn MonthNav, giữ ô trống để cột phải không dồn vào giữa. */}
         {isRangeMode ? (
-          <div className="hidden lg:block" aria-hidden />
+          <div className="hidden @5xl:block" aria-hidden />
         ) : (
           <MonthNav
             value={`${year}-${month}`}
@@ -426,8 +434,8 @@ export default function AdminDashboardTabPage() {
           />
         )}
 
-        <div className="flex flex-col gap-2 lg:items-end">
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex flex-col gap-2 @5xl:items-end">
+          <div className="flex flex-wrap items-center gap-2 @5xl:justify-end">
             <div role="group" aria-label="Chế độ xem kỳ" className="inline-flex w-fit rounded-lg bg-bg-tertiary p-0.5">
               {(
                 [
@@ -451,7 +459,7 @@ export default function AdminDashboardTabPage() {
               ))}
             </div>
             {isRangeMode ? (
-              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              <div className="flex flex-wrap items-center gap-2 @5xl:justify-end">
                 <label htmlFor="dateFrom" className="text-xs text-text-muted whitespace-nowrap">Từ</label>
                 <DateInput
                   id="dateFrom"
@@ -472,7 +480,7 @@ export default function AdminDashboardTabPage() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap @5xl:justify-end">
             <Link href={buildAdminLikePath(routeBase, "monthly-report")} className={toolbarSecondaryClass}>
               <FileChartColumn className="size-4 shrink-0" aria-hidden />
               Báo cáo tháng
@@ -522,7 +530,7 @@ export default function AdminDashboardTabPage() {
 
   const renderShell = (body: ReactNode) => (
     <div className="min-h-full bg-bg-primary px-4 pb-10 pt-4 sm:p-6">
-      <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-4 sm:gap-5">
+      <div className={DASHBOARD_CONTAINER}>
         {headerNode}
         {body}
       </div>
@@ -616,7 +624,7 @@ export default function AdminDashboardTabPage() {
           <>
             <section
               aria-label="Chỉ số chính"
-              className={`grid grid-cols-1 gap-3 transition-opacity min-[480px]:grid-cols-2 xl:grid-cols-4 sm:gap-4 ${
+              className={`${DASHBOARD_KPI_GRID} transition-opacity ${
                 dimPeriodBlocks ? "opacity-70" : ""
               }`}
             >
@@ -658,7 +666,7 @@ export default function AdminDashboardTabPage() {
               />
             </section>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:gap-5">
+            <div className={DASHBOARD_PERIOD_GRID}>
               <DashboardPanel title="Kết quả kỳ" description="Bấm từng dòng để xem chi tiết nguồn" dimmed={dimPeriodBlocks}>
                 <div className="flex flex-col gap-0.5">
                   <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
@@ -712,7 +720,7 @@ export default function AdminDashboardTabPage() {
           </>
         )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 sm:gap-5">
+        <div className={DASHBOARD_STATUS_GRID}>
           <BalanceSnapshotCard
             summary={summary}
             giftedLessonPlanEnabled={giftedLessonPlanEnabled !== false}
@@ -728,10 +736,11 @@ export default function AdminDashboardTabPage() {
             onOpenClassBreakdown={() => setClassBreakdownOpen(true)}
           />
           {isRangeInitialLoading ? (
-            <CustomerSourceSectionSkeleton />
+            <CustomerSourceSectionSkeleton className={DASHBOARD_STATUS_TRAILING_SPAN} />
           ) : (
             <CustomerSourceSection
               rows={periodDashboard.customerSources ?? []}
+              className={DASHBOARD_STATUS_TRAILING_SPAN}
               dimmed={dimPeriodBlocks}
               onOpen={(row) => setFinancialSelection({ kind: "customer-source", sourceKey: row.key })}
             />

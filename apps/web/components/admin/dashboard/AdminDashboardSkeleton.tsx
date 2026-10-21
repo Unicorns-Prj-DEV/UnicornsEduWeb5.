@@ -1,4 +1,13 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DASHBOARD_CONTAINER,
+  DASHBOARD_HEADER_GRID,
+  DASHBOARD_KPI_GRID,
+  DASHBOARD_PERIOD_GRID,
+  DASHBOARD_PERIOD_WIDE_SPAN,
+  DASHBOARD_STATUS_GRID,
+  DASHBOARD_STATUS_TRAILING_SPAN,
+} from "./overview/layout";
 
 const KPI_CARD_COUNT = 4;
 
@@ -6,17 +15,17 @@ function SkeletonLine({ className = "" }: { className?: string }) {
   return <Skeleton className={`bg-bg-tertiary ${className}`} />;
 }
 
-/** Header: tiêu đề │ MonthNav │ toggle + nút — khớp `lg:grid-cols-[1fr_auto_1fr]` của page. */
+/** Header: tiêu đề │ MonthNav │ toggle + nút — khớp `DASHBOARD_HEADER_GRID` của page. */
 function DashboardHeaderSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+    <div className={DASHBOARD_HEADER_GRID}>
       <div className="flex flex-col gap-2">
         <SkeletonLine className="h-3 w-32" />
         <SkeletonLine className="h-8 w-56 rounded-md" />
         <SkeletonLine className="h-4 w-72 max-w-full" />
       </div>
       <SkeletonLine className="h-10 w-60 justify-self-center rounded-lg" />
-      <div className="flex flex-col gap-2 lg:items-end">
+      <div className="flex flex-col gap-2 @5xl:items-end">
         <SkeletonLine className="h-10 w-52 rounded-lg" />
         <div className="grid grid-cols-2 gap-2 sm:flex">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -73,7 +82,7 @@ function KpiCardSkeleton() {
 /** 4 KPI — cùng lưới với section "Chỉ số chính". */
 export function KpiRowSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4 sm:gap-4">
+    <div className={DASHBOARD_KPI_GRID}>
       {Array.from({ length: KPI_CARD_COUNT }).map((_, index) => (
         <KpiCardSkeleton key={`admin-dashboard-kpi-${index}`} />
       ))}
@@ -84,15 +93,15 @@ export function KpiRowSkeleton() {
 /** Hàng tiền theo kỳ: Kết quả kỳ (1/3) + Cơ cấu chi phí nhân sự (2/3). */
 export function PeriodMoneyRowSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:gap-5">
+    <div className={DASHBOARD_PERIOD_GRID}>
       <DashboardPanelSkeleton rows={8} />
-      <DashboardPanelSkeleton rows={7} className="lg:col-span-2" />
+      <DashboardPanelSkeleton rows={7} className={DASHBOARD_PERIOD_WIDE_SPAN} />
     </div>
   );
 }
 
-export function CustomerSourceSectionSkeleton() {
-  return <DashboardPanelSkeleton rows={4} />;
+export function CustomerSourceSectionSkeleton({ className }: { className?: string }) {
+  return <DashboardPanelSkeleton rows={4} className={className} />;
 }
 
 /** Thân dashboard (dưới header) — dùng khi tháng mới chưa có dữ liệu. */
@@ -102,10 +111,10 @@ export function AdminDashboardBodySkeleton() {
       <span className="sr-only">Đang tải số liệu dashboard…</span>
       <KpiRowSkeleton />
       <PeriodMoneyRowSkeleton />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 sm:gap-5">
+      <div className={DASHBOARD_STATUS_GRID}>
         <DashboardPanelSkeleton rows={3} />
         <DashboardPanelSkeleton rows={5} />
-        <DashboardPanelSkeleton rows={4} />
+        <CustomerSourceSectionSkeleton className={DASHBOARD_STATUS_TRAILING_SPAN} />
       </div>
       <DashboardPanelSkeleton rows={5} />
     </div>
@@ -129,7 +138,7 @@ export function AdminDashboardSkeleton({
       role="status"
     >
       <span className="sr-only">Đang tải dashboard…</span>
-      <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-4 sm:gap-5">
+      <div className={DASHBOARD_CONTAINER}>
         <DashboardHeaderSkeleton />
         {variant === "full" ? <AdminDashboardBodySkeleton /> : null}
       </div>
