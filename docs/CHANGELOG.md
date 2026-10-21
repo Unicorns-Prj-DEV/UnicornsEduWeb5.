@@ -73,6 +73,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- FE copy QR (`apps/web/lib/clipboard-qr.ts`): sửa lỗi luôn rơi về copy link. img.vietqr.io đã chuyển `/image/*.png` thành 301 redirect sang `.svg` không có header CORS nên `fetch` bị chặn; helper giờ gọi thẳng `.svg`, rasterize mọi ảnh không phải PNG qua canvas, và gọi `navigator.clipboard.write` ngay trong user gesture với `ClipboardItem` nhận Promise (URL QR từ API được truyền dạng Promise) để Safari không từ chối ghi clipboard.
 - **Học sinh cũ nghỉ tính cả nạp tay**: điều kiện tiền nạp của **Học sinh cũ nghỉ** (`OLD_DROPPED_STUDENT_WHERE_SQL`) nhận thêm **mọi** lần nạp tay dương — ghi chú mới `Nạp tiền thủ công từ trang chi tiết học sinh.` lẫn ghi chú kiểu cũ `Nạp tiền: +…` (trước ~17/05/2026), không giới hạn giao dịch đầu / 30 ngày. Trước đây học sinh chỉ có nạp tay kiểu cũ hoặc nạp tay về sau (vd Đồng Đại Hải) bị xếp nhầm vào **thử nghỉ**. Định nghĩa **Học sinh mới** (`QUALIFYING_TOP_UP_WHERE_SQL`) không đổi. Không cần migration.
 
 - **Mất trợ cấp chỉnh tay khi đổi trạng thái thanh toán cùng lúc** (form sửa buổi, `SessionHistoryTable`): form khoá trợ cấp và giờ theo trạng thái đang chọn trong dropdown, nên chỉnh tay trợ cấp rồi đổi `unpaid` → `paid`/`deposit` trong cùng một lần lưu thì `allowanceAmount` (và `startTime`/`endTime`) bị bỏ khỏi payload. Giờ khoá theo trạng thái **đã lưu** của buổi (`editingSession.teacherPaymentStatus`): buổi chưa thanh toán vẫn gửi trợ cấp/giờ dù vừa chọn paid; buổi đã paid/deposit vẫn khoá như cũ. Docs: `pages/admin.md`.

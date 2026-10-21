@@ -306,8 +306,11 @@ function AdminStudentsPageContent() {
 
   const handleCopyQr = async (student: StudentListItem) => {
     try {
-      const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      await copyStudentWalletQrWithToast(qr.qrCodeUrl, student);
+      // Không await API trước: clipboard.write phải chạy trong user gesture (Safari).
+      const qrCodeUrl = studentApi
+        .getStudentSePayStaticQr(student.id)
+        .then((qr) => qr.qrCodeUrl);
+      await copyStudentWalletQrWithToast(qrCodeUrl, student);
     } catch {
       toast.error("Không thể sao chép QR. Vui lòng thử lại.");
     }

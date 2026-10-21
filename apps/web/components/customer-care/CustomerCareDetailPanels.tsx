@@ -895,8 +895,11 @@ export default function CustomerCareDetailPanels({
 
   const handleCopyQr = async (student: CustomerCareStudentItem) => {
     try {
-      const qr = await studentApi.getStudentSePayStaticQr(student.id);
-      await copyStudentWalletQrWithToast(qr.qrCodeUrl, {
+      // Không await API trước: clipboard.write phải chạy trong user gesture (Safari).
+      const qrCodeUrl = studentApi
+        .getStudentSePayStaticQr(student.id)
+        .then((qr) => qr.qrCodeUrl);
+      await copyStudentWalletQrWithToast(qrCodeUrl, {
         id: student.id,
         fullName: student.fullName,
         studentClasses: student.classes?.map((c) => ({
