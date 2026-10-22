@@ -23,6 +23,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Ban Đào Tạo chỉnh gia sư + lương gia sư ở lớp mình quản lý**: trang `/staff/classes/[id]`, card **Gia sư & Quản lý** hiện lương mọi gia sư cho quản lý lớp và có nút **Chỉnh sửa** (`ManagedClassTeachersPopup`): sửa trợ cấp / trần / scale cấp lớp, trợ cấp riêng / scale riêng / `% vận hành` từng gia sư, thêm gia sư `teacher` đang `active` (gia sư từng nghỉ được mở lại, lương reset), nút **Nghỉ dạy** trên card. Không xem/sửa học phí; không sửa dòng của chính mình; gia sư mới tự thêm khung giờ. API mới: `PATCH /staff-ops/classes/:id/teacher-pay`, `POST /staff-ops/classes/:id/teachers`, `POST /staff-ops/classes/:id/teachers/:teacherId/stop-teaching`. Không cần migration.
+
 - **Chốt lương cứng theo người**: nút **Chốt lương tháng này** (tab Lương cứng, system settings) mở dialog search tên, mỗi nhân sự một dòng (tổng gộp, nút **Chốt lương**, bung xem từng role Đã chốt / Chưa chốt), badge **Đã chốt** / nhãn **Đã chốt x/y role**, footer **Chốt tất cả người chưa chốt (N)** kèm xác nhận. API mới `GET /fixed-salary-settings/close-candidates`; `POST /fixed-salary-settings/close-month` nhận `staffIds?`. Cron ngày 28 đổi sang **chốt nốt** người chưa chốt / chốt dở thay vì bỏ qua cả tháng khi đã có khoản. Không cần migration.
 - **Nghỉ phép bắt buộc lý do nghỉ**: chọn **Phép** trong điểm danh (thêm/sửa buổi) hiện ô **Lý do nghỉ** (≤ 500 ký tự, lưu vào `attendance.notes`), thiếu thì toast lỗi; API `POST /sessions` / `PATCH /sessions` trả `400` khi attendance `excused` không có `notes`. Không cần migration.
 - **Markdown cho nội dung tiết lý thuyết**: ô soạn giữ markdown raw; tab Xem trước, chế độ chỉ xem và trang tiết học của học sinh render heading, bảng GFM, blockquote, list lồng, code fence, `$…$` / `$$…$$` (`MathContent` prop `markdown`, `lib/rich-markdown.ts`, thêm dependency `marked`). Tự nối dòng bảng / blockquote bị chèn dòng trống khi copy từ ChatGPT/Docs. Nội dung đã lưu trước đây cũng render luôn, không cần dán lại.
@@ -92,6 +94,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Security
 
+- **Quản lý lớp (Ban Đào Tạo) thấy `studentTuitionPerBlock`**: `redactClassForTrainingManagerView` trước đây không ẩn học phí / block của lớp mở rộng — đã ẩn cùng các field học phí khác.
 - **Luật một thiết bị của học sinh bị vượt qua**: (1) refresh cookie của thiết bị đã bị force-logout / token đã rotate được gán sang thiết bị sống khác (fallback legacy) — đã bỏ; (2) `POST /auth/login` cấp phiên cho học sinh không qua magic link — nay `400 STUDENT_LOGIN_REQUIRED`; (3) Google OAuth tạo thêm thiết bị cho học sinh — nay redirect `device_blocked` nếu còn thiết bị sống; (4) activate song song tạo hai thiết bị — claim `login_requests` nguyên tử (`409 LOGIN_REQUEST_ALREADY_USED`). API thiết bị (`GET /device/student/:id`, force-logout) chỉ nhận tài khoản học sinh (`404` với staff/admin).
 
 ### Changed

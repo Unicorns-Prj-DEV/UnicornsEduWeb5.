@@ -1,4 +1,8 @@
-import type { ClassDetail, ClassListResponse } from "@/dtos/class.dto";
+import type {
+  ClassDetail,
+  ClassListResponse,
+  ClassStatusActionPayload,
+} from "@/dtos/class.dto";
 import type {
   ClassScheduleGoogleCalendarResyncSummary,
   ClassScopedMakeupScheduleEventPayload,
@@ -22,10 +26,12 @@ import type {
   UpdateMissedTeachingExplanationPayload,
 } from "@/dtos/session.dto";
 import type {
+  StaffOpsAddClassTeacherPayload,
   StaffOpsCreateClassPayload,
   StaffOpsCreateSessionPayload,
   StaffOpsSessionMonthYearParams,
   StaffOpsUpdateClassSchedulePayload,
+  StaffOpsUpdateClassTeacherPayPayload,
   StaffOpsUpdateSessionPayload,
 } from "@/dtos/staff-ops.dto";
 import {
@@ -131,6 +137,38 @@ export async function updateClassSchedule(
   const safeId = encodeURIComponent(id);
   const response = await api.patch<{ class: ClassDetail; warnings: string[] }>(`/staff-ops/classes/${safeId}/schedule`, data);
   return response.data;
+}
+
+export async function updateClassTeacherPay(
+  id: string,
+  data: StaffOpsUpdateClassTeacherPayPayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.patch(`/staff-ops/classes/${safeId}/teacher-pay`, data);
+  return response.data as ClassDetail;
+}
+
+export async function addClassTeacher(
+  id: string,
+  data: StaffOpsAddClassTeacherPayload,
+): Promise<ClassDetail> {
+  const safeId = encodeURIComponent(id);
+  const response = await api.post(`/staff-ops/classes/${safeId}/teachers`, data);
+  return response.data as ClassDetail;
+}
+
+export async function stopClassTeacher(
+  classId: string,
+  teacherId: string,
+  data: ClassStatusActionPayload = {},
+): Promise<ClassDetail> {
+  const safeClassId = encodeURIComponent(classId);
+  const safeTeacherId = encodeURIComponent(teacherId);
+  const response = await api.post(
+    `/staff-ops/classes/${safeClassId}/teachers/${safeTeacherId}/stop-teaching`,
+    data,
+  );
+  return response.data as ClassDetail;
 }
 
 export async function resyncClassScheduleGoogleCalendar(
