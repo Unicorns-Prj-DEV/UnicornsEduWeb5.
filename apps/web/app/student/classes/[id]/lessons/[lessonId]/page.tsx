@@ -26,7 +26,7 @@ import {
 } from "@/lib/apis/student-class.api";
 import { getStudentClassContent } from "@/lib/apis/class.api";
 import { Skeleton } from "@/components/ui/skeleton";
-import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
+import ProtectedVideoPlayer from "@/components/ui/ProtectedVideoPlayer";
 import { Card, CardContent } from "@/components/ui/card";
 import MathContent from "@/components/ui/MathContent";
 import QuestionAudio from "@/components/student/QuestionAudio";
@@ -168,7 +168,7 @@ export default function StudentTopicDetailPage() {
       <PracticeLessonRedirect classId={classId} lessonId={lessonId} title={topic.title} />
     );
   }
-  const hasVideo = Boolean(topic.videoUrl);
+  const hasVideo = Boolean(topic.hasVideo);
   const hasContent = Boolean(topic.content);
 
   return (
@@ -231,11 +231,9 @@ export default function StudentTopicDetailPage() {
             <span className="text-[11px] text-text-muted">Bảo mật nội dung</span>
           </div>
           <div className="overflow-hidden rounded-2xl shadow-xl border border-border-default bg-black">
-            <YouTubeEmbed
-              url={topic.videoUrl!}
-              protected
+            <ProtectedVideoPlayer
+              source={{ kind: "lesson", classId, lessonId }}
               title={topic.title}
-              className="w-full aspect-video min-h-[260px] sm:min-h-[380px] md:min-h-[460px] lg:min-h-[500px]"
             />
           </div>
         </section>

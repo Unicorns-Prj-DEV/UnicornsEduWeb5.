@@ -170,7 +170,10 @@ export interface LessonResponseDto {
   moduleId: string | null;
   classId: string | null;
   title: string;
+  /** Link YouTube gốc; luôn null ở response cho học sinh (Video bảo vệ). */
   videoUrl: string | null;
+  /** Chỉ response cho học sinh: tiết có video (xin link qua `…/playback`). */
+  hasVideo?: boolean;
   content: string | null;
   order: number;
   /** Tên nhóm tự chọn (tiết thực hành IT). */

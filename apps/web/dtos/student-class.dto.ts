@@ -34,7 +34,9 @@ export interface StudentSessionItem extends SessionReviewFields {
   lessonContent: string | null;
   homework: string | null;
   tutorial: string | null;
+  /** Luôn null (link YouTube bị giấu) — dùng `hasRecording`. */
   recordingUrl: string | null;
+  hasRecording: boolean;
   coefficient: number;
   /** Số thứ tự buổi trong lớp (suy ra, không lưu). */
   ordinal?: number | null;

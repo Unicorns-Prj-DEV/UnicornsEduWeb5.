@@ -57,7 +57,9 @@ export interface ClassTimelineItemDto {
     nextSessionPlan: string | null;
     hasRetest: boolean;
     retestContent: string | null;
+    /** Chỉ có ở payload staff; payload học sinh luôn null — dùng `hasRecording`. */
     recordingUrl: string | null;
+    hasRecording: boolean;
     teacherName: string | null;
     myAttendanceStatus: string | null;
     myAttendanceNotes: string | null;

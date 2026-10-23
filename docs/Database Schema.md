@@ -926,6 +926,18 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
     - `level`
     - `updated_at`
 
+### 4.10b Video bảo vệ (`protected_videos`)
+
+ADR: `docs/adr/2026-10-18-protected-video-via-unioj-sync.md`. Một dòng mỗi `youtube_id` xuất hiện ở `lessons.video_url` hoặc `sessions.recording_url` (không FK — nhiều tiết/buổi dùng chung video).
+
+- PK `youtube_id` (11 ký tự, parse bằng `extractYouTubeId` — `apps/api/src/protected-video/youtube-id.ts`).
+- `video_id`: ULID Video trong kho UniVideo do UNIOJ trả; null tới khi kho nhận job; không bị xoá khi UNIOJ trả null lần sau.
+- `status` (`ProtectedVideoStatus`): `pending` = LMS chưa gửi được sang UNIOJ; còn lại mirror UNIOJ `video-sync`.
+- `progress` (0–100), `error_code` (UNIOJ, chỉ khi `failed`), `last_sync_error` (lỗi LMS gọi UNIOJ), `queue_position` / `queue_total`.
+- `requested_at`: cron gửi `pending` theo thứ tự mới nhất trước; `synced_at`: lần gọi UNIOJ gần nhất (poll cũ nhất trước).
+- Index: `(status, requested_at)`, `(status, synced_at)`.
+- Migration `20261023100000_protected_videos` backfill mọi link YouTube hiện có thành `pending` (`requested_at` = `updated_at` mới nhất của tiết/buổi dùng link).
+
 ### 4.11 Contract notes for authoritative ID generation
 
 - `student_info.id`, `classes.id`, `staff_info.id`: dùng mã định danh hệ thống ngắn (`UNIST-*`, `UNICL-*`, `UNISTAFF-*`), không dùng UUID trần và không derive từ UUID cũ.
@@ -989,6 +1001,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `LessonTaskPriority`: `low | medium | high`
 - `LessonOutputStatus`: `pending | completed | cancelled`
 - `LessonOutputDifficultyBand`: `easy | medium | hard | very_hard | extreme` (nullable trên `lesson_outputs.difficulty_band`)
+- `ProtectedVideoStatus`: `pending | queued | downloading | transcoding | uploading | ready | failed` (`protected_videos.status`)
 
 ### Notification
 
@@ -1010,6 +1023,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `staff_communication`
   - `staff_technical`
   - `staff_customer_care`
+  - `staff_training`
+  - `staff_sale` (migration `20261023120000_sale_role_allowance`)
 
 ---
 
@@ -1023,8 +1038,6 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 6. Schema hiện không có model/cột `tenant_id` hoặc `workspace_id`; app đang single-tenant. Từ "workspace" trong page docs chỉ nghĩa là scope UI/role, không phải phân vùng dữ liệu.
 
 ---
-  - `staff_training`
-  - `staff_sale` (migration `20261023120000_sale_role_allowance`)
 
 ## 7) Nguồn sự thật (source of truth)
 

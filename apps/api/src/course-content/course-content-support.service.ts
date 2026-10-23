@@ -2,10 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { ProtectedVideoService } from 'src/protected-video/protected-video.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ActionHistoryService } from 'src/action-history/action-history.service';
 import { CourseAccessService } from 'src/class/course-access.service';
@@ -40,6 +43,11 @@ export interface ActionHistoryActor {
 @Injectable()
 export class CourseContentSupportService {
   protected readonly logger = new Logger(CourseContentSupportService.name);
+
+  /** Video bảo vệ: đồng bộ khi lưu link, ký link phát cho học sinh (Optional: spec dựng service bằng `new`). */
+  @Optional()
+  @Inject(ProtectedVideoService)
+  protected readonly protectedVideos?: ProtectedVideoService;
 
   constructor(
     protected readonly prisma: PrismaService,

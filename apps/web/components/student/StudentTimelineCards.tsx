@@ -5,7 +5,7 @@ import { VideoOff } from "lucide-react";
 
 import type { ClassTimelineItemDto } from "@/dtos/class-timeline.dto";
 import MathContent from "@/components/ui/MathContent";
-import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
+import ProtectedVideoPlayer from "@/components/ui/ProtectedVideoPlayer";
 import { useNearViewport } from "@/hooks/use-near-viewport";
 import { formatVnWeekday } from "@/lib/formatters";
 import { StudentSessionReviewSummary } from "./StudentSessionReviewSummary";
@@ -65,22 +65,26 @@ function SessionField({ label, content }: { label: string; content: string }) {
 }
 
 /**
- * Khung video 16:9 của thẻ buổi học. Trình phát `YouTubeEmbed` (poster tới khi
- * bấm, không tự phát) chỉ mount khi khung gần viewport; buổi chưa có video giữ
+ * Khung video 16:9 của thẻ buổi học. Trình phát video bảo vệ (không tự phát, chỉ
+ * tải khi bấm) chỉ xin link phát khi khung gần viewport; buổi chưa có video giữ
  * khung rỗng cùng tỉ lệ để các thẻ thẳng hàng.
  */
 function SessionVideoFrame({
-  recordingUrl,
+  classId,
+  sessionId,
+  hasRecording,
   sessionDate,
 }: {
-  recordingUrl: string;
+  classId: string;
+  sessionId: string;
+  hasRecording: boolean;
   sessionDate: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const nearViewport = useNearViewport(frameRef);
   const title = `Video buổi học ngày ${formatDateOnly(sessionDate)}`;
 
-  if (!recordingUrl) {
+  if (!hasRecording) {
     return (
       <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-default bg-bg-secondary/40 text-xs text-text-muted">
         <VideoOff className="size-6 text-text-muted/60" aria-hidden />
@@ -94,14 +98,13 @@ function SessionVideoFrame({
       ref={frameRef}
       className="aspect-video w-full overflow-hidden rounded-xl bg-bg-secondary"
     >
-      {nearViewport ? (
-        <YouTubeEmbed
-          url={recordingUrl}
-          protected
-          title={title}
-          className="aspect-video w-full rounded-xl"
-        />
-      ) : null}
+      <ProtectedVideoPlayer
+        source={{ kind: "session", classId, sessionId }}
+        title={title}
+        preload="none"
+        enabled={nearViewport}
+        className="rounded-xl"
+      />
     </div>
   );
 }
@@ -115,9 +118,11 @@ function SessionVideoFrame({
  * học khác.
  */
 export function StudentSessionTimelineCard({
+  classId,
   session,
   leading,
 }: {
+  classId: string;
   session: TimelineSession;
   /** Hiện trước ngày giờ trên hàng đầu thẻ (số thứ tự, badge loại). */
   leading?: ReactNode;
@@ -135,7 +140,6 @@ export function StudentSessionTimelineCard({
   const myNotes = isStructuredReview
     ? ""
     : (session.myAttendanceNotes?.trim() ?? "");
-  const recordingUrl = session.recordingUrl?.trim() ?? "";
 
   return (
     <div className="space-y-3">
@@ -153,7 +157,9 @@ export function StudentSessionTimelineCard({
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-4">
         <SessionVideoFrame
-          recordingUrl={recordingUrl}
+          classId={classId}
+          sessionId={session.id}
+          hasRecording={session.hasRecording}
           sessionDate={session.date}
         />
 

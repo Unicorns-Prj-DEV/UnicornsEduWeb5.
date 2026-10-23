@@ -31,7 +31,10 @@ export interface CourseLesson {
   moduleId: string | null;
   classId: string | null;
   title: string;
+  /** Null ở payload học sinh (link YouTube bị giấu) — dùng `hasVideo`. */
   videoUrl: string | null;
+  /** Chỉ có ở payload học sinh: tiết có video bảo vệ. */
+  hasVideo?: boolean;
   content: string | null;
   order: number;
   /** Tên nhóm tự chọn (tiết thực hành IT). */

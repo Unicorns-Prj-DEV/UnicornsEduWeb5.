@@ -191,3 +191,15 @@ enum LessonKind {
   theory
   practice
 }
+
+/// Trạng thái Đồng bộ video (ADR 2026-10-18-protected-video-via-unioj-sync).
+/// `pending` = LMS chưa gửi được sang UNIOJ; các giá trị còn lại mirror `status` của UNIOJ.
+enum ProtectedVideoStatus {
+  pending
+  queued
+  downloading
+  transcoding
+  uploading
+  ready
+  failed
+}

@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, Headphones, Layers } from "lucide-react";
 import { questionExcerpt } from "@/lib/question-excerpt";
 import SetContentPreview from "@/components/admin/question-bank/SetContentPreview";
+import ProtectedVideoSyncStatus from "@/components/admin/ProtectedVideoSyncStatus";
 
 type QuizLink = { questionId: string; question: { sharedMaterial?: { id: string } | null } };
 
@@ -216,6 +217,10 @@ export function TheoryLessonEditor({
           onChange={(e) => setVideoUrl(e.target.value)}
           placeholder="https://youtube.com/watch?v=..."
           className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+        />
+        <ProtectedVideoSyncStatus
+          savedUrl={lesson.videoUrl}
+          currentUrl={videoUrl}
         />
       </div>
 

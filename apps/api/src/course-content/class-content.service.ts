@@ -5,6 +5,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { redactLessonVideo } from 'src/protected-video/redact-video-url';
+import type { ProtectedVideoPlaybackDto } from 'src/dtos/protected-video.dto';
 import {
   LessonResponseDto,
   ClassContentCreateDto,
@@ -106,18 +108,46 @@ export class ClassContentService extends CourseContentSupportService {
       await this.validateStudentClassAccess(topic.classId, studentId);
     }
 
-    return topic;
+    return redactLessonVideo(topic);
   }
 
   /**
    * Student may open a lesson only through a lần giao on this class.
-   * Practice assignments stay closed until `openAt`.
+   * Practice assignments stay closed until `openAt`. Link video bị thay bằng `hasVideo`.
    */
   async getAssignedLessonForStudent(
     classId: string,
     lessonId: string,
     studentId: string,
   ): Promise<LessonResponseDto> {
+    return redactLessonVideo(
+      await this.loadAssignedLessonForStudent(classId, lessonId, studentId),
+    );
+  }
+
+  /**
+   * Link phát video tiết lý thuyết (Video bảo vệ). Cùng điều kiện mở tiết với
+   * `getAssignedLessonForStudent`; không bao giờ trả link YouTube.
+   */
+  async getLessonVideoPlaybackForStudent(
+    classId: string,
+    lessonId: string,
+    studentId: string,
+  ): Promise<ProtectedVideoPlaybackDto> {
+    const lesson = await this.loadAssignedLessonForStudent(
+      classId,
+      lessonId,
+      studentId,
+    );
+    if (!this.protectedVideos) return { state: 'unavailable' };
+    return this.protectedVideos.issuePlayback(lesson.videoUrl);
+  }
+
+  private async loadAssignedLessonForStudent(
+    classId: string,
+    lessonId: string,
+    studentId: string,
+  ) {
     await this.validateStudentClassAccess(classId, studentId);
 
     const item = await this.prisma.classContentItem.findUnique({

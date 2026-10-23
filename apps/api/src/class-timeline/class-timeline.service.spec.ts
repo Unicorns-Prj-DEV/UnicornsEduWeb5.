@@ -42,7 +42,11 @@ describe('ClassTimelineService — soft hide', () => {
       resolveClassViewerActor: jest.fn().mockResolvedValue({}),
       resolveClassViewAccessMode: jest.fn().mockResolvedValue('admin'),
     };
-    service = new ClassTimelineService(mockPrisma as any, staffAccess as any);
+    service = new ClassTimelineService(
+      mockPrisma as any,
+      staffAccess as any,
+      {} as any,
+    );
   });
 
   it('staff list includes hidden content items', async () => {

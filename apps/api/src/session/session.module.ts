@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ProtectedVideoModule } from 'src/protected-video/protected-video.module';
 import { ActionHistoryModule } from '../action-history/action-history.module';
 import { SessionController } from './session.controller';
 import { SessionService } from './session.service';
@@ -19,7 +20,12 @@ import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { MissedTeachingExplanationService } from './missed-teaching-explanation.service';
 
 @Module({
-  imports: [PrismaModule, StaffOperationsModule, ActionHistoryModule],
+  imports: [
+    PrismaModule,
+    StaffOperationsModule,
+    ActionHistoryModule,
+    ProtectedVideoModule,
+  ],
   controllers: [SessionController, StaffOpsSessionController],
   providers: [
     SessionService,

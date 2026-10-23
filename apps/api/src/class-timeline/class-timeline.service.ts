@@ -7,6 +7,8 @@ import {
 import { ClassTimelineItemKind } from '../../generated/enums';
 import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ProtectedVideoService } from 'src/protected-video/protected-video.service';
+import type { ProtectedVideoPlaybackDto } from 'src/dtos/protected-video.dto';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import type { ActionHistoryActor } from 'src/course-content/course-content.service';
 import { PRESENT_TIMELINE_ITEM } from 'src/course-content/archived-lesson-filter';
@@ -94,6 +96,7 @@ export class ClassTimelineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly staffAccess: StaffOperationsAccessService,
+    private readonly protectedVideos: ProtectedVideoService,
   ) {}
 
   async listForStaff(
@@ -246,7 +249,9 @@ export class ClassTimelineService {
           nextSessionPlan: row.session.nextSessionPlan,
           hasRetest: row.session.hasRetest,
           retestContent: row.session.retestContent,
-          recordingUrl: row.session.recordingUrl,
+          // Học sinh không nhận link YouTube gốc (Video bảo vệ) — xin link qua `…/playback`.
+          recordingUrl: isStaffAudience ? row.session.recordingUrl : null,
+          hasRecording: Boolean(row.session.recordingUrl?.trim()),
           teacherName,
           myAttendanceStatus: mine?.status ?? null,
           myAttendanceNotes: mine?.notes ?? null,
@@ -344,6 +349,26 @@ export class ClassTimelineService {
       actor.roleType,
     );
     return this.staffAccess.resolveClassViewAccessMode(viewer, classId);
+  }
+
+  /**
+   * Link phát recording buổi học (Video bảo vệ). Buổi phải thuộc lớp và còn hiện trên
+   * timeline; không bao giờ trả link YouTube.
+   */
+  async getRecordingPlaybackForStudent(
+    classId: string,
+    sessionId: string,
+    studentId: string,
+  ): Promise<ProtectedVideoPlaybackDto> {
+    await this.validateStudentClassAccess(classId, studentId);
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, classId, timelineItem: { isNot: null } },
+      select: { recordingUrl: true },
+    });
+    if (!session) {
+      throw new NotFoundException('Buổi học không tồn tại');
+    }
+    return this.protectedVideos.issuePlayback(session.recordingUrl);
   }
 
   private async validateStudentClassAccess(

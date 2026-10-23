@@ -5,7 +5,7 @@ import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
-import YouTubeEmbed from "@/components/ui/YouTubeEmbed";
+import ProtectedVideoPlayer from "@/components/ui/ProtectedVideoPlayer";
 import { Badge } from "@/components/ui/badge";
 import MathContent from "@/components/ui/MathContent";
 import { attendanceStatusLabel } from "./StudentTimelineCards";
@@ -77,7 +77,7 @@ export default function StudentSessionDetailDialog({
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
             {/* Left Column: Large Video Recording (Sticky on desktop) */}
             <div className="lg:col-span-7 xl:col-span-8 space-y-3 lg:sticky lg:top-0">
-              {session.recordingUrl ? (
+              {session.hasRecording ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
@@ -89,10 +89,13 @@ export default function StudentSessionDetailDialog({
                     </span>
                     <span className="text-[11px] text-text-muted">Bảo mật nội dung</span>
                   </div>
-                  <YouTubeEmbed
-                    url={session.recordingUrl}
-                    protected
-                    className="w-full aspect-video min-h-[280px] sm:min-h-[380px] md:min-h-[440px] lg:min-h-[480px] xl:min-h-[560px] 2xl:min-h-[620px] rounded-2xl shadow-xl"
+                  <ProtectedVideoPlayer
+                    source={{
+                      kind: "session",
+                      classId: session.classId,
+                      sessionId: session.id,
+                    }}
+                    className="rounded-2xl shadow-xl"
                   />
                 </div>
               ) : (

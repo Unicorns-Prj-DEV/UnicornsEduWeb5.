@@ -19,6 +19,10 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import {
+  redactLessonVideo,
+  redactSessionRecording,
+} from 'src/protected-video/redact-video-url';
+import {
   ApiBody,
   ApiCookieAuth,
   ApiConsumes,
@@ -602,10 +606,6 @@ export class UserProfileController {
     return this.extraAllowanceService.updateMyStaffExtraAllowance(user, body);
   }
 
-  @Get('staff-lesson-output-stats')
-  @ApiOperation({
-    summary: 'Get current staff lesson output stats',
-    description:
   @Delete('staff-extra-allowances/:id')
   @ApiOperation({
     summary: 'Delete staff extra allowance (self)',
@@ -657,6 +657,10 @@ export class UserProfileController {
     return this.extraAllowanceService.searchMySaleStudentOptions(user, search);
   }
 
+  @Get('staff-lesson-output-stats')
+  @ApiOperation({
+    summary: 'Get current staff lesson output stats',
+    description:
       'Returns lesson output statistics and recent outputs for the current linked staff profile.',
   })
   @ApiQuery({
@@ -1080,7 +1084,10 @@ export class UserProfileController {
       },
       orderBy: { date: 'desc' },
     });
-    return withSessionOrdinals(this.prisma, sessions);
+    return withSessionOrdinals(
+      this.prisma,
+      sessions.map(redactSessionRecording),
+    );
   }
 
   @Get('student-classes/:classId/surveys')
@@ -1151,7 +1158,12 @@ export class UserProfileController {
       }),
     ]);
 
-    return { data, total, page: pageNum, limit: limitNum };
+    return {
+      data: data.map(redactLessonVideo),
+      total,
+      page: pageNum,
+      limit: limitNum,
+    };
   }
 
   @Get('student-classes/:classId/lessons/:lessonId')

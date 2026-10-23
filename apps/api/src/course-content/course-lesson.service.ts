@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LessonKind } from 'generated/enums';
+import { redactLessonVideo } from 'src/protected-video/redact-video-url';
 import {
   LessonCreateDto,
   LessonUpdateDto,
@@ -60,6 +61,7 @@ export class CourseLessonService extends CourseContentSupportService {
     this.logger.log(
       `Lesson created: ${lesson.id} (${dto.kind}) by ${actor.userEmail}`,
     );
+    this.protectedVideos?.track(lesson.videoUrl);
 
     return lesson;
   }
@@ -131,6 +133,9 @@ export class CourseLessonService extends CourseContentSupportService {
     });
 
     this.logger.log(`Lesson updated: ${lessonId} by ${actor.userEmail}`);
+    if (dto.videoUrl !== undefined && dto.videoUrl !== existing.videoUrl) {
+      this.protectedVideos?.track(lesson.videoUrl);
+    }
     return lesson;
   }
 
@@ -263,7 +268,7 @@ export class CourseLessonService extends CourseContentSupportService {
       this.prisma.lesson.count({ where: { classId } }),
     ]);
 
-    return { data, total, page, limit };
+    return { data: data.map(redactLessonVideo), total, page, limit };
   }
 
   async reorderLessons(
