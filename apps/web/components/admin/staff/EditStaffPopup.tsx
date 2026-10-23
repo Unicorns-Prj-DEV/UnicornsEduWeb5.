@@ -18,6 +18,7 @@ import * as staffApi from "@/lib/apis/staff.api";
 import * as fixedSalarySettingsApi from "@/lib/apis/fixed-salary-settings.api";
 import {
   collectDisabledRoleOverrideWarnings,
+  fixedSalaryInputClassName,
   formatDisabledRoleOverrideWarningLine,
   LOCKED_FIXED_SALARY_MONTH_NOTE,
   parseOptionalFixedSalaryAmountInput,
@@ -653,6 +654,56 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                             }
                           />
                         ) : null}
+                        {enabled && opt.value === "customer_care" ? (
+                          <label className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
+                            <span>% mặc định CSKH</span>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              max={99}
+                              step={1}
+                              value={customerCareDefaultPercent}
+                              onChange={(e) =>
+                                setCustomerCareDefaultPercent(e.target.value)
+                              }
+                              className={fixedSalaryInputClassName}
+                              placeholder="VD: 10"
+                              aria-label="% mặc định CSKH"
+                            />
+                            <span className="text-xs leading-snug text-text-muted">
+                              Áp vào học sinh khi gán CSKH này. Học sinh đã gán và
+                              buổi đã tính không đổi.
+                            </span>
+                          </label>
+                        ) : null}
+                        {enabled &&
+                        opt.value === "customer_care" &&
+                        showManagedByField ? (
+                          <label className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
+                            <span>Trợ lí quản lí (3% học phí)</span>
+                            <UpgradedSelect
+                              name="staff-customer-care-managed-by"
+                              value={managedByStaffId ?? ""}
+                              onValueChange={(nextValue) =>
+                                setManagedByStaffId(nextValue || null)
+                              }
+                              options={[
+                                { value: "", label: "Chưa phân công" },
+                                ...assistantOptions.map((assistant) => ({
+                                  value: assistant.id,
+                                  label: assistant.fullName,
+                                })),
+                              ]}
+                              ariaLabel="Trợ lí quản lí CSKH"
+                              buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                            />
+                            <span className="text-xs leading-snug text-text-muted">
+                              Trợ lí được chọn sẽ nhận 3% học phí đã học từ học sinh
+                              do CSKH này phụ trách.
+                            </span>
+                          </label>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -678,48 +729,6 @@ export default function EditStaffPopup({ open, onClose, staff, onSuccess }: Prop
                 </label>
               )}
 
-              {hasCustomerCareRole && (
-                <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                  <span>% mặc định CSKH</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={99}
-                    step={1}
-                    value={customerCareDefaultPercent}
-                    onChange={(e) => setCustomerCareDefaultPercent(e.target.value)}
-                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                    placeholder="VD: 10"
-                  />
-                  <p className="text-xs text-text-muted">
-                    Áp vào học sinh khi gán CSKH này. Học sinh đã gán và buổi đã tính không đổi.
-                  </p>
-                </label>
-              )}
-
-              {showManagedByField && (
-                <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                  <span>Trợ lí quản lí (3% học phí)</span>
-                  <select
-                    value={managedByStaffId ?? ""}
-                    onChange={(e) =>
-                      setManagedByStaffId(e.target.value || null)
-                    }
-                    className="cursor-pointer rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    <option value="">Chưa phân công</option>
-                    {assistantOptions.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.fullName}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-text-muted">
-                    Trợ lí được chọn sẽ nhận 3% học phí đã học từ học sinh do CSKH này phụ trách.
-                  </p>
-                </label>
-              )}
             </div>
           </section>
 
