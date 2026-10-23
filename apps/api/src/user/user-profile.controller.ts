@@ -575,7 +575,7 @@ export class UserProfileController {
   @ApiOperation({
     summary: 'Update staff extra allowance (self)',
     description:
-      'Staff with self-managed extra-allowance roles may update month, amount, and note of their own allowance. Payment status remains admin-managed.',
+      'Staff with self-managed extra-allowance roles may update month, amount, note (and student for sale) of their own unpaid allowance. Paid allowances are locked. Payment status remains admin-managed.',
   })
   @ApiBody({ type: UpdateMyStaffExtraAllowanceDto })
   @ApiResponse({
@@ -606,6 +606,57 @@ export class UserProfileController {
   @ApiOperation({
     summary: 'Get current staff lesson output stats',
     description:
+  @Delete('staff-extra-allowances/:id')
+  @ApiOperation({
+    summary: 'Delete staff extra allowance (self)',
+    description:
+      'Staff with self-managed extra-allowance roles may delete their own allowance while it is not paid yet.',
+  })
+  @ApiParam({ name: 'id', description: 'Extra allowance id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Extra allowance deleted for current staff.',
+  })
+  @ApiResponse({ status: 400, description: 'No staff record.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Not staff, staff lacks the self-managed role, or allowance already paid.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Extra allowance not found for current staff.',
+  })
+  async deleteMyStaffExtraAllowance(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.extraAllowanceService.deleteMyStaffExtraAllowance(user, id);
+  }
+
+  @Get('sale-student-options')
+  @ApiOperation({
+    summary: 'Search students for own sale allowance',
+    description:
+      'Picker học sinh cho Trợ cấp sale của nhân sự đang đăng nhập (role sale): mọi học sinh, tối đa 20 dòng, chỉ trả id, họ tên, năm sinh, trường và trạng thái.',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by student full name',
+  })
+  @ApiResponse({ status: 200, description: 'Student options.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Staff lacks the sale role.' })
+  async getMySaleStudentOptions(
+    @CurrentUser() user: JwtPayload,
+    @Query('search') search?: string,
+  ) {
+    return this.extraAllowanceService.searchMySaleStudentOptions(user, search);
+  }
+
       'Returns lesson output statistics and recent outputs for the current linked staff profile.',
   })
   @ApiQuery({

@@ -14,7 +14,8 @@ export type StaffRole =
   | "communication"
   | "technical"
   | "customer_care"
-  | "training";
+  | "training"
+  | "sale";
 
 export interface CreateUserPayload {
   email: string;

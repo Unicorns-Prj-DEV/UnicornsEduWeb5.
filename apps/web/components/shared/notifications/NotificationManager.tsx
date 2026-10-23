@@ -128,6 +128,12 @@ const PRESET_TARGET_TAGS: AudiencePresetTag[] = [
     kind: "staffRole",
     value: "technical",
   },
+  {
+    key: "@sale",
+    label: "@sale",
+    kind: "staffRole",
+    value: "sale",
+  },
 ];
 
 const INPUT_CLASS =

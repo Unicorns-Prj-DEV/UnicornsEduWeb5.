@@ -298,11 +298,15 @@ model ExtraAllowance {
   updatedAt               DateTime      @updatedAt @map("updated_at") @db.Timestamp(6)
   roleType                StaffRole     @default(teacher) @map("role_type")
   taxDeductionRatePercent Decimal       @default(0) @map("tax_deduction_rate_percent") @db.Decimal(5, 2)
+  /// Học sinh (khách hàng) của Trợ cấp sale; chỉ có nghĩa khi `role_type = sale`. Bắt buộc lúc ghi ở service; null khi học sinh đã bị xoá (ADR 2026-10-23).
+  studentId               String?       @map("student_id")
   staff                   StaffInfo     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  student                 StudentInfo?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
 
   @@index([staffId])
   @@index([month])
   @@index([roleType])
+  @@index([studentId])
   @@index([staffId, month, status])
   @@index([status, staffId, month, roleType, taxDeductionRatePercent], map: "extra_allowances_status_staff_month_role_tax_idx")
   @@map("extra_allowances")

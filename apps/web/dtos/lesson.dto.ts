@@ -27,7 +27,8 @@ export type LessonStaffRole =
   | "communication"
   | "technical"
   | "customer_care"
-  | "training";
+  | "training"
+  | "sale";
 
 export interface LessonOverviewSummary {
   resourceCount: number;

@@ -167,6 +167,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   technical: 'Kỹ thuật',
   customer_care: 'CSKH',
   training: 'Đào Tạo',
+  sale: 'Sale',
 };
 
 const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
@@ -177,6 +178,7 @@ const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
   StaffRole.communication,
   StaffRole.technical,
   StaffRole.training,
+  StaffRole.sale,
 ]);
 
 const DEPOSIT_PAYMENT_STATUSES = ['deposit', 'deposite', 'coc', 'cọc'] as const;
@@ -2888,6 +2890,7 @@ export class StaffService {
       StaffRole.communication,
       StaffRole.technical,
       StaffRole.training,
+      StaffRole.sale,
     ];
 
     for (const role of priority) {

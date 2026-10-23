@@ -57,6 +57,7 @@ const STAFF_ROLES: StaffRole[] = [
   "technical",
   "customer_care",
   "training",
+  "sale",
 ];
 
 type Props = {

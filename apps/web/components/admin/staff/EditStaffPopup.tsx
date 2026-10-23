@@ -53,6 +53,7 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "technical", label: "Kỹ thuật" },
   { value: "customer_care", label: "CSKH" },
   { value: "training", label: "Đào Tạo" },
+  { value: "sale", label: "Sale" },
 ];
 
 function formatDateInput(iso?: string | null): string {

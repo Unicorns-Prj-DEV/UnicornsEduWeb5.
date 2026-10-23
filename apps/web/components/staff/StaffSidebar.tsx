@@ -39,6 +39,7 @@ type MenuVisibility = {
   isAccountantExpense: boolean;
   isCommunication: boolean;
   isTechnical: boolean;
+  isSale: boolean;
 };
 
 type MenuItem = {
@@ -205,6 +206,13 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconCalendar />,
       isActive: (pathname) => pathname.startsWith("/staff/training-detail"),
       isVisible: ({ isTraining }) => isTraining,
+    },
+    {
+      href: "/staff/sale-detail",
+      label: "Sale",
+      icon: <IconCosts />,
+      isActive: (pathname) => pathname.startsWith("/staff/sale-detail"),
+      isVisible: ({ isSale }) => isSale,
     },
     {
       href: "/staff/notes-subject",
@@ -591,6 +599,7 @@ export default function StaffSidebar() {
     lessonWorkspace.isLessonPlanHead;
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
+  const isSale = staffRoles.includes("sale");
   const canComposeNotifications = canPublishNotifications(
     staffRoles,
     isFullAdmin,
@@ -616,6 +625,7 @@ export default function StaffSidebar() {
     isAccountantExpense,
     isCommunication,
     isTechnical,
+    isSale,
   };
   const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const menuItems = dedupeMenuItems(baseMenuItems).filter((item) =>

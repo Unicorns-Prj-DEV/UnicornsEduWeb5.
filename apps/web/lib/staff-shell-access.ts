@@ -32,6 +32,7 @@ export type StaffShellRouteFlags = {
   isCommunicationSelfRoute: boolean;
   isTechnicalSelfRoute: boolean;
   isTrainingSelfRoute: boolean;
+  isSaleSelfRoute: boolean;
   isLessonPlanSelfRoute: boolean;
   isLessonPlanAdminDetailRoute: boolean;
   isLessonPlanLegacyRoute: boolean;
@@ -63,6 +64,7 @@ export type StaffShellAccessContext = {
   isAccountantExpense: boolean;
   isCommunication: boolean;
   isTechnical: boolean;
+  isSale: boolean;
   isAssistantStaff: boolean;
   isLessonPlanner: boolean;
 };
@@ -184,6 +186,7 @@ function resolveStaffShellContext(
   const isAccountant = isAccountantIncome || isAccountantExpense;
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
+  const isSale = staffRoles.includes("sale");
 
   return {
     roleType,
@@ -206,6 +209,7 @@ function resolveStaffShellContext(
     isAccountantExpense,
     isCommunication,
     isTechnical,
+    isSale,
     isAssistantStaff: hasStaffProfile && staffProfileComplete && isAssistant,
     isLessonPlanner:
       staffRoles.includes("lesson_plan") ||
@@ -252,6 +256,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   );
   const isTechnicalSelfRoute = pathname.startsWith("/staff/technical-detail");
   const isTrainingSelfRoute = pathname.startsWith("/staff/training-detail");
+  const isSaleSelfRoute = pathname.startsWith("/staff/sale-detail");
   const isLessonPlanSelfRoute =
     pathname.startsWith("/staff/lesson-plan-detail") ||
     pathname.startsWith("/staff/lesson_plan_detail");
@@ -306,6 +311,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isCommunicationSelfRoute,
     isTechnicalSelfRoute,
     isTrainingSelfRoute,
+    isSaleSelfRoute,
     isLessonPlanSelfRoute,
     isLessonPlanAdminDetailRoute,
     isLessonPlanLegacyRoute,
@@ -342,6 +348,7 @@ export function resolveStaffShellRouteAccess(
     isAccountantExpense,
     isCommunication,
     isTechnical,
+    isSale,
     isAssistantStaff,
     isLessonPlanner,
   } = context;
@@ -448,6 +455,12 @@ export function resolveStaffShellRouteAccess(
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
                                       (isTraining ||
+                                        isAssistantStaff ||
+                                        isAccountantExpense)
+                                    : flags.isSaleSelfRoute
+                                    ? hasStaffWorkspaceAccess &&
+                                      isStaffOrAdmin &&
+                                      (isSale ||
                                         isAssistantStaff ||
                                         isAccountantExpense)
                                     : flags.isLessonPlanLegacyRoute
