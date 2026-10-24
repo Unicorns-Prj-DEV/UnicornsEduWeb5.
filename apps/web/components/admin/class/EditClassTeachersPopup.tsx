@@ -264,12 +264,35 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
 
   const staffList = staffSearchResult?.data ?? [];
   const availableStaff = staffList.filter((s) => !selectedTeachers.some((t) => t.id === s.id));
-  const trainingManagerOptions = [
-    { value: "", label: "Chưa gán" },
-    ...((trainingManagerSearchResult?.data ?? []).map((staff) => ({
+  const trainingStaffOptions = (trainingManagerSearchResult?.data ?? []).map(
+    (staff) => ({
       value: staff.id,
       label: staff.fullName?.trim() || staff.id,
-    }))),
+    }),
+  );
+  // Gia sư kiêm quản lý: gia sư đang chọn của lớp chưa thuộc Ban Đào Tạo
+  // cũng được chọn; backend tự cấp role `training` khi lưu.
+  const classTeacherOptions = selectedTeachers
+    .filter((t) => !trainingStaffOptions.some((o) => o.value === t.id))
+    .map((t) => ({ value: t.id, label: `${t.name} (gia sư lớp)` }));
+  const currentManager = classDetail.trainingManager;
+  const keepCurrentManagerOption =
+    currentManager?.id &&
+    ![...trainingStaffOptions, ...classTeacherOptions].some(
+      (o) => o.value === currentManager.id,
+    );
+  const trainingManagerOptions = [
+    { value: "", label: "Chưa gán" },
+    ...trainingStaffOptions,
+    ...classTeacherOptions,
+    ...(keepCurrentManagerOption
+      ? [
+          {
+            value: currentManager.id,
+            label: currentManager.fullName?.trim() || currentManager.id,
+          },
+        ]
+      : []),
   ];
   const dropdownDirection = teacherSearchFocused ? dropdownRect?.direction : null;
 
