@@ -20,17 +20,21 @@ jest.mock('src/storage/supabase-storage', () => ({
       options.path ? `public:${options.bucket}:${options.path}` : null,
   ),
   getSupabaseAdminClient: jest.fn(),
+  removeStorageObjects: jest.fn(() => Promise.resolve()),
   validateImageFile: jest.fn(),
 }));
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   PaymentStatus,
   StaffRole,
   StaffStatus,
   UserRole,
 } from '../../generated/enums';
-import { createSignedStorageUrl } from 'src/storage/supabase-storage';
+import {
+  createSignedStorageUrl,
+  removeStorageObjects,
+} from 'src/storage/supabase-storage';
 import { StaffService } from './staff.service';
 import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
@@ -3339,5 +3343,95 @@ describe('StaffService', () => {
     expect(result.otherRoleSummaries[0]?.total).toBe(0);
     expect(result.monthlyIncomeTotals.total).toBe(900000);
     expect(result.fixedSalaryPayables).toHaveLength(1);
+  });
+
+  describe('deleteStaffAvatar', () => {
+    const actor = {
+      userId: 'admin-user',
+      userEmail: 'admin@example.com',
+      roleType: UserRole.admin,
+    };
+    const mockRemoveStorageObjects = removeStorageObjects as jest.Mock;
+
+    beforeEach(() => {
+      mockPrisma.$transaction.mockImplementation(
+        async (callback: (tx: typeof mockPrisma) => unknown) =>
+          callback(mockPrisma),
+      );
+      jest
+        .spyOn(service, 'getStaffById')
+        .mockResolvedValue({ id: 'staff-1' } as never);
+    });
+
+    it('removes both avatar objects, clears user paths and audits', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-1',
+        userId: 'user-1',
+        user: {
+          avatarPath: 'users/user-1/avatar',
+          avatarWatermarkedPath: 'users/user-1/avatar-wm.webp',
+        },
+      });
+
+      await expect(service.deleteStaffAvatar('staff-1', actor)).resolves.toEqual(
+        { id: 'staff-1' },
+      );
+
+      expect(mockRemoveStorageObjects).toHaveBeenCalledWith({
+        bucket: 'avatars',
+        paths: ['users/user-1/avatar'],
+      });
+      expect(mockRemoveStorageObjects).toHaveBeenCalledWith(
+        expect.objectContaining({ paths: ['users/user-1/avatar-wm.webp'] }),
+      );
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { avatarPath: null, avatarWatermarkedPath: null },
+      });
+      expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          entityType: 'staff',
+          entityId: 'staff-1',
+          description: 'Xoá ảnh đại diện nhân sự',
+        }),
+      );
+      expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+        'user-1',
+      );
+    });
+
+    it('is a no-op when the user has no avatar', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-1',
+        userId: 'user-1',
+        user: { avatarPath: null, avatarWatermarkedPath: null },
+      });
+
+      await service.deleteStaffAvatar('staff-1', actor);
+
+      expect(mockRemoveStorageObjects).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects staff without a linked user', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-1',
+        userId: null,
+        user: null,
+      });
+
+      await expect(
+        service.deleteStaffAvatar('staff-1', actor),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws when staff does not exist', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.deleteStaffAvatar('missing', actor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });
