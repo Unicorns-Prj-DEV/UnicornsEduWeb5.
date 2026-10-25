@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Reset mật khẩu học sinh**: migration `20261025090000_reset_student_passwords` đặt `password_hash` của mọi user `role_type = 'student'` về bcrypt hash của `123456` (cost 10). Chạy một lần khi `prisma migrate deploy`; tài khoản tạo sau đó không bị ảnh hưởng.
 - **Admin xoá ảnh đại diện nhân sự**: API mới `DELETE /staff/:id/avatar` (chỉ admin đầy đủ) xoá cả ảnh gốc + bản watermark của user gắn với nhân sự, ghi lịch sử thao tác. Trang `/admin/staffs/[id]` (mirror `/staff/staffs/[id]`): nút **Xoá ảnh đại diện** dưới avatar trong bảng **Thông tin nhân sự**, có hộp xác nhận. Không cần migration.
 - **Role Sale + Trợ cấp sale**: staff role mới `sale` (nhãn "Sale", ăn lương cứng, nhận thông báo `@sale`, regulation audience `staff_sale`). Trợ cấp sale nằm trên `extra_allowances` với cột mới `student_id` (FK `student_info`, `ON DELETE SET NULL`); mỗi khoản bắt buộc đúng một học sinh + ghi chú, kể cả khi admin/kế toán chi tạo thay (ADR `docs/adr/2026-10-23-sale-allowance-on-extra-allowances.md`, migration `20261023120000_sale_role_allowance`). Endpoint mới `GET /users/me/sale-student-options`, `GET /extra-allowance/student-options`. Trang `/staff/sale-detail`, `/admin/sale_detail` với picker học sinh (badge Nghỉ học) và cột Học sinh ("Học sinh đã xoá" khi null).
 - **Trợ cấp tự quản xoá được**: `DELETE /users/me/staff-extra-allowances/:id` cho `communication`/`technical`/`training`/`sale`; nút **Xoá** trong popup sửa (ConfirmDialog).
