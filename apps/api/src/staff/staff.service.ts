@@ -26,6 +26,7 @@ import { AVATAR_PUBLIC_BUCKET } from 'src/storage/media-buckets';
 import {
   createPublicStorageUrl,
   createSignedStorageUrl,
+  removeStorageObjects,
 } from 'src/storage/supabase-storage';
 import {
   CreateStaffDto,
@@ -167,6 +168,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   technical: 'Kỹ thuật',
   customer_care: 'CSKH',
   training: 'Đào Tạo',
+  sale: 'Sale',
 };
 
 const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
@@ -177,6 +179,7 @@ const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
   StaffRole.communication,
   StaffRole.technical,
   StaffRole.training,
+  StaffRole.sale,
 ]);
 
 const DEPOSIT_PAYMENT_STATUSES = ['deposit', 'deposite', 'coc', 'cọc'] as const;
@@ -2888,6 +2891,7 @@ export class StaffService {
       StaffRole.communication,
       StaffRole.technical,
       StaffRole.training,
+      StaffRole.sale,
     ];
 
     for (const role of priority) {
@@ -5664,6 +5668,70 @@ export class StaffService {
     }
 
     this.invalidateStaffAuthIdentities(existingStaff.userId);
+    return this.getStaffById(id);
+  }
+
+  /** Admin xoá ảnh đại diện (bản gốc + bản watermark) của user gắn với nhân sự. */
+  async deleteStaffAvatar(id: string, auditActor?: ActionHistoryActor) {
+    const staff = await this.prisma.staffInfo.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        user: {
+          select: { avatarPath: true, avatarWatermarkedPath: true },
+        },
+      },
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Staff not found');
+    }
+    if (!staff.userId || !staff.user) {
+      throw new BadRequestException(
+        'Nhân sự chưa gắn tài khoản user nên không có ảnh đại diện để xoá.',
+      );
+    }
+
+    const userId = staff.userId;
+    const existingPath = staff.user.avatarPath ?? null;
+    const existingWatermarked = staff.user.avatarWatermarkedPath ?? null;
+
+    if (!existingPath && !existingWatermarked) {
+      return this.getStaffById(id);
+    }
+
+    await removeStorageObjects({
+      bucket: AVATAR_STORAGE_BUCKET,
+      paths: [existingPath],
+    });
+    await removeStorageObjects({
+      bucket: AVATAR_PUBLIC_BUCKET,
+      paths: [existingWatermarked],
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { avatarPath: null, avatarWatermarkedPath: null },
+      });
+
+      if (auditActor) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'staff',
+          entityId: id,
+          description: 'Xoá ảnh đại diện nhân sự',
+          beforeValue: {
+            avatarPath: existingPath,
+            avatarWatermarkedPath: existingWatermarked,
+          },
+          afterValue: { avatarPath: null, avatarWatermarkedPath: null },
+        });
+      }
+    });
+
+    this.invalidateStaffAuthIdentities(userId);
     return this.getStaffById(id);
   }
 

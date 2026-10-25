@@ -10,6 +10,7 @@ export const FIXED_SALARY_STAFF_ROLES = [
   "customer_care",
   "training",
   "assistant",
+  "sale",
 ] as const;
 
 export type FixedSalaryStaffRole = (typeof FIXED_SALARY_STAFF_ROLES)[number];

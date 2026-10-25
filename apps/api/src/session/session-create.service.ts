@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { ProtectedVideoService } from 'src/protected-video/protected-video.service';
 import {
   AttendanceStatus,
   PaymentStatus,
@@ -71,6 +74,11 @@ const SESSION_CREATE_TRANSACTION_TIMEOUT_MS = 20_000;
 @Injectable()
 export class SessionCreateService {
   private readonly activeSessionCreations = new Set<string>();
+
+  /** Đồng bộ video sau khi lưu link recording (Optional: spec dựng service bằng `new`). */
+  @Optional()
+  @Inject(ProtectedVideoService)
+  private readonly protectedVideos?: ProtectedVideoService;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -699,6 +707,7 @@ export class SessionCreateService {
         },
       );
 
+      this.protectedVideos?.track(createdSession.recordingUrl);
       return createdSession;
     } finally {
       this.activeSessionCreations.delete(lockKey);

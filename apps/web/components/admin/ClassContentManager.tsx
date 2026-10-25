@@ -71,6 +71,7 @@ import {
   isOpenAtPairPartial,
 } from "@/lib/assignment-schedule.helpers";
 import { formatVnDateTime } from "@/lib/formatters";
+import ProtectedVideoSyncStatus from "@/components/admin/ProtectedVideoSyncStatus";
 
 function formatOpenAt(iso: string | null): string {
   if (!iso) return "";
@@ -866,6 +867,10 @@ function TheoryLessonInlineEditor({
           onChange={(e) => setVideoUrl(e.target.value)}
           placeholder="https://youtube.com/watch?v=..."
           className="mt-1.5 w-full rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+        />
+        <ProtectedVideoSyncStatus
+          savedUrl={lesson?.videoUrl}
+          currentUrl={videoUrlValue}
         />
       </div>
       <div>

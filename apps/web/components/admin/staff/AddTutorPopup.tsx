@@ -49,6 +49,7 @@ const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "technical", label: "Kỹ thuật" },
   { value: "customer_care", label: "CSKH" },
   { value: "training", label: "Đào Tạo" },
+  { value: "sale", label: "Sale" },
 ];
 
 function getSuggestedFullName(user: StaffAssignableUser | null): string {

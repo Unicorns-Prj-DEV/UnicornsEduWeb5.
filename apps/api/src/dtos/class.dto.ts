@@ -404,6 +404,40 @@ export class UpdateClassTeacherCompensationDto {
   teachers: ClassTeacherCompensationItemDto[];
 }
 
+/**
+ * DTO for PATCH /staff-ops/classes/:id/teacher-pay — Ban Đào Tạo (quản lý lớp)
+ * chỉnh lương gia sư. Chỉ field trợ cấp/scale; không có học phí hay thông tin lớp.
+ */
+export class UpdateClassTeacherPayDto extends PartialType(
+  PickType(CreateClassDto, [
+    'allowance_per_session_per_student',
+    'max_allowance_per_session',
+    'scale_amount',
+  ]),
+) {
+  @ApiPropertyOptional({
+    description:
+      'Per-teacher compensation updates for teachers already in the class. Omit to leave all teachers unchanged.',
+    type: [ClassTeacherCompensationItemDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClassTeacherCompensationItemDto)
+  teachers?: ClassTeacherCompensationItemDto[];
+}
+
+/** DTO for POST /staff-ops/classes/:id/teachers — thêm (hoặc mở lại) 1 gia sư. */
+export class AddClassTeacherDto {
+  @ApiProperty({
+    description:
+      'Staff id of an active staff with role `teacher`. If the teacher previously stopped teaching this class, the assignment is reactivated with pay reset to class defaults.',
+    example: 'UNISTAFF-c3d4e5f6a7',
+  })
+  @IsStaffId()
+  teacher_id: string;
+}
+
 export class UpdateClassStudentTuitionDto {
   @ApiProperty({
     description: 'Student id already enrolled in the class',

@@ -32,6 +32,29 @@ export interface StaffOpsUpdateClassSchedulePayload {
   expectedUpdatedAt?: string;
 }
 
+/** Lương một gia sư trong lớp. Bỏ field = giữ nguyên; `null` = theo mức của lớp. */
+export interface StaffOpsClassTeacherPayItem {
+  teacher_id: string;
+  custom_allowance?: number | null;
+  /** `null` = theo scale lớp, `0` = gia sư không có scale. */
+  custom_scale_amount?: number | null;
+  operating_deduction_rate_percent?: number;
+}
+
+/** `PATCH /staff-ops/classes/:id/teacher-pay` — quản lý lớp chỉnh lương gia sư (không có học phí). */
+export interface StaffOpsUpdateClassTeacherPayPayload {
+  allowance_per_session_per_student?: number;
+  /** `null` = bỏ trần trợ cấp / buổi. */
+  max_allowance_per_session?: number | null;
+  scale_amount?: number;
+  teachers?: StaffOpsClassTeacherPayItem[];
+}
+
+/** `POST /staff-ops/classes/:id/teachers` — thêm (hoặc mở lại) một gia sư. */
+export interface StaffOpsAddClassTeacherPayload {
+  teacher_id: string;
+}
+
 export interface StaffOpsSessionAttendancePayload
   extends AttendanceReviewFields {
   studentId: string;

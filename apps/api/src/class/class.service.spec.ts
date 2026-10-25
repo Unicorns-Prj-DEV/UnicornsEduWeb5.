@@ -30,7 +30,12 @@ jest.mock('../../generated/client', () => {
 });
 
 import { ClassService } from './class.service';
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   ClassPricingMode,
   ClassStatus,
@@ -64,9 +69,11 @@ describe('ClassService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
     staffInfo: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
     studentInfo: {
       findMany: jest.fn(),
@@ -197,6 +204,11 @@ describe('ClassService', () => {
     mockTx.classTeacher.update.mockResolvedValue({});
     mockTx.classTeacher.updateMany.mockResolvedValue({ count: 0 });
     mockTx.classTeacher.findUnique.mockResolvedValue(null);
+    mockTx.classTeacher.create.mockResolvedValue({});
+    mockTx.staffInfo.findUnique.mockResolvedValue({
+      status: StaffStatus.active,
+      roles: [StaffRole.teacher],
+    });
     mockTx.staffInfo.findMany.mockImplementation((args: any) => {
       const ids = args?.where?.id?.in ?? [];
       return ids.map((id: string) => ({ id, status: StaffStatus.active }));
@@ -453,6 +465,8 @@ describe('ClassService', () => {
               id: 'class-1',
               name: 'Math 10A',
               allowancePerSessionPerStudent: 100_000,
+              studentTuitionPerSession: 250_000,
+              studentTuitionPerBlock: 250_000,
             },
           ],
           meta: { total: 1, page: 1, limit: 20 },
@@ -472,9 +486,13 @@ describe('ClassService', () => {
         limit: 20,
         trainingManagerStaffId: 'training-1',
       });
-      expect(result.data[0]).not.toHaveProperty(
+      // Quản lý lớp chỉnh được lương gia sư nên thấy trợ cấp, nhưng không thấy học phí.
+      expect(result.data[0]).toHaveProperty(
         'allowancePerSessionPerStudent',
+        100_000,
       );
+      expect(result.data[0]).not.toHaveProperty('studentTuitionPerSession');
+      expect(result.data[0]).not.toHaveProperty('studentTuitionPerBlock');
     });
 
     it('gives teacher + training staff taught OR managed classes, and managed only with scope=managed', async () => {
@@ -1511,6 +1529,199 @@ describe('ClassService', () => {
           operatingDeductionRatePercent: 5,
         },
       });
+    });
+  });
+
+  describe('updateClassTeacherPay', () => {
+    beforeEach(() => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        teachers: [
+          { teacherId: 'teacher-1', operatingDeductionRatePercent: 5 },
+          { teacherId: 'manager-1', operatingDeductionRatePercent: 0 },
+        ],
+      });
+    });
+
+    it('rejects an empty pay update instead of writing an empty audit', async () => {
+      await expect(
+        service.updateClassTeacherPay(
+          'class-1',
+          {},
+          { lockedTeacherId: 'manager-1' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('updates class defaults and teacher compensation in one transaction', async () => {
+      await service.updateClassTeacherPay(
+        'class-1',
+        {
+          allowance_per_session_per_student: 90000,
+          scale_amount: 20000,
+          teachers: [
+            {
+              teacher_id: 'teacher-1',
+              custom_scale_amount: 0,
+              operating_deduction_rate_percent: 8,
+            },
+          ],
+        },
+        { lockedTeacherId: 'manager-1' },
+        { userId: 'training-user', roleType: UserRole.staff },
+      );
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      const [classUpdateArgs] = mockTx.class.update.mock.calls[0] as [
+        { data: Record<string, unknown> },
+      ];
+      expect(classUpdateArgs).toMatchObject({
+        where: { id: 'class-1' },
+        data: { allowancePerSessionPerStudent: 90000, scaleAmount: 20000 },
+      });
+      expect(classUpdateArgs.data).not.toHaveProperty(
+        'studentTuitionPerSession',
+      );
+      expect(mockTx.classTeacher.update).toHaveBeenCalledWith({
+        where: {
+          classId_teacherId: { classId: 'class-1', teacherId: 'teacher-1' },
+        },
+        data: { customScaleAmount: 0, operatingDeductionRatePercent: 8 },
+      });
+      expect(mockActionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockTx,
+        expect.objectContaining({
+          description: 'Cập nhật lương gia sư của lớp học (quản lý lớp)',
+        }),
+      );
+    });
+
+    it('rejects editing the locked (self) teacher row', async () => {
+      await expect(
+        service.updateClassTeacherPay(
+          'class-1',
+          { teachers: [{ teacher_id: 'manager-1', custom_allowance: 1 }] },
+          { lockedTeacherId: 'manager-1' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('still allows class defaults when the manager also teaches the class', async () => {
+      await service.updateClassTeacherPay(
+        'class-1',
+        { allowance_per_session_per_student: 100000 },
+        { lockedTeacherId: 'manager-1' },
+      );
+
+      expect(mockTx.class.update).toHaveBeenCalled();
+      expect(mockTx.classTeacher.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects teachers not assigned to the class', async () => {
+      await expect(
+        service.updateClassTeacherPay('class-1', {
+          teachers: [{ teacher_id: 'teacher-x', custom_allowance: 1 }],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('addClassTeacher', () => {
+    beforeEach(() => {
+      jest.spyOn(service, 'getClassById').mockResolvedValue({
+        id: 'class-1',
+      } as never);
+    });
+
+    it('creates a new active assignment with class-default pay', async () => {
+      await service.addClassTeacher('class-1', 'teacher-2', {
+        userId: 'training-user',
+        roleType: UserRole.staff,
+      });
+
+      expect(mockTx.classTeacher.create).toHaveBeenCalledWith({
+        data: {
+          classId: 'class-1',
+          teacherId: 'teacher-2',
+          customAllowance: null,
+          customScaleAmount: null,
+          operatingDeductionRatePercent: 0,
+          status: 'active',
+        },
+      });
+      expect(mockTx.classTeacher.deleteMany).not.toHaveBeenCalled();
+      expect(mockActionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockTx,
+        expect.objectContaining({ description: 'Thêm gia sư vào lớp học' }),
+      );
+    });
+
+    it('reactivates a stopped teacher and resets pay overrides', async () => {
+      mockTx.classTeacher.findUnique.mockResolvedValue({ status: 'inactive' });
+
+      await service.addClassTeacher('class-1', 'teacher-2');
+
+      expect(mockTx.classTeacher.create).not.toHaveBeenCalled();
+      expect(mockTx.classTeacher.update).toHaveBeenCalledWith({
+        where: {
+          classId_teacherId: { classId: 'class-1', teacherId: 'teacher-2' },
+        },
+        data: {
+          customAllowance: null,
+          customScaleAmount: null,
+          operatingDeductionRatePercent: 0,
+          status: 'active',
+        },
+      });
+    });
+
+    it('rejects a teacher already active in the class', async () => {
+      mockTx.classTeacher.findUnique.mockResolvedValue({ status: 'active' });
+
+      await expect(
+        service.addClassTeacher('class-1', 'teacher-2'),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('rejects staff without the teacher role', async () => {
+      mockTx.staffInfo.findUnique.mockResolvedValue({
+        status: StaffStatus.active,
+        roles: [StaffRole.training],
+      });
+
+      await expect(
+        service.addClassTeacher('class-1', 'staff-2'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects inactive teachers', async () => {
+      mockTx.staffInfo.findUnique.mockResolvedValue({
+        status: StaffStatus.inactive,
+        roles: [StaffRole.teacher],
+      });
+
+      await expect(
+        service.addClassTeacher('class-1', 'teacher-2'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects ended classes', async () => {
+      (
+        service as unknown as {
+          getClassAuditSnapshot: jest.Mock;
+        }
+      ).getClassAuditSnapshot.mockResolvedValueOnce({
+        id: 'class-1',
+        status: ClassStatus.ended,
+        schedule: [],
+        teachers: [],
+      });
+
+      await expect(
+        service.addClassTeacher('class-1', 'teacher-2'),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 

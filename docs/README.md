@@ -25,6 +25,7 @@ Mục lục tài liệu trong `docs/`, cộng với snapshot ngắn về trạng
 | [Email Templates.md](Email%20Templates.md)                   | Email giao dịch API: layout chung React Email, 5 template, ảnh inline CID, biên lai email/PDF. |
 | [Seed Question Bank.md](Seed%20Question%20Bank.md)           | Seed ngân hàng câu hỏi + đề luyện tập (`pnpm seed:question-bank`), pack dữ liệu, tính idempotent. |
 | [api/unioj-integration.md](api/unioj-integration.md)         | Hướng dẫn tích hợp API chấm bài UNIOJ (Online Judge) cho học sinh.                            |
+| [api/protected-video.md](api/protected-video.md)             | Video bảo vệ: đồng bộ YouTube → UniVideo qua UNIOJ, link phát tự ký cho học sinh.             |
 | [api/courses.md](api/courses.md)                             | Phân quyền API khoá học: CRUD khoá, cây Chuyên đề/Tiết học (`/course/:id/modules`, `/lessons/:id/...`), difficulty-levels. |
 | **adr/**                                                     | Architecture Decision Records (mã định danh ngắn, workspace khoá học, lương cứng, …).        |
 | [adr/2026-09-11-frontend-perf-a11y-conventions.md](adr/2026-09-11-frontend-perf-a11y-conventions.md) | Quy ước frontend sau đợt `react-doctor`: `lib/formatters.ts`, `<Suspense>` cho `useSearchParams`, reset state trong render, Set lookup, label/`aria-label`. |

@@ -88,6 +88,7 @@ import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import YouTubeEmbed, { extractYouTubeVideoId } from "@/components/ui/YouTubeEmbed";
+import ProtectedVideoSyncStatus from "@/components/admin/ProtectedVideoSyncStatus";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
@@ -3359,6 +3360,10 @@ export default function SessionHistoryTable({
                         disabled={readOnlySessionDetails}
                         placeholder="https://youtube.com/watch?v=..."
                         className="min-h-11 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-60"
+                      />
+                      <ProtectedVideoSyncStatus
+                        savedUrl={editingSession?.recordingUrl}
+                        currentUrl={editRecordingUrl}
                       />
                       {editRecordingUrl && (
                         <div className="mt-2">

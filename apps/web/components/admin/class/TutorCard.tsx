@@ -44,6 +44,8 @@ type Props = {
   canStopTeaching?: boolean;
   onStopTeaching?: (teacherId: string) => void;
   stopTeachingPendingTeacherId?: string | null;
+  /** Không hiện nút Nghỉ dạy cho dòng này (quản lý lớp không tự cho mình nghỉ). */
+  stopTeachingLockedTeacherId?: string | null;
 };
 
 function normalizeMoneyAmount(value?: number | null): number | null {
@@ -125,6 +127,7 @@ export default function TutorCard({
   canStopTeaching = false,
   onStopTeaching,
   stopTeachingPendingTeacherId = null,
+  stopTeachingLockedTeacherId = null,
 }: Props) {
   const tutorItems = normalizeTutors(
     teachers,
@@ -150,7 +153,9 @@ export default function TutorCard({
                 const showCompensation =
                   showTeacherCompensation && (compensationTeacherId == null || isSelf);
                 const showStopTeaching =
-                  canStopTeaching && teacher.assignmentStatus !== "inactive";
+                  canStopTeaching &&
+                  teacher.assignmentStatus !== "inactive" &&
+                  teacher.id !== stopTeachingLockedTeacherId;
                 const isStopTeachingPending = stopTeachingPendingTeacherId === teacher.id;
 
                 return (

@@ -470,6 +470,7 @@ function StudentClassTimelineListInner({
                   >
                     {item.kind === "session" && item.session ? (
                       <StudentSessionTimelineCard
+                        classId={classId}
                         session={item.session}
                         leading={leading}
                       />

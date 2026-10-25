@@ -1,8 +1,11 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { ProtectedVideoService } from 'src/protected-video/protected-video.service';
 import { Prisma } from '../../generated/client';
 import {
   AttendanceStatus,
@@ -174,6 +177,11 @@ function liveAllowanceFromClassTeacher(
 
 @Injectable()
 export class SessionUpdateService {
+  /** Đồng bộ video sau khi lưu link recording (Optional: spec dựng service bằng `new`). */
+  @Optional()
+  @Inject(ProtectedVideoService)
+  private readonly protectedVideos?: ProtectedVideoService;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly staffOperationsAccess: StaffOperationsAccessService,
@@ -1742,6 +1750,9 @@ export class SessionUpdateService {
       },
     );
 
+    if (data.recordingUrl !== undefined) {
+      this.protectedVideos?.track(data.recordingUrl);
+    }
     return updatedSession;
   }
 

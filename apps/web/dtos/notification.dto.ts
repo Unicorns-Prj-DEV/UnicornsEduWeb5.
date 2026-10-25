@@ -13,7 +13,8 @@ export type NotificationTargetStaffRole =
   | "technical"
   | "customer_care"
   | "training"
-  | "assistant";
+  | "assistant"
+  | "sale";
 
 export interface NotificationAuthor {
   userId: string | null;

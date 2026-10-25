@@ -110,6 +110,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - **CustomerCareService**: liên kết `student_info` và `staff_info`.
 - **StaffMonthlyStat → StaffInfo**: N-1.
 - **ExtraAllowance → StaffInfo**: N-1.
+- **ExtraAllowance → StudentInfo**: N-1 tuỳ chọn (`student_id`, chỉ dòng `sale`; `SetNull`).
 - **ClassSurvey → Class / StaffInfo**: optional FK, `onDelete: SetNull`.
 - **ClassSurvey → Survey**: optional FK `survey_id` (nullable cho data cũ trước khi có Bài khảo sát).
 - **ClassSurveyStudentAssessment → ClassSurvey / StudentInfo**: required FK, `onDelete: Cascade`; unique `(class_survey_id, student_id)`.
@@ -185,7 +186,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.2 `staff_info`
 
 - **PK format:** `UNISTAFF-[0-9a-f]{10}` — ví dụ `UNISTAFF-1a2b3c4d5e`. Đây là **mã định danh hệ thống** ngắn cho nhân sự; migration `20260523110000_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
-- Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `accountant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, `assistant`), `status`
+- Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `accountant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, `assistant`, `sale`), `status`
 - `status` là trạng thái vận hành hồ sơ nhân sự: `active` = **Hoạt động**, `inactive` = **Ngừng hoạt động**. Chỉ staff `active` được resolve staff/admin-through-staff workspace và được chọn cho phân công mới (gia sư lớp, trợ lí quản lí CSKH, giáo án, trợ cấp thêm). Staff `inactive` vẫn giữ trong lịch sử, payroll và các bản ghi đã phát sinh.
 - Khi hồ sơ nhân sự chuyển sang `inactive`, backend dừng các assignment vận hành đang mở: phân công gia sư-lớp hiện tại chuyển sang `inactive`, slot lịch cố định và buổi bù tương lai của nhân sự đó được dọn khỏi vận hành, liên kết CSKH đang chăm sóc bị gỡ. `users.status` không đổi.
 - Index: unique B-tree `staff_info_user_id_key` trên `user_id` kèm **`INCLUDE ("id", "roles")`** (covering) để tối ưu các đọc theo `user_id` (auth/session, roles guard). Trong Prisma: `@@unique([userId], map: "staff_info_user_id_key")` trên model `StaffInfo` (phần `INCLUDE` chỉ có trong migration SQL, Prisma chưa có DSL tương ứng).
@@ -310,7 +311,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - **Ảnh bìa lớp:**
     - `cover_image_path` (`TEXT`, nullable): path ảnh bìa trong bucket **private** `class-covers`, dạng `{classId}/cover.{jpg|png|webp}`; null = thẻ lớp hiện mascot kỳ lân theo ID lớp. API trả signed URL (TTL 1 giờ), không trả path. Upload/gỡ qua `POST`/`DELETE /class/:id/cover-image`: admin, trợ lí với mọi lớp; Gia sư đứng lớp (`class_teachers.status = 'active'`) và Quản lý lớp (`training_manager_staff_id`) chỉ với lớp của mình. Migration `20261002110000_add_class_cover_image`. **Ops phải tạo bucket private `class-covers` trên Supabase trước khi dùng.**
   - **Quản lý lớp (Đào tạo):**
-    - `training_manager_staff_id` (nullable FK → `staff_info.id`): nhân sự ban Đào tạo được gán quản lý lớp; chỉnh qua `PATCH /class/:id/training-manager` (admin/assistant).
+    - `training_manager_staff_id` (nullable FK → `staff_info.id`): nhân sự ban Đào tạo được gán quản lý lớp; chỉnh qua `PATCH /class/:id/training-manager` (admin/assistant). Chấp nhận staff `active` có role `training` hoặc `teacher` (gia sư kiêm quản lý); staff chưa có `training` được tự thêm role này vào `staff_info.roles` cùng transaction, bỏ gán không gỡ role.
     - `training_manager_rate_percent` (`DECIMAL(5,2)`, nullable): % trợ cấp quản lý lớp trên tổng học phí buổi (attendance `present`/`excused`); `0` hoặc chưa gán QLL = không phát sinh khoản phải trả.
   - **Không điểm danh (noAttendance):**
     - `no_attendance` (`BOOLEAN`, default `false`): bật=True nghĩa là lớp **không điểm danh**; khi tạo buổi học hệ thống tự tạo `Attendance.present` cho tất cả học sinh active, bỏ qua form điểm danh. Gán/tắt chỉ bởi admin/assistant (`PATCH /class/:id/basic-info`). Session snapshot giá trị này vào `sessions.snapshot_no_attendance` để FE hiển thị đúng cho buổi đã tạo. Đổi cờ lớp **không** hồi tố buổi cũ.
@@ -762,6 +763,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `customer_care_service`: map staff chăm sóc theo học viên + % profit (mặc định chép từ `staff_info.customer_care_default_profit_percent` khi gán CSKH mới)
 - `staff_monthly_stats`: số liệu tổng hợp lương/việc theo tháng
 - `extra_allowances`: khoản trợ cấp bổ sung theo staff/tháng/role, có `amount`, `status`, `note`, `month`, `role_type`, và snapshot `tax_deduction_rate_percent`
+  - `student_id` (nullable, FK → `student_info.id`, `ON DELETE SET NULL`, index `extra_allowances_student_id_idx`): học sinh (khách hàng) của **Trợ cấp sale**. Chỉ có nghĩa khi `role_type = sale`; lúc tạo/sửa dòng sale, service bắt buộc `student_id` + `note` khác rỗng, role khác gửi `student_id` bị `400`. Không có CHECK constraint và không unique: xoá học sinh để lại dòng sale với `student_id = NULL` (UI hiện "Học sinh đã xoá"). Migration `20261023120000_sale_role_allowance`. ADR `docs/adr/2026-10-23-sale-allowance-on-extra-allowances.md`.
 - Index read path mới cho finance:
   - `bonuses`: composite `(staff_id, month, status)` cho payroll preview/listing theo nhân sự-tháng-trạng thái; composite `(status, date, staff_id)` cho batch thanh toán/lọc theo trạng thái-ngày
   - `wallet_transactions_history`: composite `(student_id, created_at)` cho feed lịch sử ví theo học sinh; composite `(type, created_at)` cho phân loại lịch sử theo loại giao dịch
@@ -924,6 +926,18 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
     - `level`
     - `updated_at`
 
+### 4.10b Video bảo vệ (`protected_videos`)
+
+ADR: `docs/adr/2026-10-18-protected-video-via-unioj-sync.md`. Một dòng mỗi `youtube_id` xuất hiện ở `lessons.video_url` hoặc `sessions.recording_url` (không FK — nhiều tiết/buổi dùng chung video).
+
+- PK `youtube_id` (11 ký tự, parse bằng `extractYouTubeId` — `apps/api/src/protected-video/youtube-id.ts`).
+- `video_id`: ULID Video trong kho UniVideo do UNIOJ trả; null tới khi kho nhận job; không bị xoá khi UNIOJ trả null lần sau.
+- `status` (`ProtectedVideoStatus`): `pending` = LMS chưa gửi được sang UNIOJ; còn lại mirror UNIOJ `video-sync`.
+- `progress` (0–100), `error_code` (UNIOJ, chỉ khi `failed`), `last_sync_error` (lỗi LMS gọi UNIOJ), `queue_position` / `queue_total`.
+- `requested_at`: cron gửi `pending` theo thứ tự mới nhất trước; `synced_at`: lần gọi UNIOJ gần nhất (poll cũ nhất trước).
+- Index: `(status, requested_at)`, `(status, synced_at)`.
+- Migration `20261023100000_protected_videos` backfill mọi link YouTube hiện có thành `pending` (`requested_at` = `updated_at` mới nhất của tiết/buổi dùng link).
+
 ### 4.11 Contract notes for authoritative ID generation
 
 - `student_info.id`, `classes.id`, `staff_info.id`: dùng mã định danh hệ thống ngắn (`UNIST-*`, `UNICL-*`, `UNISTAFF-*`), không dùng UUID trần và không derive từ UUID cũ.
@@ -951,7 +965,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 - `UserRole`: `admin | staff | student | guest`
 - `UserStatus`: `active | inactive | pending`
-- `StaffRole`: `admin | teacher | assistant | lesson_plan | lesson_plan_head | accountant | accountant_income | accountant_expense | communication | technical | customer_care`
+- `StaffRole`: `admin | teacher | assistant | sale | lesson_plan | lesson_plan_head | accountant | accountant_income | accountant_expense | communication | technical | customer_care | training`
+  - `sale` (migration `20261023120000_sale_role_allowance`): nhân sự Sale, ăn lương cứng, tự ghi **Trợ cấp sale** trên `extra_allowances`.
   - `accountant` là legacy value; migration `20260529100000_split_accountant_roles` thêm enum mới, rồi `20260529100001_migrate_accountant_role_data` chuyển dữ liệu hiện hữu sang `accountant_income`.
 - `StaffStatus`: `active | inactive`
 - `StudentStatus`: `active | inactive`
@@ -986,6 +1001,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - `LessonTaskPriority`: `low | medium | high`
 - `LessonOutputStatus`: `pending | completed | cancelled`
 - `LessonOutputDifficultyBand`: `easy | medium | hard | very_hard | extreme` (nullable trên `lesson_outputs.difficulty_band`)
+- `ProtectedVideoStatus`: `pending | queued | downloading | transcoding | uploading | ready | failed` (`protected_videos.status`)
 
 ### Notification
 
@@ -1007,6 +1023,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `staff_communication`
   - `staff_technical`
   - `staff_customer_care`
+  - `staff_training`
+  - `staff_sale` (migration `20261023120000_sale_role_allowance`)
 
 ---
 

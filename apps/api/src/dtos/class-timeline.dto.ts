@@ -55,7 +55,10 @@ export interface ClassTimelineItemDto {
     nextSessionPlan: string | null;
     hasRetest: boolean;
     retestContent: string | null;
+    /** Link YouTube gốc; null ở timeline học sinh (Video bảo vệ). */
     recordingUrl: string | null;
+    /** Buổi có recording — học sinh xin link phát qua `…/sessions/:sessionId/playback`. */
+    hasRecording: boolean;
     teacherName: string | null;
     myAttendanceStatus: string | null;
     myAttendanceNotes: string | null;

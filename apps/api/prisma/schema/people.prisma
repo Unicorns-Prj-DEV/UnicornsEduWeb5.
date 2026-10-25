@@ -101,6 +101,7 @@ model StudentInfo {
   lessonQuizAnswers         LessonQuizAnswer[]
   attempts                  Attempt[]
   theoryLessonViews         ClassTheoryLessonView[]
+  saleAllowances            ExtraAllowance[]
 
   @@map("student_info")
 }

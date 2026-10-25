@@ -25,6 +25,8 @@ import {
 } from "@/components/admin/class";
 import AdminClassDetailPage from "@/app/admin/classes/[id]/page";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
+import ManagedClassTeachersPopup from "@/components/admin/class/ManagedClassTeachersPopup";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
@@ -58,6 +60,7 @@ import type {
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import * as surveysApi from "@/lib/apis/surveys.api";
+import { trainingTutorKeys } from "@/lib/apis/training-tutor.api";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
@@ -345,6 +348,12 @@ export default function StaffClassDetailPage() {
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
   const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
+  const [managedTeachersPopupOpen, setManagedTeachersPopupOpen] = useState(false);
+  const [stopTeachingTarget, setStopTeachingTarget] = useState<{
+    teacherId: string;
+    teacherName: string;
+  } | null>(null);
+  const [stopTeachingReason, setStopTeachingReason] = useState("");
   const [activeTab, selectTab] = useClassDetailTab();
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
@@ -492,6 +501,12 @@ export default function StaffClassDetailPage() {
     (classDetail?.teachers ?? []).some((teacher) => teacher.id === actorStaffId);
   const isCustomerCareView = isCustomerCare && !isTeacherWorkspaceActor;
   const isTrainingView = isTraining && !isTeacherWorkspaceActor && !isCustomerCare;
+  /** Ban Đào Tạo là quản lý của lớp này: được chỉnh gia sư + lương gia sư (trừ dòng của mình). */
+  const isManagingTrainer =
+    isTraining &&
+    Boolean(actorStaffId) &&
+    classDetail?.trainingManager?.id === actorStaffId;
+  const canManageClassTeachers = isManagingTrainer && classDetail?.status !== "ended";
   /** Admin on staff shell + CSKH (assigned students only; others empty via BE redact). */
   const showStudentBalanceColumn = isAdmin || isCustomerCareView;
   const canOpenReadonlyClassForms = isTrainingView;
@@ -671,6 +686,48 @@ export default function StaffClassDetailPage() {
     [id, queryClient],
   );
 
+  const invalidateClassTeacherQueries = useCallback(async () => {
+    await Promise.all([
+      invalidateClassOpsQueries(),
+      queryClient.invalidateQueries({ queryKey: trainingTutorKeys.all }),
+      invalidateCalendarScopedQueries(queryClient),
+    ]);
+  }, [invalidateClassOpsQueries, queryClient]);
+
+  const stopTeachingMutation = useMutation({
+    mutationFn: (payload: { teacherId: string; reason?: string }) =>
+      staffOpsApi.stopClassTeacher(id, payload.teacherId, { reason: payload.reason }),
+    onSuccess: async () => {
+      toast.success("Đã chuyển gia sư sang nghỉ dạy lớp này.");
+      setStopTeachingTarget(null);
+      await invalidateClassTeacherQueries();
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Không thể chuyển gia sư sang nghỉ dạy.";
+      toast.error(msg);
+    },
+  });
+
+  const handleStopTeaching = (teacherId: string) => {
+    const teacherName =
+      classDetail?.teachers?.find((teacher) => teacher.id === teacherId)?.fullName?.trim() ||
+      "gia sư";
+    setStopTeachingReason("");
+    setStopTeachingTarget({ teacherId, teacherName });
+  };
+
+  const handleConfirmStopTeaching = () => {
+    if (!stopTeachingTarget) return;
+    const reason = stopTeachingReason.trim();
+    stopTeachingMutation.mutate({
+      teacherId: stopTeachingTarget.teacherId,
+      reason: reason || undefined,
+    });
+  };
+
   const backLabel = "Quay lại";
   const handleBack = () => {
     back();
@@ -772,6 +829,44 @@ export default function StaffClassDetailPage() {
         onSubmitSchedule={handleScheduleSubmit}
       />
 
+      {managedTeachersPopupOpen && canManageClassTeachers ? (
+        <ManagedClassTeachersPopup
+          classDetail={classDetail}
+          actorStaffId={actorStaffId}
+          onClose={() => setManagedTeachersPopupOpen(false)}
+          onChanged={invalidateClassTeacherQueries}
+        />
+      ) : null}
+
+      <ConfirmDialog
+        open={stopTeachingTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setStopTeachingTarget(null);
+        }}
+        title={`Cho ${stopTeachingTarget?.teacherName ?? "gia sư"} nghỉ dạy lớp này?`}
+        description="Lịch tương lai liên quan sẽ bị xoá. Trợ cấp các buổi đã phát sinh giữ nguyên."
+        confirmLabel="Nghỉ dạy"
+        variant="destructive"
+        onConfirm={handleConfirmStopTeaching}
+        confirmPending={stopTeachingMutation.isPending}
+      >
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="staff-stop-teaching-reason"
+            className="text-xs font-medium text-text-secondary"
+          >
+            Lý do (không bắt buộc)
+          </label>
+          <textarea
+            id="staff-stop-teaching-reason"
+            value={stopTeachingReason}
+            onChange={(event) => setStopTeachingReason(event.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
+          />
+        </div>
+      </ConfirmDialog>
+
       {addSessionPopupOpen ? (
         <AddSessionPopup
           open={addSessionPopupOpen}
@@ -821,14 +916,32 @@ export default function StaffClassDetailPage() {
             trainingManagerRatePercent={classDetail.trainingManagerRatePercent}
             defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
             defaultScaleAmount={classDetail.scaleAmount}
-            showTeacherCompensation={isAdmin || teacherAssignedToClass}
-            compensationTeacherId={isAdmin ? null : actorStaffId}
+            showTeacherCompensation={isAdmin || isManagingTrainer || teacherAssignedToClass}
+            compensationTeacherId={isAdmin || isManagingTrainer ? null : actorStaffId}
             className="flex-1"
             enableTeacherNavigation={false}
+            canStopTeaching={canManageClassTeachers}
+            stopTeachingLockedTeacherId={actorStaffId || null}
+            onStopTeaching={handleStopTeaching}
+            stopTeachingPendingTeacherId={
+              stopTeachingMutation.isPending
+                ? (stopTeachingMutation.variables?.teacherId ?? null)
+                : null
+            }
             action={
-              <div className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary sm:min-h-0 sm:w-auto">
-                Chỉ xem
-              </div>
+              canManageClassTeachers ? (
+                <button
+                  type="button"
+                  onClick={() => setManagedTeachersPopupOpen(true)}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                >
+                  Chỉnh sửa
+                </button>
+              ) : (
+                <div className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary sm:min-h-0 sm:w-auto">
+                  Chỉ xem
+                </div>
+              )
             }
           />
           <ClassCard
