@@ -75,6 +75,11 @@ export interface UpdateUserPayload {
   staffRoles?: StaffRole[];
 }
 
+/** Body `PATCH /users/:id/password` (admin/trợ lí đặt mật khẩu mới). */
+export interface AdminSetUserPasswordPayload {
+  newPassword: string;
+}
+
 /** Một dòng user trong danh sách (admin). */
 export interface UserListItem {
   id: string;

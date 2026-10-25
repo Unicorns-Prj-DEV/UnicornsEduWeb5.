@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpException,
   Injectable,
   InternalServerErrorException,
@@ -13,7 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import type { Prisma } from '../../generated/client';
-import { UserRole } from 'generated/enums';
+import { StaffRole, UserRole } from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -920,6 +921,84 @@ export class AuthService {
     this.invalidateAuthIdentityCache(userId);
 
     return { message: 'Đổi mật khẩu thành công' };
+  }
+
+  /**
+   * Admin/trợ lí đặt mật khẩu mới cho user khác (không cần mật khẩu cũ).
+   * Thu hồi mọi thiết bị + refresh token của user đích để buộc đăng nhập lại.
+   * Trợ lí (không phải admin đầy đủ) không được đặt mật khẩu cho tài khoản
+   * admin/trợ lí khác, tránh leo thang quyền qua chiếm tài khoản.
+   */
+  async adminSetUserPassword(
+    targetUserId: string,
+    newPassword: string,
+    actor: { userId: string; userEmail: string; roleType: UserRole },
+  ): Promise<{ message: string }> {
+    const [target, actorStaff] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: {
+          id: true,
+          roleType: true,
+          staffInfo: { select: { roles: true } },
+        },
+      }),
+      this.prisma.staffInfo.findUnique({
+        where: { userId: actor.userId },
+        select: { roles: true },
+      }),
+    ]);
+
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
+    const actorIsFullAdmin =
+      actor.roleType === UserRole.admin ||
+      (actorStaff?.roles ?? []).includes(StaffRole.admin);
+    const targetRoles = target.staffInfo?.roles ?? [];
+    const targetIsPrivileged =
+      target.roleType === UserRole.admin ||
+      targetRoles.includes(StaffRole.admin) ||
+      targetRoles.includes(StaffRole.assistant);
+
+    if (!actorIsFullAdmin && targetIsPrivileged && target.id !== actor.userId) {
+      throw new ForbiddenException(
+        'Trợ lí không được đổi mật khẩu của tài khoản admin/trợ lí.',
+      );
+    }
+
+    await this.userDeviceService.removeAllDevicesForUser(targetUserId);
+    this.authIdentityCacheService.invalidateHasActiveDevice(targetUserId);
+
+    await this.prisma.$transaction(async (tx) => {
+      const beforeValue = await this.getUserAuditSnapshot(tx, targetUserId);
+      await tx.user.update({
+        where: { id: targetUserId },
+        data: {
+          passwordHash: await bcrypt.hash(newPassword, 10),
+          refreshToken: null,
+        },
+      });
+
+      const afterValue = await this.getUserAuditSnapshot(tx, targetUserId);
+      if (!beforeValue || !afterValue) {
+        return;
+      }
+
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor,
+        entityType: 'user',
+        entityId: targetUserId,
+        description: 'Admin đặt lại mật khẩu',
+        beforeValue,
+        afterValue,
+      });
+    });
+
+    this.invalidateAuthIdentityCache(targetUserId);
+
+    return { message: 'Đã đổi mật khẩu user' };
   }
 
   async setupPassword(

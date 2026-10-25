@@ -11,7 +11,11 @@ jest.mock('./user-device.service', () => ({
 
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
-import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { StaffRole, UserRole } from '../../generated/enums';
 import { AuthService, STAFF_DATA_CONSENT_VERSION } from './auth.service';
 
@@ -42,6 +46,9 @@ describe('AuthService', () => {
       findUnique: jest.fn(),
       delete: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    staffInfo: {
+      findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -1111,6 +1118,88 @@ describe('AuthService', () => {
       await expect(
         service.getSessionProfile('revoked-refresh'),
       ).resolves.toBeNull();
+    });
+  });
+
+  describe('adminSetUserPassword', () => {
+    const adminActor = {
+      userId: 'admin-1',
+      userEmail: 'admin@example.com',
+      roleType: UserRole.admin,
+    };
+    const assistantActor = {
+      userId: 'assistant-1',
+      userEmail: 'assistant@example.com',
+      roleType: UserRole.staff,
+    };
+
+    const mockTarget = (target: {
+      roleType: UserRole;
+      roles?: StaffRole[];
+    }) => {
+      const snapshot = {
+        id: 'target-1',
+        roleType: target.roleType,
+        staffInfo: target.roles ? { roles: target.roles } : null,
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(snapshot);
+    };
+
+    it('lets admin set password of any user and revokes sessions', async () => {
+      mockTarget({ roleType: UserRole.admin });
+      mockPrisma.staffInfo.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.adminSetUserPassword('target-1', '123456', adminActor),
+      ).resolves.toEqual({ message: 'Đã đổi mật khẩu user' });
+
+      expect(bcrypt.hash).toHaveBeenCalledWith('123456', 10);
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'target-1' },
+        data: { passwordHash: 'hashed-password', refreshToken: null },
+      });
+      expect(userDeviceService.removeAllDevicesForUser).toHaveBeenCalledWith(
+        'target-1',
+      );
+      expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          actor: adminActor,
+          entityId: 'target-1',
+          description: 'Admin đặt lại mật khẩu',
+        }),
+      );
+    });
+
+    it('lets assistant set password of a student', async () => {
+      mockTarget({ roleType: UserRole.student });
+      mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
+        roles: [StaffRole.assistant],
+      });
+
+      await expect(
+        service.adminSetUserPassword('target-1', '123456', assistantActor),
+      ).resolves.toEqual({ message: 'Đã đổi mật khẩu user' });
+    });
+
+    it.each([
+      ['admin user', { roleType: UserRole.admin }],
+      ['staff admin', { roleType: UserRole.staff, roles: [StaffRole.admin] }],
+      [
+        'other assistant',
+        { roleType: UserRole.staff, roles: [StaffRole.assistant] },
+      ],
+    ])('forbids assistant from targeting %s', async (_label, target) => {
+      mockTarget(target);
+      mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
+        roles: [StaffRole.assistant],
+      });
+
+      await expect(
+        service.adminSetUserPassword('target-1', '123456', assistantActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(userDeviceService.removeAllDevicesForUser).not.toHaveBeenCalled();
     });
   });
 });
