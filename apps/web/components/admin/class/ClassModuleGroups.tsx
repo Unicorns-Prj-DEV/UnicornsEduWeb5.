@@ -50,6 +50,8 @@ import type {
 import { formatVnDateTime } from "@/lib/formatters";
 import { TimelineKindBadge } from "@/components/class-timeline/TimelineKindBadge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PrintExamButton } from "@/components/practice/PrintExamButton";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import {
   Collapsible,
   CollapsibleContent,
@@ -79,7 +81,10 @@ type ItemActionProps = Pick<
   | "onOpenItem"
   | "onOpenTheoryProgress"
   | "onRemoveItem"
->;
+> & {
+  /** Có thì hiện nút **In đề** cạnh Kết quả / Chấm bài (instance bật Đề in). */
+  examPrintClassId?: string | null;
+};
 
 /**
  * Nội dung lớp gom theo chuyên đề, theo thứ tự của lớp: mỗi nhóm có tiết lý
@@ -92,6 +97,11 @@ export default function ClassModuleGroups({
   ...itemActions
 }: ClassModuleGroupsProps) {
   const queryClient = useQueryClient();
+  const { data: appConfig } = useAppConfig();
+  const rowActions: ItemActionProps = {
+    ...itemActions,
+    examPrintClassId: appConfig?.examPrint ? classId : null,
+  };
   const { data: groups = [], isLoading, isError } = useQuery({
     queryKey: classKeys.contentGroups(classId),
     queryFn: () => classApi.getClassContentGroups(classId),
@@ -229,10 +239,10 @@ export default function ClassModuleGroups({
                 group={group}
                 canReorder={canReorder}
                 dragDisabled={!allowDrag}
-                {...itemActions}
+                {...rowActions}
               />
             ) : (
-              <ModuleGroupCard key="ungrouped" group={group} {...itemActions} />
+              <ModuleGroupCard key="ungrouped" group={group} {...rowActions} />
             ),
           )}
         </SortableContext>
@@ -336,6 +346,7 @@ function ModuleGroupCard({
 function ContentItemRow({
   item,
   practiceActionsBasePath,
+  examPrintClassId,
   onOpenItem,
   onOpenTheoryProgress,
   onRemoveItem,
@@ -401,6 +412,17 @@ function ContentItemRow({
                 <PenLine className="size-3.5" />
                 Chấm bài
               </Link>
+              {examPrintClassId ? (
+                <PrintExamButton
+                  target={{
+                    kind: "staff-assignment",
+                    classId: examPrintClassId,
+                    assignmentId: item.id,
+                  }}
+                  className={`${ACTION_CLASS} cursor-pointer disabled:cursor-not-allowed disabled:opacity-50`}
+                  iconClassName="size-3.5"
+                />
+              ) : null}
             </>
           ) : null}
           {showTheoryActions ? (

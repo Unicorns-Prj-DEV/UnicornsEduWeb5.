@@ -81,4 +81,10 @@ export class AppConfigResponseDto implements LmsProfileConfig {
       'Nhận xét buổi học có phần Kiểm tra trong buổi (IT tắt; JP/ENG bật)',
   })
   inClassTest!: boolean;
+
+  @ApiProperty({
+    description:
+      'Đề in: xuất PDF đề trắng của tiết thực hành theo form đề tốt nghiệp THPT (IT bật; JP/ENG tắt)',
+  })
+  examPrint!: boolean;
 }

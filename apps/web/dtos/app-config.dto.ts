@@ -33,4 +33,6 @@ export interface AppConfig {
   questionAudio: boolean;
   /** Nhận xét buổi học có phần Kiểm tra trong buổi (IT tắt). */
   inClassTest: boolean;
+  /** Đề in: xuất PDF đề trắng của tiết thực hành theo form đề Bộ (chỉ IT). */
+  examPrint: boolean;
 }

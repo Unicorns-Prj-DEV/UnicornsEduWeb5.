@@ -49,6 +49,8 @@ export interface LmsProfileConfig {
   questionAudio: boolean;
   /** Nhận xét buổi học có phần Kiểm tra trong buổi (IT bỏ). */
   inClassTest: boolean;
+  /** Đề in: xuất PDF đề trắng của tiết thực hành theo form đề tốt nghiệp THPT (chỉ IT). */
+  examPrint: boolean;
 }
 
 const OPTION_COUNT = { min: 2, max: 6, default: 4 };
@@ -66,6 +68,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     sharedMaterials: false,
     questionAudio: false,
     inClassTest: false,
+    examPrint: true,
   },
   jp: {
     profile: 'jp',
@@ -85,6 +88,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     sharedMaterials: true,
     questionAudio: true,
     inClassTest: true,
+    examPrint: false,
   },
   eng: {
     profile: 'eng',
@@ -98,6 +102,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     sharedMaterials: false,
     questionAudio: false,
     inClassTest: true,
+    examPrint: false,
   },
 };
 
