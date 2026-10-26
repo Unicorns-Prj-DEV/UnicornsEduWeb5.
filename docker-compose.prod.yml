@@ -1,6 +1,8 @@
 # docker-compose.prod.yml
 # Multi-instance VPS: set per deploy directory (see deploy/instances.json):
-#   COMPOSE_PROJECT_NAME, NGINX_PUBLISH
+#   COMPOSE_PROJECT_NAME, NGINX_PUBLISH, DATA_NETWORK
+# DATA_NETWORK: network của Postgres + Supabase Storage self-host cho instance này
+# (uniedu-data-it | uniedu-data-eng | uniedu-data-jp), tạo bởi deploy/data-stack.
 name: ${COMPOSE_PROJECT_NAME:-unicorns}
 
 services:
@@ -15,6 +17,7 @@ services:
       - "4000"
     networks:
       - app-net
+      - data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
@@ -60,9 +63,13 @@ services:
         restart: true
     networks:
       - app-net
+      - data
 
 networks:
   app-net:
     driver: bridge
     driver_opts:
       com.docker.network.driver.mtu: "1280"
+  data:
+    external: true
+    name: ${DATA_NETWORK:?set DATA_NETWORK in .env (see docs/ops/vps-local-supabase.md)}

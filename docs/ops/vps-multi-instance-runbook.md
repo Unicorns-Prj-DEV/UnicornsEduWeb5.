@@ -71,11 +71,12 @@ cp /root/UnicornsEduEng/.env.production.eng.example /root/UnicornsEduEng/.env
 nano /root/UnicornsEduEng/.env
 ```
 
-Bắt buộc khác IT: `DATABASE_URL`, `JWT_*`, `FRONTEND_URL`, `BACKEND_URL`, `GOOGLE_CALLBACK_URL`.
+Bắt buộc khác IT: `DATA_NETWORK`, `DATABASE_URL`/`DIRECT_URL`, `SUPABASE_*`, `JWT_*`, `FRONTEND_URL`, `BACKEND_URL`, `GOOGLE_CALLBACK_URL`. DB + Storage lấy từ data stack local — xem [vps-local-supabase.md](vps-local-supabase.md).
 
 ```env
 COMPOSE_PROJECT_NAME=unicorns-eng
 NGINX_PUBLISH=127.0.0.1:8080:80
+DATA_NETWORK=uniedu-data-eng
 ```
 
 ### B4. Migration DB ENG
@@ -84,7 +85,7 @@ CD tự chạy `prisma migrate deploy` khi push `main` nếu `.env` có `DIRECT_
 
 ```bash
 cd /root/UnicornsEduEng
-# DIRECT_URL bắt buộc khi DATABASE_URL dùng PgBouncer (:6543?pgbouncer=true)
+# Postgres local (data stack): DIRECT_URL = DATABASE_URL (không PgBouncer)
 pnpm --filter api db:deploy
 # hoặc trong container api sau khi pull image
 ```
@@ -155,11 +156,12 @@ cp /root/UnicornsEduJP/.env.production.jp.example /root/UnicornsEduJP/.env
 nano /root/UnicornsEduJP/.env
 ```
 
-Bắt buộc: DB Supabase **riêng** (project khác IT/ENG), JWT secrets mới, domain JP:
+Bắt buộc: database `uniedu_jp` + storage-jp trên data stack local ([vps-local-supabase.md](vps-local-supabase.md)), JWT secrets mới, domain JP:
 
 ```env
 COMPOSE_PROJECT_NAME=unicorns-jp
 NGINX_PUBLISH=127.0.0.1:8081:80
+DATA_NETWORK=uniedu-data-jp
 FRONTEND_URL="https://jp.unicornsedu.com"
 BACKEND_URL="https://jp.unicornsedu.com/api"
 GOOGLE_CALLBACK_URL="https://jp.unicornsedu.com/api/auth/google/callback"
@@ -167,11 +169,11 @@ GOOGLE_CALLBACK_URL="https://jp.unicornsedu.com/api/auth/google/callback"
 
 ### E3. Migration DB JP
 
-CD tự migrate khi push `main` nếu `.env` có `DIRECT_URL`. Bootstrap / chạy tay từ máy dev:
+CD tự migrate khi push `main` nếu `.env` có `DIRECT_URL` (`@db:5432` chỉ resolve trong network `uniedu-data-jp`, nên chạy trong container api). Bootstrap / chạy tay:
 
 ```bash
-cd apps/api
-DIRECT_URL="postgresql://..." pnpm db:deploy
+cd /root/UnicornsEduJP
+docker compose -f docker-compose.prod.yml run --rm --no-deps api npx prisma migrate deploy
 ```
 
 Tạo admin (nếu cần): đăng nhập bằng handle/email + mật khẩu đã seed, hoặc insert user `role_type=admin` qua script tương tự instance ENG.
@@ -211,7 +213,7 @@ curl -fsS https://jp.unicornsedu.com/api/
 
 ### ENG
 
-- [ ] DB Supabase riêng cho ENG
+- [ ] Database `uniedu_eng` + storage-eng trên data stack (`/root/uniedu-data`)
 - [ ] Clone `/root/UnicornsEduEng` + `.env` (có `LMS_PROFILE=eng`)
 - [ ] Migrate DB ENG
 - [ ] Cloudflared `eng.*` → `:8080`
@@ -219,7 +221,7 @@ curl -fsS https://jp.unicornsedu.com/api/
 
 ### JP
 
-- [ ] DB Supabase riêng cho JP
+- [ ] Database `uniedu_jp` + storage-jp trên data stack (`/root/uniedu-data`)
 - [ ] Clone `/root/UnicornsEduJP` + `.env` từ `.env.production.jp.example` (có `LMS_PROFILE=jp`)
 - [ ] Migrate DB JP
 - [ ] Cloudflared `jp.*` → `:8081`
@@ -231,6 +233,7 @@ curl -fsS https://jp.unicornsedu.com/api/
 
 ## Tài liệu liên quan
 
+- [vps-local-supabase.md](vps-local-supabase.md) — Postgres + Storage self-host cho cả ba instance
 - [`docs/Cách làm việc.md`](../Cách%20làm%20việc.md)
 - [`deploy/instances.json`](../../deploy/instances.json)
 - [`.env.production.example`](../../.env.production.example)
