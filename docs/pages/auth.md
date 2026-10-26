@@ -34,7 +34,7 @@
   - nếu user đã có `passwordHash`: backend set cookie và redirect về `/auth/post-login`; trang này gọi `GET /auth/session` rồi chuyển tiếp theo cùng rule login thường (`preferredRedirect`, role workspace entrypoint, hoặc `next` hợp lệ)
   - nếu user chưa có `passwordHash`: backend set cookie và redirect tới `/auth/setup-password?source=google`
   - trường hợp account mới vẫn có `roleType = guest` vẫn được coi là session hợp lệ để hoàn tất setup password, không bị đá về login chỉ vì role là `guest`
-- Google OAuth với tài khoản học sinh: Google thay cho magic link (đã chứng minh email) nhưng vẫn áp luật một thiết bị — còn thiết bị sống → redirect `/auth/login?error=device_blocked` (màn «đang đăng nhập ở thiết bị khác»); không còn → xoá row idle cũ rồi tạo đúng một `UserDevice`.
+- Google OAuth với tài khoản học sinh: Google thay cho magic link (đã chứng minh email) nhưng vẫn áp luật một thiết bị — còn thiết bị sống → redirect `/auth/login?error=device_blocked` (màn «đang đăng nhập ở thiết bị khác»); không còn → xoá row idle cũ rồi tạo đúng một `UserDevice` (cùng transaction + advisory lock với `student/login`, `AuthService.issueStudentGoogleSession`).
 - Google OAuth với email **chưa có** trong DB: redirect `/auth/login?error=registration_disabled`; frontend hiển thị toast hướng dẫn liên hệ quản trị viên.
 - Setup password thành công:
   - ưu tiên redirect về `next` hợp lệ nếu route đó bị gate chặn trước đó
@@ -142,7 +142,8 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
   - Validate credentials, kiểm tra đã `emailVerified`.
   - Nếu `roleType !== student` → trả `400` với `error: NOT_STUDENT_ACCOUNT`.
   - Nếu email chưa xác minh → gửi luôn mail xác minh email (token `email-verify`, như `resend-verification`) rồi trả `400` với `error: EMAIL_NOT_VERIFIED`, kèm `maskedEmail` (`...abcd@domain`) khi gửi được. Gửi lỗi hoặc không có email → không có `maskedEmail`. Sai mật khẩu thì không gửi gì.
-  - Nếu student đã có device active → trả `409` với `error: DEVICE_ACTIVE`.
+  - Nếu student đã có device **sống** → trả `409` với `error: DEVICE_ACTIVE`. Sống = chưa idle 60 ngày **và** refresh token của thiết bị chưa hết hạn (`user_devices.refresh_expires_at`); cookie đã hết hạn (1 ngày, 30 ngày khi «Ghi nhớ») thì thiết bị cũ không còn chặn đăng nhập.
+  - Kiểm tra thiết bị sống + xoá device cũ + tạo device mới chạy **nguyên tử** trong một transaction có `pg_advisory_xact_lock(hashtext('user_device:<userId>'))` (`UserDeviceService.replaceDevicesForUser`). Hai lần đăng nhập đồng thời (bấm đúp, mạng lag, hai máy cùng lúc) được xếp hàng: lần sau thấy device lần trước vừa tạo → `409 DEVICE_ACTIVE`, không bao giờ sinh hai row. Row mới ghi sẵn `refresh_expires_at` trước khi ký JWT.
   - Email đã xác minh → **cấp phiên luôn, không gửi magic link** (ADR `docs/adr/2026-10-18-student-login-skip-login-magic-link.md`): xoá device cũ (idle), tạo `user_devices` mới, cấp JWT (`deviceId`), set cookies. Admin tick «Email đã xác thực» (`PATCH /users`, `emailVerified: true`) là học sinh vào thẳng.
   - Response: `{ message }`.
   - Rate limit: `5` request / `60s` / IP.
@@ -176,7 +177,9 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
   - Response: `{ message }`.
 
 - `POST /auth/student/logout`
-  - Student tự đăng xuất. Xóa tất cả device records, invalidate refresh token.
+  - Student tự đăng xuất. **`@Public()` + idempotent**: không đòi access token còn hạn (trước đây access hết hạn sau 15 phút là logout 401, FE không refresh cho `/auth/*`, device vẫn sống → lần đăng nhập sau bị `DEVICE_ACTIVE`).
+  - Xác định chủ phiên từ cookie: refresh cookie khớp `token_hash`, hoặc (khi refresh không khớp) `deviceId` trong access JWT còn hạn trỏ tới device còn sống. Khớp → xóa tất cả device records của học sinh đó, invalidate refresh token. Không khớp (phiên đã chết, hoặc token của máy đã bị force-logout) → không xóa gì, để token cũ không đá được phiên máy mới.
+  - Luôn clear cookie `access_token` / `refresh_token`.
   - FE dùng chung hook `apps/web/hooks/use-student-logout.ts` (`StudentHeader`, `StudentSidebar`): reset `AuthContext` về guest trước khi điều hướng, tránh trang login thấy session cũ rồi đá ngược về `/student`.
   - Response: `{ message }`.
 
@@ -191,12 +194,12 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
   - FE `StudentDevicePopup`: hỏi `window.confirm` trước khi gọi (TODO #11 dialog dùng chung); nút dùng token `error`.
 
 - Kiểm tra phiên trên **mọi** request đã xác thực (`JwtAuthGuard` / `JwtStrategy` là `APP_GUARD`), không chỉ `/auth/refresh`:
-  - JWT mới: lookup `UserDevice` theo `deviceId`; không còn / idle 60 ngày → 401 `NO_ACTIVE_DEVICE`.
+  - JWT mới: lookup `UserDevice` theo `deviceId`; không còn / idle 60 ngày / refresh đã hết hạn → 401 `NO_ACTIVE_DEVICE`.
   - JWT học sinh legacy (chưa có `deviceId`, tối đa ~15 phút): fallback `hasActiveDevice` (cache identity TTL 5s, invalidate khi xóa device).
   - `POST /auth/refresh`: `JwtRefreshStrategy` so khớp refresh cookie với `token_hash` + `deviceId`. Replay cookie sau logout / force-logout / đổi mật khẩu → 401.
   - `last_active_at` throttle 1 phút, không ghi DB mỗi request.
 
-- Lazy cleanup: khi tạo login request mới, tự động xóa login requests hết hạn và devices inactive > 60 ngày.
+- Lazy cleanup: khi học sinh đăng nhập, tự động xóa login requests hết hạn và devices idle > 60 ngày hoặc đã quá `refresh_expires_at`.
 - **Global rate limit:** các endpoint HTTP khác của API dùng limit mặc định `300` request / `60s` / endpoint / IP; health check `GET /` được `@SkipThrottle()`.
 - **Phản hồi khi vượt ngưỡng:** backend trả `429 Too Many Requests`; frontend nên surface message này qua Sonner toast như các lỗi auth khác.
 - **Contract:** Auth DTO và role enum aligned với backend.

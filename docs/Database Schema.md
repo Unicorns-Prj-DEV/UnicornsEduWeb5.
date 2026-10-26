@@ -164,10 +164,12 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `device_info` (`JSONB`, nullable): thông tin trình duyệt/device (user-agent, accept-language)
   - `ip_address` (`TEXT`, nullable): IP address khi đăng nhập
   - `last_active_at` (`TIMESTAMPTZ(6)`): lần hoạt động cuối cùng, dùng để auto-expire sau 60 ngày; backend chỉ ghi lại khi cách lần trước ≥ 1 phút
+  - `refresh_expires_at` (`TIMESTAMPTZ(6)`, nullable): hạn của refresh JWT đang gắn với thiết bị (now + 1 ngày, hoặc + 30 ngày khi `rememberMe`), ghi mỗi lần cấp/rotate token. Quá hạn → thiết bị không còn "sống" (không tính cho `DEVICE_ACTIVE`, JWT `deviceId` bị 401). `NULL` (row legacy) chỉ xét idle 60 ngày. Thêm bởi migration `20261026090000_user_device_refresh_expires_at` (backfill: học sinh `last_active_at + 1 ngày` để gỡ chặn oan ngay sau deploy; staff/admin `last_active_at + 30 ngày` để không cắt phiên «Ghi nhớ»).
   - `created_at` (`TIMESTAMPTZ(6)`)
 - Luật: mỗi học sinh chỉ có đúng 1 device active tại một thời điểm. Staff/admin được nhiều device (thu hồi từng máy). Xóa row = thu hồi phiên tức thời trên request kế tiếp.
-- Auto-expire: device bị xóa sau 60 ngày không hoạt động (lazy cleanup khi tạo login request mới).
-- Index: `user_id`, `token_hash`, `last_active_at`
+- Thiết bị **sống** = `last_active_at` trong 60 ngày **và** (`refresh_expires_at IS NULL` hoặc `> now()`) — `UserDeviceService.isLive` / `liveDeviceWhere`.
+- Auto-expire: device bị xóa khi idle 60 ngày hoặc refresh đã hết hạn (lazy cleanup lúc học sinh đăng nhập, `DELETE /device/cleanup-expired`).
+- Index: `user_id`, `token_hash`, `last_active_at`, `refresh_expires_at`
 
 ### 4.1.2 `login_requests` (Magic link verification)
 
