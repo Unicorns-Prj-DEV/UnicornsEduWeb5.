@@ -1,5 +1,5 @@
 model StaffLessonTask {
-  id                 String        @id @default(dbgenerated("CONCAT('UNISLT-', encode(gen_random_bytes(5), 'hex'))"))
+  id                 String        @id @default(dbgenerated("concat('UNISLT-', encode(gen_random_bytes(5), 'hex'::text))"))
   staffId            String        @map("staff_id")
   lessonTaskId       String        @map("lesson_task_id")
   allowance          Int           @default(0) @map("allowance")
@@ -16,7 +16,7 @@ model StaffLessonTask {
 }
 
 model LessonTask {
-  id               String             @id @default(dbgenerated("CONCAT('UNILTK-', encode(gen_random_bytes(5), 'hex'))"))
+  id               String             @id @default(dbgenerated("concat('UNILTK-', encode(gen_random_bytes(5), 'hex'::text))"))
   title            String?
   description      String?
   status           LessonTaskStatus
@@ -36,7 +36,7 @@ model LessonTask {
 }
 
 model LessonResource {
-  id           String      @id @default(dbgenerated("CONCAT('UNILRS-', encode(gen_random_bytes(5), 'hex'))"))
+  id           String      @id @default(dbgenerated("concat('UNILRS-', encode(gen_random_bytes(5), 'hex'::text))"))
   resourceLink String      @map("resource_link")
   title        String?
   description  String?
@@ -53,7 +53,7 @@ model LessonResource {
 }
 
 model LessonOutput {
-  id                      String                      @id @default(dbgenerated("CONCAT('UNILOT-', encode(gen_random_bytes(5), 'hex'))"))
+  id                      String                      @id @default(dbgenerated("concat('UNILOT-', encode(gen_random_bytes(5), 'hex'::text))"))
   level                   String?
   difficultyBand          LessonOutputDifficultyBand? @map("difficulty_band")
   includesTest            Boolean                     @default(false) @map("includes_test")

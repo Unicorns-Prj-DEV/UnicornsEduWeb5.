@@ -370,13 +370,15 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `DELETE /courses/:id` — cùng guard với `POST`. `400` nếu còn lớp đang dùng khoá học này (`classes.count > 0`); message: `Không thể xoá: còn N lớp đang dùng khoá học này. Hãy chuyển lớp sang khoá khác hoặc chỉ ẩn (is_active=false) khoá học này.` `CourseService.remove(actor, id)` gọi `assertCanManageCourse` như `PATCH`.
 - Guard phân quyền nội dung khoá (reusable `CourseAccessService`, dùng lại cho mọi ticket nội dung khoá về sau): admin đầy đủ / trợ lí quản lý được mọi khoá; đội giáo án (`lesson_plan`, `lesson_plan_head`) chỉ thấy/sửa khoá mình được gán (qua `course_lesson_plan_members`); gia sư đang dạy lớp thuộc khoá X **không** vì thế mà sửa được nội dung cấp khoá của X. Các service resource trong `CourseContentModule` gọi `assertCanManageCourse` (qua `CourseContentSupportService`) trước mọi ghi Module / Lesson nhánh khoá / tiết thực hành cấp khoá và trước GET câu hỏi/quiz trả đáp án cấp khoá; `assertCanWriteCourseQuestions` chỉ áp dụng khi ghi **ngân hàng câu hỏi**.
 - Controller cây nội dung khoá (`course-modules`, `course-lessons` CRUD/reorder, chưa gồm quiz): `@AllowStaffRolesOnAdminRoutes(assistant, teacher, lesson_plan_head)`. **Không** mở `lesson_plan` thuần ở tầng controller (họ soạn câu hỏi/tiết thực hành, không soạn cây Chuyên đề). `StaffRole.teacher` vẫn nằm trên decorator; tầng service tiếp tục 403 nếu không thuộc đội giáo án. Chi tiết bảng: `docs/api/courses.md`.
+- Khoá chính tên `courses_pkey` (trước migration `20261027090000_fix_schema_drift` còn tên cũ `class_categories_pkey`).
 - Seed dữ liệu ban đầu gồm các mã cũ (`vip`, `basic`, `advance`, `hardcore`) cộng 3 mã mới: `thpt_basic` (THPT BASIC), `thpt_advanced` (THPT ADVANCED), `thpt_luyen_de` (THPT Luyện Đề).
 - Khi tạo lớp không truyền `course_id`, `ClassService.resolveDefaultCourseId` fallback về khoá học `is_active=true` có `sort_order` nhỏ nhất (tie-break theo `name`) — không còn hardcode `code='basic'` để tránh vỡ khi admin đổi/xoá phân loại mặc định cũ.
 
 ### 4.4.0-cat-diff `course_difficulty_levels` (Mức độ khó của khoá học)
 
 - Mỗi `course` có nhiều mức độ khó (vd. "Dễ", "Trung bình", "Khó"), quản lý qua CRUD `/courses/:courseId/difficulty-levels`. Không dùng thang cố định Dễ/TB/Khó toàn hệ thống.
-- Cột: `id` (PK, `@default(uuid())` tự sinh), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `name` (TEXT), `sort_order` (INT, default `0`), `is_active` (BOOLEAN, default `true`), `created_at`, `updated_at`.
+- Cột: `id` (PK, default DB `gen_random_uuid()`), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `name` (TEXT), `sort_order` (INT, default `0`), `is_active` (BOOLEAN, default `true`), `created_at`, `updated_at`.
+- FK `course_id` chỉ có thật trong DB từ migration `20261027090000_fix_schema_drift` (bảng tạo ở `20260906000000` thiếu FK → xoá khoá để lại mức khó mồ côi). Xoá khoá cascade mức khó; câu hỏi của khoá bị cascade theo `questions.course_id` trước, nên `questions.difficulty_level_id` (`Restrict`) không chặn.
 - Index: `(course_id)`, unique `(course_id, name)`.
 - Unique business logic: tên mức khó duy nhất trong cùng một khoá học (enforce ở service layer + unique index).
 - Hành vi API:
@@ -388,7 +390,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.4.0-cat-members `course_lesson_plan_members` (đội giáo án của khoá học)
 
 - Bảng quan hệ N-N giữa `courses` và `staff_info`: nhân sự được gán soạn nội dung học thuật + ngân hàng câu hỏi của một khoá. Việc gán do admin, `lesson_plan_head` hoặc `assistant` thực hiện (giới hạn ở controller `CourseController`).
-- Cột: `id` (PK, `@default(uuid())` tự sinh), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `staff_id` (FK → `staff_info.id`, `onDelete: Cascade`), `created_at`.
+- Cột: `id` (PK, default DB `gen_random_uuid()`), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `staff_id` (FK → `staff_info.id`, `onDelete: Cascade`), `created_at`.
 - Index: unique `(course_id, staff_id)`, `(course_id)`, `(staff_id)`. Migration: `20260907000000_add_course_lesson_plan_members`.
 - Chỉ gán được nhân sự `staff_info.status = active` có `roles` chứa `lesson_plan` hoặc `lesson_plan_head`.
 - Hành vi API (`/courses/:courseId/lesson-plan-members`):

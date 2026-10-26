@@ -131,7 +131,7 @@ model StudentAchievement {
   award                String           @db.Text
   exam                 String           @db.Text
   year                 Int
-  level                AchievementLevel
+  level                AchievementLevel @default(KHAC)
   courseLabel          String?          @map("course_label") @db.Text
   imagePath            String?          @map("image_path")
   imageWatermarkedPath String?          @map("image_watermarked_path")
