@@ -446,26 +446,41 @@ export class UpdateClassStudentTuitionDto {
   @IsStudentId()
   student_id: string;
 
-  @ApiPropertyOptional({ example: 3600000, minimum: 0 })
+  @ApiPropertyOptional({
+    example: 3600000,
+    minimum: 0,
+    nullable: true,
+    description: 'null/bỏ trống = kế thừa lớp; 0 = miễn phí.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  custom_tuition_package_total?: number;
+  custom_tuition_package_total?: number | null;
 
-  @ApiPropertyOptional({ example: 12, minimum: 0 })
+  @ApiPropertyOptional({
+    example: 12,
+    minimum: 0,
+    nullable: true,
+    description: 'null/bỏ trống = kế thừa lớp; 0 = miễn phí.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  custom_tuition_package_session?: number;
+  custom_tuition_package_session?: number | null;
 
-  @ApiPropertyOptional({ example: 300000, minimum: 0 })
+  @ApiPropertyOptional({
+    example: 300000,
+    minimum: 0,
+    nullable: true,
+    description: 'null/bỏ trống = kế thừa lớp; 0 = miễn phí.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  custom_tuition_per_session?: number;
+  custom_tuition_per_session?: number | null;
 }
 
 /** Schedule slot for UpdateClassScheduleDto */
@@ -591,26 +606,41 @@ export class StudentClassCreateDto {
   @IsStudentId()
   id: string;
 
-  @ApiPropertyOptional({ example: 300000, minimum: 0 })
+  @ApiPropertyOptional({
+    example: 300000,
+    minimum: 0,
+    nullable: true,
+    description: 'null/bỏ trống = kế thừa lớp; 0 = miễn phí.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  custom_tuition_per_session?: number;
+  custom_tuition_per_session?: number | null;
 
-  @ApiPropertyOptional({ example: 3600000, minimum: 0 })
+  @ApiPropertyOptional({
+    example: 3600000,
+    minimum: 0,
+    nullable: true,
+    description: 'null/bỏ trống = kế thừa lớp; 0 = miễn phí.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  custom_tuition_package_total?: number;
+  custom_tuition_package_total?: number | null;
 
-  @ApiPropertyOptional({ example: 12, minimum: 0 })
+  @ApiPropertyOptional({
+    example: 12,
+    minimum: 0,
+    nullable: true,
+    description: 'null/bỏ trống = kế thừa lớp; 0 = miễn phí.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  custom_tuition_package_session?: number;
+  custom_tuition_package_session?: number | null;
 }
 
 /** DTO for PATCH /class/:id/students – replace students list */

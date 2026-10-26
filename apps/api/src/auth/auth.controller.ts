@@ -745,20 +745,25 @@ export class AuthController {
     return { message: 'Đăng nhập thành công' };
   }
 
+  @Public()
   @Post('student/logout')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth('access_token')
+  @ApiCookieAuth('refresh_token')
   @ApiOperation({
     summary: 'Student self-logout',
-    description: 'Removes the current device and invalidates the session.',
+    description:
+      'Public and idempotent (works with an expired access token). If the auth cookies match an existing UserDevice, removes every device of that student; always clears auth cookies.',
   })
   @ApiResponse({ status: 200, description: 'Logged out successfully.' })
   async studentLogout(
-    @Req() req: RequestWithResolvedAuthContext,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const userId = await this.getAuthenticatedUserIdFromCookies(req);
-    await this.authService.studentSelfLogout(userId);
+    await this.authService.studentSelfLogout({
+      refreshToken: readCookie(req, 'refresh_token'),
+      accessToken: readCookie(req, 'access_token'),
+    });
 
     const authCookieOptions = this.getAuthCookieOptions();
     res.clearCookie('access_token', authCookieOptions);
@@ -795,10 +800,17 @@ export class AuthController {
     @Req() req: GoogleAuthRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (
-      req.user.roleType === UserRole.student &&
-      !(await this.authService.prepareStudentDeviceForGoogleLogin(req.user.id))
-    ) {
+    const rememberMe = true;
+    const tokenPair =
+      req.user.roleType === UserRole.student
+        ? await this.authService.issueStudentGoogleSession(req.user)
+        : await this.authService.issueTokenPairForUser(
+            req.user.id,
+            req.user.accountHandle,
+            req.user.roleType,
+            rememberMe,
+          );
+    if (!tokenPair) {
       return res.redirect(
         this.buildFrontendRedirectUrl(
           '/auth/login',
@@ -806,14 +818,6 @@ export class AuthController {
         ),
       );
     }
-
-    const rememberMe = true;
-    const tokenPair = await this.authService.issueTokenPairForUser(
-      req.user.id,
-      req.user.accountHandle,
-      req.user.roleType,
-      rememberMe,
-    );
     this.setAuthCookies(res, tokenPair, rememberMe);
 
     const redirectUrl = req.user.passwordHash

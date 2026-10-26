@@ -86,6 +86,7 @@ describe('AuthService', () => {
     generateDeviceToken: jest.fn(),
     generateActivateSecret: jest.fn(),
     createDevice: jest.fn().mockResolvedValue({ id: 'device-1' }),
+    replaceDevicesForUser: jest.fn().mockResolvedValue({ id: 'device-1' }),
     removeAllDevicesForUser: jest.fn().mockResolvedValue({ count: 1 }),
     removeDeviceById: jest.fn().mockResolvedValue({ count: 1 }),
     hasActiveDevice: jest.fn(),
@@ -864,7 +865,7 @@ describe('AuthService', () => {
       userDeviceService.generateDeviceToken = jest
         .fn()
         .mockReturnValue('device-token');
-      userDeviceService.createDevice = jest
+      userDeviceService.replaceDevicesForUser = jest
         .fn()
         .mockResolvedValue({ id: 'device-1' });
       jwtService.signAsync = jest.fn().mockResolvedValue('jwt-token');
@@ -873,7 +874,6 @@ describe('AuthService', () => {
     it('issues tokens directly without sending a login magic link', async () => {
       mockPrisma.user.findFirst.mockResolvedValueOnce(verifiedStudent);
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
-      userDeviceService.hasActiveDevice.mockResolvedValueOnce(false);
 
       await expect(
         service.studentLoginInit('hocsinh1', 'secret'),
@@ -882,11 +882,18 @@ describe('AuthService', () => {
         refreshToken: 'jwt-token',
       });
 
-      expect(userDeviceService.removeAllDevicesForUser).toHaveBeenCalledWith(
-        'student-1',
+      // Kiểm tra + thay thiết bị trong một transaction có khoá theo user.
+      expect(userDeviceService.replaceDevicesForUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'student-1',
+          rejectIfLive: true,
+          refreshExpiresAt: expect.any(Date) as Date,
+        }),
       );
-      expect(userDeviceService.createDevice).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'student-1' }),
+      expect(userDeviceService.bindRefreshToken).toHaveBeenCalledWith(
+        'device-1',
+        'jwt-token',
+        expect.any(Date),
       );
       expect(mailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
@@ -894,12 +901,31 @@ describe('AuthService', () => {
     it('still blocks when another device is active', async () => {
       mockPrisma.user.findFirst.mockResolvedValueOnce(verifiedStudent);
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
-      userDeviceService.hasActiveDevice.mockResolvedValueOnce(true);
+      userDeviceService.replaceDevicesForUser.mockResolvedValueOnce(null);
 
       await expect(
         service.studentLoginInit('hocsinh1', 'secret'),
-      ).rejects.toThrow(ConflictException);
-      expect(userDeviceService.createDevice).not.toHaveBeenCalled();
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          error: 'DEVICE_ACTIVE',
+        }) as Record<string, unknown>,
+      });
+      expect(userDeviceService.bindRefreshToken).not.toHaveBeenCalled();
+    });
+
+    it('Google login for a student is blocked by a live device', async () => {
+      userDeviceService.replaceDevicesForUser.mockResolvedValueOnce(null);
+
+      await expect(
+        service.issueStudentGoogleSession({
+          id: 'student-1',
+          accountHandle: 'hocsinh1',
+          roleType: UserRole.student,
+        }),
+      ).resolves.toBeNull();
+      expect(userDeviceService.replaceDevicesForUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'student-1', rejectIfLive: true }),
+      );
     });
   });
 
@@ -925,12 +951,9 @@ describe('AuthService', () => {
       userDeviceService.generateDeviceToken = jest
         .fn()
         .mockReturnValue('device-token');
-      userDeviceService.createDevice = jest
+      userDeviceService.replaceDevicesForUser = jest
         .fn()
         .mockResolvedValue({ id: 'device-1' });
-      userDeviceService.removeAllDevicesForUser = jest
-        .fn()
-        .mockResolvedValue({});
       authIdentityCacheService.invalidateHasActiveDevice = jest.fn();
       jwtService.signAsync = jest.fn().mockResolvedValue('jwt-token');
     });
@@ -960,8 +983,9 @@ describe('AuthService', () => {
         refreshToken: 'jwt-token',
       });
 
-      expect(userDeviceService.createDevice).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'student-1' }),
+      // Magic link thay thiết bị cũ, không bị chặn bởi thiết bị sống.
+      expect(userDeviceService.replaceDevicesForUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'student-1', rejectIfLive: false }),
       );
       expect(
         authIdentityCacheService.invalidateHasActiveDevice,
@@ -978,7 +1002,7 @@ describe('AuthService', () => {
       await expect(
         service.activateStudentDevice('req-1', 'correct-secret'),
       ).rejects.toThrow(ConflictException);
-      expect(userDeviceService.createDevice).not.toHaveBeenCalled();
+      expect(userDeviceService.replaceDevicesForUser).not.toHaveBeenCalled();
     });
 
     it('rejects when request is not verified', async () => {
@@ -1046,6 +1070,65 @@ describe('AuthService', () => {
       expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
         'user-1',
       );
+    });
+
+    it('student logout ends the session even when the access token has expired', async () => {
+      // Access cookie đã hết hạn nhưng refresh cookie còn khớp thiết bị:
+      // logout phải xoá device, nếu không lần đăng nhập sau bị DEVICE_ACTIVE
+      // chặn dù không ai đang đăng nhập.
+      userDeviceService.findDeviceByRefreshToken.mockResolvedValueOnce({
+        id: 'device-9',
+        userId: 'student-1',
+      });
+
+      await expect(
+        service.studentSelfLogout({
+          refreshToken: 'refresh-cookie',
+          accessToken: 'expired-access',
+        }),
+      ).resolves.toEqual({ message: 'Đã đăng xuất' });
+
+      expect(userDeviceService.removeAllDevicesForUser).toHaveBeenCalledWith(
+        'student-1',
+      );
+      expect(
+        authIdentityCacheService.invalidateHasActiveDevice,
+      ).toHaveBeenCalledWith('student-1');
+    });
+
+    it('student logout falls back to the access token deviceId', async () => {
+      userDeviceService.findDeviceByRefreshToken.mockResolvedValueOnce(null);
+      jwtService.verifyAsync.mockResolvedValueOnce({ deviceId: 'device-9' });
+      userDeviceService.findLiveDeviceById.mockResolvedValueOnce({
+        id: 'device-9',
+        userId: 'student-1',
+      });
+
+      await service.studentSelfLogout({
+        refreshToken: 'rotated-refresh',
+        accessToken: 'access-cookie',
+      });
+
+      expect(userDeviceService.removeAllDevicesForUser).toHaveBeenCalledWith(
+        'student-1',
+      );
+    });
+
+    it('student logout with tokens of a kicked device does not end the new session', async () => {
+      // Máy A đã bị force-logout: refresh hash không còn, deviceId trong access
+      // đã bị xoá. Không được xoá thiết bị mới của học sinh.
+      userDeviceService.findDeviceByRefreshToken.mockResolvedValueOnce(null);
+      jwtService.verifyAsync.mockResolvedValueOnce({ deviceId: 'device-old' });
+      userDeviceService.findLiveDeviceById.mockResolvedValueOnce(null);
+
+      await expect(
+        service.studentSelfLogout({
+          refreshToken: 'stale-refresh',
+          accessToken: 'stale-access',
+        }),
+      ).resolves.toEqual({ message: 'Đã đăng xuất' });
+
+      expect(userDeviceService.removeAllDevicesForUser).not.toHaveBeenCalled();
     });
 
     it('ends every live device on changePassword', async () => {

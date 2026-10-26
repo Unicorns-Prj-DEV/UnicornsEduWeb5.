@@ -126,10 +126,21 @@ describe('SessionValidationService', () => {
     ).toBe(131250);
   });
 
-  it('treats custom per-session 0 as inherit (falls back to class tuition)', () => {
+  it('treats custom per-session 0 as free (does not fall back to class tuition)', () => {
     expect(
       service.resolveDefaultStudentTuitionPerSession({
         customTuitionPerSession: 0,
+        classTuitionPerSession: 180000,
+        classTuitionPackageTotal: null,
+        classTuitionPackageSession: null,
+      }),
+    ).toBe(0);
+  });
+
+  it('treats null custom per-session as inherit (falls back to class tuition)', () => {
+    expect(
+      service.resolveDefaultStudentTuitionPerSession({
+        customTuitionPerSession: null,
         classTuitionPerSession: 180000,
         classTuitionPackageTotal: null,
         classTuitionPackageSession: null,

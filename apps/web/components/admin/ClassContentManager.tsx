@@ -71,6 +71,7 @@ import {
   isOpenAtPairPartial,
 } from "@/lib/assignment-schedule.helpers";
 import { formatVnDateTime } from "@/lib/formatters";
+import { practiceResultsHref } from "@/lib/practice-results-routes";
 import ProtectedVideoSyncStatus from "@/components/admin/ProtectedVideoSyncStatus";
 
 function formatOpenAt(iso: string | null): string {
@@ -84,14 +85,15 @@ function formatOpenAt(iso: string | null): string {
 
 function SortableContentRow({
   item,
-  classId,
+  practiceBase,
   canManage,
   onHide,
   onRestore,
   onEditSchedule,
 }: {
   item: ClassContentItemDto;
-  classId: string;
+  /** Trang lớp của shell đang đứng — gốc link Kết quả / Chấm bài. */
+  practiceBase: string;
   canManage: boolean;
   onHide: (id: string) => void;
   onRestore: (id: string) => void;
@@ -168,18 +170,20 @@ function SortableContentRow({
               {item.lessonKind === "practice" && (
                 <>
                   <Link
-                    href={`/staff/classes/${classId}/practice/${item.id}/stats`}
+                    href={practiceResultsHref(practiceBase, item.id)}
+                    aria-label="Kết quả"
                     className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border-default px-3 py-1.5 text-xs sm:text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors"
                   >
                     <BarChart3 className="size-3.5" />
-                    <span className="hidden sm:inline">Thống kê</span>
+                    <span className="hidden sm:inline">Kết quả</span>
                   </Link>
                   <Link
-                    href={`/staff/classes/${classId}/grading/${item.id}`}
+                    href={practiceResultsHref(practiceBase, item.id, "cho-cham")}
+                    aria-label="Chấm bài"
                     className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border-default px-3 py-1.5 text-xs sm:text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors"
                   >
                     <PenLine className="size-3.5" />
-                    <span className="hidden sm:inline">Chấm tự luận</span>
+                    <span className="hidden sm:inline">Chấm bài</span>
                   </Link>
                 </>
               )}
@@ -229,9 +233,12 @@ export default function ClassContentManager({
   onChanged,
   autoOpenContentItemId = null,
   autoOpenToken = 0,
+  practiceActionsBasePath = null,
 }: {
   classId: string;
   canManage: boolean;
+  /** Trang lớp của shell (`/admin/classes/:id`); mặc định trang lớp staff. */
+  practiceActionsBasePath?: string | null;
   addOnly?: boolean;
   addOpen?: boolean;
   onAddOpenChange?: (open: boolean) => void;
@@ -240,6 +247,7 @@ export default function ClassContentManager({
   autoOpenToken?: number;
 }) {
   const queryClient = useQueryClient();
+  const practiceBase = practiceActionsBasePath ?? `/staff/classes/${classId}`;
   const [localItems, setLocalItems] = useState<ClassContentItemDto[]>([]);
   const [hasOrderChanged, setHasOrderChanged] = useState(false);
   const [uncontrolledAddOpen, setUncontrolledAddOpen] = useState(false);
@@ -447,7 +455,7 @@ export default function ClassContentManager({
                   <SortableContentRow
                     key={item.id}
                     item={item}
-                    classId={classId}
+                    practiceBase={practiceBase}
                     canManage={canManage}
                     onHide={handleHide}
                     onRestore={handleRestore}
@@ -492,6 +500,7 @@ export default function ClassContentManager({
       {viewItem && (
         <ViewContentDialog
           classId={classId}
+          practiceBase={practiceBase}
           item={viewItem}
           canManage={canManage}
           onClose={() => setViewItem(null)}
@@ -904,12 +913,14 @@ function TheoryLessonInlineEditor({
 
 function ViewContentDialog({
   classId,
+  practiceBase,
   item,
   canManage,
   onClose,
   onEditSchedule,
 }: {
   classId: string;
+  practiceBase: string;
   item: ClassContentItemDto;
   canManage: boolean;
   onClose: () => void;
@@ -959,16 +970,16 @@ function ViewContentDialog({
         {canManage && item.lessonKind === "practice" ? (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
             <Link
-              href={`/staff/classes/${classId}/practice/${item.id}/stats`}
+              href={practiceResultsHref(practiceBase, item.id)}
               className="inline-flex min-h-9 items-center rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-secondary"
             >
-              Thống kê
+              Kết quả
             </Link>
             <Link
-              href={`/staff/classes/${classId}/grading/${item.id}`}
+              href={practiceResultsHref(practiceBase, item.id, "cho-cham")}
               className="inline-flex min-h-9 items-center rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-secondary"
             >
-              Chấm tự luận
+              Chấm bài
             </Link>
             <button
               type="button"

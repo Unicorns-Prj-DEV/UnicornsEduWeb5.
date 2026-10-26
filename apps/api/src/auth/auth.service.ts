@@ -40,6 +40,12 @@ type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
 const AVATAR_STORAGE_BUCKET = 'avatars';
 const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
+const STUDENT_DEVICE_ACTIVE_ERROR = {
+  statusCode: 409,
+  error: 'DEVICE_ACTIVE',
+  message:
+    'Tài khoản đang đăng nhập ở thiết bị khác. Vui lòng đăng xuất thiết bị cũ hoặc liên hệ quản trị viên.',
+} as const;
 export { STAFF_DATA_CONSENT_VERSION } from './constants';
 
 export interface TokenPair {
@@ -475,8 +481,7 @@ export class AuthService {
         await this.userDeviceService.findLiveDeviceById(accessDeviceId);
       await this.userDeviceService.removeDeviceById(accessDeviceId);
       const userId =
-        device?.userId ??
-        (await this.resolveUserIdFromSessionTokens(params));
+        device?.userId ?? (await this.resolveUserIdFromSessionTokens(params));
       if (userId) {
         this.authIdentityCacheService.invalidateHasActiveDevice(userId);
         this.invalidateAuthIdentityCache(userId);
@@ -753,6 +758,18 @@ export class AuthService {
     );
   }
 
+  private refreshExpiresInSeconds(rememberMe: boolean): number {
+    return rememberMe
+      ? this.refreshTokenRememberExpiresIn
+      : this.refreshTokenDefaultExpiresIn;
+  }
+
+  private computeRefreshExpiresAt(rememberMe: boolean): Date {
+    return new Date(
+      Date.now() + this.refreshExpiresInSeconds(rememberMe) * 1000,
+    );
+  }
+
   async generateTokenPairAndSave(
     userId: string,
     accountHandle: string,
@@ -767,10 +784,10 @@ export class AuthService {
       rememberMe,
       deviceId,
     };
+    const refreshExpiresInSeconds = this.refreshExpiresInSeconds(rememberMe);
+    const refreshExpiresAt = this.computeRefreshExpiresAt(rememberMe);
     const refreshTokenOptions: JwtSignOptions = {
-      expiresIn: rememberMe
-        ? this.refreshTokenRememberExpiresIn
-        : this.refreshTokenDefaultExpiresIn,
+      expiresIn: refreshExpiresInSeconds,
       secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
     };
 
@@ -779,7 +796,11 @@ export class AuthService {
       this.jwtService.signAsync(payload, refreshTokenOptions),
     ]);
 
-    await this.userDeviceService.bindRefreshToken(deviceId, refreshToken);
+    await this.userDeviceService.bindRefreshToken(
+      deviceId,
+      refreshToken,
+      refreshExpiresAt,
+    );
 
     return {
       accessToken,
@@ -1140,6 +1161,31 @@ export class AuthService {
     }
   }
 
+  /** Chủ của thiết bị mà cookie hiện tại đang giữ; `null` nếu phiên đã chết. */
+  private async resolveCurrentDeviceUserId(params: {
+    refreshToken?: string;
+    accessToken?: string;
+  }): Promise<string | null> {
+    if (params.refreshToken) {
+      const device = await this.userDeviceService.findDeviceByRefreshToken(
+        params.refreshToken,
+      );
+      if (device) {
+        return device.userId;
+      }
+    }
+
+    const accessDeviceId = await this.resolveDeviceIdFromAccessToken(
+      params.accessToken,
+    );
+    if (!accessDeviceId) {
+      return null;
+    }
+    const device =
+      await this.userDeviceService.findLiveDeviceById(accessDeviceId);
+    return device?.userId ?? null;
+  }
+
   private async resolveUserIdFromSessionTokens(params: {
     refreshToken?: string;
     accessToken?: string;
@@ -1237,28 +1283,22 @@ export class AuthService {
       this.userDeviceService.cleanupInactiveDevices(),
     ]);
 
-    // Check if student already has an active device
-    const hasActive = await this.userDeviceService.hasActiveDevice(user.id);
-    if (hasActive) {
-      throw new ConflictException({
-        statusCode: 409,
-        error: 'DEVICE_ACTIVE',
-        message:
-          'Tài khoản đang đăng nhập ở thiết bị khác. Vui lòng đăng xuất thiết bị cũ hoặc liên hệ quản trị viên.',
-      });
-    }
-
     // Email đã xác minh (admin tick «Email đã xác thực» hoặc học sinh bấm link)
-    // thì cấp phiên luôn, không gửi magic link xác minh đăng nhập nữa. Vẫn giữ
-    // luật một thiết bị qua `hasActiveDevice` ở trên.
-    return this.issueStudentDeviceSession({
+    // thì cấp phiên luôn, không gửi magic link xác minh đăng nhập nữa. Luật
+    // một thiết bị kiểm tra trong cùng transaction với lúc tạo thiết bị.
+    const tokenPair = await this.issueStudentDeviceSession({
       userId: user.id,
       accountHandle: user.accountHandle,
       roleType: user.roleType,
       deviceInfo,
       ipAddress,
       rememberMe,
+      rejectIfLiveDevice: true,
     });
+    if (!tokenPair) {
+      throw new ConflictException(STUDENT_DEVICE_ACTIVE_ERROR);
+    }
+    return tokenPair;
   }
 
   /**
@@ -1381,17 +1421,26 @@ export class AuthService {
       );
     }
 
-    return this.issueStudentDeviceSession({
+    // Magic link: thiết bị vừa xác minh thay thế thiết bị cũ, không bị chặn.
+    const tokenPair = await this.issueStudentDeviceSession({
       userId: user.id,
       accountHandle: user.accountHandle,
       roleType: user.roleType,
       deviceInfo: request.deviceInfo as DeviceInfo | undefined,
       ipAddress: request.ipAddress ?? undefined,
       rememberMe,
+      rejectIfLiveDevice: false,
     });
+    if (!tokenPair) {
+      throw new ConflictException(STUDENT_DEVICE_ACTIVE_ERROR);
+    }
+    return tokenPair;
   }
 
-  /** Thay mọi thiết bị cũ bằng thiết bị mới (luật một thiết bị) rồi cấp JWT. */
+  /**
+   * Thay mọi thiết bị cũ bằng thiết bị mới (luật một thiết bị) rồi cấp JWT.
+   * @returns `null` khi `rejectIfLiveDevice` và học sinh còn thiết bị sống.
+   */
   private async issueStudentDeviceSession(params: {
     userId: string;
     accountHandle: string;
@@ -1399,16 +1448,20 @@ export class AuthService {
     deviceInfo?: DeviceInfo;
     ipAddress?: string;
     rememberMe: boolean;
-  }): Promise<TokenPair> {
-    await this.userDeviceService.removeAllDevicesForUser(params.userId);
-    this.authIdentityCacheService.invalidateHasActiveDevice(params.userId);
-
-    const device = await this.userDeviceService.createDevice({
+    rejectIfLiveDevice: boolean;
+  }): Promise<TokenPair | null> {
+    const device = await this.userDeviceService.replaceDevicesForUser({
       userId: params.userId,
       token: this.userDeviceService.generateDeviceToken(),
+      refreshExpiresAt: this.computeRefreshExpiresAt(params.rememberMe),
+      rejectIfLive: params.rejectIfLiveDevice,
       deviceInfo: params.deviceInfo,
       ipAddress: params.ipAddress,
     });
+    this.authIdentityCacheService.invalidateHasActiveDevice(params.userId);
+    if (!device) {
+      return null;
+    }
 
     return this.generateTokenPairAndSave(
       params.userId,
@@ -1528,7 +1581,22 @@ export class AuthService {
     return { message: 'Đã buộc đăng xuất học sinh' };
   }
 
-  async studentSelfLogout(userId: string): Promise<{ message: string }> {
+  /**
+   * Public + idempotent: access token hay đã hết hạn đúng lúc học sinh bấm
+   * Đăng xuất, nếu đòi JWT còn sống thì logout 401 mà `UserDevice` vẫn sống,
+   * lần đăng nhập sau bị `DEVICE_ACTIVE` chặn. Chỉ thu hồi khi cookie khớp
+   * một thiết bị còn tồn tại (hash refresh hoặc `deviceId` của access), nên
+   * token của máy đã bị đá không thể đăng xuất máy đang đăng nhập.
+   */
+  async studentSelfLogout(params: {
+    refreshToken?: string;
+    accessToken?: string;
+  }): Promise<{ message: string }> {
+    const userId = await this.resolveCurrentDeviceUserId(params);
+    if (!userId) {
+      return { message: 'Đã đăng xuất' };
+    }
+
     // Remove all devices
     await this.userDeviceService.removeAllDevicesForUser(userId);
     this.authIdentityCacheService.invalidateHasActiveDevice(userId);
@@ -1546,16 +1614,22 @@ export class AuthService {
   /**
    * Google đã chứng minh quyền sở hữu email (tương đương magic link), nhưng
    * luật một thiết bị vẫn phải áp: còn thiết bị sống → từ chối; không còn →
-   * dọn các row idle để học sinh chỉ có đúng một UserDevice sau khi đăng nhập.
-   * @returns false nếu học sinh đang đăng nhập ở thiết bị khác.
+   * thay các row chết bằng đúng một UserDevice (nguyên tử, xem
+   * `UserDeviceService.replaceDevicesForUser`).
+   * @returns `null` nếu học sinh đang đăng nhập ở thiết bị khác.
    */
-  async prepareStudentDeviceForGoogleLogin(userId: string): Promise<boolean> {
-    if (await this.userDeviceService.hasActiveDevice(userId)) {
-      return false;
-    }
-    await this.userDeviceService.removeAllDevicesForUser(userId);
-    this.authIdentityCacheService.invalidateHasActiveDevice(userId);
-    return true;
+  async issueStudentGoogleSession(user: {
+    id: string;
+    accountHandle: string;
+    roleType: UserRole;
+  }): Promise<TokenPair | null> {
+    return this.issueStudentDeviceSession({
+      userId: user.id,
+      accountHandle: user.accountHandle,
+      roleType: user.roleType,
+      rememberMe: true,
+      rejectIfLiveDevice: true,
+    });
   }
 
   async touchStudentDevice(deviceTokenHash: string) {

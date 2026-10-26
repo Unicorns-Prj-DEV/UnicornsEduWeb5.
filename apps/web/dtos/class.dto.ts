@@ -303,9 +303,12 @@ export interface UpdateClassSchedulePayload {
 /** Payload for PATCH /class/:id/students */
 export interface UpdateClassStudentItemPayload {
     id: string;
-    custom_tuition_per_session?: number;
-    custom_tuition_package_total?: number;
-    custom_tuition_package_session?: number;
+    /** null = kế thừa lớp; 0 = miễn phí. */
+    custom_tuition_per_session?: number | null;
+    /** null = kế thừa lớp; 0 = miễn phí. */
+    custom_tuition_package_total?: number | null;
+    /** null = kế thừa lớp; 0 = miễn phí. */
+    custom_tuition_package_session?: number | null;
 }
 
 /** Payload for PATCH /class/:id/students */
@@ -316,9 +319,12 @@ export interface UpdateClassStudentsPayload {
 /** Payload for PATCH /class/:id/student-tuition */
 export interface UpdateClassStudentTuitionPayload {
     student_id: string;
-    custom_tuition_per_session?: number;
-    custom_tuition_package_total?: number;
-    custom_tuition_package_session?: number;
+    /** null = kế thừa lớp; 0 = miễn phí. */
+    custom_tuition_per_session?: number | null;
+    /** null = kế thừa lớp; 0 = miễn phí. */
+    custom_tuition_package_total?: number | null;
+    /** null = kế thừa lớp; 0 = miễn phí. */
+    custom_tuition_package_session?: number | null;
 }
 
 export interface ClassListItemDto {

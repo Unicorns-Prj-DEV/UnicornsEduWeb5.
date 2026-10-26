@@ -164,10 +164,12 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `device_info` (`JSONB`, nullable): thông tin trình duyệt/device (user-agent, accept-language)
   - `ip_address` (`TEXT`, nullable): IP address khi đăng nhập
   - `last_active_at` (`TIMESTAMPTZ(6)`): lần hoạt động cuối cùng, dùng để auto-expire sau 60 ngày; backend chỉ ghi lại khi cách lần trước ≥ 1 phút
+  - `refresh_expires_at` (`TIMESTAMPTZ(6)`, nullable): hạn của refresh JWT đang gắn với thiết bị (now + 1 ngày, hoặc + 30 ngày khi `rememberMe`), ghi mỗi lần cấp/rotate token. Quá hạn → thiết bị không còn "sống" (không tính cho `DEVICE_ACTIVE`, JWT `deviceId` bị 401). `NULL` (row legacy) chỉ xét idle 60 ngày. Thêm bởi migration `20261026090000_user_device_refresh_expires_at` (backfill: học sinh `last_active_at + 1 ngày` để gỡ chặn oan ngay sau deploy; staff/admin `last_active_at + 30 ngày` để không cắt phiên «Ghi nhớ»).
   - `created_at` (`TIMESTAMPTZ(6)`)
 - Luật: mỗi học sinh chỉ có đúng 1 device active tại một thời điểm. Staff/admin được nhiều device (thu hồi từng máy). Xóa row = thu hồi phiên tức thời trên request kế tiếp.
-- Auto-expire: device bị xóa sau 60 ngày không hoạt động (lazy cleanup khi tạo login request mới).
-- Index: `user_id`, `token_hash`, `last_active_at`
+- Thiết bị **sống** = `last_active_at` trong 60 ngày **và** (`refresh_expires_at IS NULL` hoặc `> now()`) — `UserDeviceService.isLive` / `liveDeviceWhere`.
+- Auto-expire: device bị xóa khi idle 60 ngày hoặc refresh đã hết hạn (lazy cleanup lúc học sinh đăng nhập, `DELETE /device/cleanup-expired`).
+- Index: `user_id`, `token_hash`, `last_active_at`, `refresh_expires_at`
 
 ### 4.1.2 `login_requests` (Magic link verification)
 
@@ -368,13 +370,15 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `DELETE /courses/:id` — cùng guard với `POST`. `400` nếu còn lớp đang dùng khoá học này (`classes.count > 0`); message: `Không thể xoá: còn N lớp đang dùng khoá học này. Hãy chuyển lớp sang khoá khác hoặc chỉ ẩn (is_active=false) khoá học này.` `CourseService.remove(actor, id)` gọi `assertCanManageCourse` như `PATCH`.
 - Guard phân quyền nội dung khoá (reusable `CourseAccessService`, dùng lại cho mọi ticket nội dung khoá về sau): admin đầy đủ / trợ lí quản lý được mọi khoá; đội giáo án (`lesson_plan`, `lesson_plan_head`) chỉ thấy/sửa khoá mình được gán (qua `course_lesson_plan_members`); gia sư đang dạy lớp thuộc khoá X **không** vì thế mà sửa được nội dung cấp khoá của X. Các service resource trong `CourseContentModule` gọi `assertCanManageCourse` (qua `CourseContentSupportService`) trước mọi ghi Module / Lesson nhánh khoá / tiết thực hành cấp khoá và trước GET câu hỏi/quiz trả đáp án cấp khoá; `assertCanWriteCourseQuestions` chỉ áp dụng khi ghi **ngân hàng câu hỏi**.
 - Controller cây nội dung khoá (`course-modules`, `course-lessons` CRUD/reorder, chưa gồm quiz): `@AllowStaffRolesOnAdminRoutes(assistant, teacher, lesson_plan_head)`. **Không** mở `lesson_plan` thuần ở tầng controller (họ soạn câu hỏi/tiết thực hành, không soạn cây Chuyên đề). `StaffRole.teacher` vẫn nằm trên decorator; tầng service tiếp tục 403 nếu không thuộc đội giáo án. Chi tiết bảng: `docs/api/courses.md`.
+- Khoá chính tên `courses_pkey` (trước migration `20261027090000_fix_schema_drift` còn tên cũ `class_categories_pkey`).
 - Seed dữ liệu ban đầu gồm các mã cũ (`vip`, `basic`, `advance`, `hardcore`) cộng 3 mã mới: `thpt_basic` (THPT BASIC), `thpt_advanced` (THPT ADVANCED), `thpt_luyen_de` (THPT Luyện Đề).
 - Khi tạo lớp không truyền `course_id`, `ClassService.resolveDefaultCourseId` fallback về khoá học `is_active=true` có `sort_order` nhỏ nhất (tie-break theo `name`) — không còn hardcode `code='basic'` để tránh vỡ khi admin đổi/xoá phân loại mặc định cũ.
 
 ### 4.4.0-cat-diff `course_difficulty_levels` (Mức độ khó của khoá học)
 
 - Mỗi `course` có nhiều mức độ khó (vd. "Dễ", "Trung bình", "Khó"), quản lý qua CRUD `/courses/:courseId/difficulty-levels`. Không dùng thang cố định Dễ/TB/Khó toàn hệ thống.
-- Cột: `id` (PK, `@default(uuid())` tự sinh), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `name` (TEXT), `sort_order` (INT, default `0`), `is_active` (BOOLEAN, default `true`), `created_at`, `updated_at`.
+- Cột: `id` (PK, default DB `gen_random_uuid()`), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `name` (TEXT), `sort_order` (INT, default `0`), `is_active` (BOOLEAN, default `true`), `created_at`, `updated_at`.
+- FK `course_id` chỉ có thật trong DB từ migration `20261027090000_fix_schema_drift` (bảng tạo ở `20260906000000` thiếu FK → xoá khoá để lại mức khó mồ côi). Xoá khoá cascade mức khó; câu hỏi của khoá bị cascade theo `questions.course_id` trước, nên `questions.difficulty_level_id` (`Restrict`) không chặn.
 - Index: `(course_id)`, unique `(course_id, name)`.
 - Unique business logic: tên mức khó duy nhất trong cùng một khoá học (enforce ở service layer + unique index).
 - Hành vi API:
@@ -386,7 +390,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.4.0-cat-members `course_lesson_plan_members` (đội giáo án của khoá học)
 
 - Bảng quan hệ N-N giữa `courses` và `staff_info`: nhân sự được gán soạn nội dung học thuật + ngân hàng câu hỏi của một khoá. Việc gán do admin, `lesson_plan_head` hoặc `assistant` thực hiện (giới hạn ở controller `CourseController`).
-- Cột: `id` (PK, `@default(uuid())` tự sinh), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `staff_id` (FK → `staff_info.id`, `onDelete: Cascade`), `created_at`.
+- Cột: `id` (PK, default DB `gen_random_uuid()`), `course_id` (FK → `courses.id`, `onDelete: Cascade`), `staff_id` (FK → `staff_info.id`, `onDelete: Cascade`), `created_at`.
 - Index: unique `(course_id, staff_id)`, `(course_id)`, `(staff_id)`. Migration: `20260907000000_add_course_lesson_plan_members`.
 - Chỉ gán được nhân sự `staff_info.status = active` có `roles` chứa `lesson_plan` hoặc `lesson_plan_head`.
 - Hành vi API (`/courses/:courseId/lesson-plan-members`):
@@ -406,7 +410,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `custom_tuition_per_block` (học phí riêng mỗi block 30 phút; học sinh không gói: charge buổi = cột này × `sessions.snapshot_block_count` nếu có; `null` khi không có override hoặc lớp không có số block chuẩn)
   - `custom_tuition_package_total`
   - `custom_tuition_package_session`
-- **Semantics thống nhất với backend:** giá trị `0` trên các cột override được xử lý như **không override** (kế thừa học phí/gói từ `classes`), tương đương `null` trong logic tính `effective*` và trong SQL aggregate dashboard (`NULLIF(..., 0)` trên các cột custom). Khi cập nhật danh sách học sinh lớp hoặc `PATCH /class/:id/student-tuition`, API chuẩn hóa `0` → lưu `null` và **derive** `custom_student_tuition_per_session` từ gói riêng (`custom_tuition_package_total ÷ custom_tuition_package_session`, làm tròn) khi có gói hợp lệ.
+- **Semantics thống nhất với backend (từ migration `20261026100000_student_class_zero_tuition`):** `null` = **không override** (kế thừa học phí/gói từ `classes`); `0` là **override thật = miễn phí** (vd tài khoản test): buổi học charge 0đ ở mọi `pricing_mode` (`one_time` với gói riêng 0đ cũng charge 0, không fallback học phí lớp). Dữ liệu cũ lưu `0` với nghĩa "kế thừa" đã được migration đổi về `NULL`. Gói riêng `custom_tuition_package_total = 0` → học phí/buổi dẫn xuất = 0, `custom_tuition_package_session` được để trống hoặc `0`; `custom_tuition_package_session = 0` với tổng gói > 0 bị API từ chối (400). Khi cập nhật danh sách học sinh lớp hoặc `PATCH /class/:id/student-tuition`, API giữ nguyên `0`, bỏ trống/`null` = kế thừa, và **derive** `custom_student_tuition_per_session` từ gói riêng (`custom_tuition_package_total ÷ custom_tuition_package_session`, làm tròn; gói 0đ → 0) khi có gói hợp lệ. SQL cảnh báo sắp hết tiền của dashboard đọc thẳng `custom_student_tuition_per_session` (không còn `NULLIF(..., 0)`) và lọc `referenceTuition > 0`, nên học sinh miễn phí không bị cảnh báo.
 - Index read path:
   - `student_id`
   - `class_id`
@@ -486,7 +490,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Chấm tự động chỉ `single_choice` (so `choice_index` với snapshot `correct_index`). Tự luận để `points_awarded`/`is_correct` null (`has_ungraded_essay`).
 - `attempt_answers.feedback` (`TEXT`, nullable) — nhận xét của gia sư cho câu tự luận đó; chỉ có sau khi chấm. Ticket #63.
 - `attempt_answers.marked_for_review` (`BOOLEAN`, default `false`) — học sinh đánh dấu quay lại xem trước nộp trong lượt `in_progress`; autosave qua `PATCH .../answers`; không ảnh hưởng chấm điểm.
-- Chấm tự luận (#63): gia sư chấm từng câu qua `points_awarded` (0..`points_possible` snapshot 100/N, không đụng `auto_graded_score`/`auto_graded_max` vốn chỉ của MCQ) + `feedback`. `is_correct` giữ `null` cho tự luận (chấm theo thang điểm, không phải đúng/sai). Khi không còn câu tự luận `points_awarded IS NULL` trong lượt → set `has_ungraded_essay = false`. Hàng đợi chấm chỉ gồm câu tự luận chưa chấm của **lượt mới nhất** mỗi học sinh (`DISTINCT ON (student_id) ORDER BY started_at DESC`); lượt cũ tra cứu được nhưng không vào hàng đợi và bị từ chối chấm (404). N = 0 → `start` không tạo Attempt.
+- Chấm tự luận (#63): gia sư chấm từng câu qua `points_awarded` (0..`points_possible` snapshot 100/N, không đụng `auto_graded_score`/`auto_graded_max` vốn chỉ của MCQ) + `feedback`. `is_correct` giữ `null` cho tự luận (chấm theo thang điểm, không phải đúng/sai). Khi không còn câu tự luận `points_awarded IS NULL` trong lượt → set `has_ungraded_essay = false`. Chỉ chấm được câu tự luận của **lượt mới nhất** mỗi học sinh (`ORDER BY started_at DESC`, tính cả lượt đang làm) và lượt đó đã nộp; lượt cũ chỉ xem, chấm → 404. Điểm hiển thị lấy từ lượt đã chấm xong gần nhất (`has_ungraded_essay = false`, `submitted_at` muộn nhất) — ADR 2026-10-26. N = 0 → `start` không tạo Attempt.
 - **Hồ sơ IT (`LMS_PROFILE=it`, migration `20261007000000_it_question_types`)** — ADR `docs/adr/2026-10-07-it-absolute-scoring-and-answer-key-regrade.md`:
   - `attempts.scoring` (`AttemptScoring`, default `equal_100`): snapshot hồ sơ lúc start. `equal_100` = thang 100/N như trên; `absolute_it` = điểm tuyệt đối đơn vị 1/100 điểm: trắc nghiệm `points_possible = 25` (0,25đ), nhóm Đúng/Sai `points_possible = 100` (1đ, bậc thang 1 ý → 10, 2 → 25, 3 → 50, 4 → 100). Bài cũ giữ `equal_100`.
   - `attempts.elective_voided` (`BOOLEAN`, default `false`): học sinh có ít nhất một nhận định được chọn ở **cả hai** nhóm tự chọn → mọi câu `elective_1`/`elective_2` chấm 0.

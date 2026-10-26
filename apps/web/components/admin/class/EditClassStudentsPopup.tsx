@@ -220,7 +220,11 @@ function EditClassStudentsDialog({
 
     setSelectedStudents((prev) =>
       prev.map((student) =>
-        student.id === studentId ? { ...student, [field]: parsedValue } : student,
+        // Học phí/buổi riêng là giá trị dẫn xuất từ gói: sửa gói thì bỏ giá trị cũ để
+        // backend tính lại (tránh giữ 0đ cũ khi bỏ gói miễn phí).
+        student.id === studentId
+          ? { ...student, [field]: parsedValue, customTuitionPerSession: undefined }
+          : student,
       ),
     );
   };
@@ -246,10 +250,10 @@ function EditClassStudentsDialog({
               classApi.updateClassStudentTuition(classDetail.id, {
                 student_id: student.id,
                 custom_tuition_package_total:
-                  student.customTuitionPackageTotal ?? 0,
+                  student.customTuitionPackageTotal ?? null,
                 custom_tuition_package_session:
-                  student.customTuitionPackageSession ?? 0,
-                custom_tuition_per_session: student.customTuitionPerSession ?? 0,
+                  student.customTuitionPackageSession ?? null,
+                custom_tuition_per_session: student.customTuitionPerSession ?? null,
               }),
             ),
           );
@@ -468,7 +472,7 @@ function EditClassStudentsDialog({
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-text-muted">
-                          Để trống ô nào thì ô đó sẽ quay về gói mặc định của lớp khi lưu.
+                          Để trống ô nào thì ô đó sẽ quay về gói mặc định của lớp khi lưu. Nhập tổng gói 0 để miễn học phí.
                         </p>
                       </div>
                       {!isTuitionOnlyMode ? (

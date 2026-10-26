@@ -22,13 +22,13 @@ import type {
   AttemptAudioPlayDto,
   AttemptDetailDto,
   AttemptQuestionDto,
-  EssayGradingQueueDto,
-  EssayGradingQueueItemDto,
   GradeEssayAnswerDto,
   PracticeStatsDto,
   PracticeStatsQuestionRateDto,
   PracticeStatsStudentRowDto,
   SaveAttemptAnswerItemDto,
+  StaffAttemptDetailDto,
+  StaffStudentAttemptsDto,
 } from 'src/dtos/attempt.dto';
 import {
   ATTEMPT_TOTAL_POINTS,
@@ -516,96 +516,15 @@ export class AttemptService {
   }
 
   /**
-   * Hàng đợi chấm tự luận của một lần giao: chỉ câu tự luận chưa chấm của
-   * lượt làm MỚI NHẤT mỗi học sinh. Lượt cũ không vào hàng đợi (acceptance #1/#2/#6).
-   * Bài tập ôn nhẹ không tạo Attempt nên tự động không xuất hiện (#3).
-   */
-  async getGradingQueue(
-    classId: string,
-    assignmentId: string,
-  ): Promise<EssayGradingQueueDto> {
-    const item = await this.prisma.classContentItem.findFirst({
-      where: { id: assignmentId, classId },
-      include: { lesson: true },
-    });
-    if (!item || item.lesson?.archivedAt) {
-      throw new NotFoundException('Assignment not found');
-    }
-
-    const latestAttempts = await this.prisma.attempt.findMany({
-      where: { assignmentId, assignment: { classId } },
-      orderBy: [{ studentId: 'asc' }, { startedAt: 'desc' }],
-      distinct: ['studentId'],
-      include: {
-        student: { select: { fullName: true } },
-        answers: { orderBy: { order: 'asc' } },
-      },
-    });
-
-    const attemptCounts = await this.prisma.attempt.groupBy({
-      by: ['studentId'],
-      where: { assignmentId, assignment: { classId } },
-      _count: { _all: true },
-    });
-    const countByStudent = new Map(
-      attemptCounts.map((row) => [row.studentId, row._count._all]),
-    );
-
-    const items: EssayGradingQueueItemDto[] = [];
-    for (const attempt of latestAttempts) {
-      if (!attempt.hasUngradedEssay) continue;
-      attempt.answers.forEach((ans, index) => {
-        if (ans.type !== QuestionType.essay) return;
-        if (ans.pointsAwarded !== null) return;
-        items.push({
-          attemptAnswerId: ans.id,
-          attemptId: attempt.id,
-          studentId: attempt.studentId,
-          studentName: attempt.student.fullName,
-          studentAttemptCount: countByStudent.get(attempt.studentId) ?? 1,
-          attemptSubmittedAt: attempt.submittedAt ?? attempt.startedAt,
-          questionOrder: index + 1,
-          totalQuestions: attempt.answers.length,
-          questionContent: ans.content,
-          difficultyLabel: ans.difficultyLabel,
-          pointsPossible: ans.pointsPossible,
-          answerGuide: ans.answerGuide,
-          essayAnswer: ans.essayAnswer,
-        });
-      });
-    }
-
-    items.sort(
-      (a, b) =>
-        a.attemptSubmittedAt.getTime() - b.attemptSubmittedAt.getTime() ||
-        a.studentName.localeCompare(b.studentName, 'vi') ||
-        a.questionOrder - b.questionOrder,
-    );
-
-    return {
-      classId,
-      assignmentId,
-      title: item.lesson?.title ?? '',
-      totalPending: items.length,
-      items,
-    };
-  }
-
-  /**
-   * Thống kê một lần giao: điểm lượt cao nhất đã chấm xong mỗi HS,
-   * không gộp lớp khác dù cùng đề. Lượt hasUngradedEssay không vào tổng hợp.
+   * Kết quả một lần giao: điểm mỗi học sinh = lượt đã chấm xong gần nhất (theo
+   * giờ nộp), không gộp lớp khác dù cùng đề. Lượt còn tự luận chưa chấm bị bỏ
+   * qua — dùng lượt đã chấm trước đó.
    */
   async getPracticeStats(
     classId: string,
     assignmentId: string,
   ): Promise<PracticeStatsDto> {
-    const item = await this.prisma.classContentItem.findFirst({
-      where: { id: assignmentId, classId },
-      include: { lesson: true, class: { select: { name: true } } },
-    });
-    if (!item || item.lesson?.archivedAt) {
-      throw new NotFoundException('Assignment not found');
-    }
+    const item = await this.findAssignmentOrThrow(classId, assignmentId);
 
     const roster = await this.prisma.studentClass.findMany({
       where: { classId, status: StudentClassStatus.active },
@@ -613,16 +532,9 @@ export class AttemptService {
       orderBy: { createdAt: 'asc' },
     });
 
-    const closedStatuses: AttemptStatus[] = [
-      AttemptStatus.submitted,
-      AttemptStatus.timed_out,
-    ];
+    // Cả lượt đang làm: để đánh số lượt và biết học sinh đang làm lại.
     const attempts = await this.prisma.attempt.findMany({
-      where: {
-        assignmentId,
-        assignment: { classId },
-        status: { in: closedStatuses },
-      },
+      where: { assignmentId, assignment: { classId } },
       include: {
         answers: { orderBy: { order: 'asc' } },
       },
@@ -637,44 +549,22 @@ export class AttemptService {
     }
 
     const students: PracticeStatsStudentRowDto[] = roster.map((row) => {
-      const studentAttempts = attemptsByStudent.get(row.studentId) ?? [];
-      const graded = studentAttempts.filter((a) => !a.hasUngradedEssay);
-      const best = this.pickBestGradedAttempt(graded);
-
-      if (best) {
-        const totals = this.attemptTotals(best);
-        return {
-          studentId: row.studentId,
-          studentName: row.student.fullName,
-          score: totals.score,
-          scoreMax: totals.scoreMax,
-          attemptCount: studentAttempts.length,
-          durationMs: this.attemptDurationMs(best),
-          status: 'graded',
-        };
-      }
-
-      if (studentAttempts.length > 0) {
-        const latest = studentAttempts[studentAttempts.length - 1];
-        return {
-          studentId: row.studentId,
-          studentName: row.student.fullName,
-          score: null,
-          scoreMax: null,
-          attemptCount: studentAttempts.length,
-          durationMs: this.attemptDurationMs(latest),
-          status: 'pending_essay',
-        };
-      }
-
+      const all = attemptsByStudent.get(row.studentId) ?? [];
+      const closed = all.filter((a) => a.status !== AttemptStatus.in_progress);
+      const latestClosed = closed.at(-1) ?? null;
+      const scored = this.latestScoredAttempt(closed);
+      const totals = scored ? this.attemptTotals(scored) : null;
+      const shown = scored ?? latestClosed;
       return {
         studentId: row.studentId,
         studentName: row.student.fullName,
-        score: null,
-        scoreMax: null,
-        attemptCount: 0,
-        durationMs: null,
-        status: 'not_started',
+        score: totals?.score ?? null,
+        scoreMax: totals?.scoreMax ?? null,
+        scoredAttemptNo: scored ? all.indexOf(scored) + 1 : null,
+        latestAttemptNo: latestClosed ? all.indexOf(latestClosed) + 1 : null,
+        attemptCount: closed.length,
+        durationMs: shown ? this.attemptDurationMs(shown) : null,
+        status: this.studentRowStatus(all, latestClosed, scored),
       };
     });
 
@@ -685,17 +575,17 @@ export class AttemptService {
       return a.studentName.localeCompare(b.studentName, 'vi');
     });
 
-    const gradedRows = students.filter((s) => s.status === 'graded');
+    const scoredRows = students.filter((s) => s.score !== null);
     const averageScore =
-      gradedRows.length === 0
+      scoredRows.length === 0
         ? null
         : Math.round(
-            (gradedRows.reduce((sum, s) => sum + (s.score ?? 0), 0) /
-              gradedRows.length) *
+            (scoredRows.reduce((sum, s) => sum + (s.score ?? 0), 0) /
+              scoredRows.length) *
               10,
           ) / 10;
 
-    const latestAttempt = attempts[attempts.length - 1];
+    const latestAttempt = attempts.at(-1);
     const latestScoring = latestAttempt?.scoring ?? this.currentScoring();
     const latestScoreMax = latestAttempt
       ? this.scoreMaxOf(latestAttempt)
@@ -727,6 +617,121 @@ export class AttemptService {
   }
 
   /**
+   * Các lượt đã nộp của một học sinh cho bộ chọn lượt (mới nhất trước).
+   * Lượt đang làm không xem được nên không có trong danh sách.
+   */
+  async listStudentAttemptsForStaff(
+    classId: string,
+    assignmentId: string,
+    studentId: string,
+  ): Promise<StaffStudentAttemptsDto> {
+    const item = await this.findAssignmentOrThrow(classId, assignmentId);
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      select: { fullName: true },
+    });
+    if (!student) throw new NotFoundException('Student not found');
+
+    const all = await this.prisma.attempt.findMany({
+      where: { assignmentId, studentId, assignment: { classId } },
+      include: {
+        answers: {
+          select: {
+            type: true,
+            slot: true,
+            pointsPossible: true,
+            pointsAwarded: true,
+          },
+        },
+      },
+      orderBy: { startedAt: 'asc' },
+    });
+    const closed = all.filter((a) => a.status !== AttemptStatus.in_progress);
+    const scored = this.latestScoredAttempt(closed);
+    const latest = all.at(-1);
+
+    return {
+      classId,
+      assignmentId,
+      title: item.lesson?.title ?? '',
+      studentId,
+      studentName: student.fullName,
+      scoring: latest?.scoring ?? this.currentScoring(),
+      inProgress: latest?.status === AttemptStatus.in_progress,
+      attempts: closed
+        .map((a) => ({
+          id: a.id,
+          no: all.indexOf(a) + 1,
+          status: a.status as 'submitted' | 'timed_out',
+          startedAt: a.startedAt,
+          submittedAt: a.submittedAt,
+          score: this.attemptTotals(a).score,
+          scoreMax: this.scoreMaxOf(a),
+          hasUngradedEssay: a.hasUngradedEssay,
+          isScored: a === scored,
+          gradable: this.isGradable(a, latest),
+        }))
+        .reverse(),
+    };
+  }
+
+  /** Bài làm một lượt đã nộp cho phía dạy: kèm đáp án, điểm và id câu để chấm. */
+  async getAttemptForStaff(
+    classId: string,
+    assignmentId: string,
+    attemptId: string,
+  ): Promise<StaffAttemptDetailDto> {
+    const attempt = await this.prisma.attempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        ...this.attemptInclude(),
+        student: { select: { fullName: true } },
+      },
+    });
+    if (
+      !attempt ||
+      attempt.assignmentId !== assignmentId ||
+      attempt.assignment.classId !== classId ||
+      attempt.assignment.lesson?.archivedAt ||
+      // Lượt làm dở không xem được (chưa có bài để đọc / chấm).
+      attempt.status === AttemptStatus.in_progress
+    ) {
+      throw new NotFoundException('Attempt not found');
+    }
+
+    const siblings = await this.prisma.attempt.findMany({
+      where: { assignmentId, studentId: attempt.studentId },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        submittedAt: true,
+        hasUngradedEssay: true,
+      },
+      orderBy: { startedAt: 'asc' },
+    });
+    const closed = siblings.filter(
+      (a) => a.status !== AttemptStatus.in_progress,
+    );
+    const scored = this.latestScoredAttempt(closed);
+
+    const detail = await this.toDetail(attempt, true);
+    return {
+      ...detail,
+      studentId: attempt.studentId,
+      studentName: attempt.student.fullName,
+      no: siblings.findIndex((a) => a.id === attempt.id) + 1,
+      isScored: scored?.id === attempt.id,
+      gradable: this.isGradable(attempt, siblings.at(-1)),
+      // toDetail giữ nguyên thứ tự `answers` nên ghép id theo vị trí.
+      questions: detail.questions.map((q, i) => ({
+        ...q,
+        attemptAnswerId: attempt.answers[i].id,
+      })),
+    };
+  }
+
+  /**
    * Chấm 1 câu tự luận. Chỉ chấp nhận câu thuộc lượt làm mới nhất của học sinh
    * (lượt cũ trả 404 — acceptance #2/#6). Điểm theo thang điểm snapshot của câu.
    */
@@ -746,6 +751,7 @@ export class AttemptService {
       !answer ||
       answer.attempt.assignmentId !== assignmentId ||
       answer.attempt.assignment.classId !== classId ||
+      answer.attempt.status === AttemptStatus.in_progress ||
       answer.type !== QuestionType.essay
     ) {
       throw new NotFoundException('Essay answer not found');
@@ -760,7 +766,7 @@ export class AttemptService {
       select: { id: true },
     });
     if (!latest || latest.id !== answer.attemptId) {
-      // Lượt cũ: tra cứu được nhưng không chấm trong hàng đợi.
+      // Lượt cũ (hoặc học sinh đã bắt đầu lượt mới): chỉ xem, không chấm.
       throw new NotFoundException('Essay answer not found');
     }
 
@@ -869,28 +875,64 @@ export class AttemptService {
     };
   }
 
-  private pickBestGradedAttempt<
+  /**
+   * Lượt đang tính điểm: lượt đã chấm xong có giờ nộp muộn nhất. Lượt còn tự
+   * luận chưa chấm bị bỏ qua (quay về lượt đã chấm trước đó).
+   */
+  private latestScoredAttempt<
     T extends {
+      status: AttemptStatus;
+      hasUngradedEssay: boolean;
       submittedAt: Date | null;
       startedAt: Date;
-      autoGradedScore: number | null;
-      autoGradedMax: number | null;
-      answers: Array<{
-        pointsAwarded: number | null;
-        pointsPossible: number;
-        type: QuestionType;
-      }>;
     },
-  >(graded: T[]): T | null {
-    if (graded.length === 0) return null;
-    return graded.toSorted((a, b) => {
-      const scoreDiff =
-        this.attemptTotals(b).score - this.attemptTotals(a).score;
-      if (scoreDiff !== 0) return scoreDiff;
-      const timeA = (a.submittedAt ?? a.startedAt).getTime();
-      const timeB = (b.submittedAt ?? b.startedAt).getTime();
-      return timeB - timeA;
-    })[0];
+  >(attempts: T[]): T | null {
+    const time = (a: T) => (a.submittedAt ?? a.startedAt).getTime();
+    let best: T | null = null;
+    for (const a of attempts) {
+      if (a.status === AttemptStatus.in_progress || a.hasUngradedEssay)
+        continue;
+      if (!best || time(a) >= time(best)) best = a;
+    }
+    return best;
+  }
+
+  /** Chỉ chấm được lượt mới nhất (kể cả so với lượt đang làm) có câu tự luận. */
+  private isGradable(
+    attempt: {
+      id: string;
+      status: AttemptStatus;
+      answers: Array<{ type: QuestionType }>;
+    },
+    latest: { id: string } | undefined,
+  ): boolean {
+    return (
+      attempt.status !== AttemptStatus.in_progress &&
+      latest?.id === attempt.id &&
+      attempt.answers.some((a) => a.type === QuestionType.essay)
+    );
+  }
+
+  private studentRowStatus(
+    all: Array<{ status: AttemptStatus }>,
+    latestClosed: { hasUngradedEssay: boolean } | null,
+    scored: unknown,
+  ): PracticeStatsStudentRowDto['status'] {
+    if (all.at(-1)?.status === AttemptStatus.in_progress) return 'in_progress';
+    if (latestClosed?.hasUngradedEssay) return 'pending_essay';
+    if (scored) return 'graded';
+    return 'not_started';
+  }
+
+  private async findAssignmentOrThrow(classId: string, assignmentId: string) {
+    const item = await this.prisma.classContentItem.findFirst({
+      where: { id: assignmentId, classId },
+      include: { lesson: true, class: { select: { name: true } } },
+    });
+    if (!item || item.lesson?.archivedAt) {
+      throw new NotFoundException('Assignment not found');
+    }
+    return item;
   }
 
   private attemptDurationMs(attempt: {
@@ -925,6 +967,7 @@ export class AttemptService {
     attemptsByStudent: Map<
       string,
       Array<{
+        status: AttemptStatus;
         hasUngradedEssay: boolean;
         submittedAt: Date | null;
         startedAt: Date;
@@ -963,12 +1006,11 @@ export class AttemptService {
     >();
 
     for (const studentId of rosterStudentIds) {
-      const graded = (attemptsByStudent.get(studentId) ?? []).filter(
-        (a) => !a.hasUngradedEssay,
+      const scored = this.latestScoredAttempt(
+        attemptsByStudent.get(studentId) ?? [],
       );
-      const best = this.pickBestGradedAttempt(graded);
-      if (!best) continue;
-      for (const ans of best.answers) {
+      if (!scored) continue;
+      for (const ans of scored.answers) {
         if (!blueprint.has(ans.questionId)) {
           blueprint.set(ans.questionId, {
             order: ans.order + 1,

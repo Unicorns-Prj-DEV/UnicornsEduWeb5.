@@ -40,7 +40,7 @@ model ClassTimelineItem {
 }
 
 model ClassContentItem {
-  id               String                    @id @default(uuid())
+  id               String                    @id @default(dbgenerated("uuid_generate_v4()"))
   classId          String                    @map("class_id")
   kind             ClassContentItemKind      @default(lesson) @map("kind")
   lessonId         String?                   @map("lesson_id")
@@ -65,7 +65,7 @@ model ClassContentItem {
   /// Thêm lại tiết/chuyên đề xoá cột này. Attempt/điểm/lượt xem giữ nguyên.
   removedAt        DateTime?                 @map("removed_at") @db.Timestamptz(6)
   createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt        DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   class             Class                   @relation(fields: [classId], references: [id], onDelete: Cascade)
   lesson            Lesson?                 @relation(fields: [lessonId], references: [id], onDelete: Restrict)
@@ -88,7 +88,7 @@ model ClassTheoryLessonView {
   studentId          String   @map("student_id")
   lastViewedAt       DateTime @default(now()) @map("last_viewed_at") @db.Timestamptz(6)
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   classContentItem ClassContentItem @relation(fields: [classContentItemId], references: [id], onDelete: Cascade)
   student          StudentInfo      @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -199,13 +199,13 @@ model Course {
 
 /// Thang độ khó riêng của mỗi Khoá học.
 model CourseDifficultyLevel {
-  id        String     @id @default(uuid())
+  id        String     @id @default(dbgenerated("gen_random_uuid()"))
   courseId  String     @map("course_id")
   name      String
   sortOrder Int        @default(0) @map("sort_order")
   isActive  Boolean    @default(true) @map("is_active")
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
   questions Question[] // back‑relation for question bank
 
@@ -219,7 +219,7 @@ model CourseDifficultyLevel {
 /// Trợ lí (`assistant`) thực hiện. Thành viên `lesson_plan` chỉ thấy khoá mình được gán;
 /// `lesson_plan_head` thấy và sửa được nội dung của mọi khoá.
 model CourseLessonPlanMember {
-  id        String    @id @default(uuid())
+  id        String    @id @default(dbgenerated("gen_random_uuid()"))
   courseId  String    @map("course_id")
   staffId   String    @map("staff_id")
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -234,7 +234,7 @@ model CourseLessonPlanMember {
 
 /// Chuyên đề — nhóm tiết học bên trong một Khoá học. Chỉ tồn tại ở cấp khoá.
 model Module {
-  id              String           @id @default(uuid())
+  id              String           @id @default(dbgenerated("gen_random_uuid()"))
   courseId        String           @map("course_id")
   title           String
   sortOrder       Int              @default(0) @map("sort_order")
@@ -525,7 +525,7 @@ model CfProblemTutorial {
 /// (`course_id` + `module_id`) hoặc thuộc riêng một lớp (`class_id`) — không bao giờ cả hai.
 /// Tiết riêng của lớp đã ngừng tạo mới qua chuyên đề lớp; dữ liệu cũ được lưu trữ (`archived_at`).
 model Lesson {
-  id            String     @id @default(uuid())
+  id            String     @id @default(dbgenerated("gen_random_uuid()"))
   kind          LessonKind
   courseId      String?    @map("course_id")
   moduleId      String?    @map("module_id")
@@ -545,7 +545,7 @@ model Lesson {
   createdBy     String?    @map("created_by")
   updatedBy     String?    @map("updated_by")
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course        Course?            @relation(fields: [courseId], references: [id], onDelete: Cascade)
   module        Module?            @relation(fields: [moduleId], references: [id], onDelete: Cascade)
@@ -699,9 +699,9 @@ model Question {
   setPosition       Int?                 @map("set_position")
   /// Audio nhúng riêng của câu (hồ sơ JP).
   audioId           String?              @map("audio_id")
-  deletedAt         DateTime?            @map("deleted_at")
+  deletedAt         DateTime?            @map("deleted_at") @db.Timestamptz(6)
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course          Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
   module          Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)

@@ -18,7 +18,9 @@ import {
 const IMAGE_URL_TTL_SECONDS = 6 * 60 * 60;
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH']);
 
-async function signImagePaths(paths: string[]): Promise<Map<string, string>> {
+export async function signImagePaths(
+  paths: string[],
+): Promise<Map<string, string>> {
   const supabase = tryGetSupabaseAdminClient();
   if (!supabase || paths.length === 0) return new Map();
   const { data, error } = await supabase.storage

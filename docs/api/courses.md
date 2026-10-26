@@ -126,6 +126,21 @@ ADR `docs/adr/2026-10-07-instance-subject-profile.md`, `docs/adr/2026-10-07-it-a
 
 Chấm `absolute_it`: trắc nghiệm đúng = 25; Đúng/Sai theo số ý đúng 1 → 10, 2 → 25, 3 → 50, 4 → 100. Có nhận định được chọn ở cả hai nhóm tự chọn → `electiveVoided = true`, mọi câu tự chọn 0 điểm.
 
+### Đề in (`examPrint`, chỉ IT)
+
+Thuật ngữ: `CONTEXT.md` (**Đề in**). `GET /public/app-config` có `examPrint: boolean` (IT `true`, JP/ENG `false`); tắt → mọi endpoint dưới trả `404`. Response là `application/pdf` (A4), `Content-Disposition: attachment; filename="de-<slug>.pdf"` (bản có đáp án: `de-dap-an-<slug>.pdf`), `Cache-Control: private, no-store`.
+
+| Method | Path | Ghi chú |
+| --- | --- | --- |
+| `GET` | `/lessons/:lessonId/print.pdf?answers=true\|false` | Tiết thực hành cấp khoá. Quyền như đọc câu hỏi của tiết (`GET /lessons/:lessonId/questions`): admin/trợ lí, đội giáo án của khoá. |
+| `GET` | `/staff-ops/classes/:classId/assignments/:assignmentId/print.pdf?answers=true\|false` | Lần giao trên lớp. Admin/trợ lí + gia sư phụ trách lớp (`resolveClassViewAccessMode` = `admin` \| `teacher`); CSKH/đào tạo → `403`. Thời gian làm bài lấy từ lần giao. |
+| `GET` | `/users/me/student-classes/:classId/assignments/:assignmentId/print.pdf` | Học sinh của lớp; luôn bản **Đề** (bỏ qua `answers`). Cùng điều kiện thấy lần giao như lobby: lần giao ẩn → `404`, chưa tới `openAt` → `403`, lần giao không có thời lượng → `400`. Không cần đã bắt đầu làm bài. |
+
+- Nội dung: câu `single_choice` (Phần I) + `true_false_group` (Phần II, Bắt buộc → Tự chọn 1 → Tự chọn 2) theo **thứ tự gốc** của tiết, không đảo câu/phương án, không mã đề. Phần I đánh số từ Câu 1; Phần II đánh lại từ Câu 1, liên tục qua hai nhóm tự chọn. Câu loại khác bị bỏ qua. Tiết không có câu in được → `400` *Tiết chưa có câu hỏi để in.*; không phải tiết thực hành → `400`; tiết lưu trữ → `404`.
+- Header: UNIEDU / tên khoá / *(Đề có NN trang)* ‖ tên tiết in hoa / *Môn: TIN HỌC* / *Thời gian làm bài: X phút, không kể thời gian phát đề* (bỏ dòng khi không có thời lượng); *Họ, tên thí sinh*, *Số báo danh*. Cuối đề *—— HẾT ——* + câu Giám thị. Chân trang *Trang x/N – <tên tiết>*.
+- `answers=true` (chỉ phía dạy): thêm **một trang đáp án ở cuối** — bảng `Câu | Đáp án` (Phần I) và `Câu | a | b | c | d` Đ/S (Phần II, chia dòng nhóm Bắt buộc / tên nhóm tự chọn). Không in giải thích. *Đề có NN trang* chỉ đếm phần đề; `N` ở chân trang tính cả trang đáp án.
+- Render: HTML → PDF bằng Chromium (`CHROMIUM_PATH`, dùng chung PDF biên lai), font Times New Roman → Liberation Serif, công thức KaTeX render sẵn, ảnh câu hỏi ký URL Supabase lúc in. Chromium chỉ được tải `data:` và ảnh từ origin `SUPABASE_URL`. Cache LRU 40 bản trong RAM theo nội dung đề (sửa câu → bản mới); tối đa 2 lượt render song song.
+
 ## Hồ sơ môn JP (`LMS_PROFILE=jp`) — câu hỏi tiếng Nhật (#193–#203)
 
 Thuật ngữ: `CONTEXT.md` (Kỹ năng, Câu Đúng/Sai, Câu điền vào ô trống, Câu sắp xếp, Tư liệu dùng chung, Giới hạn nghe…).

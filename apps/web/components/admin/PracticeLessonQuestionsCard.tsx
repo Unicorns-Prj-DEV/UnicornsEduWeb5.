@@ -8,6 +8,7 @@ import { practiceLessonQuestionKeys, sharedMaterialKeys } from "@/lib/query-keys
 import * as classApi from "@/lib/apis/class.api";
 import * as sharedMaterialApi from "@/lib/apis/shared-material.api";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
+import { PrintExamButton } from "@/components/practice/PrintExamButton";
 import {
   buildExamLayout,
   itExamBreakdown,
@@ -465,9 +466,15 @@ export function PracticeLessonQuestionsCard({
                 : ` · Tổng điểm: ${summary.totalPoints}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {links.length > 0 ? (
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          ) : null}
+          {appConfig?.examPrint ? (
+            <PrintExamButton
+              target={{ kind: "lesson", lessonId }}
+              disabled={links.length === 0}
+            />
           ) : null}
           {canEdit ? (
             <button

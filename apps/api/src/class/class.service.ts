@@ -2775,6 +2775,18 @@ export class ClassService {
     return this.getClassById(classId);
   }
 
+  /** Gói 0 buổi chỉ hợp lệ khi gói 0đ (học sinh miễn phí); gói có tiền phải có số buổi > 0. */
+  private assertCustomTuitionPackagePair(
+    pkgTotal: number | null,
+    pkgSession: number | null,
+  ) {
+    if (pkgSession === 0 && pkgTotal !== 0) {
+      throw new BadRequestException(
+        'Số buổi trong gói chỉ được bằng 0 khi tổng gói học phí bằng 0.',
+      );
+    }
+  }
+
   async updateClassStudentTuition(
     id: string,
     dto: UpdateClassStudentTuitionDto,
@@ -2807,6 +2819,7 @@ export class ClassService {
       const pkgSession = normalizeStudentClassCustomTuitionMoney(
         dto.custom_tuition_package_session,
       );
+      this.assertCustomTuitionPackagePair(pkgTotal, pkgSession);
       const perSession = normalizeStudentClassCustomTuitionMoney(
         dto.custom_tuition_per_session,
       );
@@ -3162,6 +3175,7 @@ export class ClassService {
             const pkgSession = normalizeStudentClassCustomTuitionMoney(
               student.custom_tuition_package_session,
             );
+            this.assertCustomTuitionPackagePair(pkgTotal, pkgSession);
             const perSession = normalizeStudentClassCustomTuitionMoney(
               student.custom_tuition_per_session,
             );

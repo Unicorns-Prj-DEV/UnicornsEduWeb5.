@@ -61,35 +61,6 @@ export class GradeEssayAnswerDto {
   feedback?: string | null;
 }
 
-/** Một câu tự luận đang chờ chấm trong hàng đợi (thuộc lượt làm mới nhất của học sinh). */
-export interface EssayGradingQueueItemDto {
-  attemptAnswerId: string;
-  attemptId: string;
-  studentId: string;
-  studentName: string;
-  /** Tổng số lượt học sinh đã làm cho lần giao này (để hiển thị banner "làm N lượt"). */
-  studentAttemptCount: number;
-  /** Mốc thời gian lượt mới nhất (submittedAt, fallback startedAt). */
-  attemptSubmittedAt: Date;
-  /** Vị trí câu trong đề (1-based) để hiển thị "Câu N/Total". */
-  questionOrder: number;
-  totalQuestions: number;
-  questionContent: string;
-  /** Tên mức độ khó của câu (CourseDifficultyLevel.name). */
-  difficultyLabel: string;
-  pointsPossible: number;
-  answerGuide: string | null;
-  essayAnswer: string | null;
-}
-
-export interface EssayGradingQueueDto {
-  classId: string;
-  assignmentId: string;
-  title: string;
-  totalPending: number;
-  items: EssayGradingQueueItemDto[];
-}
-
 export class SaveAttemptAnswerItemDto {
   @ApiProperty({ description: 'Question id' })
   @IsString()
@@ -311,10 +282,17 @@ export interface AssignmentLobbyDto {
   attempts: AttemptSummaryDto[];
 }
 
-/** Trạng thái hàng học sinh trên bảng thống kê lần giao (Màn 12). */
+/**
+ * Trạng thái hàng học sinh trên trang Kết quả lần giao.
+ * - `in_progress`: đang làm một lượt mới (lượt nộp trước đó không chấm được nữa).
+ * - `pending_essay`: lượt nộp mới nhất còn tự luận chưa chấm — vào được chế độ Chấm điểm.
+ * - `graded`: có lượt đã chấm xong, lượt mới nhất không chờ chấm.
+ * - `not_started`: chưa nộp lượt nào.
+ */
 export type PracticeStatsStudentStatus =
   | 'graded'
   | 'pending_essay'
+  | 'in_progress'
   | 'not_started';
 
 export interface PracticeStatsQuestionRateDto {
@@ -329,22 +307,26 @@ export interface PracticeStatsQuestionRateDto {
     | 'fill_blank'
     | 'ordering';
   correctCount: number;
-  /** Số học sinh có lượt tốt nhất đã chấm xong chứa câu này. */
+  /** Số học sinh có lượt đã chấm xong gần nhất chứa câu này. */
   sampleCount: number;
-  /** 0..1 — chỉ trên lượt tốt nhất đã chấm xong. */
+  /** 0..1 — chỉ trên lượt đã chấm xong gần nhất của mỗi học sinh. */
   correctRate: number;
 }
 
 export interface PracticeStatsStudentRowDto {
   studentId: string;
   studentName: string;
-  /** Tổng điểm lượt cao nhất đã chấm xong (đơn vị theo `scoring`); null nếu chưa có lượt đó. */
+  /** Tổng điểm lượt đã chấm xong gần nhất (đơn vị theo `scoring`); null nếu chưa có lượt đó. */
   score: number | null;
   /** Điểm tối đa của lượt đó. */
   scoreMax: number | null;
+  /** Số thứ tự (1-based, theo giờ bắt đầu) của lượt đang tính điểm; null nếu chưa có. */
+  scoredAttemptNo: number | null;
+  /** Số thứ tự lượt nộp mới nhất; null nếu chưa nộp lượt nào. */
+  latestAttemptNo: number | null;
   /** Số lượt đã nộp (submitted / timed_out), không tính in_progress. */
   attemptCount: number;
-  /** Thời gian làm của lượt dùng để hiện điểm (hoặc lượt nộp mới nhất nếu chờ chấm). */
+  /** Thời gian làm của lượt dùng để hiện điểm (hoặc lượt nộp mới nhất nếu chưa có điểm). */
   durationMs: number | null;
   status: PracticeStatsStudentStatus;
 }
@@ -358,7 +340,7 @@ export interface PracticeStatsDto {
   durationMinutes: number | null;
   submittedCount: number;
   rosterCount: number;
-  /** Trung bình điểm các học sinh đã chấm xong (đơn vị theo `scoring`); null nếu chưa ai. */
+  /** Trung bình điểm các học sinh có điểm (đơn vị theo `scoring`); null nếu chưa ai. */
   averageScore: number | null;
   /** Thang điểm để hiển thị: `absolute_it` thì điểm hiển thị = giá trị / 100. */
   scoring: AttemptScoringDto;
@@ -367,4 +349,53 @@ export interface PracticeStatsDto {
   pendingEssayCount: number;
   questions: PracticeStatsQuestionRateDto[];
   students: PracticeStatsStudentRowDto[];
+}
+
+/** Một lượt đã nộp trong bộ chọn lượt của màn Bài làm (phía dạy). */
+export interface StaffAttemptOptionDto {
+  id: string;
+  /** Số thứ tự lượt (1-based, theo giờ bắt đầu). */
+  no: number;
+  status: 'submitted' | 'timed_out';
+  startedAt: Date;
+  submittedAt: Date | null;
+  /** Trắc nghiệm + tự luận đã chấm. */
+  score: number;
+  scoreMax: number;
+  hasUngradedEssay: boolean;
+  /** Lượt đang tính điểm (lượt đã chấm xong gần nhất). */
+  isScored: boolean;
+  /** Bật được chế độ Chấm điểm: lượt mới nhất và có câu tự luận. */
+  gradable: boolean;
+}
+
+/** Các lượt đã nộp của một học sinh trên một lần giao (mới nhất trước). */
+export interface StaffStudentAttemptsDto {
+  classId: string;
+  assignmentId: string;
+  title: string;
+  studentId: string;
+  studentName: string;
+  scoring: AttemptScoringDto;
+  /** Học sinh đang làm dở một lượt mới — lượt đã nộp không chấm được nữa. */
+  inProgress: boolean;
+  attempts: StaffAttemptOptionDto[];
+}
+
+export interface StaffAttemptQuestionDto extends AttemptQuestionDto {
+  /** attempt_answers.id — dùng để chấm câu tự luận. */
+  attemptAnswerId: string;
+}
+
+/** Bài làm của học sinh cho phía dạy: luôn kèm đáp án, điểm, nhận xét. */
+export interface StaffAttemptDetailDto extends Omit<
+  AttemptDetailDto,
+  'questions'
+> {
+  studentId: string;
+  studentName: string;
+  no: number;
+  isScored: boolean;
+  gradable: boolean;
+  questions: StaffAttemptQuestionDto[];
 }

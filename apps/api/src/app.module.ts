@@ -39,6 +39,7 @@ import { StudentGalleryModule } from './student-gallery/student-gallery.module';
 import { DeviceModule } from './device/device.module';
 import { QuestionModule } from './question/question.module';
 import { AttemptModule } from './attempt/attempt.module';
+import { ExamPrintModule } from './exam-print/exam-print.module';
 import { ClassTimelineModule } from './class-timeline/class-timeline.module';
 import { CourseContentModule } from './course-content/course-content.module';
 import { LmsProfileModule } from './lms-profile/lms-profile.module';
@@ -110,6 +111,7 @@ function parsePositiveIntegerEnv(
     CourseContentModule,
     LmsProfileModule,
     AttemptModule,
+    ExamPrintModule,
     ClassTimelineModule,
   ],
   controllers: [AppController],

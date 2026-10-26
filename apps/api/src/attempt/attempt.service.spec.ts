@@ -924,66 +924,18 @@ describe('AttemptService', () => {
     );
   });
 
-  describe('getGradingQueue', () => {
-    it('404 khi tiết của lần giao đã lưu trữ', async () => {
-      prisma.classContentItem.findFirst.mockResolvedValue({
-        ...assignment,
-        lesson: { ...assignment.lesson, archivedAt: new Date() },
-      });
-
-      await expect(service.getGradingQueue('cls-1', 'cci-1')).rejects.toThrow(
-        'Assignment not found',
-      );
-      await expect(service.getPracticeStats('cls-1', 'cci-1')).rejects.toThrow(
-        'Assignment not found',
-      );
+  it('404 khi tiết của lần giao đã lưu trữ', async () => {
+    prisma.classContentItem.findFirst.mockResolvedValue({
+      ...assignment,
+      lesson: { ...assignment.lesson, archivedAt: new Date() },
     });
 
-    it('chỉ lấy câu tự luận chưa chấm; distinct theo studentId (lượt mới nhất)', async () => {
-      prisma.classContentItem.findFirst.mockResolvedValue(assignment);
-      prisma.attempt.groupBy.mockResolvedValue([
-        { studentId: 'stu-1', _count: { _all: 3 } },
-      ]);
-      prisma.attempt.findMany.mockResolvedValue([
-        makeAttempt({
-          id: 'att-latest',
-          submittedAt: new Date('2026-09-05T20:14:00Z'),
-          hasUngradedEssay: true,
-          student: { fullName: 'Phạm Gia Huy' },
-          answers: [
-            makeAttempt().answers[0],
-            {
-              ...makeAttempt().answers[1],
-              pointsAwarded: null,
-            },
-          ],
-        }),
-      ]);
-
-      const result = await service.getGradingQueue('cls-1', 'cci-1');
-      expect(prisma.attempt.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ distinct: ['studentId'] }),
-      );
-      expect(result.totalPending).toBe(1);
-      expect(result.items[0]).toMatchObject({
-        studentName: 'Phạm Gia Huy',
-        studentAttemptCount: 3,
-        difficultyLabel: 'Vận dụng cao',
-        questionOrder: 2,
-        totalQuestions: 2,
-        pointsPossible: 50,
-      });
-    });
-
-    it('bỏ qua attempt không còn tự luận chờ chấm', async () => {
-      prisma.classContentItem.findFirst.mockResolvedValue(assignment);
-      prisma.attempt.groupBy.mockResolvedValue([]);
-      prisma.attempt.findMany.mockResolvedValue([
-        makeAttempt({ hasUngradedEssay: false }),
-      ]);
-      const result = await service.getGradingQueue('cls-1', 'cci-1');
-      expect(result.items).toHaveLength(0);
-    });
+    await expect(service.getPracticeStats('cls-1', 'cci-1')).rejects.toThrow(
+      'Assignment not found',
+    );
+    await expect(
+      service.listStudentAttemptsForStaff('cls-1', 'cci-1', 'stu-1'),
+    ).rejects.toThrow('Assignment not found');
   });
 
   describe('gradeEssayAnswer', () => {
@@ -1006,6 +958,24 @@ describe('AttemptService', () => {
     it('từ chối chấm lượt cũ (không phải lượt mới nhất) với 404', async () => {
       prisma.attemptAnswer.findUnique.mockResolvedValue(essayAnswerRow());
       prisma.attempt.findFirst.mockResolvedValue({ id: 'att-newer' });
+      await expect(
+        service.gradeEssayAnswer('cls-1', 'cci-1', 'ans-2', {
+          pointsAwarded: 3,
+        }),
+      ).rejects.toThrow('Essay answer not found');
+      expect(prisma.attemptAnswer.update).not.toHaveBeenCalled();
+    });
+
+    it('từ chối chấm câu thuộc lượt đang làm với 404', async () => {
+      prisma.attemptAnswer.findUnique.mockResolvedValue(
+        essayAnswerRow({
+          attempt: {
+            ...essayAnswerRow().attempt,
+            status: AttemptStatus.in_progress,
+          },
+        }),
+      );
+      prisma.attempt.findFirst.mockResolvedValue({ id: 'att-latest' });
       await expect(
         service.gradeEssayAnswer('cls-1', 'cci-1', 'ans-2', {
           pointsAwarded: 3,
@@ -1090,12 +1060,24 @@ describe('AttemptService', () => {
       });
     }
 
-    it('điểm = lượt cao nhất đã chấm xong; lượt chờ chấm không vào trung bình', async () => {
+    const at = (minute: number) =>
+      new Date(`2026-09-05T20:${String(minute).padStart(2, '0')}:00Z`);
+    const lowAnswers = [
+      { ...makeAttempt().answers[0], isCorrect: false, pointsAwarded: 0 },
+      { ...makeAttempt().answers[1], pointsAwarded: 20 },
+    ];
+    const pendingAnswers = [
+      { ...makeAttempt().answers[0], isCorrect: true, pointsAwarded: 50 },
+      { ...makeAttempt().answers[1], pointsAwarded: null },
+    ];
+
+    it('điểm = lượt đã chấm xong gần nhất; lượt chờ chấm quay về lượt đã chấm trước', async () => {
       prisma.classContentItem.findFirst.mockResolvedValue(assignmentWithClass);
       prisma.studentClass.findMany.mockResolvedValue([
         { studentId: 'stu-1', student: { id: 'stu-1', fullName: 'An' } },
         { studentId: 'stu-2', student: { id: 'stu-2', fullName: 'Bình' } },
         { studentId: 'stu-3', student: { id: 'stu-3', fullName: 'Chi' } },
+        { studentId: 'stu-4', student: { id: 'stu-4', fullName: 'Dũng' } },
       ]);
       prisma.questionLink.findMany.mockResolvedValue([
         {
@@ -1110,72 +1092,253 @@ describe('AttemptService', () => {
         },
       ]);
       prisma.attempt.findMany.mockResolvedValue([
+        // An: lượt 1 được 100, lượt 2 (gần nhất) được 20 → điểm 20.
         closedAttempt({
-          id: 'att-low',
+          id: 'att-a1',
           studentId: 'stu-1',
-          autoGradedScore: 0,
-          answers: [
-            {
-              ...makeAttempt().answers[0],
-              isCorrect: false,
-              pointsAwarded: 0,
-            },
-            {
-              ...makeAttempt().answers[1],
-              pointsAwarded: 20,
-            },
-          ],
+          startedAt: at(0),
+          submittedAt: at(5),
         }),
-        closedAttempt({ id: 'att-best', studentId: 'stu-1' }),
         closedAttempt({
-          id: 'att-pending',
-          studentId: 'stu-2',
-          hasUngradedEssay: true,
-          answers: [
-            {
-              ...makeAttempt().answers[0],
-              isCorrect: true,
-              pointsAwarded: 50,
-            },
-            {
-              ...makeAttempt().answers[1],
-              pointsAwarded: null,
-            },
-          ],
+          id: 'att-a2',
+          studentId: 'stu-1',
+          startedAt: at(10),
+          submittedAt: at(15),
+          autoGradedScore: 0,
+          answers: lowAnswers,
         }),
+        // Bình: lượt 2 chờ chấm → điểm vẫn của lượt 1.
+        closedAttempt({
+          id: 'att-b1',
+          studentId: 'stu-2',
+          startedAt: at(1),
+          submittedAt: at(6),
+        }),
+        closedAttempt({
+          id: 'att-b2',
+          studentId: 'stu-2',
+          startedAt: at(11),
+          submittedAt: at(16),
+          hasUngradedEssay: true,
+          answers: pendingAnswers,
+        }),
+        // Chi: chỉ có lượt đang làm.
+        makeAttempt({ id: 'att-c1', studentId: 'stu-3', startedAt: at(20) }),
       ]);
 
       const result = await service.getPracticeStats('cls-1', 'cci-1');
       expect(prisma.attempt.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
-            assignmentId: 'cci-1',
-            assignment: { classId: 'cls-1' },
-          }),
+          where: { assignmentId: 'cci-1', assignment: { classId: 'cls-1' } },
         }),
       );
       expect(result.submittedCount).toBe(2);
-      expect(result.rosterCount).toBe(3);
+      expect(result.rosterCount).toBe(4);
       expect(result.pendingEssayCount).toBe(1);
-      expect(result.averageScore).toBe(100);
-      const an = result.students.find((s) => s.studentId === 'stu-1');
-      expect(an).toMatchObject({
-        score: 100,
+      expect(result.averageScore).toBe(60);
+      expect(
+        result.students.find((s) => s.studentId === 'stu-1'),
+      ).toMatchObject({
+        score: 20,
         scoreMax: 100,
         status: 'graded',
         attemptCount: 2,
+        scoredAttemptNo: 2,
+        latestAttemptNo: 2,
       });
-      const binh = result.students.find((s) => s.studentId === 'stu-2');
-      expect(binh).toMatchObject({
-        score: null,
+      expect(
+        result.students.find((s) => s.studentId === 'stu-2'),
+      ).toMatchObject({
+        score: 100,
         status: 'pending_essay',
+        attemptCount: 2,
+        scoredAttemptNo: 1,
+        latestAttemptNo: 2,
+      });
+      expect(
+        result.students.find((s) => s.studentId === 'stu-3'),
+      ).toMatchObject({ status: 'in_progress', score: null, attemptCount: 0 });
+      expect(
+        result.students.find((s) => s.studentId === 'stu-4'),
+      ).toMatchObject({
+        status: 'not_started',
+        score: null,
+        latestAttemptNo: null,
+      });
+      // Tỉ lệ đúng trên lượt đang tính điểm: An sai (att-a2), Bình đúng (att-b1).
+      expect(result.questions[0]).toMatchObject({
+        correctCount: 1,
+        sampleCount: 2,
+      });
+    });
+
+    it('học sinh đang làm lượt mới: trạng thái in_progress, giữ điểm lượt đã chấm', async () => {
+      prisma.classContentItem.findFirst.mockResolvedValue(assignmentWithClass);
+      prisma.studentClass.findMany.mockResolvedValue([
+        { studentId: 'stu-1', student: { id: 'stu-1', fullName: 'An' } },
+      ]);
+      prisma.questionLink.findMany.mockResolvedValue([]);
+      prisma.attempt.findMany.mockResolvedValue([
+        closedAttempt({ id: 'att-1', startedAt: at(0), submittedAt: at(5) }),
+        makeAttempt({ id: 'att-2', startedAt: at(10) }),
+      ]);
+
+      const result = await service.getPracticeStats('cls-1', 'cci-1');
+      expect(result.students[0]).toMatchObject({
+        status: 'in_progress',
+        score: 100,
+        scoredAttemptNo: 1,
         attemptCount: 1,
       });
-      const chi = result.students.find((s) => s.studentId === 'stu-3');
-      expect(chi).toMatchObject({ status: 'not_started', score: null });
-      expect(result.questions[0].correctCount).toBe(1);
-      expect(result.questions[0].sampleCount).toBe(1);
-      expect(result.questions[1].correctCount).toBe(1);
+      expect(result.pendingEssayCount).toBe(0);
+    });
+  });
+
+  describe('xem bài làm phía dạy', () => {
+    const at = (minute: number) =>
+      new Date(`2026-09-05T20:${String(minute).padStart(2, '0')}:00Z`);
+
+    beforeEach(() => {
+      prisma.studentInfo = { findUnique: jest.fn() };
+      prisma.classContentItem.findFirst.mockResolvedValue({
+        ...assignment,
+        class: { name: '12A3' },
+      });
+    });
+
+    it('liệt kê lượt đã nộp mới nhất trước; chỉ lượt mới nhất có tự luận chấm được', async () => {
+      prisma.studentInfo.findUnique.mockResolvedValue({ fullName: 'An' });
+      prisma.attempt.findMany.mockResolvedValue([
+        makeAttempt({
+          id: 'att-1',
+          status: AttemptStatus.submitted,
+          startedAt: at(0),
+          submittedAt: at(5),
+          autoGradedScore: 50,
+          autoGradedMax: 50,
+        }),
+        makeAttempt({
+          id: 'att-2',
+          status: AttemptStatus.timed_out,
+          startedAt: at(10),
+          submittedAt: at(20),
+          autoGradedScore: 0,
+          autoGradedMax: 50,
+          hasUngradedEssay: true,
+        }),
+      ]);
+
+      const result = await service.listStudentAttemptsForStaff(
+        'cls-1',
+        'cci-1',
+        'stu-1',
+      );
+      expect(result.studentName).toBe('An');
+      expect(result.inProgress).toBe(false);
+      expect(result.attempts.map((a) => [a.id, a.no])).toEqual([
+        ['att-2', 2],
+        ['att-1', 1],
+      ]);
+      expect(result.attempts[0]).toMatchObject({
+        gradable: true,
+        isScored: false,
+        hasUngradedEssay: true,
+      });
+      expect(result.attempts[1]).toMatchObject({
+        gradable: false,
+        isScored: true,
+        score: 50,
+      });
+    });
+
+    it('học sinh đang làm lượt mới → không lượt nào chấm được, lượt làm dở bị ẩn', async () => {
+      prisma.studentInfo.findUnique.mockResolvedValue({ fullName: 'An' });
+      prisma.attempt.findMany.mockResolvedValue([
+        makeAttempt({
+          id: 'att-1',
+          status: AttemptStatus.submitted,
+          startedAt: at(0),
+          submittedAt: at(5),
+          hasUngradedEssay: true,
+        }),
+        makeAttempt({ id: 'att-2', startedAt: at(10) }),
+      ]);
+
+      const result = await service.listStudentAttemptsForStaff(
+        'cls-1',
+        'cci-1',
+        'stu-1',
+      );
+      expect(result.inProgress).toBe(true);
+      expect(result.attempts).toHaveLength(1);
+      expect(result.attempts[0].gradable).toBe(false);
+    });
+
+    it('404 khi học sinh không tồn tại', async () => {
+      prisma.studentInfo.findUnique.mockResolvedValue(null);
+      await expect(
+        service.listStudentAttemptsForStaff('cls-1', 'cci-1', 'stu-x'),
+      ).rejects.toThrow('Student not found');
+    });
+
+    it('chi tiết lượt: kèm đáp án + attemptAnswerId theo đúng câu', async () => {
+      prisma.attempt.findUnique.mockResolvedValue(
+        makeAttempt({
+          id: 'att-1',
+          status: AttemptStatus.submitted,
+          submittedAt: at(5),
+          startedAt: at(0),
+          hasUngradedEssay: true,
+          student: { fullName: 'An' },
+        }),
+      );
+      prisma.attempt.findMany.mockResolvedValue([
+        {
+          id: 'att-1',
+          status: AttemptStatus.submitted,
+          startedAt: at(0),
+          submittedAt: at(5),
+          hasUngradedEssay: true,
+        },
+      ]);
+
+      const result = await service.getAttemptForStaff(
+        'cls-1',
+        'cci-1',
+        'att-1',
+      );
+      expect(result).toMatchObject({
+        studentName: 'An',
+        no: 1,
+        gradable: true,
+        isScored: false,
+        resultsReleased: true,
+      });
+      expect(result.questions.map((q) => q.attemptAnswerId)).toEqual([
+        'ans-1',
+        'ans-2',
+      ]);
+      expect(result.questions[0].correctIndex).toBe(1);
+    });
+
+    it('404 với lượt đang làm hoặc lượt của lần giao khác', async () => {
+      prisma.attempt.findUnique.mockResolvedValue(
+        makeAttempt({ student: { fullName: 'An' } }),
+      );
+      await expect(
+        service.getAttemptForStaff('cls-1', 'cci-1', 'att-1'),
+      ).rejects.toThrow('Attempt not found');
+
+      prisma.attempt.findUnique.mockResolvedValue(
+        makeAttempt({
+          status: AttemptStatus.submitted,
+          assignmentId: 'cci-other',
+          student: { fullName: 'An' },
+        }),
+      );
+      await expect(
+        service.getAttemptForStaff('cls-1', 'cci-1', 'att-1'),
+      ).rejects.toThrow('Attempt not found');
     });
   });
 
