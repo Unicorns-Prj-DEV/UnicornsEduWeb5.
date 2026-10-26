@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { practiceResultsHref } from "@/lib/practice-results-routes";
 import {
   DndContext,
   KeyboardSensor,
@@ -62,7 +63,7 @@ interface ClassModuleGroupsProps {
   classId: string;
   /** Kéo-thả đổi thứ tự nhóm (lưu theo lớp, học sinh thấy cùng thứ tự). */
   canReorder?: boolean;
-  /** Có thì hiện nút Thống kê / Chấm bài cho tiết thực hành. */
+  /** Có thì hiện nút Kết quả / Chấm bài cho tiết thực hành. */
   practiceActionsBasePath?: string | null;
   /** Mở dialog chi tiết lần giao (`ClassContentManager`). */
   onOpenItem: (contentItemId: string) => void;
@@ -383,14 +384,18 @@ function ContentItemRow({
           {showPracticeActions ? (
             <>
               <Link
-                href={`${practiceActionsBasePath}/practice/${item.id}/stats`}
+                href={practiceResultsHref(practiceActionsBasePath!, item.id)}
                 className={ACTION_CLASS}
               >
                 <BarChart3 className="size-3.5" />
-                Thống kê
+                Kết quả
               </Link>
               <Link
-                href={`${practiceActionsBasePath}/grading/${item.id}`}
+                href={practiceResultsHref(
+                  practiceActionsBasePath!,
+                  item.id,
+                  "cho-cham",
+                )}
                 className={ACTION_CLASS}
               >
                 <PenLine className="size-3.5" />

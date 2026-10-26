@@ -110,6 +110,9 @@ export default function StudentAssignmentLobbyPage() {
             </span>
           </p>
         ) : null}
+        <p className="mt-1 text-sm text-text-muted">
+          Điểm tính theo lượt đã chấm gần nhất — làm lại sẽ thay điểm cũ.
+        </p>
         {data.closed && !inProgress ? (
           <p className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-bg-tertiary px-4 text-sm font-medium text-text-secondary sm:w-auto">
             <Lock className="size-4" aria-hidden />

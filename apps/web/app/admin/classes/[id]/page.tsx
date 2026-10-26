@@ -1433,7 +1433,11 @@ export default function AdminClassDetailPage() {
                 ) : null}
               </>
             ) : (
-              <ClassModulesTab classId={id} canManageContent={canCreateSession} />
+              <ClassModulesTab
+                classId={id}
+                canManageContent={canCreateSession}
+                practiceActionsBasePath={`/admin/classes/${id}`}
+              />
             )}
           </section>
         </ClassCard>

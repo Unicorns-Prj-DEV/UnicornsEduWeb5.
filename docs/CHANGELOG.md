@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 
+- **Kết quả tiết thực hành + Bài làm từng học sinh** (ADR `docs/adr/2026-10-26-latest-graded-attempt-and-per-student-grading.md`): trang **Kết quả** `/staff/classes/[id]/practice/[cid]` và `/admin/classes/[id]/practice/[cid]` (tổng quan, lọc `?loc=` Tất cả / Chờ chấm / Đã chấm / Chưa làm, bảng sort, Xuất CSV, tỉ lệ đúng từng câu); màn **Bài làm** `.../students/[studentId]` xem câu hỏi + câu trả lời của học sinh, bộ chọn lượt (mặc định lượt nộp mới nhất), hai chế độ **Xem | Chấm điểm**, chấm trọn bài rồi sang học sinh tiếp theo. API mới `GET /staff-ops/classes/:classId/assignments/:assignmentId/students/:studentId/attempts` và `GET .../attempts/:attemptId` (admin/trợ lí + gia sư phụ trách lớp). Lobby học sinh thêm ghi chú cách tính điểm. Docs: `pages/admin.md`, `pages/staff.md`, `pages/student.md`, `Database Schema.md`, `CONTEXT.md`. Không cần migration.
 - **Admin/trợ lí đổi mật khẩu user**: endpoint `PATCH /users/:id/password` (body `{ newPassword }`) đặt mật khẩu mới không cần mật khẩu cũ, đăng xuất user khỏi mọi thiết bị, ghi action history. Trợ lí không đổi được mật khẩu tài khoản admin/trợ lí khác (`403`). Popup **Quản lý user** (`/admin/users`, `/staff/users`) có khối **Mật khẩu** → `SetUserPasswordDialog`. Không cần migration.
 - **Reset mật khẩu học sinh**: migration `20261025090000_reset_student_passwords` đặt `password_hash` của mọi user `role_type = 'student'` về bcrypt hash của `123456` (cost 10). Chạy một lần khi `prisma migrate deploy`; tài khoản tạo sau đó không bị ảnh hưởng.
 - **Admin xoá ảnh đại diện nhân sự**: API mới `DELETE /staff/:id/avatar` (chỉ admin đầy đủ) xoá cả ảnh gốc + bản watermark của user gắn với nhân sự, ghi lịch sử thao tác. Trang `/admin/staffs/[id]` (mirror `/staff/staffs/[id]`): nút **Xoá ảnh đại diện** dưới avatar trong bảng **Thông tin nhân sự**, có hộp xác nhận. Không cần migration.
@@ -72,6 +73,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Điểm tiết thực hành = lượt đã chấm xong gần nhất** (trước: lượt cao nhất đã chấm). Lượt còn tự luận chờ chấm bị bỏ qua, điểm giữ lượt đã chấm trước đó. Stats thêm trạng thái `in_progress` và field `scoredAttemptNo`, `latestAttemptNo`. `PATCH .../grading-queue/:attemptAnswerId` từ chối thêm câu thuộc lượt đang làm (`404`). Thẻ tiết thực hành đổi nút **Thống kê / Chấm tự luận** → **Kết quả / Chấm bài**; admin mở trang trong admin shell. Route cũ `/staff/classes/[id]/grading/[assignmentId]` và `.../practice/[cid]/stats` chuyển hướng sang Kết quả.
 - **Mở thông tin nhân sự bằng tên / avatar (admin + trợ lí)**: trang `/admin/staffs/[id]` và mirror `/staff/staffs/[id]` bỏ nút bút chì cạnh tên; bấm **avatar** hoặc **tên** mở bảng **Thông tin nhân sự** (`EditStaffPopup`). Bảng làm lại theo bố cục `/user-profile`: cột trái avatar (bấm xem lớn) + tên + email + trạng thái + chip vai trò, cột phải các mục **Thông tin chung / Định danh / Học vấn & thanh toán / Vai trò & lương cứng** dạng hàng nhãn–giá trị; dùng `ResponsiveDialog`, đóng khi có thay đổi chưa lưu thì hỏi lại, xác nhận Ngừng hoạt động bằng `ConfirmDialog` thay `window.confirm`. Người không có quyền sửa vẫn bấm avatar để xem ảnh như cũ. Không đổi API.
 - **Popup sửa nhân sự**: field **% mặc định CSKH** và **Trợ lí quản lí (3% học phí)** chuyển vào thẻ vai trò **CSKH** (dưới Lương cứng / % vận hành), chỉ hiện khi bật CSKH; Trợ lí quản lí đổi native `<select>` → `UpgradedSelect`. Không đổi API.
 
@@ -84,6 +86,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Removed
 
+- **Hàng đợi chấm theo câu**: bỏ `GET /staff-ops/classes/:classId/assignments/:assignmentId/grading-queue`, `EssayGradeCard`, `PracticeStatsView` — thay bằng chấm trọn bài trên màn Bài làm.
 - **Popup hồ sơ (`UserProfileDialog`)**: bấm avatar ở footer `StaffSidebar` chuyển thẳng tới `/user-profile?from=<trang hiện tại>`, bấm avatar + tên trên `StudentHeader` chuyển tới `/user-profile`; xoá `components/user-profile/UserProfileDialog.tsx`. Docs: `pages/auth.md`, `pages/staff.md`, `pages/student.md`.
 - **Toggle «Dạy thử» trên form buổi học** (admin/staff): thay bằng trạng thái điểm danh Học thử từng học sinh. Buổi cũ `coefficient = 0` giữ nguyên, vẫn không tính trợ cấp và khoá ô trợ cấp.
 

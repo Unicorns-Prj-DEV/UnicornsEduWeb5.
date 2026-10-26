@@ -29,7 +29,7 @@ export default function ClassModulesTab({
   classId: string;
   /** Thêm/gỡ chuyên đề, thêm/gỡ lẻ tiết, sắp thứ tự, xem tiến độ lý thuyết. */
   canManageContent: boolean;
-  /** Có thì hiện nút Thống kê / Chấm bài cho tiết thực hành. */
+  /** Có thì hiện nút Kết quả / Chấm bài cho tiết thực hành. */
   practiceActionsBasePath?: string | null;
 }) {
   const queryClient = useQueryClient();
@@ -81,6 +81,7 @@ export default function ClassModulesTab({
       <ClassContentManager
         classId={classId}
         canManage={canManageContent}
+        practiceActionsBasePath={practiceActionsBasePath}
         addOnly
         addOpen={practiceAddOpen}
         onAddOpenChange={setPracticeAddOpen}

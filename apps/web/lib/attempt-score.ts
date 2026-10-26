@@ -43,3 +43,31 @@ export function attemptScoreLabel(
   const total = `${formatScore(attempt.score, attempt.scoreMax, attempt.scoring)} điểm`;
   return attempt.hasUngradedEssay ? `${total} · chờ chấm tự luận` : total;
 }
+
+/** Giá trị điền sẵn ô chấm điểm theo đơn vị hiển thị (IT: `0,25`; JP/ENG: `5`). */
+export function scoreInputValue(
+  value: number | null | undefined,
+  scoring: AttemptScoringDto,
+): string {
+  if (value == null) return "";
+  if (scoring !== "absolute_it") return String(value);
+  return String(value / 100).replace(".", ",");
+}
+
+/**
+ * Đọc ô chấm điểm (đơn vị hiển thị) → giá trị lưu (IT: 1/100 điểm). Trả null
+ * khi không hợp lệ: không phải số, âm, hoặc lẻ hơn đơn vị lưu (IT quá 2 chữ số
+ * thập phân, JP/ENG không nguyên).
+ */
+export function parseScoreInput(
+  text: string,
+  scoring: AttemptScoringDto,
+): number | null {
+  const trimmed = text.trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+  const value = Number(trimmed);
+  const raw = scoring === "absolute_it" ? value * 100 : value;
+  const rounded = Math.round(raw);
+  if (Math.abs(raw - rounded) > 1e-6) return null;
+  return rounded;
+}
