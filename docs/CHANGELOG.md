@@ -21,6 +21,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **Học phí riêng học sinh-lớp: `0` = miễn phí** (trước: `0` = kế thừa lớp). `null`/bỏ trống mới là kế thừa. Popup gói học phí cho phép tổng gói 0đ và số buổi 0 (số buổi 0 chỉ hợp lệ khi tổng gói 0đ; backend trả 400 nếu không). Sửa ô gói trong popup lớp sẽ bỏ học phí/buổi dẫn xuất cũ để backend tính lại.
+
+### Fixed
+
+- **Migration `20261026100000_student_class_zero_tuition`:** đổi mọi `0` cũ ở cột `custom_*` của `student_classes` về `NULL` (giữ nguyên số tiền đang thu); tài khoản test `test123` lớp **THPTQG 02**: đặt gói riêng 0đ/0 buổi, xoá giao dịch trừ ví (`extend`) và hoàn số dư, đưa `attendance.tuition_fee` về 0, trừ phần đó khỏi `sessions.tuition_fee`, tính lại trợ cấp QLĐT buổi chưa trả, xoá `dashboard_cache` → gỡ khỏi doanh thu/lợi nhuận.
+
 ### Added
 
 - **Kết quả tiết thực hành + Bài làm từng học sinh** (ADR `docs/adr/2026-10-26-latest-graded-attempt-and-per-student-grading.md`): trang **Kết quả** `/staff/classes/[id]/practice/[cid]` và `/admin/classes/[id]/practice/[cid]` (tổng quan, lọc `?loc=` Tất cả / Chờ chấm / Đã chấm / Chưa làm, bảng sort, Xuất CSV, tỉ lệ đúng từng câu); màn **Bài làm** `.../students/[studentId]` xem câu hỏi + câu trả lời của học sinh, bộ chọn lượt (mặc định lượt nộp mới nhất), hai chế độ **Xem | Chấm điểm**, chấm trọn bài rồi sang học sinh tiếp theo. API mới `GET /staff-ops/classes/:classId/assignments/:assignmentId/students/:studentId/attempts` và `GET .../attempts/:attemptId` (admin/trợ lí + gia sư phụ trách lớp). Lobby học sinh thêm ghi chú cách tính điểm. Docs: `pages/admin.md`, `pages/staff.md`, `pages/student.md`, `Database Schema.md`, `CONTEXT.md`. Không cần migration.

@@ -3226,7 +3226,7 @@ export class DashboardService {
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
-              NULLIF(student_classes.custom_student_tuition_per_session, 0),
+              student_classes.custom_student_tuition_per_session,
               classes.student_tuition_per_session,
               CASE
                 WHEN COALESCE(
@@ -3328,7 +3328,7 @@ export class DashboardService {
           COALESCE(student_info.account_balance, 0) AS "accountBalance",
           MAX(
             COALESCE(
-              NULLIF(student_classes.custom_student_tuition_per_session, 0),
+              student_classes.custom_student_tuition_per_session,
               classes.student_tuition_per_session,
               CASE
                 WHEN COALESCE(
