@@ -707,28 +707,9 @@ describe('ClassService', () => {
   });
 
   describe('operational status actions', () => {
-    it('rejects ending a class when teacher sessions are not fully paid', async () => {
+    it('ends a class (even with unpaid teacher sessions) and closes active roster plus teacher assignments', async () => {
       mockPrisma.$queryRaw.mockResolvedValue([
         { session_count: 3, unpaid_session_count: 1 },
-      ]);
-
-      await expect(
-        service.endClass(
-          'class-1',
-          {},
-          {
-            userId: 'admin-1',
-            roleType: UserRole.admin,
-          },
-        ),
-      ).rejects.toBeInstanceOf(BadRequestException);
-
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('ends a class and closes active roster plus teacher assignments', async () => {
-      mockPrisma.$queryRaw.mockResolvedValue([
-        { session_count: 2, unpaid_session_count: 0 },
       ]);
       const beforeSnapshot = {
         id: 'class-1',

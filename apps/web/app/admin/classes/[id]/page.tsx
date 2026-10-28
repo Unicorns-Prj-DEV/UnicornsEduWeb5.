@@ -20,7 +20,7 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
 import * as surveysApi from "@/lib/apis/surveys.api";
-import { formatCurrency } from "@/lib/class.helpers";
+import { buildEndClassConfirmMessage, formatCurrency } from "@/lib/class.helpers";
 import {
   ClassCard,
   ClassStudentCaretakerCell,
@@ -249,10 +249,6 @@ export default function AdminClassDetailPage() {
     queryFn: () => classApi.getClassById(id),
     enabled: !!id,
   });
-  const canEndClass = classDetail?.endClassEligibility?.canEnd ?? false;
-  const endClassBlockReason =
-    classDetail?.endClassEligibility?.blockReason ??
-    "Thanh toán hết trợ cấp gia sư cho mọi buổi để kết thúc lớp.";
 
   const queryClient = useQueryClient();
   const missedAlertsQueryKey = useMemo(
@@ -599,13 +595,8 @@ export default function AdminClassDetailPage() {
   }
 
   const handleEndClass = () => {
-    if (!canEndClass) {
-      toast.error(endClassBlockReason);
-      return;
-    }
-
     const confirmed = window.confirm(
-      "Kết thúc lớp? Điều kiện: mọi buổi đã thanh toán trợ cấp gia sư. Hệ thống sẽ gỡ gia sư khỏi lớp, đóng roster học sinh, xóa lịch cố định và lịch bù tương lai.",
+      buildEndClassConfirmMessage(classDetail?.endClassEligibility?.unpaidSessionCount),
     );
     if (!confirmed) return;
 
@@ -708,8 +699,7 @@ export default function AdminClassDetailPage() {
                 <button
                   type="button"
                   onClick={handleEndClass}
-                  disabled={endClassMutation.isPending || !canEndClass}
-                  title={!canEndClass ? endClassBlockReason : undefined}
+                  disabled={endClassMutation.isPending}
                   className="inline-flex min-h-8 shrink-0 items-center rounded-full border border-border-default bg-bg-surface px-3 text-xs font-semibold text-text-secondary transition hover:bg-bg-tertiary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
                 >
                   {endClassMutation.isPending ? "Đang lưu..." : "Kết thúc lớp"}

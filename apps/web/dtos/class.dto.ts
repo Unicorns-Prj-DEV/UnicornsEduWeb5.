@@ -190,9 +190,8 @@ export interface ClassStudent {
 export interface ClassEndEligibility {
     canEnd: boolean;
     sessionCount: number;
+    /** Buổi chưa thanh toán trợ cấp gia sư — chỉ để cảnh báo, không chặn kết thúc lớp. */
     unpaidSessionCount: number;
-    blockReason?: string | null;
-    canEndClass?: boolean;
 }
 
 export interface ClassDetail extends ClassListItem {

@@ -3241,14 +3241,8 @@ export class ClassService {
     dto: ClassStatusActionDto = {},
     auditActor?: ActionHistoryActor,
   ) {
-    const settlement = await getClassTeacherSessionSettlement(this.prisma, id);
-    if (!settlement.canEndClass) {
-      throw new BadRequestException(
-        settlement.blockReason ??
-          'Chưa thể kết thúc lớp khi còn buổi học chưa thanh toán trợ cấp gia sư.',
-      );
-    }
-
+    // Không chặn theo trợ cấp gia sư: buổi chưa thanh toán vẫn thanh toán sau
+    // khi lớp đã kết thúc (session/payroll giữ nguyên).
     const result = await this.prisma.$transaction(async (tx) => {
       const beforeValue = await this.getClassAuditSnapshot(tx, id);
       if (!beforeValue) {

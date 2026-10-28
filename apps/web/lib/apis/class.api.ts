@@ -135,16 +135,6 @@ function normalizeClassEndEligibility(
     unpaidSessionCount: Number(
       eligibility.unpaidSessionCount ?? eligibility.unpaid_session_count ?? 0,
     ),
-    blockReason:
-      typeof eligibility.blockReason === "string"
-        ? eligibility.blockReason
-        : typeof eligibility.block_reason === "string"
-          ? eligibility.block_reason
-          : null,
-    canEndClass:
-      eligibility.canEndClass == null && eligibility.can_end_class == null
-        ? undefined
-        : Boolean(eligibility.canEndClass ?? eligibility.can_end_class),
   };
 }
 
