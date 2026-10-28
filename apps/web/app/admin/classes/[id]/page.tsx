@@ -68,6 +68,7 @@ import {
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
+import { toastWarnings } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import { classKeys } from "@/lib/query-keys";
 import {
@@ -344,15 +345,19 @@ export default function AdminClassDetailPage() {
     [id, queryClient],
   );
 
+  // Refresh cả khi lỗi: request có thể fail sau khi DB đã đổi trạng thái.
+  const invalidateClassStatusQueries = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: classDetailQueryKey }),
+      queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
+      invalidateCalendarScopedQueries(queryClient),
+    ]);
+
   const endClassMutation = useMutation({
     mutationFn: (reason?: string) => classApi.endClass(id, { reason }),
-    onSuccess: async () => {
+    onSuccess: (result) => {
       toast.success("Đã kết thúc lớp.");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: classDetailQueryKey }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-        invalidateCalendarScopedQueries(queryClient),
-      ]);
+      toastWarnings(result.calendarSyncWarnings);
     },
     onError: (err: unknown) => {
       const msg =
@@ -361,6 +366,7 @@ export default function AdminClassDetailPage() {
         "Không thể kết thúc lớp.";
       toast.error(msg);
     },
+    onSettled: invalidateClassStatusQueries,
   });
 
   const stopTeachingMutation = useMutation({
@@ -370,13 +376,9 @@ export default function AdminClassDetailPage() {
         reason: payload.reason,
       });
     },
-    onSuccess: async () => {
+    onSuccess: (result) => {
       toast.success("Đã chuyển gia sư sang nghỉ dạy lớp này.");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: classDetailQueryKey }),
-        queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
-        invalidateCalendarScopedQueries(queryClient),
-      ]);
+      toastWarnings(result.calendarSyncWarnings);
     },
     onError: (err: unknown) => {
       const msg =
@@ -385,7 +387,10 @@ export default function AdminClassDetailPage() {
         "Không thể chuyển gia sư sang nghỉ dạy.";
       toast.error(msg);
     },
-    onSettled: () => setStopTeachingPendingTeacherId(null),
+    onSettled: async () => {
+      setStopTeachingPendingTeacherId(null);
+      await invalidateClassStatusQueries();
+    },
   });
 
   const handleUpdateSurvey = useCallback(

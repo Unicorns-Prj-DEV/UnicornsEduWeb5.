@@ -417,7 +417,11 @@ export class StaffOpsClassController {
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiParam({ name: 'teacherId', description: 'Staff id of the teacher' })
   @ApiBody({ type: ClassStatusActionDto, required: false })
-  @ApiResponse({ status: 201, description: 'Class detail (staff view).' })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Class detail (staff view) + `calendarSyncWarnings: string[]` (Google Calendar cleanup errors after commit).',
+  })
   @ApiResponse({
     status: 400,
     description: 'Lớp đã kết thúc hoặc gia sư đã nghỉ.',
@@ -447,12 +451,22 @@ export class StaffOpsClassController {
         'Quản lý lớp không được tự cho chính mình nghỉ dạy.',
       );
     }
-    await this.classService.stopClassTeacher(id, teacherId, dto ?? {}, {
-      userId: user.id,
-      userEmail: user.email,
-      roleType: user.roleType,
-    });
-    return this.classService.getClassByIdForStaff(user.id, user.roleType, id);
+    const { calendarSyncWarnings } = await this.classService.stopClassTeacher(
+      id,
+      teacherId,
+      dto ?? {},
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
+    const classDetail = await this.classService.getClassByIdForStaff(
+      user.id,
+      user.roleType,
+      id,
+    );
+    return { ...classDetail, calendarSyncWarnings };
   }
 
   @Patch(':id/schedule')

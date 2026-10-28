@@ -804,6 +804,55 @@ describe('ClassService', () => {
       });
     });
 
+    it('still resolves with warnings when Google Calendar cleanup fails after commit', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { session_count: 0, unpaid_session_count: 0 },
+      ]);
+      const snapshot = {
+        id: 'class-1',
+        status: ClassStatus.running,
+        schedule: [],
+        teachers: [],
+      };
+      (
+        service as unknown as {
+          getClassAuditSnapshot: jest.Mock;
+        }
+      ).getClassAuditSnapshot
+        .mockResolvedValueOnce(snapshot)
+        .mockResolvedValueOnce({ ...snapshot, status: ClassStatus.ended });
+      mockTx.classScheduleEntry.findMany.mockResolvedValue([]);
+      mockPrisma.makeupScheduleEvent.findMany.mockResolvedValue([
+        { id: 'makeup-1' },
+        { id: 'makeup-2' },
+      ]);
+      mockCalendarService.syncScheduleWithCalendar.mockRejectedValueOnce(
+        new Error('token expired'),
+      );
+      mockCalendarService.deleteMakeupScheduleEvent.mockRejectedValueOnce(
+        new Error('google 500'),
+      );
+      jest.spyOn(service, 'getClassById').mockResolvedValue({
+        id: 'class-1',
+        status: ClassStatus.ended,
+      } as never);
+
+      const result = await service.endClass('class-1', {}, undefined);
+
+      expect(result).toMatchObject({
+        id: 'class-1',
+        status: ClassStatus.ended,
+      });
+      expect(result.calendarSyncWarnings).toEqual([
+        'Không gỡ được lịch cố định trên Google Calendar: token expired',
+        'Còn 1 buổi bù chưa xoá được (lỗi Google Calendar), xoá lại trong card Lịch dạy bù.',
+      ]);
+      // Buổi bù lỗi không chặn các buổi còn lại.
+      expect(
+        mockCalendarService.deleteMakeupScheduleEvent,
+      ).toHaveBeenCalledTimes(2);
+    });
+
     it('stops one teacher assignment and prunes that teacher from the schedule', async () => {
       const beforeSnapshot = {
         id: 'class-1',

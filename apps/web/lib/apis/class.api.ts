@@ -8,6 +8,7 @@ import {
   ClassListResponse,
   ClassStatus,
   ClassStatusActionPayload,
+  ClassStatusActionResponse,
   ClassTeacher,
   ClassTeacherPayload,
   CreateCourseDifficultyLevelPayload,
@@ -700,24 +701,24 @@ export async function deleteClassById(id: string) {
 export async function endClass(
   id: string,
   data: ClassStatusActionPayload = {},
-): Promise<ClassDetail> {
+): Promise<ClassStatusActionResponse> {
   const safeId = encodeURIComponent(id);
   const response = await api.post(`/class/${safeId}/end`, data);
-  return normalizeClassRecord(response.data as ClassDetail);
+  return normalizeClassRecord(response.data as ClassStatusActionResponse);
 }
 
 export async function stopClassTeacher(
   classId: string,
   teacherId: string,
   data: ClassStatusActionPayload = {},
-): Promise<ClassDetail> {
+): Promise<ClassStatusActionResponse> {
   const safeClassId = encodeURIComponent(classId);
   const safeTeacherId = encodeURIComponent(teacherId);
   const response = await api.post(
     `/class/${safeClassId}/teachers/${safeTeacherId}/stop-teaching`,
     data,
   );
-  return normalizeClassRecord(response.data as ClassDetail);
+  return normalizeClassRecord(response.data as ClassStatusActionResponse);
 }
 
 export async function updateClass(data: UpdateClassPayload): Promise<ClassDetail> {

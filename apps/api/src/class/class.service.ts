@@ -551,11 +551,12 @@ export class ClassService {
     };
   }
 
+  /** Xoá buổi bù tương lai; trả về lỗi từng buổi thay vì dừng ở buổi lỗi đầu tiên. */
   private async deleteFutureMakeupEvents(
     classId: string,
     actor: ActionHistoryActor | undefined,
     teacherId?: string,
-  ) {
+  ): Promise<string[]> {
     const futureMakeupEvents = await this.prisma.makeupScheduleEvent.findMany({
       where: {
         classId,
@@ -566,11 +567,64 @@ export class ClassService {
       orderBy: { date: 'asc' },
     });
 
+    const failures: string[] = [];
     for (const event of futureMakeupEvents) {
-      await this.calendarService.deleteMakeupScheduleEvent(event.id, actor);
+      try {
+        await this.calendarService.deleteMakeupScheduleEvent(event.id, actor);
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error));
+      }
     }
 
-    return futureMakeupEvents.length;
+    return failures;
+  }
+
+  /**
+   * Dọn lịch cố định + buổi bù trên Google Calendar sau khi transaction đã
+   * commit. Không throw: DB đã đổi, lỗi ở đây chỉ trả về dạng cảnh báo để FE
+   * vẫn coi thao tác là thành công (và refresh dữ liệu).
+   */
+  private async cleanupCalendarAfterCommit(
+    classId: string,
+    /** `null` = không có slot nào bị đóng, bỏ qua sync lịch cố định. */
+    closedSchedule: StoredClassScheduleEntry[] | null,
+    actor: ActionHistoryActor | undefined,
+    teacherId?: string,
+  ): Promise<string[]> {
+    const warnings: string[] = [];
+
+    if (closedSchedule) {
+      try {
+        await this.calendarService.syncScheduleWithCalendar(
+          classId,
+          closedSchedule,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `[ClassService] Calendar sync failed after commit for class ${classId}: ${message}`,
+        );
+        warnings.push(
+          `Không gỡ được lịch cố định trên Google Calendar: ${message}`,
+        );
+      }
+    }
+
+    const makeupFailures = await this.deleteFutureMakeupEvents(
+      classId,
+      actor,
+      teacherId,
+    );
+    if (makeupFailures.length > 0) {
+      this.logger.error(
+        `[ClassService] ${makeupFailures.length} makeup event(s) not deleted for class ${classId}: ${makeupFailures.join('; ')}`,
+      );
+      warnings.push(
+        `Còn ${makeupFailures.length} buổi bù chưa xoá được (lỗi Google Calendar), xoá lại trong card Lịch dạy bù.`,
+      );
+    }
+
+    return warnings;
   }
 
   private async getClassDetailSnapshot(
@@ -3288,10 +3342,13 @@ export class ClassService {
       return { oldSchedule };
     });
 
-    await this.calendarService.syncScheduleWithCalendar(id, result.oldSchedule);
-    await this.deleteFutureMakeupEvents(id, auditActor);
+    const calendarSyncWarnings = await this.cleanupCalendarAfterCommit(
+      id,
+      result.oldSchedule,
+      auditActor,
+    );
 
-    return this.getClassById(id);
+    return { ...(await this.getClassById(id)), calendarSyncWarnings };
   }
 
   async stopClassTeacher(
@@ -3353,15 +3410,16 @@ export class ClassService {
       return { scheduleRemoval };
     });
 
-    if (result.scheduleRemoval.removedScheduleEntries > 0) {
-      await this.calendarService.syncScheduleWithCalendar(
-        classId,
-        result.scheduleRemoval.closedEntries,
-      );
-    }
-    await this.deleteFutureMakeupEvents(classId, auditActor, teacherId);
+    const calendarSyncWarnings = await this.cleanupCalendarAfterCommit(
+      classId,
+      result.scheduleRemoval.removedScheduleEntries > 0
+        ? result.scheduleRemoval.closedEntries
+        : null,
+      auditActor,
+      teacherId,
+    );
 
-    return this.getClassById(classId);
+    return { ...(await this.getClassById(classId)), calendarSyncWarnings };
   }
 
   async deleteClass(id: string, auditActor?: ActionHistoryActor) {

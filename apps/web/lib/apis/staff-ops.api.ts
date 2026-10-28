@@ -2,6 +2,7 @@ import type {
   ClassDetail,
   ClassListResponse,
   ClassStatusActionPayload,
+  ClassStatusActionResponse,
 } from "@/dtos/class.dto";
 import type {
   ClassScheduleGoogleCalendarResyncSummary,
@@ -161,14 +162,14 @@ export async function stopClassTeacher(
   classId: string,
   teacherId: string,
   data: ClassStatusActionPayload = {},
-): Promise<ClassDetail> {
+): Promise<ClassStatusActionResponse> {
   const safeClassId = encodeURIComponent(classId);
   const safeTeacherId = encodeURIComponent(teacherId);
   const response = await api.post(
     `/staff-ops/classes/${safeClassId}/teachers/${safeTeacherId}/stop-teaching`,
     data,
   );
-  return response.data as ClassDetail;
+  return response.data as ClassStatusActionResponse;
 }
 
 export async function resyncClassScheduleGoogleCalendar(

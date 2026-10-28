@@ -282,6 +282,12 @@ export interface ClassStatusActionPayload {
     reason?: string;
 }
 
+/** Response `POST /class/:id/end` và `.../stop-teaching`. */
+export interface ClassStatusActionResponse extends ClassDetail {
+    /** Lỗi dọn Google Calendar sau khi DB đã lưu — thao tác vẫn thành công. */
+    calendarSyncWarnings?: string[];
+}
+
 export interface ClassTeacherPayload {
     teacher_id: string;
     custom_allowance?: number | null;

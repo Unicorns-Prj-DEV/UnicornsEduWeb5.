@@ -64,6 +64,7 @@ import { trainingTutorKeys } from "@/lib/apis/training-tutor.api";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
+import { toastWarnings } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import {
   CLASS_DETAIL_TAB_LABELS,
@@ -697,10 +698,10 @@ export default function StaffClassDetailPage() {
   const stopTeachingMutation = useMutation({
     mutationFn: (payload: { teacherId: string; reason?: string }) =>
       staffOpsApi.stopClassTeacher(id, payload.teacherId, { reason: payload.reason }),
-    onSuccess: async () => {
+    onSuccess: (result) => {
       toast.success("Đã chuyển gia sư sang nghỉ dạy lớp này.");
+      toastWarnings(result.calendarSyncWarnings);
       setStopTeachingTarget(null);
-      await invalidateClassTeacherQueries();
     },
     onError: (err: unknown) => {
       const msg =
@@ -709,6 +710,8 @@ export default function StaffClassDetailPage() {
         "Không thể chuyển gia sư sang nghỉ dạy.";
       toast.error(msg);
     },
+    // Refresh cả khi lỗi: request có thể fail sau khi DB đã đổi.
+    onSettled: invalidateClassTeacherQueries,
   });
 
   const handleStopTeaching = (teacherId: string) => {

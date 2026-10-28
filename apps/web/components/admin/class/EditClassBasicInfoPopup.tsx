@@ -9,7 +9,7 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import type { ClassDetail, ClassPricingMode, ClassStatus, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
 import CourseSelect from "@/components/shared/class/CourseSelect";
 import * as classApi from "@/lib/apis/class.api";
-import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { runBackgroundSave, toastWarnings } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import {
   buildEndClassConfirmMessage,
@@ -266,9 +266,14 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
           if (shouldUpdateBasicInfo) {
             await classApi.updateClassBasicInfo(classDetail.id, basicInfoWithoutStatus);
           }
-          await classApi.endClass(classDetail.id, { reason });
+          return classApi.endClass(classDetail.id, { reason });
         },
-        onSuccess: invalidateClassQueries,
+        onSuccess: async (result) => {
+          toastWarnings(result.calendarSyncWarnings);
+          await invalidateClassQueries();
+        },
+        // Bước trước có thể đã lưu (basic-info/pricing) hoặc DB đã đổi trước khi lỗi.
+        onError: invalidateClassQueries,
       });
       return;
     }
