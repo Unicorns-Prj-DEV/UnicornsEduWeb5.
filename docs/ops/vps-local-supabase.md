@@ -76,7 +76,32 @@ curl -fsS https://<id>.uniedu.vn/api/public/app-config
 
 ## Backup
 
-`/root/uniedu-data/backup.sh` (cron 03:30 hằng ngày): `pg_dump` từng DB giữ 14 ngày, tar volume storage giữ 3 ngày, trong `backups/daily/`. Backup nằm cùng ổ VPS — rsync ra máy khác định kỳ.
+`/root/uniedu-data/backup.sh` (cron `30 20 * * *` UTC = 03:30 giờ VN): `pg_dump` từng DB giữ 14 ngày, tar volume storage giữ 3 ngày, trong `backups/daily/`.
+
+**Offsite R2:** có `/root/uniedu-data/r2.env` thì `backup.sh` gọi `offsite-r2.sh <TS>` đẩy bản vừa tạo lên bucket R2 `uni-manage` bằng `wrangler r2 object put` (wrangler 4.153.0 chạy trong container `node:22-bookworm-slim`, cài sẵn ở `.wrangler-cli/`; VPS không cần node).
+
+```env
+# /root/uniedu-data/r2.env (chmod 600)
+CLOUDFLARE_API_TOKEN=...   # API token quyền Account › Workers R2 Storage › Edit
+CLOUDFLARE_ACCOUNT_ID=...
+R2_BUCKET=uni-manage
+```
+
+| Key R2 | Lifecycle rule |
+|--------|----------------|
+| `uniedu-data/db/<TS>/uniedu_<id>.dump` | `uniedu-db-30d` — xoá sau 30 ngày |
+| `uniedu-data/storage/<TS>/storage-<id>.tar.gz` | `uniedu-storage-7d` — xoá sau 7 ngày |
+
+File > 300 MB (giới hạn `object put` là 315 MB) được `split` thành `….partNN`; khôi phục: tải đủ part rồi `cat storage-it.tar.gz.part* > storage-it.tar.gz`.
+
+Tải một dump về:
+
+```bash
+cd /root/uniedu-data && set -a && . ./r2.env && set +a
+docker run --rm -e CLOUDFLARE_API_TOKEN -e CLOUDFLARE_ACCOUNT_ID -v $PWD/.wrangler-cli:/w:ro -v $PWD/backups:/out \
+  node:22-bookworm-slim /w/node_modules/.bin/wrangler r2 object get \
+  uni-manage/uniedu-data/db/<TS>/uniedu_<id>.dump --file /out/restore.dump --remote
+```
 
 Khôi phục một DB:
 

@@ -190,9 +190,8 @@ export interface ClassStudent {
 export interface ClassEndEligibility {
     canEnd: boolean;
     sessionCount: number;
+    /** Buổi chưa thanh toán trợ cấp gia sư — chỉ để cảnh báo, không chặn kết thúc lớp. */
     unpaidSessionCount: number;
-    blockReason?: string | null;
-    canEndClass?: boolean;
 }
 
 export interface ClassDetail extends ClassListItem {
@@ -281,6 +280,12 @@ export interface UpdateClassTeacherCompensationPayload {
 
 export interface ClassStatusActionPayload {
     reason?: string;
+}
+
+/** Response `POST /class/:id/end` và `.../stop-teaching`. */
+export interface ClassStatusActionResponse extends ClassDetail {
+    /** Lỗi dọn Google Calendar sau khi DB đã lưu — thao tác vẫn thành công. */
+    calendarSyncWarnings?: string[];
 }
 
 export interface ClassTeacherPayload {

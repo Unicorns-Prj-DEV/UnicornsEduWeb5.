@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Backup data stack: pg_dump từng database (giữ 14 ngày) + tar volume storage (giữ 3 ngày).
-# Cron (root): 30 3 * * * /root/uniedu-data/backup.sh >> /root/uniedu-data/backups/backup.log 2>&1
-# Bản backup nằm cùng VPS — nên rsync thư mục backups/ ra máy khác.
+# Cron (root, VPS chạy UTC → 03:30 giờ VN): 30 20 * * * /root/uniedu-data/backup.sh >> /root/uniedu-data/backups/backup.log 2>&1
+# Có r2.env thì đẩy thêm bản này lên Cloudflare R2 (offsite-r2.sh).
 set -euo pipefail
 umask 077
 
@@ -18,3 +18,7 @@ done
 find backups/daily -name 'uniedu_*.dump' -mtime +14 -delete
 find backups/daily -name 'storage-*.tar.gz' -mtime +3 -delete
 echo "[${TS}] backup OK: $(du -sh backups/daily | cut -f1)"
+
+if [ -f r2.env ]; then
+  ./offsite-r2.sh "${TS}"
+fi

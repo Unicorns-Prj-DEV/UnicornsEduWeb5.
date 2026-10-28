@@ -47,3 +47,9 @@ export function runBackgroundSave<T>({
     }
   })();
 }
+
+/** Toast cảnh báo khi thao tác đã lưu nhưng còn việc phụ (vd. Google Calendar) lỗi. */
+export function toastWarnings(warnings: string[] | undefined) {
+  if (!warnings?.length) return;
+  toast.warning(warnings.join("\n"), { duration: 10_000 });
+}
