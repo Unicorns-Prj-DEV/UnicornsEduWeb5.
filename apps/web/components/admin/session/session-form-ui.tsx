@@ -76,7 +76,7 @@ type TrialLessonToggleProps = {
   className?: string;
 };
 
-/** Dạy thử (coefficient = 0) — chỉ admin/trợ lí bật; buổi không tính trợ cấp. */
+/** Dạy thử (coefficient = 0) — admin, trợ lí, gia sư bật; buổi không tính trợ cấp. */
 export function TrialLessonToggle({
   checked,
   onChange,
@@ -111,7 +111,7 @@ export function TrialLessonToggle({
   );
 }
 
-/** Nhãn chỉ đọc cho buổi Dạy thử (gia sư thấy, không đổi được). */
+/** Nhãn chỉ đọc cho buổi Dạy thử (dòng lịch sử, form read-only). */
 export function TrialLessonBadge({ className = "" }: { className?: string }) {
   return (
     <span

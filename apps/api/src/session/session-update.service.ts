@@ -1787,6 +1787,8 @@ export class SessionUpdateService {
         classId: true,
         snapshotNoAttendance: true,
         snapshotBlockCount: true,
+        coefficient: true,
+        teacherPaymentStatus: true,
         attendance: {
           select: {
             studentId: true,
@@ -1798,6 +1800,23 @@ export class SessionUpdateService {
 
     if (!existingSession) {
       throw new NotFoundException('Session not found');
+    }
+
+    // Trợ cấp = allowance_amount × coefficient: đổi Dạy thử sau khi đã chốt
+    // thanh toán/cọc sẽ làm lệch số đã chi, nên staff-ops không cho đổi.
+    const nextCoefficient = this.sessionValidationService.normalizeCoefficient(
+      data.coefficient,
+    );
+    if (
+      nextCoefficient !== undefined &&
+      nextCoefficient !== Number(existingSession.coefficient ?? 1) &&
+      this.sessionValidationService.isSessionTimeEditLocked(
+        existingSession.teacherPaymentStatus,
+      )
+    ) {
+      throw new BadRequestException(
+        'Không thể đổi Dạy thử của buổi đã thanh toán hoặc ghi cọc.',
+      );
     }
 
     data = stripAttendanceForNoAttendanceSession(
@@ -1857,10 +1876,8 @@ export class SessionUpdateService {
         tutorial: data.tutorial,
         ...pickSessionReviewInput(data),
         recordingUrl: data.recordingUrl,
-        // Dạy thử chỉ admin/trợ lí đổi; gia sư sửa buổi giữ nguyên hệ số.
-        coefficient: actor.roles.includes(StaffRole.assistant)
-          ? data.coefficient
-          : undefined,
+        // Dạy thử: mọi role staff-ops đều đổi được; FE chỉ gửi khi đổi toggle.
+        coefficient: data.coefficient,
         attendance: enrichedAttendance,
       },
       auditActor,

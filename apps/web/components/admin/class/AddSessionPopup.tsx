@@ -159,7 +159,7 @@ type Props = {
   ) => Promise<SessionNextOrdinalResponse>;
   /** Phân biệt cache admin/staff cho query ordinal. */
   ordinalQueryScope?: "admin" | "staff";
-  /** Hiện toggle Dạy thử (coefficient = 0) — chỉ admin/trợ lí. */
+  /** Hiện toggle Dạy thử (coefficient = 0) — admin, trợ lí và gia sư. */
   allowTrialTeachingToggle?: boolean;
   onClose: () => void;
   onCreated?: (session: SessionItem) => void;

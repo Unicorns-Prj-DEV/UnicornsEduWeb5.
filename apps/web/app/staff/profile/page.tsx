@@ -1545,6 +1545,7 @@ export default function StaffSelfDetailPage() {
                 allowFinancialEdits={false}
                 allowPaymentStatusEdit={false}
                 allowDeleteSession={false}
+                allowTrialTeachingToggle
                 updateSessionFn={handleUpdateSessionFromStaffPage}
               />
             )}
