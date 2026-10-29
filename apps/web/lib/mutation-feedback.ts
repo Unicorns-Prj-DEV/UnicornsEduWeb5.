@@ -1,4 +1,8 @@
 import { toast } from "sonner";
+import {
+  isGenericLocalizedError,
+  localizeErrorMessage,
+} from "@/lib/api-error-message";
 
 type BackgroundSaveOptions<T> = {
   loadingMessage: string;
@@ -9,21 +13,23 @@ type BackgroundSaveOptions<T> = {
   onError?: (error: unknown) => Promise<void> | void;
 };
 
+/**
+ * Message lỗi tiếng Việt cho toast. Lỗi kỹ thuật không nhận diện được → dùng `fallback`
+ * (câu theo ngữ cảnh thao tác) thay vì hiện tiếng Anh.
+ */
 export function getMutationErrorMessage(error: unknown, fallback: string): string {
-  const responseMessage = (
-    error as { response?: { data?: { message?: string | string[] } } }
-  )?.response?.data?.message;
+  const response = (
+    error as { response?: { status?: number; data?: { message?: unknown } } }
+  )?.response;
+  const localized = localizeErrorMessage(
+    response?.data?.message ?? (error as Error)?.message,
+    response?.status,
+  );
 
-  if (Array.isArray(responseMessage)) {
-    const joinedMessage = responseMessage.filter(Boolean).join(", ").trim();
-    if (joinedMessage) return joinedMessage;
+  if (!localized || localized.isGeneric || isGenericLocalizedError(error)) {
+    return fallback;
   }
-
-  if (typeof responseMessage === "string" && responseMessage.trim()) {
-    return responseMessage;
-  }
-
-  return (error as Error)?.message ?? fallback;
+  return localized.message;
 }
 
 export function runBackgroundSave<T>({

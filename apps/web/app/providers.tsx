@@ -83,7 +83,7 @@ function RateLimitToastBridge() {
     const handleRateLimitToast = (event: Event) => {
       const detail = (event as CustomEvent<RateLimitToastDetail>).detail;
 
-      toast.error(detail?.title ?? "Too many requests", {
+      toast.error(detail?.title ?? "Thao tác quá nhanh", {
         id: RATE_LIMIT_TOAST_EVENT,
         description:
           detail?.description ??

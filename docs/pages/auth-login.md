@@ -28,6 +28,7 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 
 - Error network/API: `toast.error(...)`.
 - Login fail thông thường: `toast.error("Đăng nhập thất bại.")`.
+- Message lỗi tiếng Anh từ backend được dịch ở interceptor axios (`lib/api-error-message.ts`), vd. `Invalid credentials` → «Tài khoản hoặc mật khẩu không đúng.»; toast luôn hiện tiếng Việt.
 - Nếu backend trả `429 Too Many Requests`, màn login ưu tiên hiện toast rate-limit thay vì toast thất bại chung.
 - Success login: `toast.success("Đăng nhập thành công.")` chỉ sau khi `bootstrapPostLoginSession` (và với học sinh, `getSession` sau activate) thành công; lỗi bootstrap/session → `toast.error`, không báo đăng nhập thành công.
 - Không render alert box inline trong form.
