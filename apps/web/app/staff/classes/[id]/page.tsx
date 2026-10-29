@@ -902,6 +902,7 @@ export default function StaffClassDetailPage() {
           teacherMode="readOnly"
           allowFinancialFields={false}
           showAllowancePreview={isAdmin || teacherAssignedToClass}
+          allowTrialTeachingToggle
           createSessionFn={handleCreateSession}
           onClose={() => setAddSessionPopupOpen(false)}
         />
@@ -1332,6 +1333,7 @@ export default function StaffClassDetailPage() {
                           readOnlySessionDetails={
                             canOpenReadonlyClassForms || !canManageSessions
                           }
+                          allowTrialTeachingToggle
                           showTrainingManagerAllowance={isTrainingView}
                           updateSessionFn={handleUpdateSession}
                         />

@@ -164,7 +164,7 @@ type Props = {
    * (khớp `PUT /sessions/:id` skipRequired). Gia sư (staff-ops) để false.
    */
   skipRequiredReviewValidation?: boolean;
-  /** Hiện toggle Dạy thử (coefficient = 0) khi sửa buổi — chỉ admin/trợ lí. */
+  /** Hiện toggle Dạy thử (coefficient = 0) khi sửa buổi — admin, trợ lí và gia sư. */
   allowTrialTeachingToggle?: boolean;
   showTrainingManagerAllowance?: boolean;
   updateSessionFn?: (
@@ -937,7 +937,7 @@ export default function SessionHistoryTable({
   const [editIsTrialLesson, setEditIsTrialLesson] = useState(false);
   const showTrialLessonToggle =
     allowTrialTeachingToggle && !readOnlySessionDetails;
-  // Gia sư không đổi được Dạy thử: giữ đúng trạng thái đã lưu.
+  // Không có toggle (read-only): giữ đúng trạng thái Dạy thử đã lưu.
   const isTrialLesson = showTrialLessonToggle
     ? editIsTrialLesson
     : isSavedTrialLesson;
@@ -1500,7 +1500,7 @@ export default function SessionHistoryTable({
               : {}),
           }))
         : [];
-    // Chỉ gửi hệ số khi admin/trợ lí đổi Dạy thử; còn lại giữ nguyên hệ số đã lưu.
+    // Chỉ gửi hệ số khi người dùng đổi Dạy thử; còn lại giữ nguyên hệ số đã lưu.
     const coeffNum =
       isTrialLesson !== isSavedTrialLesson
         ? isTrialLesson
@@ -3104,6 +3104,8 @@ export default function SessionHistoryTable({
                         <TrialLessonToggle
                           className={fullWidthFieldClass}
                           checked={editIsTrialLesson}
+                          // Buổi paid/deposit: role không sửa được trợ cấp thì cũng không đổi Dạy thử.
+                          disabled={isSavedPaymentLocked && !canEditAllowance}
                           onChange={(value) => {
                             setEditIsTrialLesson(value);
                             if (value) setManualAllowanceGrossOverride(null);
