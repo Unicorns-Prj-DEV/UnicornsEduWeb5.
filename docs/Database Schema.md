@@ -908,12 +908,14 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - index read path hiện có: `created_at`, `updated_at`
 - `lesson_outputs`: sản phẩm bài học gắn optional với `lesson_task`
   - **PK format:** `UNILOT-[0-9a-f]{10}` — ví dụ `UNILOT-a1b2c3d4e5`. Đây là **mã định danh hệ thống** ngắn cho output bài học; migration `20260524110000_lesson_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
-  - field chính cho work tab / popup chi tiết output: `lesson_task_id`, `lesson_name`, `contest_uploaded`, `date`, `status`, `payment_status`, `staff_id`, `cost`, `difficulty_band`, `includes_test`, `includes_solution`, `includes_lecture_video`, `link`, `original_link`, `source`, `level`, `tags`
+  - field chính cho work tab / popup chi tiết output: `lesson_task_id`, `lesson_name`, `contest_uploaded`, `date`, `status`, `payment_status`, `staff_id`, `cost`, `difficulty_band`, `includes_test`, `includes_solution`, `includes_lecture_video`, `includes_theory_lecture`, `theory_lecture_links`, `link`, `original_link`, `source`, `level`, `tags`
   - `staff_id` là nhân sự nhận thanh toán / đứng tên output
   - `difficulty_band` (nullable enum `LessonOutputDifficultyBand`): bậc độ khó giáo án, nguồn sự thật để backend tự tính `cost`. Dòng legacy `NULL` giữ nguyên `cost` đã lưu.
   - `includes_test` / `includes_solution` / `includes_lecture_video`: cờ hạng mục đã làm, mặc định `false`; cộng vào `cost` theo bảng giá hằng số khi có bậc.
-  - `level` vẫn dùng để lọc tab Bài tập (`GET /lesson-work?level=`), không liên quan tới tiền.
-  - `cost` không nhận giá trị client; tạo/sửa có bậc thì backend ghi tổng theo bảng giá (tick trống → `0`).
+  - `includes_theory_lecture` (bool, mặc định `false`): hạng mục **Bài giảng lý thuyết**, giá theo `level` (Level 0 170k · 1 180k · 2 190k · 3 200k · 4/5 250k), **cộng dồn** với phần theo bậc. Tick thì bắt buộc có `level` 0–5; nếu cùng tick Test / Lời giải / Bài giảng video thì bắt buộc có bậc. Tick trên dòng chưa có bậc → `cost` tính lại theo bảng giá (bỏ mức cũ). Migration `20261103090000_lesson_output_theory_lecture`.
+  - `theory_lecture_links` (`text[]`, mặc định `{}`): link video bàn giao của Bài giảng lý thuyết; tick thì cần ≥1 link (http/https, tối đa 20, backend trim + gộp trùng); bỏ tick thì backend xoá về `{}`. Output chỉ có Bài giảng lý thuyết thì `link` (Link output) không bắt buộc trên form.
+  - `level` dùng để lọc tab Bài tập (`GET /lesson-work?level=`) và là nguồn giá riêng của Bài giảng lý thuyết; không ảnh hưởng giá ba hạng mục theo bậc.
+  - `cost` không nhận giá trị client; tạo/sửa có bậc hoặc có tick Bài giảng lý thuyết thì backend ghi tổng theo bảng giá (tick trống → `0`).
   - relation optional:
     - `lesson_task_id -> lesson_task.id`
     - `staff_id -> staff_info.id`

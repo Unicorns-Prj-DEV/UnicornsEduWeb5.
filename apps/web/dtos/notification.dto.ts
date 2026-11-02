@@ -48,6 +48,10 @@ export interface AdminNotificationItem {
   createdAt: string;
   updatedAt: string;
   createdBy: NotificationAuthor | null;
+  /** Backend tính theo người xem: chỉ người tạo được sửa / đẩy / đẩy lại. */
+  canEdit: boolean;
+  /** Người tạo, hoặc quyền kiểm duyệt của admin/trợ lí trên thông báo đã đẩy. */
+  canDelete: boolean;
 }
 
 export type NotificationFeedReadStatus = "read" | "unread";

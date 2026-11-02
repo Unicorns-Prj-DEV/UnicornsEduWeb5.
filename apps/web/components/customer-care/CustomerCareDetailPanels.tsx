@@ -1037,7 +1037,7 @@ export default function CustomerCareDetailPanels({
                 >
                   Lịch sử tiền vào
                 </h3>
-                <p className="mt-1 truncate text-sm text-text-secondary">
+                <p className="mt-1 break-words text-sm text-text-secondary">
                   {paymentHistoryStudent.fullName || "Học sinh"} · Số dư{" "}
                   {formatCurrency(paymentHistoryStudent.accountBalance)}
                 </p>
@@ -1297,7 +1297,7 @@ export default function CustomerCareDetailPanels({
                           href={buildStudentHref(row)}
                           className="mt-3 inline-flex max-w-full text-base font-semibold text-primary underline-offset-4 transition-colors hover:text-primary-hover hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         >
-                          <span className="truncate">{row.fullName || "—"}</span>
+                          <span className="min-w-0 break-words">{row.fullName || "—"}</span>
                         </Link>
                       </div>
 
@@ -1626,7 +1626,7 @@ export default function CustomerCareDetailPanels({
                           href={buildTopUpStudentHref(item)}
                           className="mt-2 inline-flex max-w-full text-base font-semibold text-primary underline-offset-4 transition-colors hover:text-primary-hover hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                         >
-                          <span className="truncate">{item.studentName || "—"}</span>
+                          <span className="min-w-0 break-words">{item.studentName || "—"}</span>
                         </Link>
                       </div>
                       <span className="shrink-0 text-right text-base font-semibold tabular-nums text-success">
@@ -1849,7 +1849,7 @@ export default function CustomerCareDetailPanels({
                     aria-expanded={isExpanded}
                     className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset ${COMMISSION_ROW_GRID_CLASS}`}
                   >
-                    <span className="min-w-0 truncate font-medium text-text-primary" title={item.fullName}>
+                    <span className="min-w-0 break-words font-medium text-text-primary" title={item.fullName}>
                       {item.fullName}
                     </span>
                     <span className="text-right tabular-nums font-semibold text-warning">

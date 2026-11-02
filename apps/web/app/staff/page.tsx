@@ -1128,7 +1128,7 @@ function SalesCsSummarySection({
                   href={detailHref}
                   className="flex items-center justify-between gap-3 rounded-xl border border-border-default bg-bg-secondary/20 px-3 py-2 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                 >
-                  <span className="min-w-0 truncate text-sm font-medium text-text-primary">
+                  <span className="min-w-0 break-words text-sm font-medium text-text-primary">
                     {item.staffName}
                   </span>
                   <span className="shrink-0 text-sm font-semibold tabular-nums text-primary">
@@ -1160,7 +1160,7 @@ function SalesCsSummarySection({
                     href={detailHref}
                     className="flex items-center justify-between gap-3 transition-colors hover:bg-bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus -mx-3 -my-2 px-3 py-2 rounded-xl"
                   >
-                    <span className="min-w-0 truncate text-sm font-medium text-text-primary">
+                    <span className="min-w-0 break-words text-sm font-medium text-text-primary">
                       {item.staffName}
                     </span>
                     <div className="flex shrink-0 items-center gap-3 text-sm tabular-nums">

@@ -82,7 +82,7 @@ export default function SaleStudentPicker({
     <div className="space-y-2">
       {value ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
-          <p className="min-w-0 truncate text-sm font-semibold text-text-primary">
+          <p className="min-w-0 break-words text-sm font-semibold text-text-primary">
             {value.fullName}
           </p>
           <button

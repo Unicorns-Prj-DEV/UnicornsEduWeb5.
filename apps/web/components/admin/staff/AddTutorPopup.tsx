@@ -331,7 +331,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                           >
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-text-primary">
+                                <p className="break-words text-sm font-semibold text-text-primary">
                                   {user.fullName?.trim() || user.email}
                                 </p>
                                 <p className="mt-1 truncate text-sm text-text-secondary">{user.email}</p>

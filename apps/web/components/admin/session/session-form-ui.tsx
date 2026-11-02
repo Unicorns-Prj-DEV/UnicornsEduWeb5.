@@ -1234,7 +1234,7 @@ export function SessionStudentAttendanceCommentRow({
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-          <p className="min-w-0 truncate text-sm font-semibold text-text-primary" title={fullName}>
+          <p className="min-w-0 break-words text-sm font-semibold text-text-primary" title={fullName}>
             {fullName}
           </p>
           <AttendanceStatusQuickPick

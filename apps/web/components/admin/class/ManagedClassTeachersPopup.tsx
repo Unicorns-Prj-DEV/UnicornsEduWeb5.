@@ -362,7 +362,7 @@ export default function ManagedClassTeachersPopup({
                       className="rounded-xl border border-border-default bg-bg-secondary/60 p-3"
                     >
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="min-w-0 truncate text-sm font-semibold text-text-primary">
+                        <p className="min-w-0 break-words text-sm font-semibold text-text-primary">
                           {teacher.fullName}
                           {isSelf ? (
                             <span className="ml-1.5 font-normal text-text-muted">(bạn)</span>
@@ -436,7 +436,7 @@ export default function ManagedClassTeachersPopup({
                       className="flex items-center gap-2 rounded-lg border border-border-default bg-bg-surface px-3 py-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-text-primary">
+                        <p className="break-words text-sm font-medium text-text-primary">
                           {tutor.fullName}
                         </p>
                         {tutor.university ? (

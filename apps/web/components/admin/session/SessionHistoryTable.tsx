@@ -813,7 +813,7 @@ export function ClassDetailInfoColumn({
             )}
           </svg>
           <span
-            className="max-w-full truncate text-center text-xs font-semibold"
+            className={`max-w-full ${showTeacherEntity ? "break-words" : "truncate"} text-center text-xs font-semibold`}
             title={entityLabel}
           >
             {entityLabel}
@@ -2157,7 +2157,11 @@ export default function SessionHistoryTable({
                             {entityLabel}
                           </p>
                           <p
-                            className="max-w-[200px] truncate text-sm text-text-primary"
+                            className={
+                              entityMode === "teacher"
+                                ? "break-words text-sm text-text-primary"
+                                : "max-w-[200px] truncate text-sm text-text-primary"
+                            }
                             title={entityValue}
                           >
                             {entityValue}
@@ -2686,7 +2690,11 @@ export default function SessionHistoryTable({
                       {shouldShowEntity ? (
                         <td className="min-w-0 px-4 py-3 text-text-primary">
                           <span
-                            className="block truncate"
+                            className={
+                              entityMode === "teacher"
+                                ? "block break-words"
+                                : "block truncate"
+                            }
                             title={renderEntityCell(session, entityMode)}
                           >
                             {renderEntityCell(session, entityMode)}
@@ -3075,7 +3083,7 @@ export default function SessionHistoryTable({
                         >
                           <span>Gia sư dạy</span>
                           <div className="flex min-h-11 items-center rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary">
-                            <span className="truncate font-medium">
+                            <span className="min-w-0 break-words font-medium">
                               {selectedTeacherName}
                             </span>
                           </div>

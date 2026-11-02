@@ -11,9 +11,15 @@ export type SameDayComparison = {
   studentWindow: ComparisonRange;
   /** "1–19/09" — nhãn kỳ so sánh cho tooltip. */
   previousLabel: string;
+  /** "1–19/10" — nhãn kỳ hiện tại. */
+  currentLabel: string;
+  /** "20/09–19/10" — nhãn cửa sổ đếm học sinh vào / nghỉ. */
+  studentWindowLabel: string;
 };
 
 const pad = (value: number) => String(value).padStart(2, "0");
+
+const formatDayMonth = (date: Date) => `${date.getDate()}/${pad(date.getMonth() + 1)}`;
 
 /** YYYY-MM-DD theo giờ máy, không qua UTC. */
 function toDateKey(date: Date) {
@@ -50,5 +56,7 @@ export function getSameDayComparison(month: string, year: string, today = new Da
     previous: { dateFrom: toDateKey(previousStart), dateTo: toDateKey(previousCutoff) },
     studentWindow: { dateFrom: toDateKey(windowStart), dateTo: toDateKey(currentCutoff) },
     previousLabel: `1–${previousCutoffDay}/${pad(previousStart.getMonth() + 1)}`,
+    currentLabel: `1–${cutoffDay}/${pad(monthIndex + 1)}`,
+    studentWindowLabel: `${formatDayMonth(windowStart)}–${formatDayMonth(currentCutoff)}`,
   };
 }
