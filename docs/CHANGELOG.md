@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- **Hạng mục Bài giảng lý thuyết cho output giáo án học sinh giỏi** (CONTEXT.md "Bài giảng lý thuyết giáo án"): checkbox thứ 4 cạnh Sinh test / Lời giải / Bài giảng video. Giá theo `level` (Level 0 170k · 1 180k · 2 190k · 3 200k · 4/5 250k), cộng dồn với phần theo bậc độ khó; tick thì bắt buộc có level, chỉ tick lý thuyết thì không cần bậc. Sản phẩm bàn giao là danh sách link video riêng (≥1, tối đa 20, http/https); output chỉ có lý thuyết thì Link output không bắt buộc. Popup xem nhanh output hiện danh sách link. `lesson_outputs` thêm `includes_theory_lecture`, `theory_lecture_links` (migration `20261103090000_lesson_output_theory_lecture`); `POST/PATCH /lesson-outputs` nhận `includesTheoryLecture`, `theoryLectureLinks`. Component mới `LessonOutputLinkListField`. Docs: `docs/Database Schema.md`, `docs/pages/admin.md`.
+
 ### Changed
 
 - **Phân quyền thông báo theo người tạo** (CONTEXT.md "Người tạo thông báo", ADR admin-mirror bổ sung ngoại lệ trợ lí): màn quản lý (`GET /notifications`) chỉ trả thông báo của chính người gọi (nháp + đã đẩy); admin và trợ lí thấy thêm mọi thông báo **đã đẩy** của người khác. Chỉ người tạo được sửa nháp / đẩy / đẩy lại (`PATCH :id`, `POST :id/push` trả 403 nếu khác). `DELETE :id`: người tạo; admin xoá mọi bài đã đẩy; trợ lí xoá bài đã đẩy trừ bài mà người tạo hiện là admin. Item thêm `canEdit` / `canDelete`; `NotificationManager` ẩn nút theo đó. Thêm `sale` và `accountant` vào role được tạo push. Docs: `docs/pages/admin.md`, `docs/pages/staff.md`.

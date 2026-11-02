@@ -283,6 +283,10 @@ export interface LessonOutputItem {
   includesTest: boolean;
   includesSolution: boolean;
   includesLectureVideo: boolean;
+  /** Bài giảng lý thuyết — giá theo `level`, không theo bậc. */
+  includesTheoryLecture: boolean;
+  /** Link video bàn giao của Bài giảng lý thuyết. */
+  theoryLectureLinks: string[];
   tags: string[];
   cost: number;
   date: string;
@@ -310,6 +314,8 @@ export interface CreateLessonOutputPayload {
   includesTest?: boolean;
   includesSolution?: boolean;
   includesLectureVideo?: boolean;
+  includesTheoryLecture?: boolean;
+  theoryLectureLinks?: string[];
   tags?: string[];
   cost?: number;
   paymentStatus?: LessonPaymentStatus;
@@ -332,6 +338,8 @@ export interface UpdateLessonOutputPayload {
   includesTest?: boolean;
   includesSolution?: boolean;
   includesLectureVideo?: boolean;
+  includesTheoryLecture?: boolean;
+  theoryLectureLinks?: string[];
   tags?: string[];
   cost?: number;
   paymentStatus?: LessonPaymentStatus;

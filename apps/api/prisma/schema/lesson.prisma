@@ -59,6 +59,8 @@ model LessonOutput {
   includesTest            Boolean                     @default(false) @map("includes_test")
   includesSolution        Boolean                     @default(false) @map("includes_solution")
   includesLectureVideo    Boolean                     @default(false) @map("includes_lecture_video")
+  includesTheoryLecture   Boolean                     @default(false) @map("includes_theory_lecture")
+  theoryLectureLinks      String[]                    @default([]) @map("theory_lecture_links")
   lessonName              String                      @map("lesson_name")
   originalTitle           String?                     @map("original_title")
   source                  String?
