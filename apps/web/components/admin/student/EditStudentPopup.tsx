@@ -732,7 +732,7 @@ export default function EditStudentPopup({
                       <div className="mb-2 rounded-xl border border-primary/15 bg-bg-surface/90 p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-text-primary">
+                            <p className="break-words text-sm font-semibold text-text-primary">
                               {selectedCustomerCare.fullName}
                             </p>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
@@ -1035,7 +1035,7 @@ export default function EditStudentPopup({
                     className="flex w-full items-start justify-between gap-3 border-b border-border-subtle px-3.5 py-3 text-left transition-colors last:border-b-0 hover:bg-bg-secondary focus:outline-none focus-visible:bg-bg-secondary"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-text-primary">
+                      <p className="break-words text-sm font-semibold text-text-primary">
                         {option.fullName}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">

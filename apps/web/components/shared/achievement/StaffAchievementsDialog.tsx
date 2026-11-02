@@ -91,7 +91,7 @@ export default function StaffAchievementsDialog({
           <h2 id={titleId} className="text-base font-semibold text-text-primary">
             Thành tích
           </h2>
-          <p className="truncate text-sm text-text-muted">{staffName || "Nhân sự"}</p>
+          <p className="break-words text-sm text-text-muted">{staffName || "Nhân sự"}</p>
         </div>
         <button
           type="button"

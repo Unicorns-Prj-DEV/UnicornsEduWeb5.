@@ -271,7 +271,7 @@ function SurveySummary({ survey }: { survey: ClassSurveyRecord }) {
 
 function SurveyTeacher({ survey }: { survey: ClassSurveyRecord }) {
   return (
-    <p className="truncate text-xs font-medium text-primary">
+    <p className="break-words text-xs font-medium text-primary">
       {renderSurveyTeacher(survey)}
     </p>
   );

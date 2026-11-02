@@ -72,7 +72,7 @@ function FixedSalaryCloseCandidateRow({
             )}
           />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-text-primary">
+            <span className="block break-words text-sm font-semibold text-text-primary">
               {candidate.staffFullName}
             </span>
             <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">

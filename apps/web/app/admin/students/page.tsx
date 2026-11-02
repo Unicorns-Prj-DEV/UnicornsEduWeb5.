@@ -626,7 +626,7 @@ function AdminStudentsPageContent() {
                             title={STATUS_LABELS[status]}
                             aria-hidden
                           />
-                          <span className="min-w-0 truncate font-semibold text-text-primary">
+                          <span className="min-w-0 break-words font-semibold text-text-primary">
                             {student.fullName?.trim() || "—"}
                           </span>
                         </div>
