@@ -100,6 +100,36 @@ function RateLimitToastBridge() {
   return null;
 }
 
+/**
+ * Cuộn chuột trên `<input type="number">` đang focus làm trình duyệt tăng/giảm
+ * giá trị (80000 → 80001). Bỏ focus trước khi default action chạy để chặn việc
+ * đó cho mọi ô số trong app; trang vẫn cuộn bình thường.
+ */
+function NumberInputWheelGuard() {
+  useEffect(() => {
+    const handleWheel = (event: WheelEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement &&
+        target.type === "number" &&
+        target === document.activeElement
+      ) {
+        target.blur();
+      }
+    };
+
+    document.addEventListener("wheel", handleWheel, {
+      capture: true,
+      passive: true,
+    });
+    return () => {
+      document.removeEventListener("wheel", handleWheel, { capture: true });
+    };
+  }, []);
+
+  return null;
+}
+
 function NotificationSocketBridge() {
   const { user, isAuthReady } = useAuth();
   const queryClient = useQueryClient();
@@ -308,6 +338,7 @@ export function Providers({
         <ThemeProvider>
           <ActionHistoryInvalidationBridge />
           <RateLimitToastBridge />
+          <NumberInputWheelGuard />
           <AuthProvider initialUser={initialUser ?? defaultUser}>
             <NotificationSocketBridge />
             <DirectTopUpApprovalModal />
