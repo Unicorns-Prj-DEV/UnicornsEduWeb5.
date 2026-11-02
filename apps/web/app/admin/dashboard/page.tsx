@@ -39,6 +39,7 @@ import { StudentChurnDetailModal } from "@/components/admin/dashboard/StudentChu
 import { BalanceSnapshotCard } from "@/components/admin/dashboard/overview/BalanceSnapshotCard";
 import { AmountRowButton, DashboardPanel } from "@/components/admin/dashboard/overview/DashboardPanel";
 import {
+  KpiDeltaHint,
   KpiStatCard,
   computeCountDelta,
   computeDelta,
@@ -586,7 +587,28 @@ export default function AdminDashboardTabPage() {
         studentChurn.droppedStudentsThisMonth -
         studentChurn.trialDroppedStudentsThisMonth
       : null;
-  const deltaTitle = comparison ? `So với ${comparison.previousLabel} (cùng ngày tháng trước)` : undefined;
+  // Giải thích badge delta: so cùng ngày tháng trước, kèm số hai kỳ để tự đối chiếu.
+  const moneyHint = (name: string, pick: (value: AdminDashboardSummary) => number) =>
+    comparison && comparisonCurrent && comparisonPrevious ? (
+      <KpiDeltaHint
+        summary={`% ${name.toLowerCase()} tăng/giảm so với cùng kỳ tháng trước (${comparison.currentLabel} so với ${comparison.previousLabel}).`}
+        rows={[
+          { label: `Kỳ này (${comparison.currentLabel})`, value: formatCurrency(pick(comparisonCurrent)) },
+          { label: `Kỳ trước (${comparison.previousLabel})`, value: formatCurrency(pick(comparisonPrevious)) },
+        ]}
+      />
+    ) : undefined;
+  const studentHint =
+    comparison && studentChurn ? (
+      <KpiDeltaHint
+        summary={`Số học sinh đang học tăng/giảm bao nhiêu trong 1 tháng gần nhất (${comparison.studentWindowLabel}) = mới vào − cũ nghỉ − thử nghỉ.`}
+        rows={[
+          { label: "Mới vào", value: `+${formatVnInteger(studentChurn.newStudentsThisMonth)}` },
+          { label: "Cũ nghỉ", value: `−${formatVnInteger(studentChurn.droppedStudentsThisMonth)}` },
+          { label: "Thử nghỉ", value: `−${formatVnInteger(studentChurn.trialDroppedStudentsThisMonth)}` },
+        ]}
+      />
+    ) : undefined;
 
   const openRow = (
     rowKey: Exclude<AdminDashboardFinancialDetailRowKey, "customer-source">,
@@ -632,7 +654,7 @@ export default function AdminDashboardTabPage() {
                 label="Doanh thu"
                 value={formatCurrency(revenue)}
                 delta={moneyDelta((value) => value.totalLearnedTuition)}
-                deltaTitle={deltaTitle}
+                deltaHint={moneyHint("Doanh thu", (value) => value.totalLearnedTuition)}
                 foot={`Chi phí ${formatCurrency(personnelCost + otherCost)}`}
                 onClick={() => openRow("revenue")}
               />
@@ -640,7 +662,7 @@ export default function AdminDashboardTabPage() {
                 label="Lợi nhuận"
                 value={formatCurrency(profit)}
                 delta={moneyDelta((value) => value.monthlyProfit)}
-                deltaTitle={deltaTitle}
+                deltaHint={moneyHint("Lợi nhuận", (value) => value.monthlyProfit)}
                 foot={`Biên lợi nhuận ${profitMargin}`}
                 onClick={() => openRow("profit")}
               />
@@ -648,7 +670,7 @@ export default function AdminDashboardTabPage() {
                 label="Tổng nạp"
                 value={formatCurrency(periodSummary.monthlyTopupTotal)}
                 delta={moneyDelta((value) => value.monthlyTopupTotal)}
-                deltaTitle={deltaTitle}
+                deltaHint={moneyHint("Tổng nạp", (value) => value.monthlyTopupTotal)}
                 foot={`Dòng tiền thuần ${formatCurrency(totalReceiveNet)}`}
                 onClick={() => openRow("topup")}
               />
@@ -656,11 +678,7 @@ export default function AdminDashboardTabPage() {
                 label="Học sinh đang học"
                 value={formatVnInteger(summary.activeStudents)}
                 delta={computeCountDelta(studentNetChange)}
-                deltaTitle={
-                  comparison
-                    ? `Học sinh vào − nghỉ từ sau ${comparison.previousLabel} đến nay`
-                    : undefined
-                }
+                deltaHint={studentHint}
                 foot={`+${summary.newStudentsThisMonth} mới · −${summary.droppedStudentsThisMonth} cũ nghỉ · −${summary.trialDroppedStudentsThisMonth} thử nghỉ`}
                 onClick={() => setStudentChurnTab("active")}
               />
