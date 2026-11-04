@@ -30,6 +30,7 @@ import {
   ImagePlus,
   Pencil,
   Plus,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -45,6 +46,10 @@ import * as achievementApi from "@/lib/apis/achievement.api";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { downloadAvatar, suggestAvatarFilename } from "@/lib/avatar";
+import {
+  HighlightAchievementBadge,
+  HighlightAchievementGuide,
+} from "./HighlightAchievementGuide";
 
 type Props = {
   owner: AchievementOwnerRef;
@@ -197,10 +202,48 @@ function ImageActions({
   );
 }
 
+function HighlightStarButton({
+  item,
+  busy,
+  onHighlight,
+}: {
+  item: AchievementDto;
+  busy: boolean;
+  onHighlight: (id: string) => void;
+}) {
+  const label = item.isHighlight
+    ? "Thành tích nổi bật (đang hiển thị trên website)"
+    : "Đặt làm thành tích nổi bật";
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!item.isHighlight) onHighlight(item.id);
+      }}
+      disabled={busy}
+      aria-pressed={item.isHighlight}
+      aria-label={label}
+      title={label}
+      className={`${iconBtnClass} ${
+        item.isHighlight
+          ? "border-warning/40 bg-warning/10 text-warning hover:bg-warning/15"
+          : "hover:text-warning"
+      }`}
+    >
+      <Star
+        className={`h-4 w-4 ${item.isHighlight ? "fill-current" : ""}`}
+        aria-hidden
+      />
+    </button>
+  );
+}
+
 function SortableStaffRow({
   item,
   editable,
+  canHighlight,
   busy,
+  onHighlight,
   onSaveTitle,
   onDelete,
   onUpload,
@@ -209,7 +252,10 @@ function SortableStaffRow({
 }: {
   item: AchievementDto;
   editable: boolean;
+  /** Nút sao luôn hiện (không cần bật chế độ chỉnh sửa) với người được sửa thành tích. */
+  canHighlight: boolean;
   busy: boolean;
+  onHighlight: (id: string) => void;
   onSaveTitle: (id: string, title: string) => void;
   onDelete: (id: string) => void;
   onUpload: (id: string, file: File) => void;
@@ -225,7 +271,11 @@ function SortableStaffRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id, disabled: !editable || busy });
+  } = useSortable({
+    id: item.id,
+    // Thành tích nổi bật ghim cứng ở đầu, không kéo được.
+    disabled: !editable || busy || item.isHighlight,
+  });
 
   useEffect(() => {
     setDraft(item.title);
@@ -250,22 +300,38 @@ function SortableStaffRow({
     <li
       ref={setNodeRef}
       style={style}
-      className="flex flex-col gap-2 rounded-lg border border-border-default bg-bg-surface p-3 sm:flex-row sm:items-start sm:gap-3"
+      className={`flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-start sm:gap-3 ${
+        item.isHighlight
+          ? "border-warning/40 bg-warning/5"
+          : "border-border-default bg-bg-surface"
+      }`}
     >
-      {editable ? (
-        <button
-          type="button"
-          className={`${iconBtnClass} cursor-grab touch-none active:cursor-grabbing`}
-          aria-label="Kéo để sắp xếp"
-          disabled={busy}
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4" aria-hidden />
-        </button>
+      {editable || canHighlight ? (
+        <div className="flex shrink-0 items-center gap-2 sm:flex-col">
+          {editable && !item.isHighlight ? (
+            <button
+              type="button"
+              className={`${iconBtnClass} cursor-grab touch-none active:cursor-grabbing`}
+              aria-label="Kéo để sắp xếp"
+              disabled={busy}
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
+          {canHighlight ? (
+            <HighlightStarButton
+              item={item}
+              busy={busy}
+              onHighlight={onHighlight}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       <div className="min-w-0 flex-1 space-y-2">
+        {item.isHighlight ? <HighlightAchievementBadge /> : null}
         {editable ? (
           <input
             id={inputId}
@@ -519,6 +585,9 @@ export default function AchievementListEditor({
     null,
   );
   const canMutate = editable && isEditing;
+  // Thành tích nổi bật chỉ có trên thành tích nhân sự; Ban Đào Tạo (training) chỉ xem.
+  const canHighlight =
+    editable && owner.kind === "staff" && owner.mode !== "training";
 
   const listQuery = useQuery({
     queryKey,
@@ -530,8 +599,8 @@ export default function AchievementListEditor({
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey });
 
-  // Gia sư cần >= 1 thành tích để qua gate hồ sơ: thêm/xoá của chính mình thì
-  // tải lại hồ sơ + session để form và gate nhận số thành tích mới.
+  // Gia sư cần >= 1 thành tích + thành tích nổi bật để qua gate hồ sơ: thêm/xoá/
+  // đổi sao của chính mình thì tải lại hồ sơ + session để form và gate nhận mới.
   const refreshSelfProfileGate = () =>
     owner.kind === "staff" && owner.mode === "self"
       ? Promise.all([
@@ -614,6 +683,19 @@ export default function AchievementListEditor({
     },
   });
 
+  const highlightMutation = useMutation({
+    mutationFn: (id: string) => achievementApi.setHighlightAchievement(owner, id),
+    onSuccess: async (data) => {
+      queryClient.setQueryData(queryKey, data);
+      await refreshSelfProfileGate();
+      toast.success("Đã đổi thành tích nổi bật.");
+    },
+    onError: async () => {
+      await invalidate();
+      toast.error("Không thể đổi thành tích nổi bật.");
+    },
+  });
+
   const uploadMutation = useMutation({
     mutationFn: ({ id, file }: { id: string; file: File }) =>
       achievementApi.uploadAchievementImage(owner, id, file),
@@ -639,6 +721,7 @@ export default function AchievementListEditor({
     updateMutation.isPending ||
     deleteMutation.isPending ||
     reorderMutation.isPending ||
+    highlightMutation.isPending ||
     uploadMutation.isPending ||
     clearImageMutation.isPending;
 
@@ -657,6 +740,8 @@ export default function AchievementListEditor({
     const oldIndex = items.findIndex((row) => row.id === active.id);
     const newIndex = items.findIndex((row) => row.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
+    // Không thả lên trên thành tích nổi bật (luôn đứng đầu).
+    if (items[newIndex]?.isHighlight) return;
 
     const next = arrayMove(items, oldIndex, newIndex);
     queryClient.setQueryData(queryKey, next);
@@ -730,6 +815,12 @@ export default function AchievementListEditor({
         <p className="text-sm text-text-muted">Chưa có thành tích nào.</p>
       ) : null}
 
+      {canHighlight && items.length > 0 ? (
+        <HighlightAchievementGuide
+          hasHighlight={items.some((item) => item.isHighlight)}
+        />
+      ) : null}
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -766,7 +857,9 @@ export default function AchievementListEditor({
                   key={item.id}
                   item={item}
                   editable={canMutate}
+                  canHighlight={canHighlight}
                   busy={busy}
+                  onHighlight={(id) => highlightMutation.mutate(id)}
                   onSaveTitle={(id, title) =>
                     updateMutation.mutate({ id, payload: { title } })
                   }

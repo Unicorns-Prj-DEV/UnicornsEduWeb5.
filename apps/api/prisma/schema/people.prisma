@@ -115,6 +115,9 @@ model StaffAchievement {
   imagePath            String?   @map("image_path")
   imageWatermarkedPath String?   @map("image_watermarked_path")
   sortOrder            Int       @default(0) @map("sort_order")
+  /// Thành tích nổi bật (tích sao): tối đa 1 / nhân sự — partial unique index
+  /// `staff_achievements_one_highlight_per_staff` (raw SQL trong migration).
+  isHighlight          Boolean   @default(false) @map("is_highlight")
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   staff                StaffInfo @relation(fields: [staffId], references: [id], onDelete: Cascade)

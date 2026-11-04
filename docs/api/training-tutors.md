@@ -50,4 +50,4 @@ Query `page`, `limit`. Mỗi buổi: `id`, `date`, `startTime`, `endTime`, `clas
 
 ### `GET /training/tutors/:id/achievements`
 
-Danh sách thành tích theo thứ tự hồ sơ (reuse `AchievementService.listStaffAchievements`). Web dùng qua `AchievementOwnerRef { kind: "staff", mode: "training", staffId }`.
+Danh sách thành tích theo thứ tự hồ sơ — thành tích nổi bật (`isHighlight: true`) đứng đầu (reuse `AchievementService.listStaffAchievements`). Web dùng qua `AchievementOwnerRef { kind: "staff", mode: "training", staffId }`.

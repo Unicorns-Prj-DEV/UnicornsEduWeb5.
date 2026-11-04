@@ -64,6 +64,8 @@ type StaffProfileForAccess = {
   bankAccount: string | null;
   bankQrLink: string | null;
   _count?: { achievements: number };
+  /** Thành tích nổi bật (lấy tối đa 1 dòng `isHighlight`). */
+  achievements?: Array<{ id: string }>;
 };
 
 type StudentProfileForAccess = {
@@ -118,12 +120,19 @@ function isStaffProfileComplete(
   );
 }
 
-/** Gia sư (`teacher`) phải có ít nhất 1 thành tích thì hồ sơ mới tính là đủ. */
+/**
+ * Gia sư (`teacher`) phải có ít nhất 1 thành tích và đã chọn thành tích nổi bật
+ * thì hồ sơ mới tính là đủ.
+ */
 export function hasRequiredStaffAchievements(
   staffRoles: StaffRole[],
   achievementCount: number,
+  hasHighlightAchievement: boolean,
 ) {
-  return !staffRoles.includes(StaffRole.teacher) || achievementCount > 0;
+  return (
+    !staffRoles.includes(StaffRole.teacher) ||
+    (achievementCount > 0 && hasHighlightAchievement)
+  );
 }
 
 function hasCurrentStaffDataConsent(consent: StaffConsentForAccess) {
@@ -267,6 +276,11 @@ export class AuthAccessService {
             bankAccount: true,
             bankQrLink: true,
             _count: { select: { achievements: true } },
+            achievements: {
+              where: { isHighlight: true },
+              select: { id: true },
+              take: 1,
+            },
           },
         },
         studentInfo: { select: { id: true, status: true } },
@@ -337,6 +351,7 @@ export class AuthAccessService {
       hasRequiredStaffAchievements(
         staffRoles,
         staffProfile?._count?.achievements ?? 0,
+        (staffProfile?.achievements?.length ?? 0) > 0,
       ) &&
       hasCurrentStaffDataConsent({
         dataProcessingConsentAcceptedAt:
