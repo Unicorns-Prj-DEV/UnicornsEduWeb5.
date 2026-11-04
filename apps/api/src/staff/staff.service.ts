@@ -1474,12 +1474,18 @@ export class StaffService {
           specialization: true,
           status: true,
           achievements: {
-            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+            // Thành tích nổi bật luôn đứng đầu (landing chỉ hiện thành tích này).
+            orderBy: [
+              { isHighlight: 'desc' },
+              { sortOrder: 'asc' },
+              { createdAt: 'asc' },
+            ],
             select: {
               id: true,
               title: true,
               imageWatermarkedPath: true,
               sortOrder: true,
+              isHighlight: true,
             },
           },
           user: {

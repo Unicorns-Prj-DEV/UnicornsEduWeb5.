@@ -97,16 +97,18 @@ describe('AuthAccessService', () => {
   });
 
   it.each([
-    [0, false],
-    [1, true],
+    [0, false, false],
+    [1, false, false],
+    [1, true, true],
   ])(
-    'requires teacher staff to have achievements (count=%i -> complete=%s)',
-    async (achievementCount, expectedComplete) => {
+    'requires teacher staff to have achievements + highlight (count=%i, highlight=%s -> complete=%s)',
+    async (achievementCount, hasHighlight, expectedComplete) => {
       prisma.user.findUnique.mockResolvedValue({
         ...currentConsent,
         staffInfo: {
           ...completeStaffInfo,
           _count: { achievements: achievementCount },
+          achievements: hasHighlight ? [{ id: 'ach-highlight' }] : [],
         },
         studentInfo: null,
       });

@@ -93,7 +93,8 @@ Accept: application/json
           "title": "HCV Olympic Tin học 2024",
           "imageUrl": "https://your-project.supabase.co/storage/v1/object/public/achievements-public/staff/UNISTAFF-a1b2c3d4e5/ach-uuid-1.jpg",
           "imagePath": "staff/UNISTAFF-a1b2c3d4e5/ach-uuid-1.jpg",
-          "sortOrder": 0
+          "sortOrder": 0,
+          "isHighlight": true
         },
         {
           "id": "ach-uuid-2",
@@ -129,12 +130,13 @@ Accept: application/json
 | `avatarPath` | string \| null | `users.avatar_watermarked_path` | Stable path; CMS may store as `eduweb5://avatars-public/{path}` |
 | `university` | string \| null | `staff_info.university` | |
 | `specialization` | string \| null | `staff_info.specialization` | **Deprecated** legacy blob. Prefer `achievements`. Kept temporarily for CMS backward compatibility. |
-| `achievements` | array | `staff_achievements` | Ordered by `sortOrder` asc (then `createdAt`). Public-safe titles + optional watermarked proof images. |
+| `achievements` | array | `staff_achievements` | Ordered by `isHighlight` desc, then `sortOrder` asc, then `createdAt`. Public-safe titles + optional watermarked proof images. |
 | `achievements[].id` | string | `staff_achievements.id` | Stable achievement id |
 | `achievements[].title` | string | `staff_achievements.title` | Display title |
 | `achievements[].imageUrl` | string \| null | public twin | Public URL from `achievements-public`; `null` if no twin |
 | `achievements[].imagePath` | string \| null | `image_watermarked_path` | Stable path in `achievements-public` |
 | `achievements[].sortOrder` | number | `staff_achievements.sort_order` | Display order (0 first) |
+| `achievements[].isHighlight` | boolean | `staff_achievements.is_highlight` | **Thành tích nổi bật** the tutor starred — at most one per staff, always first. Landing hover tip shows only this one; if no row has `true` (tutor has not starred yet), fall back to the first row. |
 
 `total` is the **full filtered count** (before pagination). Prefer `ids=` for public hydrate of published instructors; use search/paging for CMS browse. **`ids=` is capped by `limit` like every other mode (max 100 rows per call)** — if the published roster exceeds `limit`, loop `page` until `data.length * page >= total`, same as the default browse mode.
 

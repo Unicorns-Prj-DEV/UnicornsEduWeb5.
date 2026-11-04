@@ -4,7 +4,7 @@ import type {
   UpdateMyStaffProfileDto,
   UpdateMyStudentProfileDto,
 } from "@/dtos/profile.dto";
-import { isMissingRequiredStaffAchievement } from "@/lib/staff-achievement-requirement";
+import { getStaffAchievementGap } from "@/lib/staff-achievement-requirement";
 
 /**
  * Form hồ sơ của chính người dùng, lưu bằng một nút "Lưu" chung.
@@ -282,10 +282,14 @@ export function validateProfileForm(
   checkFields(ACCOUNT_FIELDS);
   if (isStaff) {
     checkFields(STAFF_FIELDS);
-    if (isMissingRequiredStaffAchievement(profile.staffInfo)) {
+    const achievementGap = getStaffAchievementGap(profile.staffInfo);
+    if (achievementGap) {
       add(ACHIEVEMENTS_FIELD_KEY, {
         kind: "missing",
-        message: "Gia sư cần có ít nhất 1 thành tích.",
+        message:
+          achievementGap === "achievement"
+            ? "Gia sư cần có ít nhất 1 thành tích."
+            : "Gia sư cần bấm ngôi sao để chọn 1 thành tích nổi bật.",
       });
     }
     if (!hasAcceptedDataConsent(profile)) {
