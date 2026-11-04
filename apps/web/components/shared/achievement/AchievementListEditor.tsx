@@ -43,6 +43,7 @@ import type {
 } from "@/dtos/achievement.dto";
 import { ACHIEVEMENT_LEVEL_OPTIONS } from "@/dtos/achievement.dto";
 import * as achievementApi from "@/lib/apis/achievement.api";
+import { useRefreshAuthSession } from "@/hooks/use-refresh-auth-session";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { downloadAvatar, suggestAvatarFilename } from "@/lib/avatar";
@@ -569,6 +570,7 @@ export default function AchievementListEditor({
   const isStudent = owner.kind === "student";
   const headingId = useId();
   const queryClient = useQueryClient();
+  const refreshAuthSession = useRefreshAuthSession();
   const queryKey = achievementApi.achievementQueryKey(owner);
   const [newTitle, setNewTitle] = useState("");
   const [newTitleFile, setNewTitleFile] = useState<File | null>(null);
@@ -600,7 +602,8 @@ export default function AchievementListEditor({
     queryClient.invalidateQueries({ queryKey });
 
   // Gia sư cần >= 1 thành tích + thành tích nổi bật để qua gate hồ sơ: thêm/xoá/
-  // đổi sao của chính mình thì tải lại hồ sơ + session để form và gate nhận mới.
+  // đổi sao của chính mình thì tải lại hồ sơ + session (ghi vào AuthContext) để form
+  // và gate client nhận mới — không thì bấm "Quay lại" bị gate đẩy về `/user-profile`.
   const refreshSelfProfileGate = () =>
     owner.kind === "staff" && owner.mode === "self"
       ? Promise.all([
@@ -608,7 +611,7 @@ export default function AchievementListEditor({
           queryClient.invalidateQueries({
             queryKey: AUTH_FULL_PROFILE_QUERY_KEY,
           }),
-          queryClient.invalidateQueries({ queryKey: ["auth", "session"] }),
+          refreshAuthSession(),
         ])
       : Promise.resolve();
 

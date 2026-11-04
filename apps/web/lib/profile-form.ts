@@ -1,3 +1,4 @@
+import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type {
   FullProfileDto,
   UpdateMyProfileDto,
@@ -352,4 +353,27 @@ export function resolveProfileBackHref(
   if (!from || !/^\/(?![/\\])/.test(from)) return fallback;
   if (from.startsWith("/user-profile")) return fallback;
   return from;
+}
+
+/**
+ * "Quay lại" về staff/admin shell sẽ bị gate hồ sơ nhân sự đẩy ngược về `/user-profile`
+ * (vòng lặp) khi session báo hồ sơ chưa đủ. Admin full được bypass gate (như `proxy.ts`).
+ */
+export function isProfileBackBlockedByGate(
+  session: UserInfoDto,
+  backHref: string,
+): boolean {
+  const pathname = backHref.split(/[?#]/, 1)[0];
+  if (!/^\/(staff|admin)(\/|$)/.test(pathname)) return false;
+  if (!(session.access?.staff?.canAccess ?? session.hasStaffProfile)) return false;
+  if (
+    session.roleType === Role.admin ||
+    session.access?.admin?.tier === "full" ||
+    session.effectiveRoleTypes?.includes(Role.admin)
+  ) {
+    return false;
+  }
+  const profileComplete =
+    session.access?.staff?.profileComplete ?? session.staffProfileComplete;
+  return profileComplete === false;
 }

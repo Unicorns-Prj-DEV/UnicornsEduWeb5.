@@ -4,12 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { toast } from "sonner";
 import UserProfileEditor from "@/components/user-profile/UserProfileEditor";
+import { useAuth } from "@/context/AuthContext";
+import { useRefreshAuthSession } from "@/hooks/use-refresh-auth-session";
 import { profileFullQueryOptions } from "@/lib/profile-full-query";
 import { openEmailVerificationModal } from "@/lib/email-verification-access";
 import { getUserWorkspaceHref } from "@/lib/auth-redirect";
 import {
   getProfileFormValues,
+  isProfileBackBlockedByGate,
   resolveProfileBackHref,
   validateProfileForm,
 } from "@/lib/profile-form";
@@ -146,6 +150,8 @@ function ErrorState({ status }: { status?: number }) {
 function UserProfilePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const refreshAuthSession = useRefreshAuthSession();
   const requiresProfileCompletion =
     searchParams.get("profile_required") === "1";
   const redirectedFrom = searchParams.get("from");
@@ -175,6 +181,7 @@ function UserProfilePageContent() {
   const blockedByGate =
     validateProfileForm(profile, getProfileFormValues(profile)).missingCount >
     0;
+  const backBlocked = isProfileBackBlockedByGate(user, backHref);
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -183,6 +190,17 @@ function UserProfilePageContent() {
           <div className="flex items-center gap-4">
             <Link
               href={backHref}
+              onClick={async (event) => {
+                if (!backBlocked) return;
+                // Gate sẽ đẩy ngược về đây: lấy session mới, còn thiếu thì chặn tại chỗ.
+                event.preventDefault();
+                const nextUser = await refreshAuthSession();
+                if (nextUser && !isProfileBackBlockedByGate(nextUser, backHref)) {
+                  router.push(backHref);
+                  return;
+                }
+                toast.error("Cần hoàn thiện hồ sơ trước khi quay lại.");
+              }}
               className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:border-border-focus hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               <svg
