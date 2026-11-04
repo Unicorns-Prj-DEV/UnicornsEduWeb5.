@@ -8,6 +8,7 @@ import {
   getProfileFormValues,
   isProfileFormDirty,
   rebaseProfileFormValues,
+  isProfileBackBlockedByGate,
   resolveProfileBackHref,
   toDateInputValue,
   validateBirthYear,
@@ -189,6 +190,33 @@ describe("resolveProfileBackHref", () => {
     for (const from of [null, "", "https://evil.com", "//evil.com", "/\\evil.com", "/user-profile"]) {
       expect(resolveProfileBackHref(from, "/staff")).toBe("/staff");
     }
+  });
+});
+
+describe("isProfileBackBlockedByGate", () => {
+  const staff = (profileComplete: boolean, tier: string | null = null) =>
+    ({
+      id: "u1",
+      accountHandle: "u1",
+      roleType: "staff",
+      hasStaffProfile: true,
+      access: {
+        admin: { canAccess: tier !== null, tier },
+        staff: { canAccess: true, profileComplete },
+        student: { canAccess: false },
+      },
+    }) as unknown as Parameters<typeof isProfileBackBlockedByGate>[0];
+
+  it("chặn về staff/admin shell khi session báo hồ sơ chưa đủ", () => {
+    expect(isProfileBackBlockedByGate(staff(false), "/staff")).toBe(true);
+    expect(isProfileBackBlockedByGate(staff(false), "/admin/dashboard")).toBe(true);
+  });
+
+  it("không chặn khi hồ sơ đủ, admin full, hoặc đích ngoài shell nhân sự", () => {
+    expect(isProfileBackBlockedByGate(staff(true), "/staff")).toBe(false);
+    expect(isProfileBackBlockedByGate(staff(false, "full"), "/admin")).toBe(false);
+    expect(isProfileBackBlockedByGate(staff(false), "/student")).toBe(false);
+    expect(isProfileBackBlockedByGate(staff(false), "/staffing")).toBe(false);
   });
 });
 

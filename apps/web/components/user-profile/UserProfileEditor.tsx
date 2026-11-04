@@ -18,7 +18,7 @@ import DataConsentSection, {
 import { StudentExamCard } from "@/components/admin/student";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
-import { useAuth } from "@/context/AuthContext";
+import { useRefreshAuthSession } from "@/hooks/use-refresh-auth-session";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { resolveEmailVerified } from "@/mocks/user-profile-verification.mock";
 import * as authApi from "@/lib/apis/auth.api";
@@ -396,7 +396,7 @@ export default function UserProfileEditor({
   onSaveComplete?: () => void;
 }) {
   const queryClient = useQueryClient();
-  const { setUser } = useAuth();
+  const refreshAuthSession = useRefreshAuthSession();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const savedValues = useMemo(() => getProfileFormValues(profile), [profile]);
@@ -468,16 +468,6 @@ export default function UserProfileEditor({
     value: values[key] ?? "",
     onChange: (value) => setFieldValue(key, value),
   });
-
-  const refreshAuthSession = async () => {
-    try {
-      const nextUser = await authApi.getSession();
-      setUser(nextUser);
-      queryClient.setQueryData(["auth", "session"], nextUser);
-    } catch {
-      // Phiên cũ vẫn dùng được; navbar sẽ tự làm mới ở lần tải sau.
-    }
-  };
 
   const syncFullProfile = (data: FullProfileDto) => {
     queryClient.setQueryData(PROFILE_FULL_QUERY_KEY, data);
