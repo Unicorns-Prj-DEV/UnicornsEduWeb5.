@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -25,6 +33,7 @@ import type {
   TrainingManagerSessionAllowanceDto,
   TrainingManagerStaffOptionDto,
   UpdateClassTrainingManagerDto,
+  UpdateTrainingManagerSessionRateDto,
 } from 'src/dtos/training-manager.dto';
 import { TrainingManagerService } from './training-manager.service';
 
@@ -70,6 +79,7 @@ export class TrainingManagerController {
       body,
       {
         userId: user.id,
+        userEmail: user.email,
         roleType: user.roleType,
       },
     );
@@ -118,6 +128,33 @@ export class TrainingManagerController {
       staffId,
       classId,
       month,
+    );
+  }
+
+  @Patch('training-manager/staff/:staffId/sessions/:sessionId/rate')
+  @ApiOperation({
+    summary: 'Adjust training manager rate percent of one unpaid session',
+  })
+  @ApiParam({ name: 'staffId', description: 'Training staff ID' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiBody({ description: '{ trainingManagerRatePercent } (0 < % ≤ 100)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Session allowance recomputed with the new rate.',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid rate or session paid.' })
+  @ApiResponse({ status: 403, description: 'Only admin or assistant.' })
+  async updateSessionRatePercent(
+    @CurrentUser() user: JwtPayload,
+    @Param('staffId', new ParseStaffIdPipe()) staffId: string,
+    @Param('sessionId', new ParseUUIDPipe()) sessionId: string,
+    @Body() body: UpdateTrainingManagerSessionRateDto,
+  ): Promise<TrainingManagerSessionAllowanceDto> {
+    return this.trainingManagerService.updateSessionRatePercent(
+      { userId: user.id, userEmail: user.email, roleType: user.roleType },
+      staffId,
+      sessionId,
+      body?.trainingManagerRatePercent,
     );
   }
 

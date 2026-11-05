@@ -19,9 +19,16 @@ import type {
   TrainingManagerStaffOptionDto,
   UpdateClassTrainingManagerDto,
 } from 'src/dtos/training-manager.dto';
+import {
+  ActionHistoryActor,
+  ActionHistoryService,
+} from 'src/action-history/action-history.service';
 import { resolveTaxDeductionRate } from 'src/payroll/deduction-rates';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { normalizeTrainingManagerRatePercent } from './training-manager.utils';
+import {
+  computeTrainingManagerSessionSnapshot,
+  normalizeTrainingManagerRatePercent,
+} from './training-manager.utils';
 
 function parseMonthRange(monthKey: string): {
   start: Date;
@@ -56,9 +63,25 @@ function toNumber(value: unknown): number {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function toTrainingManagerAuditSnapshot(row: {
+  trainingManagerStaffId: string | null;
+  trainingManagerRatePercent: unknown;
+}) {
+  return {
+    trainingManagerStaffId: row.trainingManagerStaffId,
+    trainingManagerRatePercent:
+      row.trainingManagerRatePercent == null
+        ? null
+        : toNumber(row.trainingManagerRatePercent),
+  };
+}
+
 @Injectable()
 export class TrainingManagerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actionHistoryService: ActionHistoryService,
+  ) {}
 
   async searchTrainingManagerOptions(query: {
     search?: string;
@@ -130,23 +153,17 @@ export class TrainingManagerService {
   async updateClassTrainingManager(
     classId: string,
     dto: UpdateClassTrainingManagerDto,
-    actor: { userId: string; roleType: UserRole },
+    actor: ActionHistoryActor & { userId: string; roleType: UserRole },
   ) {
-    if (actor.roleType !== UserRole.admin) {
-      const staff = await this.prisma.staffInfo.findFirst({
-        where: { userId: actor.userId },
-        select: { roles: true },
-      });
-      if (!staff?.roles.includes(StaffRole.assistant)) {
-        throw new ForbiddenException(
-          'Chỉ admin hoặc trợ lí được chỉnh quản lý lớp.',
-        );
-      }
-    }
+    await this.assertCanEditTrainingManager(actor);
 
     const existing = await this.prisma.class.findUnique({
       where: { id: classId },
-      select: { id: true },
+      select: {
+        id: true,
+        trainingManagerStaffId: true,
+        trainingManagerRatePercent: true,
+      },
     });
     if (!existing) {
       throw new NotFoundException('Class not found');
@@ -192,47 +209,65 @@ export class TrainingManagerService {
       );
     }
 
-    const updateClass = this.prisma.class.update({
-      where: { id: classId },
-      data: {
-        ...(nextStaffId !== undefined
-          ? { trainingManagerStaffId: nextStaffId }
-          : {}),
-        ...(nextRate !== undefined
-          ? { trainingManagerRatePercent: nextRate }
-          : {}),
-      },
-      select: {
-        id: true,
-        trainingManagerStaffId: true,
-        trainingManagerRatePercent: true,
-        trainingManager: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                first_name: true,
-                last_name: true,
+    return this.prisma.$transaction(async (tx) => {
+      const updatedClass = await tx.class.update({
+        where: { id: classId },
+        data: {
+          ...(nextStaffId !== undefined
+            ? { trainingManagerStaffId: nextStaffId }
+            : {}),
+          ...(nextRate !== undefined
+            ? { trainingManagerRatePercent: nextRate }
+            : {}),
+        },
+        select: {
+          id: true,
+          trainingManagerStaffId: true,
+          trainingManagerRatePercent: true,
+          trainingManager: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  first_name: true,
+                  last_name: true,
+                },
               },
             },
           },
         },
-      },
+      });
+
+      if (grantTrainingRoleToStaffId) {
+        await tx.staffInfo.update({
+          where: { id: grantTrainingRoleToStaffId },
+          data: { roles: { push: StaffRole.training } },
+          select: { id: true },
+        });
+      }
+
+      // Form lớp gửi endpoint này kèm mỗi lần lưu gia sư — chỉ ghi khi
+      // quản lý hoặc % thật sự đổi để lịch sử không bị nhiễu.
+      const beforeValue = toTrainingManagerAuditSnapshot(existing);
+      const afterValue = toTrainingManagerAuditSnapshot(updatedClass);
+      if (
+        beforeValue.trainingManagerStaffId !==
+          afterValue.trainingManagerStaffId ||
+        beforeValue.trainingManagerRatePercent !==
+          afterValue.trainingManagerRatePercent
+      ) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor,
+          entityType: 'class',
+          entityId: classId,
+          description: 'Cập nhật quản lý lớp / % quản lý',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return updatedClass;
     });
-
-    if (!grantTrainingRoleToStaffId) {
-      return updateClass;
-    }
-
-    const [updatedClass] = await this.prisma.$transaction([
-      updateClass,
-      this.prisma.staffInfo.update({
-        where: { id: grantTrainingRoleToStaffId },
-        data: { roles: { push: StaffRole.training } },
-        select: { id: true },
-      }),
-    ]);
-    return updatedClass;
   }
 
   private async resolveAccessibleStaffId(
@@ -293,6 +328,7 @@ export class TrainingManagerService {
       Array<{
         classId: string;
         className: string | null;
+        trainingManagerRatePercent: unknown;
         monthTotal: unknown;
         pendingTotal: unknown;
       }>
@@ -300,6 +336,7 @@ export class TrainingManagerService {
       SELECT
         classes.id AS "classId",
         COALESCE(classes.name, '') AS "className",
+        classes.training_manager_rate_percent AS "trainingManagerRatePercent",
         COALESCE(
           SUM(
             CASE
@@ -326,13 +363,14 @@ export class TrainingManagerService {
         ON sessions.class_id = classes.id
         AND sessions.training_manager_staff_id = ${accessibleStaffId}
       WHERE classes.training_manager_staff_id = ${accessibleStaffId}
-      GROUP BY classes.id, classes.name
+      GROUP BY classes.id, classes.name, classes.training_manager_rate_percent
       ORDER BY classes.name ASC
     `);
 
     const data = rows.map((row) => ({
       classId: row.classId,
       className: row.className?.trim() || 'Lớp chưa đặt tên',
+      trainingManagerRatePercent: toNumber(row.trainingManagerRatePercent),
       monthTotal: toNumber(row.monthTotal),
       pendingTotal: toNumber(row.pendingTotal),
     }));
@@ -425,6 +463,127 @@ export class TrainingManagerService {
           session.trainingManagerPaymentStatus ?? PaymentStatus.pending,
       };
     });
+  }
+
+  async updateSessionRatePercent(
+    actor: ActionHistoryActor & { userId: string; roleType: UserRole },
+    staffId: string,
+    sessionId: string,
+    ratePercentInput: unknown,
+  ): Promise<TrainingManagerSessionAllowanceDto> {
+    await this.assertCanEditTrainingManager(actor);
+
+    const ratePercent = normalizeTrainingManagerRatePercent(ratePercentInput);
+    if (ratePercent == null || ratePercent <= 0) {
+      throw new BadRequestException(
+        'trainingManagerRatePercent must be greater than 0 and at most 100.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const session = await tx.session.findFirst({
+        where: { id: sessionId, trainingManagerStaffId: staffId },
+        select: {
+          id: true,
+          date: true,
+          trainingManagerStaffId: true,
+          trainingManagerRatePercent: true,
+          trainingManagerAllowanceAmount: true,
+          trainingManagerPaymentStatus: true,
+          attendance: {
+            where: {
+              status: {
+                in: [AttendanceStatus.present, AttendanceStatus.excused],
+              },
+            },
+            select: { tuitionFee: true },
+          },
+        },
+      });
+      if (!session) {
+        throw new NotFoundException(
+          'Buổi học không thuộc quản lý lớp của nhân sự này.',
+        );
+      }
+      if (session.trainingManagerPaymentStatus === PaymentStatus.paid) {
+        throw new BadRequestException(
+          'Buổi đã thanh toán trợ cấp QLL — chuyển về Chưa thanh toán trước khi sửa %.',
+        );
+      }
+
+      // Cùng công thức cột «Học phí buổi» của danh sách khoản.
+      const sessionTuitionTotal = session.attendance.reduce(
+        (sum, row) => sum + (row.tuitionFee ?? 0),
+        0,
+      );
+      const snapshot = computeTrainingManagerSessionSnapshot({
+        sessionTuitionTotal,
+        trainingManagerStaffId: staffId,
+        trainingManagerRatePercent: ratePercent,
+      });
+
+      await tx.session.update({
+        where: { id: session.id },
+        data: {
+          trainingManagerRatePercent: snapshot.trainingManagerRatePercent,
+          trainingManagerAllowanceAmount:
+            snapshot.trainingManagerAllowanceAmount,
+          trainingManagerPaymentStatus: snapshot.trainingManagerPaymentStatus,
+        },
+      });
+
+      const beforeValue = {
+        trainingManagerStaffId: session.trainingManagerStaffId,
+        trainingManagerRatePercent: toNumber(
+          session.trainingManagerRatePercent,
+        ),
+        trainingManagerAllowanceAmount: session.trainingManagerAllowanceAmount,
+      };
+      const afterValue = {
+        trainingManagerStaffId: staffId,
+        trainingManagerRatePercent: snapshot.trainingManagerRatePercent,
+        trainingManagerAllowanceAmount: snapshot.trainingManagerAllowanceAmount,
+      };
+      if (
+        beforeValue.trainingManagerRatePercent !==
+        afterValue.trainingManagerRatePercent
+      ) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor,
+          entityType: 'session',
+          entityId: session.id,
+          description: 'Điều chỉnh % quản lý lớp của buổi học',
+          beforeValue,
+          afterValue,
+        });
+      }
+
+      return {
+        sessionId: session.id,
+        date: session.date.toISOString(),
+        sessionTuitionTotal,
+        trainingManagerRatePercent: snapshot.trainingManagerRatePercent,
+        allowanceAmount: snapshot.trainingManagerAllowanceAmount ?? 0,
+        paymentStatus:
+          snapshot.trainingManagerPaymentStatus ?? PaymentStatus.pending,
+      };
+    });
+  }
+
+  private async assertCanEditTrainingManager(actor: {
+    userId: string;
+    roleType: UserRole;
+  }) {
+    if (actor.roleType === UserRole.admin) return;
+    const staff = await this.prisma.staffInfo.findFirst({
+      where: { userId: actor.userId },
+      select: { roles: true },
+    });
+    if (!staff?.roles.includes(StaffRole.assistant)) {
+      throw new ForbiddenException(
+        'Chỉ admin hoặc trợ lí được chỉnh quản lý lớp.',
+      );
+    }
   }
 
   async bulkUpdatePaymentStatus(
