@@ -451,7 +451,14 @@ export class AuthService {
       deviceId: payload.deviceId,
     });
     if (!device) {
-      return null;
+      // Ném lỗi có mã để `/auth/session` báo được máy bị đá
+      // (`DEVICE_SUPERSEDED`) thay vì chỉ trả guest.
+      throw new UnauthorizedException(
+        await this.userDeviceService.resolveNoLiveDeviceError(
+          payload.id,
+          payload.iat,
+        ),
+      );
     }
 
     return this.getAuthProfile(payload.id, request);
@@ -1134,6 +1141,7 @@ export class AuthService {
         accountHandle: string;
         roleType: UserRole;
         deviceId?: string;
+        iat?: number;
       }>(refreshToken, {
         secret: this.refreshTokenSecret,
       });
@@ -1227,6 +1235,7 @@ export class AuthService {
     ipAddress?: string,
     emailLinkOrigin?: PublicRequestOrigin,
     rememberMe = false,
+    forceLogoutOthers = false,
   ): Promise<TokenPair> {
     const user = await this.prisma.user.findFirst({
       where: {
@@ -1286,14 +1295,18 @@ export class AuthService {
     // Email đã xác minh (admin tick «Email đã xác thực» hoặc học sinh bấm link)
     // thì cấp phiên luôn, không gửi magic link xác minh đăng nhập nữa. Luật
     // một thiết bị kiểm tra trong cùng transaction với lúc tạo thiết bị.
+    // `forceLogoutOthers`: học sinh bị chặn chọn đăng xuất mọi thiết bị cũ
+    // (máy đăng nhập sau cùng thắng), mật khẩu vừa nhập là đủ chứng minh.
     const tokenPair = await this.issueStudentDeviceSession({
       userId: user.id,
+      email: user.email,
       accountHandle: user.accountHandle,
       roleType: user.roleType,
       deviceInfo,
       ipAddress,
       rememberMe,
-      rejectIfLiveDevice: true,
+      rejectIfLiveDevice: !forceLogoutOthers,
+      supersedeLiveDevices: forceLogoutOthers,
     });
     if (!tokenPair) {
       throw new ConflictException(STUDENT_DEVICE_ACTIVE_ERROR);
@@ -1443,24 +1456,50 @@ export class AuthService {
    */
   private async issueStudentDeviceSession(params: {
     userId: string;
+    email?: string;
     accountHandle: string;
     roleType: UserRole;
     deviceInfo?: DeviceInfo;
     ipAddress?: string;
     rememberMe: boolean;
     rejectIfLiveDevice: boolean;
+    supersedeLiveDevices?: boolean;
   }): Promise<TokenPair | null> {
     const device = await this.userDeviceService.replaceDevicesForUser({
       userId: params.userId,
       token: this.userDeviceService.generateDeviceToken(),
       refreshExpiresAt: this.computeRefreshExpiresAt(params.rememberMe),
       rejectIfLive: params.rejectIfLiveDevice,
+      markSuperseded: params.supersedeLiveDevices,
       deviceInfo: params.deviceInfo,
       ipAddress: params.ipAddress,
     });
     this.authIdentityCacheService.invalidateHasActiveDevice(params.userId);
     if (!device) {
       return null;
+    }
+
+    const supersededDevices = device.supersededDevices ?? [];
+    if (supersededDevices.length > 0 && params.email) {
+      await this.actionHistoryService.recordUpdate(this.prisma, {
+        actor: this.buildUserActor({
+          id: params.userId,
+          email: params.email,
+          roleType: params.roleType,
+        }),
+        entityType: 'user_device',
+        entityId: params.userId,
+        description: `Học sinh tự đăng xuất ${supersededDevices.length} thiết bị để đăng nhập thiết bị mới`,
+        beforeValue: { devices: supersededDevices },
+        afterValue: {
+          selfLogoutAllDevices: true,
+          newDevice: {
+            id: device.id,
+            deviceInfo: device.deviceInfo,
+            ipAddress: device.ipAddress,
+          },
+        },
+      });
     }
 
     return this.generateTokenPairAndSave(
@@ -1615,20 +1654,28 @@ export class AuthService {
    * Google đã chứng minh quyền sở hữu email (tương đương magic link), nhưng
    * luật một thiết bị vẫn phải áp: còn thiết bị sống → từ chối; không còn →
    * thay các row chết bằng đúng một UserDevice (nguyên tử, xem
-   * `UserDeviceService.replaceDevicesForUser`).
+   * `UserDeviceService.replaceDevicesForUser`). `forceLogoutOthers` (học sinh
+   * chọn đăng xuất mọi thiết bị trên màn bị chặn rồi xác thực lại Google):
+   * thay luôn thiết bị sống.
    * @returns `null` nếu học sinh đang đăng nhập ở thiết bị khác.
    */
-  async issueStudentGoogleSession(user: {
-    id: string;
-    accountHandle: string;
-    roleType: UserRole;
-  }): Promise<TokenPair | null> {
+  async issueStudentGoogleSession(
+    user: {
+      id: string;
+      email: string;
+      accountHandle: string;
+      roleType: UserRole;
+    },
+    forceLogoutOthers = false,
+  ): Promise<TokenPair | null> {
     return this.issueStudentDeviceSession({
       userId: user.id,
+      email: user.email,
       accountHandle: user.accountHandle,
       roleType: user.roleType,
       rememberMe: true,
-      rejectIfLiveDevice: true,
+      rejectIfLiveDevice: !forceLogoutOthers,
+      supersedeLiveDevices: forceLogoutOthers,
     });
   }
 

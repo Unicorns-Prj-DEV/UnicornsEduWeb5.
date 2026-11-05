@@ -143,6 +143,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 - PK: `id` (UUID default)
 - Unique: `email`, `account_handle` (hai trường độc lập; login chấp nhận chuỗi tương ứng email hoặc account_handle, ưu tiên account_handle).
 - Trường chính: `password_hash`, `role_type`, `status`, `email_verified`, `phone_verified`, `data_processing_consent_accepted_at`, `data_processing_consent_version`, `refresh_token`
+- `devices_superseded_at` (`TIMESTAMPTZ(6)`, nullable): lần gần nhất học sinh tự **đăng xuất mọi thiết bị** để vào máy mới (`POST /auth/student/login` `forceLogoutOthers`, Google `force_device`); chỉ ghi khi thật sự có thiết bị sống bị thay. JWT không còn thiết bị sống và có `iat` cũ hơn mốc này → `401 DEVICE_SUPERSEDED` thay vì `NO_ACTIVE_DEVICE`. Thêm bởi migration `20261105090000_user_devices_superseded_at`. ADR `docs/adr/2026-11-05-student-last-login-wins.md`.
 - RBAC runtime: `role_type` là role gốc/default của user, không phải nguồn quyền duy nhất. `GET /auth/session` và backend guards resolve quyền hiệu lực bằng union của `users.role_type`, linked `staff_info.user_id`, linked `student_info.user_id`, và `staff_info.roles`; vì vậy một user có thể đồng thời mở admin/staff/student workspace nếu có các linked profile/role tương ứng.
 - Trường tên canonical cho actor dạng staff: `first_name`, `last_name` (nullable). FE/BE dùng cặp này làm nguồn chuẩn để hiển thị tên staff trong rollout bỏ `staff_info.full_name`.
 - Avatar:

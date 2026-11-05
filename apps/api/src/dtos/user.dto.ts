@@ -282,6 +282,17 @@ export class UserAuthDto {
   rememberMe?: boolean;
 }
 
+export class StudentLoginDto extends UserAuthDto {
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'Học sinh bị chặn `DEVICE_ACTIVE` chọn đăng xuất mọi thiết bị khác rồi đăng nhập máy này.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  forceLogoutOthers?: boolean;
+}
+
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
