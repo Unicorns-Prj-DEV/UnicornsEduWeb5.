@@ -400,6 +400,7 @@ export interface AdminDashboardPendingPayrollBreakdownDto {
   fixedSalaryAmount: number;
   assistantAmount: number;
   trainingManagerAmount: number;
+  lessonPlanHeadAmount: number;
 }
 
 export interface AdminDashboardTrendPointDto {
@@ -421,6 +422,7 @@ export interface AdminDashboardBreakdownItemDto {
     | 'fixedSalaryCost'
     | 'assistantCost'
     | 'trainingManagerCost'
+    | 'lessonPlanHeadCost'
     | 'operatingCost';
   label: string;
   kind: 'revenue' | 'expense';
@@ -551,6 +553,7 @@ export interface AdminDashboardMonthlyStatisticDto {
   fixedSalaryCost: number;
   assistantCost: number;
   trainingManagerCost: number;
+  lessonPlanHeadCost: number;
   operatingCost: number;
   totalTopup: number;
   totalUnpaid: number;

@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Fixed
 
+- **Dashboard trừ hoa hồng Trưởng giáo án vào chi phí**: `lesson_plan_head_commission.amount` trước đây không được tính vào chi phí/lợi nhuận và Trợ cấp chờ thanh toán (dashboard ENG T10/2026 hụt 729.927đ chi phí, chờ trả hụt 88.451đ). Thêm khoản `lessonPlanHeadCost` (**Hoa hồng Trưởng giáo án**, tháng theo ngày buổi học) vào chi phí nhân sự (tháng, khoảng ngày, trend, Thống kê năm + PDF, bảng chi phí theo nhân sự) và `lessonPlanHeadAmount` / nguồn `pending-lesson-plan-head` (commission `pending`) vào Trợ cấp chờ thanh toán; FE thêm dòng ở Cơ cấu chi phí nhân sự, chip **Hoa hồng TGA**, series **HH TGA** (`--ue-viz-10`) + giải thích chỉ số. Hiện trên mọi instance.
 - **JP/ENG hiện lại tính năng role Giáo án / Trưởng giáo án**: chỉ còn ẩn workspace điền bài/trợ cấp (`/admin|staff/lesson-plans*`, `lesson-manage-details`, `lesson-plan-tasks`, `lesson-plan-manage-details`, `/admin/lessons`). Mở lại route chi tiết `/admin/lesson_plan_detail/*`, `/staff/lesson_plan_detail*`, `/staff/lesson-plan-detail*` (bỏ khỏi `isGiftedLessonPlanRoute`); dòng thu nhập role `lesson_plan` / `lesson_plan_head` hiện lại ở `/admin/staffs/[id]` và `/staff/profile`. Trên JP/ENG trưởng giáo án chỉ có tab **Hoa hồng doanh thu** (ẩn tab **Bài giáo án**).
 
 ### Changed
