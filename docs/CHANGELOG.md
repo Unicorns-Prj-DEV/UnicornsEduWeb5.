@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Fixed
+
+- **JP/ENG hiện lại tính năng role Giáo án / Trưởng giáo án**: chỉ còn ẩn workspace điền bài/trợ cấp (`/admin|staff/lesson-plans*`, `lesson-manage-details`, `lesson-plan-tasks`, `lesson-plan-manage-details`, `/admin/lessons`). Mở lại route chi tiết `/admin/lesson_plan_detail/*`, `/staff/lesson_plan_detail*`, `/staff/lesson-plan-detail*` (bỏ khỏi `isGiftedLessonPlanRoute`); dòng thu nhập role `lesson_plan` / `lesson_plan_head` hiện lại ở `/admin/staffs/[id]` và `/staff/profile`. Trên JP/ENG trưởng giáo án chỉ có tab **Hoa hồng doanh thu** (ẩn tab **Bài giáo án**).
+
 ### Changed
 
 - **Trang soạn tiết học full chiều rộng**: `LessonWorkspace` (`/admin|staff/courses/[id]/modules/[moduleId]/lessons/*`) bỏ giới hạn `max-w-3xl` (lý thuyết) / `max-w-5xl` (luyện tập), khung soạn thảo giãn hết vùng nội dung; skeleton `loading` khớp theo.
