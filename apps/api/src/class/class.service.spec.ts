@@ -1218,6 +1218,7 @@ describe('ClassService', () => {
             classId: 'class-1',
             teacherId: 'teacher-1',
             customAllowance: null,
+            customAllowancePerSession: null,
             customScaleAmount: null,
             operatingDeductionRatePercent: 0,
             status: 'active',
@@ -1344,6 +1345,7 @@ describe('ClassService', () => {
             classId: 'class-1',
             teacherId: 'teacher-1',
             customAllowance: 150000,
+            customAllowancePerSession: 150000,
             customScaleAmount: null,
             operatingDeductionRatePercent: 7.5,
             status: 'active',
@@ -1459,6 +1461,7 @@ describe('ClassService', () => {
         },
         data: {
           customAllowance: 150000,
+          customAllowancePerSession: 150000,
           operatingDeductionRatePercent: 7.5,
         },
       });
@@ -1556,6 +1559,7 @@ describe('ClassService', () => {
         },
         data: {
           customAllowance: null,
+          customAllowancePerSession: null,
           operatingDeductionRatePercent: 5,
         },
       });
@@ -1676,6 +1680,7 @@ describe('ClassService', () => {
           classId: 'class-1',
           teacherId: 'teacher-2',
           customAllowance: null,
+          customAllowancePerSession: null,
           customScaleAmount: null,
           operatingDeductionRatePercent: 0,
           status: 'active',
@@ -1700,6 +1705,7 @@ describe('ClassService', () => {
         },
         data: {
           customAllowance: null,
+          customAllowancePerSession: null,
           customScaleAmount: null,
           operatingDeductionRatePercent: 0,
           status: 'active',

@@ -168,6 +168,7 @@ export class SessionCreateService {
             },
             select: {
               customAllowance: true,
+              customAllowancePerSession: true,
               customScaleAmount: true,
               operatingDeductionRatePercent: true,
               class: {
@@ -395,6 +396,7 @@ export class SessionCreateService {
               classTeacher.customAllowance,
               reconstructionBlocks,
               storedAsPerBlock,
+              classTeacher.customAllowancePerSession,
             ),
           });
           const snapshotPerStudentAllowance =

@@ -127,6 +127,7 @@ function normalizeSessionPaymentStatus(
 
 type ClassTeacherAllowanceSource = {
   customAllowance: number | null;
+  customAllowancePerSession?: number | null;
   customScaleAmount: number | null;
   class: {
     name: string;
@@ -171,6 +172,7 @@ function liveAllowanceFromClassTeacher(
       classTeacher.customAllowance,
       reconstructionBlocks,
       storedAsPerBlock,
+      classTeacher.customAllowancePerSession,
     ),
   });
 }
@@ -713,6 +715,7 @@ export class SessionUpdateService {
         let snapshotScaleAmountUpdate: number | undefined;
         let classTeacherForAllowance: {
           customAllowance: number | null;
+          customAllowancePerSession?: number | null;
           customScaleAmount: number | null;
           operatingDeductionRatePercent?:
             | Prisma.Decimal
@@ -741,6 +744,7 @@ export class SessionUpdateService {
             },
             select: {
               customAllowance: true,
+              customAllowancePerSession: true,
               customScaleAmount: true,
               operatingDeductionRatePercent: true,
               class: {
@@ -806,6 +810,7 @@ export class SessionUpdateService {
                 },
                 select: {
                   customAllowance: true,
+                  customAllowancePerSession: true,
                   customScaleAmount: true,
                   operatingDeductionRatePercent: true,
                   class: {
@@ -968,6 +973,7 @@ export class SessionUpdateService {
               },
               select: {
                 customAllowance: true,
+                customAllowancePerSession: true,
                 customScaleAmount: true,
                 class: {
                   select: {
@@ -982,6 +988,8 @@ export class SessionUpdateService {
             if (classTeacher) {
               classTeacherForAllowance = {
                 customAllowance: classTeacher.customAllowance,
+                customAllowancePerSession:
+                  classTeacher.customAllowancePerSession,
                 customScaleAmount: classTeacher.customScaleAmount,
                 class: {
                   name: existingSession.class.name,
