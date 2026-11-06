@@ -1440,7 +1440,8 @@ export class StaffService {
   }
 
   async getLandingProfiles(query: StaffLandingProfileQueryDto) {
-    // Landing sync intentionally ignores status + role (all staff rows).
+    // Landing sync intentionally ignores status + role (all staff rows);
+    // `roles` is returned so the landing site can show only tutors (`teacher`).
     const limit =
       typeof query.limit === 'number' && Number.isInteger(query.limit)
         ? Math.min(Math.max(query.limit, 1), 100)
@@ -1473,6 +1474,7 @@ export class StaffService {
           // Deprecated: chỉ còn đọc cho CMS landing; API ghi đã bỏ field này.
           specialization: true,
           status: true,
+          roles: true,
           achievements: {
             // Thành tích nổi bật luôn đứng đầu (landing chỉ hiện thành tích này).
             orderBy: [
@@ -1505,6 +1507,7 @@ export class StaffService {
       id: staff.id,
       name: getPreferredUserFullName(staff.user) ?? '',
       status: staff.status,
+      roles: staff.roles,
       avatarUrl: createPublicStorageUrl({
         bucket: AVATAR_PUBLIC_BUCKET,
         path: staff.user?.avatarWatermarkedPath,

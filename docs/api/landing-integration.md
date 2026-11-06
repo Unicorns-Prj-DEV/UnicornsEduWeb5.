@@ -83,6 +83,7 @@ Accept: application/json
       "id": "UNISTAFF-a1b2c3d4e5",
       "name": "Nguyễn Văn A",
       "status": "active",
+      "roles": ["teacher"],
       "avatarUrl": "https://your-project.supabase.co/storage/v1/object/public/avatars-public/users/user-1/avatar.jpg",
       "avatarPath": "users/user-1/avatar.jpg",
       "university": "Đại học Bách Khoa TP.HCM",
@@ -126,6 +127,7 @@ Accept: application/json
 | `id` | string | `staff_info.id` | Stable id (`UNISTAFF-…`); stored as CMS `sourceId` |
 | `name` | string | Linked `users` name | Resolved via `getPreferredUserFullName` |
 | `status` | `active` \| `inactive` | `staff_info.status` | Included for CMS labels; endpoint does **not** filter by status |
+| `roles` | `StaffRole[]` | `staff_info.roles` | All roles of the staff row (e.g. `teacher`, `assistant`, `sale`). Endpoint does **not** filter by role (CMS admin still links any staff); the landing site shows only `active` + `teacher` (gia sư). |
 | `avatarUrl` | string \| null | public twin | Public URL from bucket `avatars-public` (watermarked). `null` if no twin. |
 | `avatarPath` | string \| null | `users.avatar_watermarked_path` | Stable path; CMS may store as `eduweb5://avatars-public/{path}` |
 | `university` | string \| null | `staff_info.university` | |
@@ -223,7 +225,8 @@ Accept: application/json
           "caption": null,
           "imageUrl": "https://your-project.supabase.co/storage/v1/object/public/student-gallery-public/student/UNIST-a1b2c3d4e5/gal-uuid-1.jpg",
           "imagePath": "student/UNIST-a1b2c3d4e5/gal-uuid-1.jpg",
-          "sortOrder": 0
+          "sortOrder": 0,
+          "createdAt": "2026-05-01T08:00:00.000Z"
         }
       ]
     },
@@ -270,6 +273,7 @@ Accept: application/json
 | `gallery[].imageUrl` | string \| null | public twin | From `student-gallery-public`; `null` if no twin |
 | `gallery[].imagePath` | string \| null | `image_watermarked_path` | |
 | `gallery[].sortOrder` | number | `student_gallery_items.sort_order` | |
+| `gallery[].createdAt` | string (ISO 8601) | `student_gallery_items.created_at` | Upload time. Landing **Cảm nhận học viên** sorts feedback cards newest-first by this. |
 
 `total` is the **full filtered count** (before pagination), same semantics as staff landing-profiles. **`ids=` is capped by `limit` (max 100 rows per call)** — if the published roster exceeds `limit`, loop `page` to fetch the rest; `ids=` no longer silently truncates to the first 100 matches regardless of `page`.
 

@@ -1385,6 +1385,7 @@ export class StudentService {
               caption: true,
               imageWatermarkedPath: true,
               sortOrder: true,
+              createdAt: true,
             },
           },
           user: {
