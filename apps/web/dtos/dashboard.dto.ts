@@ -46,6 +46,7 @@ export interface AdminDashboardPendingPayrollBreakdown {
   fixedSalaryAmount: number;
   assistantAmount: number;
   trainingManagerAmount: number;
+  lessonPlanHeadAmount: number;
 }
 
 export interface AdminDashboardTrendPoint {
@@ -66,6 +67,7 @@ export type AdminDashboardBreakdownKey =
   | "fixedSalaryCost"
   | "assistantCost"
   | "trainingManagerCost"
+  | "lessonPlanHeadCost"
   | "operatingCost";
 
 export interface AdminDashboardBreakdownItem {
@@ -133,6 +135,7 @@ export interface AdminDashboardMonthlyStatistic {
   fixedSalaryCost: number;
   assistantCost: number;
   trainingManagerCost: number;
+  lessonPlanHeadCost: number;
   operatingCost: number;
   totalTopup: number;
   totalUnpaid: number;

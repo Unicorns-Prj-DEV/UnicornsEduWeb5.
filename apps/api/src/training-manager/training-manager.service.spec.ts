@@ -29,15 +29,23 @@ describe('TrainingManagerService', () => {
     },
     session: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
     },
     $transaction: jest.fn(),
+  };
+  const mockActionHistory = {
+    recordUpdate: jest.fn(),
   };
 
   let service: TrainingManagerService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new TrainingManagerService(mockPrisma as never);
+    service = new TrainingManagerService(
+      mockPrisma as never,
+      mockActionHistory as never,
+    );
   });
 
   describe('getSessionAllowancesByClass', () => {
@@ -132,15 +140,27 @@ describe('TrainingManagerService', () => {
 
   describe('updateClassTrainingManager', () => {
     const classId = 'class-1';
-    const adminActor = { userId: 'admin-user', roleType: UserRole.admin };
-    const updatedClass = { id: classId, trainingManagerStaffId: 'staff-1' };
+    const adminActor = {
+      userId: 'admin-user',
+      userEmail: 'admin@edu.vn',
+      roleType: UserRole.admin,
+    };
+    const updatedClass = {
+      id: classId,
+      trainingManagerStaffId: 'staff-1',
+      trainingManagerRatePercent: 3,
+    };
 
     beforeEach(() => {
-      mockPrisma.class.findUnique.mockResolvedValue({ id: classId });
-      mockPrisma.class.update.mockReturnValue(updatedClass);
-      mockPrisma.staffInfo.update.mockReturnValue({ id: 'staff-1' });
-      mockPrisma.$transaction.mockImplementation((ops: unknown[]) =>
-        Promise.all(ops),
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: classId,
+        trainingManagerStaffId: 'staff-1',
+        trainingManagerRatePercent: 3,
+      });
+      mockPrisma.class.update.mockResolvedValue(updatedClass);
+      mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-1' });
+      mockPrisma.$transaction.mockImplementation(
+        (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
       );
     });
 
@@ -159,7 +179,50 @@ describe('TrainingManagerService', () => {
         ),
       ).resolves.toEqual(updatedClass);
       expect(mockPrisma.staffInfo.update).not.toHaveBeenCalled();
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('records action history when the rate percent changes', async () => {
+      mockPrisma.class.update.mockResolvedValue({
+        ...updatedClass,
+        trainingManagerRatePercent: 2,
+      });
+
+      await service.updateClassTrainingManager(
+        classId,
+        { trainingManagerRatePercent: 2 },
+        adminActor,
+      );
+
+      expect(mockActionHistory.recordUpdate).toHaveBeenCalledWith(mockPrisma, {
+        actor: adminActor,
+        entityType: 'class',
+        entityId: classId,
+        description: 'Cập nhật quản lý lớp / % quản lý',
+        beforeValue: {
+          trainingManagerStaffId: 'staff-1',
+          trainingManagerRatePercent: 3,
+        },
+        afterValue: {
+          trainingManagerStaffId: 'staff-1',
+          trainingManagerRatePercent: 2,
+        },
+      });
+    });
+
+    it('skips action history when nothing changes', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.training],
+        status: StaffStatus.active,
+      });
+
+      await service.updateClassTrainingManager(
+        classId,
+        { trainingManagerStaffId: 'staff-1', trainingManagerRatePercent: 3 },
+        adminActor,
+      );
+
+      expect(mockActionHistory.recordUpdate).not.toHaveBeenCalled();
     });
 
     it('grants training role when a teacher becomes class manager', async () => {
@@ -201,6 +264,21 @@ describe('TrainingManagerService', () => {
       expect(mockPrisma.class.update).not.toHaveBeenCalled();
     });
 
+    it('rejects staff without assistant role', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        roles: [StaffRole.training],
+      });
+
+      await expect(
+        service.updateClassTrainingManager(
+          classId,
+          { trainingManagerRatePercent: 2 },
+          { userId: 'staff-user', roleType: UserRole.staff },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.class.update).not.toHaveBeenCalled();
+    });
+
     it('rejects inactive teacher', async () => {
       mockPrisma.staffInfo.findUnique.mockResolvedValue({
         id: 'staff-1',
@@ -215,6 +293,103 @@ describe('TrainingManagerService', () => {
           adminActor,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('updateSessionRatePercent', () => {
+    const staffId = 'UNISTAFF-1';
+    const sessionId = '15ecdca1-4cbb-4148-9929-8e8cdab3b90d';
+    const adminActor = {
+      userId: 'admin-user',
+      userEmail: 'admin@edu.vn',
+      roleType: UserRole.admin,
+    };
+    const pendingSession = {
+      id: sessionId,
+      date: new Date('2026-11-05T00:00:00.000Z'),
+      trainingManagerStaffId: staffId,
+      trainingManagerRatePercent: 2,
+      trainingManagerAllowanceAmount: 7380,
+      trainingManagerPaymentStatus: PaymentStatus.pending,
+      attendance: [{ tuitionFee: 369000 }],
+    };
+
+    beforeEach(() => {
+      mockPrisma.$transaction.mockImplementation(
+        (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
+      );
+      mockPrisma.session.update.mockResolvedValue({ id: sessionId });
+    });
+
+    it('recomputes allowance from session tuition and logs history', async () => {
+      mockPrisma.session.findFirst.mockResolvedValue(pendingSession);
+
+      await expect(
+        service.updateSessionRatePercent(adminActor, staffId, sessionId, 3),
+      ).resolves.toEqual({
+        sessionId,
+        date: '2026-11-05T00:00:00.000Z',
+        sessionTuitionTotal: 369000,
+        trainingManagerRatePercent: 3,
+        allowanceAmount: 11070,
+        paymentStatus: PaymentStatus.pending,
+      });
+      expect(mockPrisma.session.update).toHaveBeenCalledWith({
+        where: { id: sessionId },
+        data: {
+          trainingManagerRatePercent: 3,
+          trainingManagerAllowanceAmount: 11070,
+          trainingManagerPaymentStatus: PaymentStatus.pending,
+        },
+      });
+      const [historyTx, historyInput] = mockActionHistory.recordUpdate.mock
+        .calls[0] as [
+        unknown,
+        {
+          entityType: string;
+          entityId: string;
+          beforeValue: Record<string, unknown>;
+          afterValue: Record<string, unknown>;
+        },
+      ];
+      expect(historyTx).toBe(mockPrisma);
+      expect(historyInput.entityType).toBe('session');
+      expect(historyInput.entityId).toBe(sessionId);
+      expect(historyInput.beforeValue).toMatchObject({
+        trainingManagerRatePercent: 2,
+        trainingManagerAllowanceAmount: 7380,
+      });
+      expect(historyInput.afterValue).toMatchObject({
+        trainingManagerRatePercent: 3,
+        trainingManagerAllowanceAmount: 11070,
+      });
+    });
+
+    it('rejects paid sessions', async () => {
+      mockPrisma.session.findFirst.mockResolvedValue({
+        ...pendingSession,
+        trainingManagerPaymentStatus: PaymentStatus.paid,
+      });
+
+      await expect(
+        service.updateSessionRatePercent(adminActor, staffId, sessionId, 3),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.session.update).not.toHaveBeenCalled();
+    });
+
+    it.each([0, -1, 101, 'abc'])('rejects invalid rate %p', async (rate) => {
+      await expect(
+        service.updateSessionRatePercent(adminActor, staffId, sessionId, rate),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.session.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects sessions outside the staff scope', async () => {
+      mockPrisma.session.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateSessionRatePercent(adminActor, staffId, sessionId, 3),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

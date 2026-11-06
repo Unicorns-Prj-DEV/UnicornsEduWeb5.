@@ -19,6 +19,7 @@ const EXPENSE_SERIES: Array<{
   { key: 'fixedSalaryCost', name: 'Lương cứng', color: '#0d9488' },
   { key: 'assistantCost', name: 'Trợ lí', color: '#0891b2' },
   { key: 'trainingManagerCost', name: 'QL lớp', color: '#ca8a04' },
+  { key: 'lessonPlanHeadCost', name: 'HH TGA', color: '#9a5b2e' },
   { key: 'operatingCost', name: 'Vận hành', color: '#64748b' },
 ];
 

@@ -146,6 +146,7 @@ const EXPENSE_BREAKDOWN_SERIES: Array<{
   { key: "fixedSalaryCost", name: "Lương cứng", color: "var(--ue-viz-9)" },
   { key: "assistantCost", name: "Trợ lí", color: "var(--ue-viz-6)" },
   { key: "trainingManagerCost", name: "QL lớp", color: "var(--ue-viz-7)" },
+  { key: "lessonPlanHeadCost", name: "HH TGA", color: "var(--ue-viz-10)" },
   { key: "operatingCost", name: "Vận hành", color: "var(--ue-viz-8)" },
 ];
 

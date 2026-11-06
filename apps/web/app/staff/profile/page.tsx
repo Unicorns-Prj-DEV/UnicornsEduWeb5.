@@ -1,6 +1,5 @@
 "use client";
 
-import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -319,7 +318,6 @@ function toStaffUpdateSessionPayload(payload: SessionUpdatePayload) {
 export default function StaffSelfDetailPage() {
   const { back, push } = useRouter();
   const queryClient = useQueryClient();
-  const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const { user: authUser } = useAuth();
   const [editPopupOpen, setEditPopupOpen] = useState(false);
   const [addBonusPopupOpen, setAddBonusPopupOpen] = useState(false);
@@ -831,12 +829,7 @@ export default function StaffSelfDetailPage() {
   const depositYearTotal = incomeSummary?.depositYearTotal ?? 0;
   const depositByClass = incomeSummary?.depositYearByClass ?? [];
   const bonusTotals = incomeSummary?.bonusMonthlyTotals ?? EMPTY_AMOUNT_SUMMARY;
-  // Giáo án học sinh giỏi chỉ có trên IT — JP/ENG không hiện thu nhập role giáo án.
-  const otherRoleSummaries = (incomeSummary?.otherRoleSummaries ?? []).filter(
-    (item) =>
-      giftedLessonPlanEnabled !== false ||
-      (item.role !== "lesson_plan" && item.role !== "lesson_plan_head"),
-  );
+  const otherRoleSummaries = incomeSummary?.otherRoleSummaries ?? [];
   const fixedSalaryPayables = incomeSummary?.fixedSalaryPayables ?? [];
   const showAssistantDualRoleHelper =
     hasAssistantAndCustomerCareRoles(staff?.roles) &&

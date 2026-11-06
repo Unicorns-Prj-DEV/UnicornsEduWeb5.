@@ -225,6 +225,7 @@ describe('DashboardService staff training dashboard', () => {
         fixedSalaryAmount: 0,
         assistantAmount: 0,
         trainingManagerAmount: 0,
+        lessonPlanHeadAmount: 0,
         totalUnpaid: 400000,
         totalCount: 1,
         totalAmount: 400000,
@@ -839,6 +840,7 @@ describe('DashboardService financial export', () => {
       fixedSalaryAmount: number;
       assistantAmount: number;
       trainingManagerAmount: number;
+      lessonPlanHeadAmount: number;
       totalCost: number;
     }>;
     topupTotal?: number;
@@ -867,6 +869,7 @@ describe('DashboardService financial export', () => {
         fixedSalaryAmount: 0,
         assistantAmount: 0,
         trainingManagerAmount: 0,
+        lessonPlanHeadAmount: 0,
         totalCost: 400_000,
       },
     ];
@@ -904,6 +907,7 @@ describe('DashboardService financial export', () => {
               fixedSalaryCost: 0,
               assistantCost: 0,
               trainingManagerCost: 0,
+              lessonPlanHeadCost: 0,
               operatingCost: otherCost,
             },
           ];
@@ -921,6 +925,7 @@ describe('DashboardService financial export', () => {
               fixedSalaryCost: 0,
               assistantCost: 0,
               trainingManagerCost: 0,
+              lessonPlanHeadCost: 0,
               operatingCost: otherCost,
             },
           ];
@@ -1028,6 +1033,7 @@ describe('DashboardService financial export', () => {
               fixedSalaryAmount: 150_000,
               assistantAmount: 0,
               trainingManagerAmount: 0,
+              lessonPlanHeadAmount: 0,
               totalCost: 550_000,
             },
           ];
@@ -1045,6 +1051,7 @@ describe('DashboardService financial export', () => {
               fixedSalaryCost: 150_000,
               assistantCost: 0,
               trainingManagerCost: 0,
+              lessonPlanHeadCost: 0,
               operatingCost: 100_000,
             },
           ];
@@ -1174,6 +1181,7 @@ describe('buildPersonnelCostBreakdown', () => {
     fixedSalaryAmount: 0,
     assistantAmount: 0,
     trainingManagerAmount: 0,
+    lessonPlanHeadAmount: 0,
   };
 
   it('splits reward and penalty of the same month into separate sources', () => {
@@ -1225,6 +1233,7 @@ describe('buildStaffPendingPayrollSources', () => {
     fixedSalaryAmount: 0,
     assistantAmount: 0,
     trainingManagerAmount: 0,
+    lessonPlanHeadAmount: 0,
   };
 
   it('keys every pending source, fixed salary included', () => {
@@ -1234,6 +1243,7 @@ describe('buildStaffPendingPayrollSources', () => {
       fixedSalaryAmount: '5000000',
       assistantAmount: 100_000,
       trainingManagerAmount: 50_000,
+      lessonPlanHeadAmount: '88451',
     });
 
     expect(breakdown.sourceAmounts).toEqual({
@@ -1241,6 +1251,7 @@ describe('buildStaffPendingPayrollSources', () => {
       'pending-fixed-salary': 5_000_000,
       'pending-assistant': 100_000,
       'pending-training-manager': 50_000,
+      'pending-lesson-plan-head': 88_451,
     });
     expect(breakdown.note).toBe(
       [
@@ -1248,6 +1259,7 @@ describe('buildStaffPendingPayrollSources', () => {
         `Lương cứng ${(5_000_000).toLocaleString('vi-VN')}đ`,
         `Trợ lí ${(100_000).toLocaleString('vi-VN')}đ`,
         `QL lớp ${(50_000).toLocaleString('vi-VN')}đ`,
+        `Hoa hồng TGA ${(88_451).toLocaleString('vi-VN')}đ`,
       ].join(' • '),
     );
   });

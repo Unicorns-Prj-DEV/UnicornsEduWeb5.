@@ -17,6 +17,7 @@ const PENDING_CHIPS: { field: keyof PendingBreakdown; sourceKey: string; label: 
   { field: "fixedSalaryAmount", sourceKey: "pending-fixed-salary", label: "Lương cứng" },
   { field: "assistantAmount", sourceKey: "pending-assistant", label: "Trợ lí" },
   { field: "trainingManagerAmount", sourceKey: "pending-training-manager", label: "QL lớp" },
+  { field: "lessonPlanHeadAmount", sourceKey: "pending-lesson-plan-head", label: "Hoa hồng TGA" },
 ];
 
 export function BalanceSnapshotCard({

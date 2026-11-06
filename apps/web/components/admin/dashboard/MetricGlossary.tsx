@@ -90,6 +90,10 @@ export const EXPENSE_METRIC_GLOSSARY: MetricGlossaryItem[] = [
     definition: "Tiền hỗ trợ người quản lý lớp trong tháng.",
   },
   {
+    term: "HH TGA",
+    definition: "Hoa hồng % doanh thu trả cho Trưởng giáo án, tính trên học phí các buổi học trong tháng.",
+  },
+  {
     term: "Vận hành",
     definition: "Các khoản chi phí hoạt động khác của trung tâm ghi nhận trong tháng (ngoài trả nhân sự ở trên).",
   },

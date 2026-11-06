@@ -95,6 +95,7 @@ describe('AuthService', () => {
     findDeviceByRefreshToken: jest.fn(),
     findLiveDeviceById: jest.fn(),
     assertLiveRefreshDevice: jest.fn(),
+    resolveNoLiveDeviceError: jest.fn(),
     cleanupExpiredLoginRequests: jest.fn(),
     cleanupInactiveDevices: jest.fn(),
   };
@@ -919,12 +920,96 @@ describe('AuthService', () => {
       await expect(
         service.issueStudentGoogleSession({
           id: 'student-1',
+          email: 'hocsinh1@gmail.com',
           accountHandle: 'hocsinh1',
           roleType: UserRole.student,
         }),
       ).resolves.toBeNull();
       expect(userDeviceService.replaceDevicesForUser).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'student-1', rejectIfLive: true }),
+      );
+    });
+
+    it('forceLogoutOthers replaces live devices and records the self-logout', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(verifiedStudent);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+      userDeviceService.replaceDevicesForUser.mockResolvedValueOnce({
+        id: 'device-2',
+        deviceInfo: { userAgent: 'new' },
+        ipAddress: '10.0.0.2',
+        supersededDevices: [{ id: 'device-1' }],
+      });
+
+      await expect(
+        service.studentLoginInit(
+          'hocsinh1',
+          'secret',
+          undefined,
+          undefined,
+          undefined,
+          false,
+          true,
+        ),
+      ).resolves.toMatchObject({ accessToken: 'jwt-token' });
+
+      expect(userDeviceService.replaceDevicesForUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'student-1',
+          rejectIfLive: false,
+          markSuperseded: true,
+        }),
+      );
+      expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          entityType: 'user_device',
+          entityId: 'student-1',
+          actor: expect.objectContaining({
+            userId: 'student-1',
+            userEmail: 'hocsinh1@gmail.com',
+          }) as Record<string, unknown>,
+          beforeValue: { devices: [{ id: 'device-1' }] },
+        }),
+      );
+    });
+
+    it('forceLogoutOthers without a live device skips the audit entry', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(verifiedStudent);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+      userDeviceService.replaceDevicesForUser.mockResolvedValueOnce({
+        id: 'device-2',
+        supersededDevices: [],
+      });
+
+      await service.studentLoginInit(
+        'hocsinh1',
+        'secret',
+        undefined,
+        undefined,
+        undefined,
+        false,
+        true,
+      );
+
+      expect(actionHistoryService.recordUpdate).not.toHaveBeenCalled();
+    });
+
+    it('Google login with forceLogoutOthers replaces the live device', async () => {
+      await service.issueStudentGoogleSession(
+        {
+          id: 'student-1',
+          email: 'hocsinh1@gmail.com',
+          accountHandle: 'hocsinh1',
+          roleType: UserRole.student,
+        },
+        true,
+      );
+      expect(userDeviceService.replaceDevicesForUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'student-1',
+          rejectIfLive: false,
+          markSuperseded: true,
+        }),
       );
     });
   });
@@ -1198,9 +1283,41 @@ describe('AuthService', () => {
       });
       userDeviceService.assertLiveRefreshDevice.mockResolvedValueOnce(null);
 
+      userDeviceService.resolveNoLiveDeviceError.mockResolvedValueOnce({
+        statusCode: 401,
+        error: 'NO_ACTIVE_DEVICE',
+      });
+
       await expect(
         service.getSessionProfile('revoked-refresh'),
-      ).resolves.toBeNull();
+      ).rejects.toMatchObject({
+        response: { error: 'NO_ACTIVE_DEVICE' },
+      });
+    });
+
+    it('rejects with DEVICE_SUPERSEDED when the student logged in elsewhere', async () => {
+      jwtService.verifyAsync.mockResolvedValueOnce({
+        id: 'student-1',
+        accountHandle: 'hocsinh',
+        roleType: UserRole.student,
+        deviceId: 'device-old',
+        iat: 1_700_000_000,
+      });
+      userDeviceService.assertLiveRefreshDevice.mockResolvedValueOnce(null);
+      userDeviceService.resolveNoLiveDeviceError.mockResolvedValueOnce({
+        statusCode: 401,
+        error: 'DEVICE_SUPERSEDED',
+      });
+
+      await expect(
+        service.getSessionProfile('kicked-refresh'),
+      ).rejects.toMatchObject({
+        response: { error: 'DEVICE_SUPERSEDED' },
+      });
+      expect(userDeviceService.resolveNoLiveDeviceError).toHaveBeenCalledWith(
+        'student-1',
+        1_700_000_000,
+      );
     });
   });
 
