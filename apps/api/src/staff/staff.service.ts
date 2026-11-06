@@ -935,6 +935,7 @@ export class StaffService {
         classTeachers: {
           select: {
             customAllowance: true,
+            customAllowancePerSession: true,
             class: {
               select: {
                 id: true,

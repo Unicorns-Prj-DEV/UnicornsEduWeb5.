@@ -74,7 +74,7 @@ import {
   perSessionToPerBlock,
   presentCustomAllowanceAsPerSession,
   standardBlockCountFromSlots,
-  storeCustomAllowanceFromPerSessionInput,
+  customAllowanceWriteFields,
 } from 'src/common/block-pricing.util';
 import {
   resolveClassTeacherCustomAllowanceOnWrite,
@@ -183,6 +183,7 @@ type TeacherAssignmentRecord = {
   teacherId?: string;
   status: string | null;
   customAllowance: number | null;
+  customAllowancePerSession: number | null;
   customScaleAmount: number | null;
   operatingDeductionRatePercent: Prisma.Decimal | number | string | null;
   teacher: {
@@ -255,6 +256,7 @@ export class ClassService {
         record.customAllowance,
         options?.standardBlockCount,
         options?.storedAsPerBlock === true,
+        record.customAllowancePerSession,
       ),
       customScaleAmount: record.customScaleAmount,
       operatingDeductionRatePercent,
@@ -672,6 +674,7 @@ export class ClassService {
         teacherId: true,
         status: true,
         customAllowance: true,
+        customAllowancePerSession: true,
         customScaleAmount: true,
         operatingDeductionRatePercent: true,
         teacher: {
@@ -973,6 +976,7 @@ export class ClassService {
               teacherId: true,
               status: true,
               customAllowance: true,
+              customAllowancePerSession: true,
               customScaleAmount: true,
               operatingDeductionRatePercent: true,
               teacher: {
@@ -1608,7 +1612,7 @@ export class ClassService {
           data: teacherPayload.map((t) => ({
             classId: createdClass.id,
             teacherId: t.teacherId,
-            customAllowance: storeCustomAllowanceFromPerSessionInput(
+            ...customAllowanceWriteFields(
               t.customAllowance,
               standardBlockCount,
             ),
@@ -1768,7 +1772,7 @@ export class ClassService {
             data: teacherPayload.map((t) => ({
               classId: data.id,
               teacherId: t.teacherId,
-              customAllowance: storeCustomAllowanceFromPerSessionInput(
+              ...customAllowanceWriteFields(
                 t.customAllowance,
                 standardBlockCount,
               ),
@@ -1898,6 +1902,7 @@ export class ClassService {
           teacherId: true,
           status: true,
           customAllowance: true,
+          customAllowancePerSession: true,
           customScaleAmount: true,
           operatingDeductionRatePercent: true,
           teacher: {
@@ -2169,11 +2174,18 @@ export class ClassService {
       select: {
         teacherId: true,
         customAllowance: true,
+        customAllowancePerSession: true,
         customScaleAmount: true,
       },
     });
     const customAllowanceByTeacherId = new Map(
       classTeachers.map((row) => [row.teacherId, row.customAllowance]),
+    );
+    const customAllowancePerSessionByTeacherId = new Map(
+      classTeachers.map((row) => [
+        row.teacherId,
+        row.customAllowancePerSession,
+      ]),
     );
     const customScaleByTeacherId = new Map(
       classTeachers.map((row) => [row.teacherId, row.customScaleAmount]),
@@ -2263,6 +2275,7 @@ export class ClassService {
           customAllowanceByTeacherId.get(session.teacherId),
           reconstructionBlocks,
           storedAsPerBlock,
+          customAllowancePerSessionByTeacherId.get(session.teacherId),
         ),
       });
       const snapshotPerStudentAllowance =
@@ -2392,6 +2405,7 @@ export class ClassService {
         select: {
           teacherId: true,
           customAllowance: true,
+          customAllowancePerSession: true,
           customScaleAmount: true,
           operatingDeductionRatePercent: true,
         },
@@ -2399,7 +2413,10 @@ export class ClassService {
       const existingCustomAllowanceByTeacherId = new Map(
         existingTeachers.map((teacher) => [
           teacher.teacherId,
-          teacher.customAllowance,
+          {
+            customAllowance: teacher.customAllowance,
+            customAllowancePerSession: teacher.customAllowancePerSession,
+          },
         ]),
       );
       const existingCustomScaleByTeacherId = new Map(
@@ -2410,14 +2427,9 @@ export class ClassService {
       );
       const teacherPayload = dto.teachers.map((teacher) => ({
         teacherId: teacher.teacher_id,
-        customAllowance: resolveClassTeacherCustomAllowanceOnWrite({
+        ...resolveClassTeacherCustomAllowanceOnWrite({
           incoming: teacher.custom_allowance,
-          existingCustomAllowance: existingCustomAllowanceByTeacherId.get(
-            teacher.teacher_id,
-          ),
-          isExistingAssignment: existingCustomAllowanceByTeacherId.has(
-            teacher.teacher_id,
-          ),
+          existing: existingCustomAllowanceByTeacherId.get(teacher.teacher_id),
           standardBlockCount,
         }),
         customScaleAmount: resolveClassTeacherCustomScaleAmountOnWrite({
@@ -2451,6 +2463,7 @@ export class ClassService {
             classId: id,
             teacherId: t.teacherId,
             customAllowance: t.customAllowance,
+            customAllowancePerSession: t.customAllowancePerSession,
             customScaleAmount: t.customScaleAmount,
             operatingDeductionRatePercent: t.operatingDeductionRatePercent,
             status: 'active',
@@ -2594,15 +2607,19 @@ export class ClassService {
 
       const data: {
         customAllowance?: number | null;
+        customAllowancePerSession?: number | null;
         customScaleAmount?: number | null;
         operatingDeductionRatePercent: number;
       } = {
         operatingDeductionRatePercent: nextOperatingDeductionRatePercent,
       };
       if (teacher.custom_allowance !== undefined) {
-        data.customAllowance = storeCustomAllowanceFromPerSessionInput(
-          normalizeNullableMoney(teacher.custom_allowance),
-          standardBlockCount,
+        Object.assign(
+          data,
+          customAllowanceWriteFields(
+            normalizeNullableMoney(teacher.custom_allowance),
+            standardBlockCount,
+          ),
         );
       }
       if (teacher.custom_scale_amount !== undefined) {
@@ -2792,6 +2809,7 @@ export class ClassService {
 
       const resetPay = {
         customAllowance: null,
+        customAllowancePerSession: null,
         customScaleAmount: null,
         operatingDeductionRatePercent: 0,
         status: 'active',
