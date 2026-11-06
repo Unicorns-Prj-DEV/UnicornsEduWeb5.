@@ -1830,6 +1830,7 @@ describe('StudentService', () => {
             caption: null,
             imageWatermarkedPath: 'student/student-1/gal-1.jpg',
             sortOrder: 0,
+            createdAt: new Date('2026-05-01T08:00:00.000Z'),
           },
         ],
         user: {
@@ -1872,6 +1873,7 @@ describe('StudentService', () => {
               imageUrl:
                 'public:student-gallery-public:student/student-1/gal-1.jpg',
               sortOrder: 0,
+              createdAt: '2026-05-01T08:00:00.000Z',
             },
           ],
         },

@@ -3083,6 +3083,8 @@ describe('StaffService', () => {
         id: 'teacher-1',
         university: 'HCMUS',
         specialization: 'Computer Science',
+        status: 'active',
+        roles: ['teacher', 'assistant'],
         achievements: [
           {
             id: 'ach-1',
@@ -3113,6 +3115,8 @@ describe('StaffService', () => {
         {
           id: 'teacher-1',
           name: 'Van A Nguyen',
+          status: 'active',
+          roles: ['teacher', 'assistant'],
           avatarUrl: 'public:avatars-public:users/user-1/avatar.jpg',
           avatarPath: 'users/user-1/avatar.jpg',
           university: 'HCMUS',
@@ -3146,6 +3150,7 @@ describe('StaffService', () => {
         skip: 0,
         take: 50,
         select: expect.objectContaining({
+          roles: true,
           achievements: expect.any(Object),
         }),
       }),
