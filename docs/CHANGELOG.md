@@ -21,6 +21,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+
+- **Trang soạn tiết học full chiều rộng**: `LessonWorkspace` (`/admin|staff/courses/[id]/modules/[moduleId]/lessons/*`) bỏ giới hạn `max-w-3xl` (lý thuyết) / `max-w-5xl` (luyện tập), khung soạn thảo giãn hết vùng nội dung; skeleton `loading` khớp theo.
+
 ### Added
 
 - **Sửa % QLL theo từng lớp và từng buổi ở tab Lớp học (Đào tạo)**: `TrainingManagerClassesTabPanel` (`/admin/training_detail`, `/staff/training-detail`) thêm cột **% QLL** trên dòng lớp (mobile: dòng lớp thành card — tên lớp, rồi ô có nhãn Tổng tháng / Chưa TT, % QLL hàng riêng cuối card), hiển thị dạng chip `3%` / `2,5%` có icon bút; bấm chip để sửa inline — ✓ lưu / ✕ huỷ chỉ hiện khi giá trị đổi, chỗ của chúng giữ sẵn nên input không nhảy; desktop input giữ thẳng cột, nút mọc sang trái (Enter lưu, Esc huỷ, spinner khi lưu; component `TrainingManagerInlineRateEditor` + `TrainingManagerRateChip`); mở rộng lớp, % mỗi buổi **Chưa thanh toán** là chip bấm mở popup `TrainingManagerRateDialog` sửa % riêng buổi. Chỉ admin/assistant thấy nút (khớp BE). Sửa % lớp gọi `PATCH /class/:id/training-manager` — chỉ áp cho buổi tạo sau, buổi cũ giữ snapshot. Sửa % buổi gọi endpoint mới `PATCH /training-manager/staff/:staffId/sessions/:sessionId/rate` (`{ trainingManagerRatePercent }`, `0 < % ≤ 100`): tính lại trợ cấp theo học phí buổi, ghi `action_history` `entity_type = session`; buổi đã thanh toán trả 400. `GET .../managed-classes` trả thêm `trainingManagerRatePercent`. Popup buổi dùng `ResponsiveDialog` + hỏi trước khi bỏ thay đổi; parse/format % (dấu thập phân kiểu Việt, bỏ số 0 thừa) dùng chung ở `lib/training-manager-rate.ts`. Fix kèm: header bảng buổi (desktop, khi có checkbox chọn) lệch 1 cột so với dữ liệu do ô `sr-only` bị rút khỏi grid. Không migration. Docs: `docs/Database Schema.md`, `docs/pages/admin.md`, `docs/pages/staff.md`.
