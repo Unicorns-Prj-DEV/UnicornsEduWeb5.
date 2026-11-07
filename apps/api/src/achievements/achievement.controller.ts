@@ -87,13 +87,14 @@ export class StaffAchievementController {
   @UseInterceptors(imageUploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: 'Create staff achievement with a required proof image',
+    summary:
+      'Create staff achievement (proof image required only for the first, auto-highlighted one)',
   })
   @ApiParam({ name: 'staffId', description: 'Staff id (UNISTAFF-…)' })
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['title', 'image'],
+      required: ['title'],
       properties: {
         title: { type: 'string' },
         sortOrder: { type: 'integer' },
@@ -101,8 +102,12 @@ export class StaffAchievementController {
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Created achievement with proof image.' })
-  @ApiResponse({ status: 400, description: 'Missing title or proof image.' })
+  @ApiResponse({ status: 201, description: 'Created achievement.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Missing title, invalid image, or first (highlight) achievement without image.',
+  })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   create(
     @Param('staffId', new ParseStaffIdPipe()) staffId: string,
@@ -172,7 +177,12 @@ export class StaffAchievementController {
   @ApiParam({ name: 'achievementId', description: 'Achievement UUID' })
   @ApiResponse({
     status: 200,
-    description: 'Danh sách thành tích sau khi đổi, thành tích nổi bật đứng đầu.',
+    description:
+      'Danh sách thành tích sau khi đổi, thành tích nổi bật đứng đầu.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Thành tích chưa có ảnh minh chứng thì không gắn sao được.',
   })
   @ApiResponse({ status: 404, description: 'Achievement not found.' })
   setHighlight(
@@ -220,14 +230,16 @@ export class StaffAchievementController {
   @Delete(':achievementId/image')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Reject clearing a staff achievement proof image',
+    summary: 'Clear a non-highlight staff achievement proof image',
   })
   @ApiParam({ name: 'staffId', description: 'Staff id (UNISTAFF-…)' })
   @ApiParam({ name: 'achievementId', description: 'Achievement UUID' })
+  @ApiResponse({ status: 200, description: 'Achievement without image.' })
   @ApiResponse({
     status: 400,
-    description: 'Staff proof images can be replaced, not removed.',
+    description: 'Highlight achievement image can be replaced, not removed.',
   })
+  @ApiResponse({ status: 404, description: 'Achievement not found.' })
   deleteImage(
     @Param('staffId', new ParseStaffIdPipe()) staffId: string,
     @Param('achievementId', ParseUUIDPipe) achievementId: string,
@@ -391,12 +403,13 @@ export class MyAchievementController {
   @UseInterceptors(imageUploadInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: 'Create my staff achievement with a required proof image',
+    summary:
+      'Create my staff achievement (proof image required only for the first, auto-highlighted one)',
   })
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['title', 'image'],
+      required: ['title'],
       properties: {
         title: { type: 'string' },
         sortOrder: { type: 'integer' },
@@ -404,8 +417,12 @@ export class MyAchievementController {
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Created achievement with proof image.' })
-  @ApiResponse({ status: 400, description: 'Missing title or proof image.' })
+  @ApiResponse({ status: 201, description: 'Created achievement.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Missing title, invalid image, or first (highlight) achievement without image.',
+  })
   async create(
     @CurrentUser() user: JwtPayload,
     @Body() body: CreateAchievementDto,
@@ -468,7 +485,12 @@ export class MyAchievementController {
   @ApiParam({ name: 'achievementId', description: 'Achievement UUID' })
   @ApiResponse({
     status: 200,
-    description: 'Danh sách thành tích sau khi đổi, thành tích nổi bật đứng đầu.',
+    description:
+      'Danh sách thành tích sau khi đổi, thành tích nổi bật đứng đầu.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Thành tích chưa có ảnh minh chứng thì không gắn sao được.',
   })
   @ApiResponse({ status: 404, description: 'Achievement not found.' })
   async setHighlight(
@@ -512,13 +534,15 @@ export class MyAchievementController {
   @Delete(':achievementId/image')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Reject clearing my staff achievement proof image',
+    summary: 'Clear my non-highlight staff achievement proof image',
   })
   @ApiParam({ name: 'achievementId', description: 'Achievement UUID' })
+  @ApiResponse({ status: 200, description: 'Achievement without image.' })
   @ApiResponse({
     status: 400,
-    description: 'Staff proof images can be replaced, not removed.',
+    description: 'Highlight achievement image can be replaced, not removed.',
   })
+  @ApiResponse({ status: 404, description: 'Achievement not found.' })
   async deleteImage(
     @CurrentUser() user: JwtPayload,
     @Param('achievementId', ParseUUIDPipe) achievementId: string,

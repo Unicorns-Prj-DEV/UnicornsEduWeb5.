@@ -37,18 +37,6 @@ describe('AchievementService', () => {
     );
   });
 
-  it('rejects a new staff achievement that has no proof image', async () => {
-    await expect(
-      service.createStaffAchievement('UNISTAFF-x', { title: 'Giải' }, undefined),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('rejects clearing a staff proof image', async () => {
-    await expect(
-      service.deleteStaffAchievementImage('UNISTAFF-x', 'ach-1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
   describe('thành tích nổi bật', () => {
     const makeService = () => {
       const prisma = {
@@ -56,6 +44,13 @@ describe('AchievementService', () => {
           findUnique: jest.fn().mockResolvedValue({ id: 'UNISTAFF-x' }),
         },
         staffAchievement: {
+          count: jest.fn().mockResolvedValue(0),
+          create: jest.fn((args: { data: object }) => ({
+            id: 'new',
+            imagePath: null,
+            imageWatermarkedPath: null,
+            ...args.data,
+          })),
           findMany: jest.fn(),
           findFirst: jest.fn(),
           update: jest.fn((args: unknown) => args),
@@ -73,7 +68,11 @@ describe('AchievementService', () => {
     it('đổi sao: bỏ sao cũ, đưa thành tích mới lên đầu, giữ thứ tự phần còn lại', async () => {
       const { prisma, service } = makeService();
       prisma.staffAchievement.findMany
-        .mockResolvedValueOnce([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
+        .mockResolvedValueOnce([
+          { id: 'a', imagePath: 'a.png' },
+          { id: 'b', imagePath: null },
+          { id: 'c', imagePath: 'c.png' },
+        ])
         .mockResolvedValueOnce([]);
 
       await service.setStaffHighlightAchievement('UNISTAFF-x', 'c');
@@ -91,6 +90,83 @@ describe('AchievementService', () => {
         { where: { id: 'a' }, data: { sortOrder: 1 } },
         { where: { id: 'b' }, data: { sortOrder: 2 } },
       ]);
+    });
+
+    it('thành tích đầu tiên (tự có sao) mà không kèm ảnh thì bị từ chối', async () => {
+      const { prisma, service } = makeService();
+      await expect(
+        service.createStaffAchievement(
+          'UNISTAFF-x',
+          { title: 'Giải' },
+          undefined,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.staffAchievement.create).not.toHaveBeenCalled();
+    });
+
+    it('thành tích thêm sau (không sao) được tạo không cần ảnh', async () => {
+      const { prisma, service } = makeService();
+      prisma.staffAchievement.count.mockResolvedValue(2);
+      prisma.staffAchievement.findFirst.mockResolvedValue({ sortOrder: 1 });
+
+      const row = await service.createStaffAchievement(
+        'UNISTAFF-x',
+        { title: 'Giải phụ' },
+        undefined,
+      );
+
+      expect(prisma.staffAchievement.create).toHaveBeenCalledWith({
+        data: {
+          staffId: 'UNISTAFF-x',
+          title: 'Giải phụ',
+          sortOrder: 2,
+          isHighlight: false,
+        },
+      });
+      expect(row).toMatchObject({ id: 'new', isHighlight: false });
+    });
+
+    it('không gắn sao cho thành tích chưa có ảnh', async () => {
+      const { prisma, service } = makeService();
+      prisma.staffAchievement.findMany.mockResolvedValueOnce([
+        { id: 'a', imagePath: 'a.png' },
+        { id: 'b', imagePath: null },
+      ]);
+      await expect(
+        service.setStaffHighlightAchievement('UNISTAFF-x', 'b'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('không gỡ ảnh của thành tích nổi bật', async () => {
+      const { prisma, service } = makeService();
+      prisma.staffAchievement.findFirst.mockResolvedValue({
+        id: 'a',
+        isHighlight: true,
+        imagePath: 'a.png',
+        imageWatermarkedPath: 'a.webp',
+      });
+      await expect(
+        service.deleteStaffAchievementImage('UNISTAFF-x', 'a'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.staffAchievement.update).not.toHaveBeenCalled();
+    });
+
+    it('gỡ ảnh của thành tích không sao', async () => {
+      const { prisma, service } = makeService();
+      prisma.staffAchievement.findFirst.mockResolvedValue({
+        id: 'b',
+        isHighlight: false,
+        imagePath: 'b.png',
+        imageWatermarkedPath: 'b.webp',
+      });
+
+      await service.deleteStaffAchievementImage('UNISTAFF-x', 'b');
+
+      expect(prisma.staffAchievement.update).toHaveBeenCalledWith({
+        where: { id: 'b' },
+        data: { imagePath: null, imageWatermarkedPath: null },
+      });
     });
 
     it('đổi sao sang thành tích không thuộc hồ sơ thì báo không tìm thấy', async () => {
@@ -130,7 +206,9 @@ describe('AchievementService', () => {
         imagePath: null,
         imageWatermarkedPath: null,
       });
-      prisma.staffAchievement.findMany.mockResolvedValue([{ id: 'b' }]);
+      prisma.staffAchievement.findMany.mockResolvedValue([
+        { id: 'b', imagePath: 'b.png' },
+      ]);
 
       await service.deleteStaffAchievement('UNISTAFF-x', 'a');
 
@@ -138,6 +216,23 @@ describe('AchievementService', () => {
         where: { id: 'b' },
         data: { isHighlight: true },
       });
+    });
+
+    it('dòng còn lại duy nhất chưa có ảnh thì không tự có sao', async () => {
+      const { prisma, service } = makeService();
+      prisma.staffAchievement.findFirst.mockResolvedValue({
+        id: 'a',
+        isHighlight: true,
+        imagePath: null,
+        imageWatermarkedPath: null,
+      });
+      prisma.staffAchievement.findMany.mockResolvedValue([
+        { id: 'b', imagePath: null },
+      ]);
+
+      await service.deleteStaffAchievement('UNISTAFF-x', 'a');
+
+      expect(prisma.staffAchievement.update).not.toHaveBeenCalled();
     });
 
     it('xoá thành tích nổi bật còn từ 2 dòng thì không tự chọn', async () => {

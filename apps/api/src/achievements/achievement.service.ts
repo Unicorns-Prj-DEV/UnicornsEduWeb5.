@@ -233,22 +233,28 @@ export class AchievementService {
     dto: CreateAchievementDto,
     file: UploadableFile | undefined,
   ) {
-    if (!file) {
-      throw new BadRequestException(
-        'Thành tích nhân sự phải kèm ảnh minh chứng.',
-      );
+    if (file) {
+      validateImageFile(file, 'Ảnh minh chứng');
     }
-    validateImageFile(file, 'Ảnh minh chứng');
     await this.assertStaffExists(staffId);
     const title = this.normalizeTitle(dto.title);
-    const sortOrder = dto.sortOrder ?? (await this.nextStaffSortOrder(staffId));
-    // Thành tích đầu tiên của hồ sơ tự là nổi bật (không có gì để chọn).
+    // Thành tích đầu tiên của hồ sơ tự là nổi bật (không có gì để chọn), mà
+    // thành tích nổi bật bắt buộc có ảnh. Các thành tích sau ảnh tuỳ chọn.
     const isHighlight =
       (await this.prisma.staffAchievement.count({ where: { staffId } })) === 0;
+    if (isHighlight && !file) {
+      throw new BadRequestException(
+        'Thành tích đầu tiên là thành tích nổi bật nên phải kèm ảnh minh chứng.',
+      );
+    }
+    const sortOrder = dto.sortOrder ?? (await this.nextStaffSortOrder(staffId));
 
     const row = await this.prisma.staffAchievement.create({
       data: { staffId, title, sortOrder, isHighlight },
     });
+    if (!file) {
+      return this.toStaffDto(row);
+    }
     try {
       return await this.uploadStaffAchievementImage(staffId, row.id, file);
     } catch (error) {
@@ -403,16 +409,17 @@ export class AchievementService {
   }
 
   /**
-   * Xoá thành tích nổi bật mà chỉ còn đúng một thành tích thì thành tích đó tự
-   * là nổi bật. Còn từ hai trở lên thì để trống — gia sư phải tự chọn lại.
+   * Xoá thành tích nổi bật mà chỉ còn đúng một thành tích (đã có ảnh) thì thành
+   * tích đó tự là nổi bật. Còn từ hai trở lên, hoặc dòng còn lại chưa có ảnh,
+   * thì để trống — gia sư phải tự gắn ảnh / chọn lại.
    */
   private async highlightSoleRemainingStaffAchievement(staffId: string) {
     const remaining = await this.prisma.staffAchievement.findMany({
       where: { staffId },
-      select: { id: true },
+      select: { id: true, imagePath: true },
       take: 2,
     });
-    if (remaining.length !== 1) return;
+    if (remaining.length !== 1 || !remaining[0].imagePath) return;
     await this.prisma.staffAchievement.update({
       where: { id: remaining[0].id },
       data: { isHighlight: true },
@@ -428,10 +435,16 @@ export class AchievementService {
     const rows = await this.prisma.staffAchievement.findMany({
       where: { staffId },
       orderBy: STAFF_ACHIEVEMENT_ORDER_BY,
-      select: { id: true },
+      select: { id: true, imagePath: true },
     });
-    if (!rows.some((row) => row.id === achievementId)) {
+    const target = rows.find((row) => row.id === achievementId);
+    if (!target) {
       throw new NotFoundException('Achievement not found.');
+    }
+    if (!target.imagePath) {
+      throw new BadRequestException(
+        'Thành tích nổi bật phải có ảnh minh chứng. Hãy tải ảnh lên trước khi gắn sao.',
+      );
     }
     const orderedIds = [
       achievementId,
@@ -629,13 +642,31 @@ export class AchievementService {
     return this.toStudentDto(row);
   }
 
-  async deleteStaffAchievementImage(
-    _staffId: string,
-    _achievementId: string,
-  ): Promise<never> {
-    throw new BadRequestException(
-      'Không gỡ ảnh minh chứng của thành tích nhân sự. Hãy thay ảnh khác hoặc xoá cả thành tích.',
+  async deleteStaffAchievementImage(staffId: string, achievementId: string) {
+    const existing = await this.prisma.staffAchievement.findFirst({
+      where: { id: achievementId, staffId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Achievement not found.');
+    }
+    if (existing.isHighlight) {
+      throw new BadRequestException(
+        'Không gỡ ảnh minh chứng của thành tích nổi bật. Hãy thay ảnh khác hoặc đổi sao sang thành tích khác.',
+      );
+    }
+    if (!existing.imagePath && !existing.imageWatermarkedPath) {
+      return this.toStaffDto(existing);
+    }
+
+    await this.removeAchievementImages(
+      existing.imagePath,
+      existing.imageWatermarkedPath,
     );
+    const row = await this.prisma.staffAchievement.update({
+      where: { id: achievementId },
+      data: { imagePath: null, imageWatermarkedPath: null },
+    });
+    return this.toStaffDto(row);
   }
 
   async deleteStudentAchievementImage(

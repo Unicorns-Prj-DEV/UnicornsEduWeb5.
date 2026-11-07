@@ -47,6 +47,7 @@ import { useRefreshAuthSession } from "@/hooks/use-refresh-auth-session";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { downloadAvatar, suggestAvatarFilename } from "@/lib/avatar";
+import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 import {
   HighlightAchievementBadge,
   HighlightAchievementGuide,
@@ -212,16 +213,20 @@ function HighlightStarButton({
   busy: boolean;
   onHighlight: (id: string) => void;
 }) {
+  // Thành tích nổi bật bắt buộc có ảnh: dòng chưa có ảnh không gắn sao được.
+  const missingImage = !item.isHighlight && !item.imageUrl;
   const label = item.isHighlight
     ? "Thành tích nổi bật (đang hiển thị trên website)"
-    : "Đặt làm thành tích nổi bật";
+    : missingImage
+      ? "Tải ảnh minh chứng lên trước khi đặt làm thành tích nổi bật"
+      : "Đặt làm thành tích nổi bật";
   return (
     <button
       type="button"
       onClick={() => {
-        if (!item.isHighlight) onHighlight(item.id);
+        if (!item.isHighlight && !missingImage) onHighlight(item.id);
       }}
-      disabled={busy}
+      disabled={busy || missingImage}
       aria-pressed={item.isHighlight}
       aria-label={label}
       title={label}
@@ -361,7 +366,7 @@ function SortableStaffRow({
           onClearImage={onClearImage}
           onPreviewImage={onPreviewImage}
           onDelete={onDelete}
-          allowClearImage={false}
+          allowClearImage={!item.isHighlight}
         />
       </div>
     </li>
@@ -646,7 +651,8 @@ export default function AchievementListEditor({
       await Promise.all([invalidate(), refreshSelfProfileGate()]);
       toast.success("Đã thêm thành tích.");
     },
-    onError: () => toast.error("Không thể thêm thành tích."),
+    onError: (error) =>
+      toast.error(getMutationErrorMessage(error, "Không thể thêm thành tích.")),
   });
 
   const updateMutation = useMutation({
@@ -693,9 +699,11 @@ export default function AchievementListEditor({
       await refreshSelfProfileGate();
       toast.success("Đã đổi thành tích nổi bật.");
     },
-    onError: async () => {
+    onError: async (error) => {
       await invalidate();
-      toast.error("Không thể đổi thành tích nổi bật.");
+      toast.error(
+        getMutationErrorMessage(error, "Không thể đổi thành tích nổi bật."),
+      );
     },
   });
 
@@ -716,7 +724,10 @@ export default function AchievementListEditor({
       await invalidate();
       toast.success("Đã xoá ảnh minh chứng.");
     },
-    onError: () => toast.error("Không thể xoá ảnh minh chứng."),
+    onError: (error) =>
+      toast.error(
+        getMutationErrorMessage(error, "Không thể xoá ảnh minh chứng."),
+      ),
   });
 
   const busy =
@@ -755,6 +766,9 @@ export default function AchievementListEditor({
     setIsEditing(false);
     setNewTitle("");
   };
+
+  // Thành tích đầu tiên tự là nổi bật nên bắt buộc ảnh; thêm sau thì tuỳ chọn.
+  const newStaffNeedsImage = items.length === 0;
 
   const canCreateStudent =
     draftStudent.award.trim().length > 0 &&
@@ -893,7 +907,9 @@ export default function AchievementListEditor({
       {canMutate && !isStudent ? (
         <div className="space-y-2 rounded-lg border border-dashed border-border-default p-3">
           <p className="text-xs font-medium text-text-secondary">
-            Thêm thành tích (bắt buộc kèm ảnh minh chứng)
+            {newStaffNeedsImage
+              ? "Thêm thành tích (thành tích đầu tiên là thành tích nổi bật, bắt buộc kèm ảnh minh chứng)"
+              : "Thêm thành tích"}
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
@@ -911,7 +927,11 @@ export default function AchievementListEditor({
             >
               <ImagePlus className="h-4 w-4" aria-hidden />
               <span className="text-xs">
-                {newTitleFile ? "Đã chọn ảnh" : "Chọn ảnh minh chứng"}
+                {newTitleFile
+                  ? "Đã chọn ảnh"
+                  : newStaffNeedsImage
+                    ? "Chọn ảnh minh chứng"
+                    : "Chọn ảnh minh chứng (tuỳ chọn)"}
               </span>
               <input
                 type="file"
@@ -925,12 +945,16 @@ export default function AchievementListEditor({
             </label>
             <button
               type="button"
-              disabled={busy || !newTitle.trim() || !newTitleFile}
+              disabled={
+                busy || !newTitle.trim() || (newStaffNeedsImage && !newTitleFile)
+              }
               onClick={() => {
                 const title = newTitle.trim();
-                if (title && newTitleFile) {
-                  createMutation.mutate({ payload: { title }, file: newTitleFile });
-                }
+                if (!title || (newStaffNeedsImage && !newTitleFile)) return;
+                createMutation.mutate({
+                  payload: { title },
+                  file: newTitleFile ?? undefined,
+                });
               }}
               className={`${iconBtnClass} bg-primary text-text-inverse hover:bg-primary/90 disabled:opacity-50`}
               aria-label="Thêm thành tích"
