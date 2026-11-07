@@ -29,8 +29,8 @@ export function HighlightAchievementGuide({
           aria-hidden
         />
         <span>
-          Thành tích gắn sao là thành tích hiển thị trên website Unicorns. Bấm
-          ngôi sao ở dòng khác để đổi.
+          Thành tích gắn sao là thành tích hiển thị trên website Unicorns, bắt
+          buộc có ảnh minh chứng. Bấm ngôi sao ở dòng khác (đã có ảnh) để đổi.
         </span>
       </p>
     );
@@ -43,10 +43,11 @@ export function HighlightAchievementGuide({
         Chọn 1 thành tích cao nhất của bạn
       </AlertTitle>
       <AlertDescription className="text-text-primary">
-        Bấm <strong>ngôi sao</strong> ở thành tích quan trọng nhất. Thành tích
-        này sẽ hiện trên website Unicorns cạnh ảnh của bạn và luôn đứng đầu danh
-        sách. <strong>Bắt buộc với gia sư</strong> — chưa chọn thì chưa dùng
-        được hệ thống.
+        Bấm <strong>ngôi sao</strong> ở thành tích quan trọng nhất (phải có ảnh
+        minh chứng — tải ảnh lên trước nếu chưa có). Thành tích này sẽ hiện trên
+        website Unicorns cạnh ảnh của bạn và luôn đứng đầu danh sách.{" "}
+        <strong>Bắt buộc với gia sư</strong> — chưa chọn thì chưa dùng được hệ
+        thống.
       </AlertDescription>
     </Alert>
   );

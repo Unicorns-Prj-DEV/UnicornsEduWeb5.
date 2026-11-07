@@ -29,6 +29,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Changed
 
+- **Ảnh minh chứng chỉ bắt buộc với thành tích nổi bật**: thành tích nhân sự thêm sau (không sao) không cần ảnh; `POST .../achievements` nhận `image` tuỳ chọn, chỉ thành tích đầu tiên (tự gắn sao) thiếu ảnh mới 400. `PUT .../:id/highlight` từ chối dòng chưa có ảnh; `DELETE .../:id/image` gỡ được ảnh dòng không sao (dòng có sao vẫn 400). Xoá dòng có sao còn 1 dòng chỉ tự gắn sao nếu dòng đó có ảnh. UI `AchievementListEditor`: khoá nút sao trên dòng chưa có ảnh, form thêm chỉ bắt ảnh khi danh sách rỗng, hiện nút gỡ ảnh dòng không sao, toast hiện lý do lỗi từ API. ADR `docs/adr/2026-11-07-staff-achievement-proof-only-for-highlight.md`.
 - **Trang soạn tiết học full chiều rộng**: `LessonWorkspace` (`/admin|staff/courses/[id]/modules/[moduleId]/lessons/*`) bỏ giới hạn `max-w-3xl` (lý thuyết) / `max-w-5xl` (luyện tập), khung soạn thảo giãn hết vùng nội dung; skeleton `loading` khớp theo.
 
 ### Added

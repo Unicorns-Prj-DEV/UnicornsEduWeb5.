@@ -45,16 +45,16 @@ export async function createAchievement(
   file?: File,
 ): Promise<AchievementDto> {
   if (owner.kind === "staff") {
+    // Ảnh chỉ bắt buộc với thành tích đầu tiên (tự là nổi bật); API tự kiểm tra.
     const staffPayload = payload as CreateStaffAchievementPayload;
-    if (!file) {
-      throw new Error("Thành tích nhân sự phải kèm ảnh minh chứng.");
-    }
     const formData = new FormData();
     formData.append("title", staffPayload.title);
     if (staffPayload.sortOrder != null) {
       formData.append("sortOrder", String(staffPayload.sortOrder));
     }
-    formData.append("image", file);
+    if (file) {
+      formData.append("image", file);
+    }
     const response = await api.post<AchievementDto>(
       ownerBasePath(owner),
       formData,

@@ -213,7 +213,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 ### 4.2.1 `staff_achievements`
 
-- Thành tích của nhân sự: nhiều row/title. Tạo mới bắt buộc đúng một ảnh minh chứng trong cùng thao tác; ảnh đã có chỉ được thay, không gỡ. `image_path` vẫn nullable cho dòng backfill thiếu minh chứng.
+- Thành tích của nhân sự: nhiều row/title. Ảnh minh chứng (tối đa 1/row) **chỉ bắt buộc với thành tích nổi bật** (`is_highlight`): thành tích đầu tiên (tự gắn sao) phải kèm ảnh, dòng chưa có ảnh không gắn sao được, ảnh của dòng có sao chỉ thay không gỡ. Dòng không sao ảnh tuỳ chọn, gỡ được. `image_path` nullable (ADR `docs/adr/2026-11-07-staff-achievement-proof-only-for-highlight.md`).
 - Trường chính:
   - `staff_id` (FK → `staff_info.id`, `ON DELETE CASCADE`)
   - `title` (`TEXT`, bắt buộc, không giới hạn cứng)
@@ -223,7 +223,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `is_highlight` (`BOOLEAN`, mặc định `false`): **thành tích nổi bật** (CONTEXT.md) — dòng nhân sự tích sao, hiện trên landing. Tối đa 1 dòng/nhân sự; list luôn sắp `is_highlight DESC, sort_order, created_at` nên dòng có sao đứng đầu, reorder cũng ghim nó ở `sort_order = 0`. Tạo dòng đầu tiên → tự có sao; xoá dòng có sao mà chỉ còn 1 dòng → dòng còn lại tự có sao; còn ≥ 2 dòng thì không tự chọn (gia sư bị gate chặn tới khi chọn lại).
   - `created_at`, `updated_at`
 - Index: `(staff_id, sort_order)`; partial unique `staff_achievements_one_highlight_per_staff` trên `(staff_id) WHERE is_highlight` (migration `20261104090000_staff_highlight_achievement`, đồng thời backfill sao cho nhân sự có đúng 1 thành tích).
-- API: `GET/PATCH/DELETE /staff/:staffId/achievements`, `PUT .../reorder`, `PUT .../:id/highlight` (đặt sao, bỏ sao cũ trong cùng transaction), `POST .../:id/image` (thay ảnh). `POST /staff/:staffId/achievements` nhận multipart `title` + `image` (thiếu ảnh thì 400, và không giữ dòng nếu upload lỗi). `DELETE .../:id/image` của nhân sự trả 400. Self-service cùng rule tại `/users/me/achievements/*`. Không ghi `action_history`.
+- API: `GET/PATCH/DELETE /staff/:staffId/achievements`, `PUT .../reorder`, `PUT .../:id/highlight` (đặt sao, bỏ sao cũ trong cùng transaction; dòng chưa có ảnh → 400), `POST .../:id/image` (tải/thay ảnh). `POST /staff/:staffId/achievements` nhận multipart `title` + `image` tuỳ chọn — thành tích đầu tiên thiếu ảnh thì 400; có ảnh mà upload lỗi thì không giữ dòng. `DELETE .../:id/image` gỡ ảnh dòng không sao; dòng có sao → 400. Self-service cùng rule tại `/users/me/achievements/*`. Không ghi `action_history`.
 - Backfill từ `staff_info.specialization`: tách bullet Markdown (`-` / `*` / `•`, kể cả `-Giải` không space; chèn newline trước pattern `.- ` bị dính), bỏ header ngắn kết thúc bằng `:`; nếu không có bullet thì mỗi dòng non-empty là 1 row; cuối cùng fallback cả khối text. Không backfill `personal_achievement_link`.
 - Watermark twins: script `apps/api/scripts/backfill-watermarked-images.ts`; ADR landing watermark.
 - ADR: `docs/adr/2026-08-11-achievement-separate-owner-tables.md`, `...-single-image-per-row.md`, `...-gate-and-legacy-columns.md`, `...-landing-watermarked-public-images.md`, `docs/adr/2026-10-01-staff-achievement-proof-required.md`, `docs/adr/2026-11-04-staff-highlight-achievement.md`
