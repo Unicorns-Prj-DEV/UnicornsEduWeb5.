@@ -3157,10 +3157,10 @@ describe('StaffService', () => {
     );
   });
 
-  it('returns all active teachers for landing and counts with the same filter', async () => {
+  it('returns teachers across all statuses for landing and counts with the same filter', async () => {
     mockPrisma.staffInfo.count.mockResolvedValue(125);
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
-    const where = { status: StaffStatus.active, roles: { has: StaffRole.teacher } };
+    const where = { roles: { has: StaffRole.teacher } };
 
     await expect(service.getLandingProfiles({}, true)).resolves.toEqual({ data: [], total: 125 });
     await expect(service.getLandingTutorCount()).resolves.toEqual({ total: 125 });

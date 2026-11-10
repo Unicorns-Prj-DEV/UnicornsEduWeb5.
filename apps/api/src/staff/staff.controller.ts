@@ -297,9 +297,9 @@ export class StaffController {
   @Roles()
   @UseGuards(ApiKeyGuard)
   @Throttle({ default: { limit: 30, ttl: 60000 } })
-  @ApiOperation({ summary: 'Count active landing tutors' })
+  @ApiOperation({ summary: 'Count landing tutors, including inactive teachers' })
   @ApiHeader({ name: LANDING_API_KEY_HEADER, required: true })
-  @ApiResponse({ status: 200, description: 'Total active teachers.' })
+  @ApiResponse({ status: 200, description: 'Total teachers across all statuses.' })
   @ApiResponse({ status: 401, description: 'Missing or invalid API key.' })
   async getLandingTutorCount() {
     return this.staffService.getLandingTutorCount();
@@ -310,7 +310,7 @@ export class StaffController {
   @Roles()
   @UseGuards(ApiKeyGuard)
   @Throttle({ default: { limit: 30, ttl: 60000 } })
-  @ApiOperation({ summary: 'List all active landing tutors without pagination' })
+  @ApiOperation({ summary: 'List all landing tutors without pagination, including inactive teachers' })
   @ApiHeader({ name: LANDING_API_KEY_HEADER, required: true })
   @ApiResponse({ status: 200, type: StaffLandingProfilesResponseDto })
   @ApiResponse({ status: 401, description: 'Missing or invalid API key.' })
