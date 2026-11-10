@@ -3157,6 +3157,20 @@ describe('StaffService', () => {
     );
   });
 
+  it('returns all active teachers for landing and counts with the same filter', async () => {
+    mockPrisma.staffInfo.count.mockResolvedValue(125);
+    mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+    const where = { status: StaffStatus.active, roles: { has: StaffRole.teacher } };
+
+    await expect(service.getLandingProfiles({}, true)).resolves.toEqual({ data: [], total: 125 });
+    await expect(service.getLandingTutorCount()).resolves.toEqual({ total: 125 });
+    expect(mockPrisma.staffInfo.count).toHaveBeenCalledWith({ where });
+    const args = mockPrisma.staffInfo.findMany.mock.calls.at(-1)?.[0];
+    expect(args).toEqual(expect.objectContaining({ where }));
+    expect(args).not.toHaveProperty('skip');
+    expect(args).not.toHaveProperty('take');
+  });
+
   it('getLandingProfiles applies page skip and name search', async () => {
     mockPrisma.staffInfo.count.mockResolvedValue(25);
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);

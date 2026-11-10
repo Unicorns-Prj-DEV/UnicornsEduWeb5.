@@ -1440,7 +1440,14 @@ export class StaffService {
     };
   }
 
-  async getLandingProfiles(query: StaffLandingProfileQueryDto) {
+  async getLandingTutorCount() {
+    const total = await this.prisma.staffInfo.count({
+      where: { status: StaffStatus.active, roles: { has: StaffRole.teacher } },
+    });
+    return { total };
+  }
+
+  async getLandingProfiles(query: StaffLandingProfileQueryDto, tutorsOnly = false) {
     // Landing sync intentionally ignores status + role (all staff rows);
     // `roles` is returned so the landing site can show only tutors (`teacher`).
     const limit =
@@ -1455,6 +1462,7 @@ export class StaffService {
     const ids = parseCommaSeparatedIds(query.ids);
 
     const where: Prisma.StaffInfoWhereInput = {
+      ...(tutorsOnly ? { status: StaffStatus.active, roles: { has: StaffRole.teacher } } : {}),
       ...(ids.length > 0 ? { id: { in: ids } } : {}),
       ...buildNameSearchWhere(query.search),
     };
@@ -1463,8 +1471,7 @@ export class StaffService {
       this.prisma.staffInfo.count({ where }),
       this.prisma.staffInfo.findMany({
         where,
-        skip,
-        take: limit,
+        ...(tutorsOnly ? {} : { skip, take: limit }),
         orderBy: [
           { user: { first_name: 'asc' } },
           { user: { last_name: 'asc' } },
