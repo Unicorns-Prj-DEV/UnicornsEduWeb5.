@@ -9,8 +9,8 @@ Server-to-server endpoints that expose **public-safe identity fields** from Unic
 | Endpoint | Used for |
 |----------|----------|
 | `GET /staff/landing-profiles` | CMS browse + public instructor cards. Supports `page`, `limit`, `search`, `ids`. |
-| `GET /staff/landing-tutors` | All active staff with the `teacher` role, without pagination; returns `{ data, total }` using the same profile fields. |
-| `GET /staff/landing-tutors/count` | Count of active staff with the `teacher` role; returns `{ total }`. |
+| `GET /staff/landing-tutors` | All staff with the `teacher` role, including inactive tutors, without pagination; returns `{ data, total }` using the same profile fields. |
+| `GET /staff/landing-tutors/count` | Count of staff with the `teacher` role across all statuses; returns `{ total }`. |
 | `GET /student/landing-profiles` | CMS browse + public showcase/gallery/featured identity. Supports `page`, `limit`, `search`, `ids`. |
 | `GET /student/landing-achievements` | Public `/thanh-tich` + homepage marquee. Flat achievements filtered by CMS published `sourceIds`. |
 

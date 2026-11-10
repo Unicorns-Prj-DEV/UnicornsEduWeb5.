@@ -1442,7 +1442,7 @@ export class StaffService {
 
   async getLandingTutorCount() {
     const total = await this.prisma.staffInfo.count({
-      where: { status: StaffStatus.active, roles: { has: StaffRole.teacher } },
+      where: { roles: { has: StaffRole.teacher } },
     });
     return { total };
   }
@@ -1462,7 +1462,7 @@ export class StaffService {
     const ids = parseCommaSeparatedIds(query.ids);
 
     const where: Prisma.StaffInfoWhereInput = {
-      ...(tutorsOnly ? { status: StaffStatus.active, roles: { has: StaffRole.teacher } } : {}),
+      ...(tutorsOnly ? { roles: { has: StaffRole.teacher } } : {}),
       ...(ids.length > 0 ? { id: { in: ids } } : {}),
       ...buildNameSearchWhere(query.search),
     };
