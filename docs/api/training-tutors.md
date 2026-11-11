@@ -82,7 +82,7 @@ Policy thuần `planTrainingHeadRoleChange` (`staff/training-head-role-policy.ts
 | --- | --- |
 | Người gọi không phải staff `active` có `training_head` | `403` |
 | Target là chính người gọi | `403` |
-| Target có `admin`, `assistant` hoặc `training_head` | `403` |
+| Target có `admin`, `assistant` hoặc `training_head`, hoặc là tài khoản `users.role_type = admin` | `403` |
 | Body chứa role ngoài 3 role trên | `403` |
 | Kết quả không còn role nào | `400` |
 | Target không tồn tại | `404` |

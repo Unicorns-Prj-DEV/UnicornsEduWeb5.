@@ -27,12 +27,15 @@ export function planTrainingHeadRoleChange(params: {
   actorStaffId: string;
   targetStaffId: string;
   targetRoles: readonly StaffRole[];
+  /** `users.role_type = admin`: tài khoản admin hệ thống, có thể không mang `StaffRole.admin`. */
+  targetIsAdminAccount: boolean;
   requestedRoles: readonly StaffRole[];
 }): { nextRoles: StaffRole[]; added: StaffRole[]; removed: StaffRole[] } {
   if (params.actorStaffId === params.targetStaffId) {
     throw new ForbiddenException('Không thể tự chỉnh role của chính mình.');
   }
   if (
+    params.targetIsAdminAccount ||
     params.targetRoles.some((role) =>
       TRAINING_HEAD_PROTECTED_TARGET_ROLES.includes(role),
     )

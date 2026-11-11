@@ -2,7 +2,11 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { StaffRole } from 'generated/enums';
 import { planTrainingHeadRoleChange } from './training-head-role-policy';
 
-const base = { actorStaffId: 'HEAD', targetStaffId: 'T1' };
+const base = {
+  actorStaffId: 'HEAD',
+  targetStaffId: 'T1',
+  targetIsAdminAccount: false,
+};
 
 describe('planTrainingHeadRoleChange', () => {
   it('bật/tắt 3 role quản lý được, giữ role khác và thứ tự cũ', () => {
@@ -41,6 +45,17 @@ describe('planTrainingHeadRoleChange', () => {
     ).toThrow(ForbiddenException);
   });
 
+  it('chặn tài khoản admin hệ thống dù staff không mang role admin', () => {
+    expect(() =>
+      planTrainingHeadRoleChange({
+        ...base,
+        targetIsAdminAccount: true,
+        targetRoles: [StaffRole.communication],
+        requestedRoles: [StaffRole.teacher],
+      }),
+    ).toThrow(ForbiddenException);
+  });
+
   it.each([StaffRole.admin, StaffRole.assistant, StaffRole.training_head])(
     '403 khi target có role %s',
     (role) => {
@@ -59,6 +74,7 @@ describe('planTrainingHeadRoleChange', () => {
       planTrainingHeadRoleChange({
         actorStaffId: 'HEAD',
         targetStaffId: 'HEAD',
+        targetIsAdminAccount: false,
         targetRoles: [StaffRole.teacher],
         requestedRoles: [],
       }),

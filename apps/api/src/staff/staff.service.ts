@@ -6092,6 +6092,7 @@ export class StaffService {
             last_name: true,
             accountHandle: true,
             email: true,
+            roleType: true,
           },
         },
       },
@@ -6104,6 +6105,7 @@ export class StaffService {
       actorStaffId: actor.id,
       targetStaffId: target.id,
       targetRoles: target.roles,
+      targetIsAdminAccount: target.user?.roleType === UserRole.admin,
       requestedRoles: data.roles,
     });
     if (plan.added.length === 0 && plan.removed.length === 0) {

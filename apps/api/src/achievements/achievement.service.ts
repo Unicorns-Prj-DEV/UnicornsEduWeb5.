@@ -579,12 +579,12 @@ export class AchievementService {
         beforeValue: {
           staffId,
           highlightAchievementId: previous?.id ?? null,
-          highlightTitle: previous?.title ?? null,
+          title: previous?.title ?? null,
         },
         afterValue: {
           staffId,
           highlightAchievementId: achievementId,
-          highlightTitle: target.title,
+          title: target.title,
         },
       });
     }
