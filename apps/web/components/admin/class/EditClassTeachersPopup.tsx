@@ -155,18 +155,9 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
 
   const { data: trainingManagerSearchResult, isLoading: isTrainingManagerLoading } =
     useQuery({
-      queryKey: [
-        "staff",
-        "training-manager-options",
-        { page: 1, limit: 50 },
-      ],
-      queryFn: () =>
-        staffApi.getStaff({
-          page: 1,
-          limit: 50,
-          role: "training",
-          status: "active",
-        }),
+      // Ban Đào Tạo đang active: `training` hoặc `training_head` (backend lọc).
+      queryKey: ["staff", "training-manager-options", { limit: 50 }],
+      queryFn: () => trainingManagerApi.getTrainingManagerOptions({ limit: 50 }),
       staleTime: 60_000,
     });
 
@@ -264,14 +255,14 @@ function EditClassTeachersDialog({ onClose, classDetail }: Omit<Props, "open">) 
 
   const staffList = staffSearchResult?.data ?? [];
   const availableStaff = staffList.filter((s) => !selectedTeachers.some((t) => t.id === s.id));
-  const trainingStaffOptions = (trainingManagerSearchResult?.data ?? []).map(
+  const trainingStaffOptions = (trainingManagerSearchResult ?? []).map(
     (staff) => ({
       value: staff.id,
       label: staff.fullName?.trim() || staff.id,
     }),
   );
   // Gia sư kiêm quản lý: gia sư đang chọn của lớp chưa thuộc Ban Đào Tạo
-  // cũng được chọn; backend tự cấp role `training` khi lưu.
+  // cũng được chọn; backend tự cấp role `training` khi lưu (trừ Trưởng ban).
   const classTeacherOptions = selectedTeachers
     .filter((t) => !trainingStaffOptions.some((o) => o.value === t.id))
     .map((t) => ({ value: t.id, label: `${t.name} (gia sư lớp)` }));

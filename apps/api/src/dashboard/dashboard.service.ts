@@ -26,6 +26,7 @@ import {
   StaffStatus,
   WalletTransactionType,
 } from 'generated/enums';
+import { hasTrainingAccess } from 'src/common/training-access';
 import {
   type AdminDashboardActionAlertDto,
   type AdminDashboardActionAlertListDto,
@@ -48,6 +49,7 @@ import {
   type AdminDashboardTopupHistoryItemDto,
   type AdminDashboardTrendPointDto,
   type AdminDashboardYearlySummaryDto,
+  type AdminDashboardStudentDemographicsDto,
   GetAdminDashboardQueryDto,
   GetAdminDashboardActionAlertsQueryDto,
   GetAdminDashboardFinancialDetailQueryDto,
@@ -83,6 +85,12 @@ import {
 import { DashboardCacheService } from '../cache/dashboard-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { getUserFullNameFromParts } from '../common/user-name.util';
+import {
+  aggregateStudentDemographics,
+  type RawStudentDemographicsRow,
+  type RawCourseRow,
+  type RawStudentRevenueRow,
+} from './student-demographics.util';
 import {
   SQL_TEACHER_SESSION_AFTER_OPERATING,
   SQL_TEACHER_SESSION_CAP_GROUP_BY,
@@ -4625,7 +4633,7 @@ export class DashboardService {
                 year: range.year,
               })
             : Promise.resolve(undefined),
-          normalizedRoles.includes(StaffRole.training)
+          hasTrainingAccess(normalizedRoles)
             ? this.getTrainingSection(params.staffId, todayRange)
             : Promise.resolve(undefined),
         ]);
@@ -4804,7 +4812,7 @@ export class DashboardService {
               },
               {
                 key: 'lessonPlanHeadCost',
-                label: 'Hoa hồng Trưởng giáo án',
+                label: 'Hoa hồng Trưởng chuyên môn',
                 kind: 'expense',
                 amount: rangeTotals.lessonPlanHeadCost,
               },
@@ -5010,7 +5018,7 @@ export class DashboardService {
             },
             {
               key: 'lessonPlanHeadCost',
-              label: 'Hoa hồng Trưởng giáo án',
+              label: 'Hoa hồng Trưởng chuyên môn',
               kind: 'expense',
               amount: selectedMonthTrend.lessonPlanHeadCost,
             },
@@ -5124,19 +5132,13 @@ export class DashboardService {
   async getAdminActionAlerts(
     query: GetAdminDashboardActionAlertsQueryDto,
   ): Promise<AdminDashboardActionAlertListDto> {
-    const period = resolveFinancialPeriod({
+    void resolveFinancialPeriod({
       month: query.month,
       year: query.year,
     });
     const page = typeof query.page === 'number' ? query.page : 1;
     const limit = typeof query.limit === 'number' ? query.limit : 20;
     const offset = (page - 1) * limit;
-    const dashboardPeriod = {
-      monthStart: period.monthStart,
-      monthEnd: period.monthEnd,
-      fromMonthKey: period.fromMonthKey,
-      toMonthKeyExclusive: period.toMonthKeyExclusive,
-    };
 
     switch (query.group) {
       case 'expiring': {
@@ -5683,9 +5685,9 @@ export class DashboardService {
                 },
                 {
                   key: 'pending-lesson-plan-head',
-                  label: 'Hoa hồng Trưởng giáo án chưa thanh toán',
+                  label: 'Hoa hồng Trưởng chuyên môn chưa thanh toán',
                   amount: totalLessonPlanHeadAmount,
-                  note: 'Hoa hồng % doanh thu của Trưởng giáo án ở trạng thái chưa chi trả.',
+                  note: 'Hoa hồng % doanh thu của Trưởng chuyên môn ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
               ]),
@@ -5817,9 +5819,9 @@ export class DashboardService {
                   },
                   {
                     key: 'lesson-plan-head-cost',
-                    label: 'Hoa hồng Trưởng giáo án',
+                    label: 'Hoa hồng Trưởng chuyên môn',
                     amount: selectedMonthTrend.lessonPlanHeadCost,
-                    note: 'Hoa hồng % doanh thu của Trưởng giáo án theo buổi học trong kỳ.',
+                    note: 'Hoa hồng % doanh thu của Trưởng chuyên môn theo buổi học trong kỳ.',
                     tone: 'negative',
                   },
                 ],
@@ -6762,6 +6764,97 @@ export class DashboardService {
           toMonthKey,
           months,
         };
+      },
+    });
+  }
+
+  /**
+   * Thống kê học sinh active theo khu vực tỉnh thành, năm sinh và Category của lớp đang học.
+   */
+  async getStudentDemographics(
+    status: 'all' | 'active' | 'inactive' = 'all',
+  ): Promise<AdminDashboardStudentDemographicsDto> {
+    // v2: payload thêm doanh thu, byCourse, students, dataQuality.
+    const cacheKey = buildCacheKey('student-demographics-v2', {
+      status,
+    });
+
+    return this.dashboardCacheService.wrapJson({
+      key: cacheKey,
+      cacheType: 'student-demographics',
+      ttlSeconds: 30,
+      loader: async () => {
+        let statusCondition = Prisma.empty;
+        if (status === 'active') {
+          statusCondition = Prisma.sql`WHERE si.status = 'active'`;
+        } else if (status === 'inactive') {
+          statusCondition = Prisma.sql`WHERE si.status = 'inactive'`;
+        }
+
+        const [studentRows, courseRows, revenueRows] = await Promise.all([
+          this.prisma.$queryRaw<RawStudentDemographicsRow[]>(Prisma.sql`
+            SELECT
+              si.id AS "studentId",
+              si.full_name AS "fullName",
+              si.status::text AS "status",
+              si.school AS "school",
+              si.province AS "province",
+              si.birth_year AS "birthYear",
+              c.id AS "classId",
+              c.name AS "className",
+              co.id AS "courseId",
+              co.name AS "courseName",
+              co.sort_order AS "courseSortOrder",
+              COALESCE(wt."totalTopup", 0) AS "totalTopup"
+            FROM student_info si
+            LEFT JOIN student_classes sc ON sc.student_id = si.id
+            LEFT JOIN classes c ON c.id = sc.class_id
+            LEFT JOIN courses co ON co.id = c.course_id
+            LEFT JOIN (
+              SELECT
+                student_id,
+                COALESCE(SUM(amount), 0) AS "totalTopup"
+              FROM wallet_transactions_history
+              WHERE type::text = 'topup' AND amount > 0
+              GROUP BY student_id
+            ) wt ON wt.student_id = si.id
+            ${statusCondition}
+            ORDER BY si.id ASC
+          `),
+          this.prisma.$queryRaw<RawCourseRow[]>(Prisma.sql`
+            SELECT
+              id,
+              name,
+              sort_order AS "sortOrder"
+            FROM courses
+            WHERE is_active = true
+            ORDER BY sort_order ASC, name ASC
+          `),
+          // Doanh thu = học phí đã học (cùng định nghĩa KPI Doanh thu dashboard),
+          // toàn thời gian, gán theo khoá của lớp có buổi học.
+          this.prisma.$queryRaw<RawStudentRevenueRow[]>(Prisma.sql`
+            SELECT
+              attendance.student_id AS "studentId",
+              classes.course_id AS "courseId",
+              courses.name AS "courseName",
+              COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS "revenue",
+              COUNT(*)::int AS "attendanceCount"
+            FROM attendance
+            INNER JOIN sessions ON sessions.id = attendance.session_id
+            INNER JOIN classes ON classes.id = sessions.class_id
+            LEFT JOIN courses ON courses.id = classes.course_id
+            WHERE attendance.status IN ('present', 'excused')
+            GROUP BY attendance.student_id, classes.course_id, courses.name
+          `),
+        ]);
+
+        return aggregateStudentDemographics(
+          studentRows,
+          courseRows,
+          new Date().getFullYear(),
+          status,
+          revenueRows,
+        );
       },
     });
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { hasTrainingAccess } from "@/lib/training-access";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
@@ -17,7 +18,7 @@ import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
+import { LESSON_PLAN_LABEL, ROLE_LABELS } from "@/lib/staff.constants";
 import {
   isGiftedLessonPlanRoute,
   useGiftedLessonPlanEnabled,
@@ -32,6 +33,9 @@ type MenuVisibility = {
   canAccessSurveys: boolean;
   canComposeNotifications: boolean;
   isTraining: boolean;
+  /** Có đúng role `training` / `training_head` — mục thu nhập theo role. */
+  isTrainingRole: boolean;
+  isTrainingHead: boolean;
   /** Ban Đào Tạo đang là quản lý của ít nhất một lớp. */
   hasManagedClasses: boolean;
   isAccountant: boolean;
@@ -205,7 +209,14 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       label: "Đào Tạo",
       icon: <IconCalendar />,
       isActive: (pathname) => pathname.startsWith("/staff/training-detail"),
-      isVisible: ({ isTraining }) => isTraining,
+      isVisible: ({ isTrainingRole }) => isTrainingRole,
+    },
+    {
+      href: "/staff/training-head-detail",
+      label: ROLE_LABELS.training_head,
+      icon: <IconCalendar />,
+      isActive: (pathname) => pathname.startsWith("/staff/training-head-detail"),
+      isVisible: ({ isTrainingHead }) => isTrainingHead,
     },
     {
       href: "/staff/sale-detail",
@@ -571,7 +582,7 @@ export default function StaffSidebar() {
   const isAssistant = hasStaffProfile && staffRoles.includes("assistant");
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
-  const isTraining = staffRoles.includes("training");
+  const isTraining = hasTrainingAccess(staffRoles);
   const canAccessCustomerCareSelf =
     hasStaffProfile && staffRoles.includes("customer_care");
   const lessonWorkspace = resolveStaffLessonWorkspace(fullProfile);
@@ -599,6 +610,8 @@ export default function StaffSidebar() {
     lessonWorkspace.isLessonPlanHead;
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
+  const isTrainingRole = staffRoles.includes("training");
+  const isTrainingHead = staffRoles.includes("training_head");
   const isSale = staffRoles.includes("sale");
   const canComposeNotifications = canPublishNotifications(
     staffRoles,
@@ -619,6 +632,8 @@ export default function StaffSidebar() {
     canAccessSurveys,
     canComposeNotifications,
     isTraining,
+    isTrainingRole,
+    isTrainingHead,
     hasManagedClasses,
     isAccountant,
     isAccountantIncome,

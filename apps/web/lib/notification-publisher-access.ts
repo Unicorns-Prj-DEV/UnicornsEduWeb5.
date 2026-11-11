@@ -1,3 +1,4 @@
+import { TRAINING_ACCESS_ROLES } from "@/lib/training-access";
 /**
  * Staff role được tạo và đẩy thông báo (CONTEXT.md "Tạo push"), khớp
  * `NOTIFICATION_PUBLISHER_STAFF_ROLES` ở backend. Gia sư và CSKH chỉ nhận.
@@ -11,7 +12,7 @@ export const NOTIFICATION_PUBLISHER_STAFF_ROLES = [
   "accountant_expense",
   "communication",
   "technical",
-  "training",
+  ...TRAINING_ACCESS_ROLES,
   "sale",
 ] as const;
 

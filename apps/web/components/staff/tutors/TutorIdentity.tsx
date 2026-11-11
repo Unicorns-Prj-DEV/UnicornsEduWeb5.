@@ -1,15 +1,20 @@
 import UserAvatar from "@/components/ui/UserAvatar";
 import type { TrainingTutorSummary } from "@/dtos/training-tutor.dto";
 import { pickAvatarUrl } from "@/lib/avatar";
+import { ROLE_LABELS } from "@/lib/staff.constants";
+import { formatStaffRoleLabels } from "@/lib/training-head-roles";
 import TutorStatusBadge from "./TutorStatusBadge";
 
 /** Avatar + họ tên + trạng thái + trường; dùng cho thẻ danh sách và đầu hồ sơ. */
 export default function TutorIdentity({
   tutor,
   size = "md",
+  showRoles = false,
 }: {
   tutor: TrainingTutorSummary;
   size?: "md" | "lg";
+  /** Hiện role nhân sự (Trưởng Ban Đào Tạo xem «Tất cả nhân sự»). */
+  showRoles?: boolean;
 }) {
   const name = tutor.fullName.trim() || "Gia sư";
   const schools = [tutor.university, tutor.highSchool]
@@ -36,6 +41,11 @@ export default function TutorIdentity({
         </div>
         {schools ? (
           <p className="truncate text-xs text-text-muted">{schools}</p>
+        ) : null}
+        {showRoles && tutor.roles.length > 0 ? (
+          <p className="text-xs text-text-secondary wrap-anywhere">
+            {formatStaffRoleLabels(tutor.roles, ROLE_LABELS)}
+          </p>
         ) : null}
       </div>
     </div>

@@ -56,6 +56,8 @@ import {
   SearchAssignableStaffUsersDto,
   SearchStaffOptionsDto,
   UpdateStaffDto,
+  UpdateStaffTrainingRolesDto,
+  StaffTrainingRolesResultDto,
   UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
@@ -443,11 +445,16 @@ export class StaffController {
     @Param('payableId', new ParseUUIDPipe()) payableId: string,
     @Body() data: UpdateStaffFixedSalaryPayableDto,
   ) {
-    return this.staffService.updateStaffFixedSalaryPayable(id, payableId, data, {
-      userId: user.id,
-      userEmail: user.email,
-      roleType: user.roleType,
-    });
+    return this.staffService.updateStaffFixedSalaryPayable(
+      id,
+      payableId,
+      data,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
   }
 
   @Get(':id/revenue-share')
@@ -848,6 +855,35 @@ export class StaffController {
         roleType: user.roleType,
       },
     );
+  }
+
+  @Patch(':id/training-roles')
+  @Roles(UserRole.staff)
+  @ApiOperation({
+    summary: 'Trưởng ban đào tạo bật/tắt role gia sư / chuyên môn / đào tạo',
+    description:
+      'Chỉ staff active có role training_head. Body là trạng thái đích của 3 role teacher / lesson_plan / training; role khác của nhân sự giữ nguyên. 403 nếu body có role ngoài 3 role này, nếu target có admin / assistant / training_head, hoặc target là chính mình. Role bị tắt: mức đè lương cứng / % vận hành của role đó bị xoá và ghi action_history; khoản đã chốt/đã trả không đổi; không cascade lớp dạy, quản lý lớp, đội chuyên môn. Response chỉ có id + roles (không tiền, không PII).',
+  })
+  @ApiParam({ name: 'id', description: 'Staff id của nhân sự được chỉnh' })
+  @ApiBody({ type: UpdateStaffTrainingRolesDto })
+  @ApiResponse({ status: 200, description: 'Roles sau khi lưu.' })
+  @ApiResponse({ status: 400, description: 'Bỏ hết role của nhân sự.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Trưởng ban, role ngoài phạm vi, target được bảo vệ hoặc tự chỉnh.',
+  })
+  @ApiResponse({ status: 404, description: 'Staff not found.' })
+  async updateStaffTrainingRoles(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStaffIdPipe()) id: string,
+    @Body() data: UpdateStaffTrainingRolesDto,
+  ): Promise<StaffTrainingRolesResultDto> {
+    return this.staffService.updateStaffTrainingRoles(id, data, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
   }
 
   @Patch(':id/status')

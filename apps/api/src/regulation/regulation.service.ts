@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RegulationAudience, StaffRole, UserRole } from 'generated/enums';
+import { hasTrainingAccess } from 'src/common/training-access';
 import type { JwtPayload } from 'src/auth/decorators/current-user.decorator';
 import {
   ActionHistoryActor,
@@ -30,6 +31,7 @@ const STAFF_ROLE_AUDIENCE_MAP: Record<StaffRole, RegulationAudience> = {
   technical: RegulationAudience.staff_technical,
   customer_care: RegulationAudience.staff_customer_care,
   training: RegulationAudience.staff_training,
+  training_head: RegulationAudience.staff_training_head,
   sale: RegulationAudience.staff_sale,
 };
 const REGULATION_AUTHOR_SELECT = {
@@ -274,11 +276,16 @@ export class RegulationService {
 
     return {
       canManageAll: staffRoles.includes(StaffRole.assistant),
-      visibleAudiences: staffRoles
-        .map((role) => STAFF_ROLE_AUDIENCE_MAP[role])
-        .filter((audience): audience is RegulationAudience =>
-          Boolean(audience),
-        ),
+      visibleAudiences: [
+        ...staffRoles.map((role) => STAFF_ROLE_AUDIENCE_MAP[role]),
+        // Trưởng Ban Đào Tạo có mọi quyền của Ban Đào Tạo, kể cả quy định gửi Đào Tạo.
+        ...(hasTrainingAccess(staffRoles)
+          ? [RegulationAudience.staff_training]
+          : []),
+      ].filter(
+        (audience, index, all): audience is RegulationAudience =>
+          Boolean(audience) && all.indexOf(audience) === index,
+      ),
     };
   }
 

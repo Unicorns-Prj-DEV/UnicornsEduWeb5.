@@ -31,7 +31,11 @@ import {
   type DisabledRoleOverrideWarning,
 } from "@/lib/fixed-salary-settings.helpers";
 import { moneyInputInitialFromNumber } from "@/lib/money-input.helpers";
-import { LESSON_PLAN_LABEL, ROLE_LABELS } from "@/lib/staff.constants";
+import {
+  LESSON_PLAN_HEAD_ROLE_LABEL,
+  LESSON_PLAN_ROLE_LABEL,
+  ROLE_LABELS,
+} from "@/lib/staff.constants";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
 
 type Props = {
@@ -68,14 +72,15 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "teacher", label: "Giáo viên" },
   { value: "assistant", label: "Trợ lí" },
-  { value: "lesson_plan", label: LESSON_PLAN_LABEL },
-  { value: "lesson_plan_head", label: "Trưởng giáo án" },
+  { value: "lesson_plan", label: LESSON_PLAN_ROLE_LABEL },
+  { value: "lesson_plan_head", label: LESSON_PLAN_HEAD_ROLE_LABEL },
   { value: "accountant_income", label: "Kế toán thu" },
   { value: "accountant_expense", label: "Kế toán chi" },
   { value: "communication", label: "Truyền thông" },
   { value: "technical", label: "Kỹ thuật" },
   { value: "customer_care", label: "CSKH" },
-  { value: "training", label: "Đào Tạo" },
+  { value: "training", label: ROLE_LABELS.training },
+  { value: "training_head", label: ROLE_LABELS.training_head },
   { value: "sale", label: "Sale" },
 ];
 
@@ -838,7 +843,7 @@ export default function EditStaffPopup({
                       <StaffFieldRow
                         id="staff-revenue-share"
                         label="% hoa hồng doanh thu"
-                        hint="Trưởng giáo án nhận % này trên tổng doanh thu hệ thống mỗi tháng."
+                        hint="Trưởng chuyên môn nhận % này trên tổng doanh thu hệ thống mỗi tháng."
                       >
                         <input
                           id="staff-revenue-share"

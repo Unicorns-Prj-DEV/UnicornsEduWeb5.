@@ -149,7 +149,7 @@ describe('CourseService – lesson_plan_head scope', () => {
       });
     });
 
-    it('không cho trưởng giáo án đổi cài đặt bán một lần', async () => {
+    it('không cho trưởng chuyên môn đổi cài đặt bán một lần', async () => {
       prisma.courseLessonPlanMember.findUnique.mockResolvedValue({ id: 'm1' });
       await expect(
         service.update(head, course.id, { is_one_time: true } as never),

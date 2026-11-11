@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { resolveTrainingManagerIncomeRole } from 'src/common/training-access';
 import { GoogleCalendarService } from 'src/google-calendar/google-calendar.service';
 import { Prisma } from '../../generated/client';
 import {
@@ -57,7 +58,10 @@ import {
   UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
+  UpdateStaffTrainingRolesDto,
+  StaffTrainingRolesResultDto,
 } from 'src/dtos/staff.dto';
+import { planTrainingHeadRoleChange } from './training-head-role-policy';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { buildNameSearchWhere } from './staff-name-search';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
@@ -93,7 +97,10 @@ import {
   commissionTuitionBasisVnd,
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
-import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
+import {
+  LESSON_PLAN_HEAD_ROLE_LABEL,
+  LESSON_PLAN_ROLE_LABEL,
+} from '../common/lesson-plan-label';
 import { findTeacherSurveyDeadlineBlocks } from '../class/survey-deadline-block';
 import {
   FIRST_SESSION_SELECT,
@@ -159,8 +166,8 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   teacher: 'Giáo viên',
   assistant: 'Trợ lí',
-  lesson_plan: LESSON_PLAN_LABEL,
-  lesson_plan_head: 'Trưởng giáo án',
+  lesson_plan: LESSON_PLAN_ROLE_LABEL,
+  lesson_plan_head: LESSON_PLAN_HEAD_ROLE_LABEL,
   accountant: 'Kế toán',
   accountant_income: 'Kế toán thu',
   accountant_expense: 'Kế toán chi',
@@ -168,6 +175,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   technical: 'Kỹ thuật',
   customer_care: 'CSKH',
   training: 'Đào Tạo',
+  training_head: 'Trưởng ban đào tạo',
   sale: 'Sale',
 };
 
@@ -179,6 +187,7 @@ const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
   StaffRole.communication,
   StaffRole.technical,
   StaffRole.training,
+  StaffRole.training_head,
   StaffRole.sale,
 ]);
 
@@ -2119,6 +2128,7 @@ export class StaffService {
   private async getTrainingManagerAllPendingPreviewRecords(
     db: StaffPaymentClient,
     staffId: string,
+    incomeRole: StaffRole,
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const rows = await db.session.findMany({
       where: {
@@ -2145,7 +2155,7 @@ export class StaffService {
 
     return rows.map((row) => ({
       id: row.id,
-      role: StaffRole.training,
+      role: incomeRole,
       sourceType: 'training_manager',
       sourceLabel: 'Trợ cấp quản lý lớp',
       label: row.class?.name?.trim() || 'Lớp chưa đặt tên',
@@ -2176,6 +2186,32 @@ export class StaffService {
       GROUP BY
         sessions.training_manager_payment_status,
         sessions.training_manager_tax_deduction_rate_percent
+    `);
+  }
+
+  /**
+   * Hoa hồng doanh thu Trưởng giáo án (snapshot `lesson_plan_head_commission`) theo
+   * trạng thái thanh toán, lọc theo ngày buổi học. Không khấu trừ thuế (khớp payment
+   * preview: revenue_share có taxRatePercent = 0).
+   */
+  private async getRevenueShareRowsByPaymentStatus(params: {
+    staffId: string;
+    start: Date;
+    end: Date;
+  }): Promise<SourcePaymentTaxBucketRow[]> {
+    return this.prisma.$queryRaw<SourcePaymentTaxBucketRow[]>(Prisma.sql`
+      SELECT
+        lesson_plan_head_commission.payment_status::text AS "paymentStatus",
+        0 AS "taxRatePercent",
+        COALESCE(SUM(COALESCE(lesson_plan_head_commission.amount, 0)), 0) AS "grossAmount",
+        0 AS "operatingAmount"
+      FROM lesson_plan_head_commission
+      INNER JOIN attendance ON attendance.id = lesson_plan_head_commission.attendance_id
+      INNER JOIN sessions ON sessions.id = attendance.session_id
+      WHERE lesson_plan_head_commission.staff_id = ${params.staffId}
+        AND sessions.date >= ${params.start}
+        AND sessions.date < ${params.end}
+      GROUP BY lesson_plan_head_commission.payment_status
     `);
   }
 
@@ -2908,6 +2944,7 @@ export class StaffService {
       StaffRole.communication,
       StaffRole.technical,
       StaffRole.training,
+      StaffRole.training_head,
       StaffRole.sale,
     ];
 
@@ -3063,6 +3100,7 @@ export class StaffService {
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const isAssistant = roles.includes(StaffRole.assistant);
     const lessonRoleForOutputs = this.resolveLessonRoleForOutputs(roles);
+    const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(roles);
 
     const draftRecordGroups = await Promise.all([
       this.getTeacherSnapshotPaymentPreviewRecords(db, {
@@ -3081,8 +3119,12 @@ export class StaffService {
       isAssistant
         ? this.getAssistantAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
-      roles.includes(StaffRole.training)
-        ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
+      trainingManagerIncomeRole
+        ? this.getTrainingManagerAllPendingPreviewRecords(
+            db,
+            staffId,
+            trainingManagerIncomeRole,
+          )
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
       roles.includes(StaffRole.lesson_plan_head)
@@ -3100,6 +3142,7 @@ export class StaffService {
     isAssistant: boolean,
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const lessonRoleForOutputs = this.resolveLessonRoleForOutputs(roles);
+    const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(roles);
 
     const draftRecordGroups = await Promise.all([
       roles.includes(StaffRole.customer_care)
@@ -3114,8 +3157,12 @@ export class StaffService {
       isAssistant
         ? this.getAssistantAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
-      roles.includes(StaffRole.training)
-        ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
+      trainingManagerIncomeRole
+        ? this.getTrainingManagerAllPendingPreviewRecords(
+            db,
+            staffId,
+            trainingManagerIncomeRole,
+          )
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
       roles.includes(StaffRole.lesson_plan_head)
@@ -4029,8 +4076,8 @@ export class StaffService {
           : 'Thanh toán khoản thưởng đã chọn',
       revenue_share:
         auditScope === 'all'
-          ? 'Thanh toán toàn bộ hoa hồng doanh thu Trưởng giáo án'
-          : 'Thanh toán hoa hồng doanh thu Trưởng giáo án đã chọn',
+          ? 'Thanh toán toàn bộ hoa hồng doanh thu Trưởng chuyên môn'
+          : 'Thanh toán hoa hồng doanh thu Trưởng chuyên môn đã chọn',
       fixed_salary:
         auditScope === 'all'
           ? 'Thanh toán toàn bộ lương cứng'
@@ -4578,6 +4625,19 @@ export class StaffService {
         WHERE staff_fixed_salary_payables.status::text = 'pending'
         GROUP BY staff_fixed_salary_payables.staff_id
       ),
+      -- Hoa hồng Trưởng chuyên môn: cùng điều kiện với payment preview
+      -- (getRevenueShareAllPendingPreviewRecords, chỉ khi còn role lesson_plan_head).
+      revenue_share_unpaid AS (
+        SELECT
+          lesson_plan_head_commission.staff_id AS staff_id,
+          COALESCE(SUM(lesson_plan_head_commission.amount), 0) AS amount
+        FROM lesson_plan_head_commission
+        INNER JOIN staff_info ON staff_info.id = lesson_plan_head_commission.staff_id
+        INNER JOIN target_staff ON target_staff.id = lesson_plan_head_commission.staff_id
+        WHERE lesson_plan_head_commission.payment_status::text = 'pending'
+          AND 'lesson_plan_head' = ANY(staff_info.roles::text[])
+        GROUP BY lesson_plan_head_commission.staff_id
+      ),
       all_unpaid AS (
         SELECT staff_id, amount FROM session_unpaid
         UNION ALL
@@ -4594,6 +4654,8 @@ export class StaffService {
         SELECT staff_id, amount FROM training_manager_unpaid
         UNION ALL
         SELECT staff_id, amount FROM fixed_salary_unpaid
+        UNION ALL
+        SELECT staff_id, amount FROM revenue_share_unpaid
       )
       SELECT
         target_staff.id AS "staffId",
@@ -4646,6 +4708,10 @@ export class StaffService {
     }
 
     const isAssistant = staff.roles.includes(StaffRole.assistant);
+    const isLessonPlanHead = staff.roles.includes(StaffRole.lesson_plan_head);
+    const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(
+      staff.roles,
+    );
 
     const [
       monthlySessionSummaryRows,
@@ -4665,6 +4731,8 @@ export class StaffService {
       assistantShareYearRows,
       trainingManagerMonthlyRows,
       trainingManagerYearRows,
+      revenueShareMonthlyRows,
+      revenueShareYearRows,
       unpaidSnapshotTotalsByStaffId,
       bonusIncomeTaxRatePercent,
       allFixedSalaryPayables,
@@ -4774,15 +4842,29 @@ export class StaffService {
             end: range.yearEnd,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
-      staff.roles.includes(StaffRole.training)
+      trainingManagerIncomeRole
         ? this.getTrainingManagerRowsByPaymentStatus({
             staffId: id,
             start: range.start,
             end: range.end,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
-      staff.roles.includes(StaffRole.training)
+      trainingManagerIncomeRole
         ? this.getTrainingManagerRowsByPaymentStatus({
+            staffId: id,
+            start: range.yearStart,
+            end: range.yearEnd,
+          })
+        : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
+      isLessonPlanHead
+        ? this.getRevenueShareRowsByPaymentStatus({
+            staffId: id,
+            start: range.start,
+            end: range.end,
+          })
+        : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
+      isLessonPlanHead
+        ? this.getRevenueShareRowsByPaymentStatus({
             staffId: id,
             start: range.yearStart,
             end: range.yearEnd,
@@ -4847,6 +4929,11 @@ export class StaffService {
     const trainingManagerYearSummary = summarizeSourceBucketRows(
       trainingManagerYearRows,
     );
+    const revenueShareMonthlySummary = summarizeSourceBucketRows(
+      revenueShareMonthlyRows,
+    );
+    const revenueShareYearSummary =
+      summarizeSourceBucketRows(revenueShareYearRows);
 
     const sessionMonthlyTotals = sessionMonthlySummary.netTotals;
     const sessionMonthlyGrossTotals = sessionMonthlySummary.grossTotals;
@@ -4983,6 +5070,7 @@ export class StaffService {
       lessonOutputMonthlyTotals,
       assistantShareMonthlyTotals,
       trainingManagerMonthlyTotals,
+      revenueShareMonthlySummary.netTotals,
       fixedSalaryMonthlyTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
     const snapshotUnpaidTotal = unpaidSnapshotTotalsByStaffId.get(id) ?? 0;
@@ -4995,6 +5083,7 @@ export class StaffService {
       lessonOutputMonthlyGrossTotals,
       assistantShareMonthlyGrossTotals,
       trainingManagerMonthlyGrossTotals,
+      revenueShareMonthlySummary.grossTotals,
       fixedSalaryMonthlyGrossTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
@@ -5006,6 +5095,7 @@ export class StaffService {
       lessonOutputMonthlyTaxTotals,
       assistantShareMonthlyTaxTotals,
       trainingManagerMonthlyTaxTotals,
+      revenueShareMonthlySummary.taxTotals,
       fixedSalaryMonthlyTaxTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
@@ -5058,6 +5148,7 @@ export class StaffService {
       lessonOutputYearTotal +
       assistantShareYearTotal +
       trainingManagerYearTotal +
+      revenueShareYearSummary.netTotals.total +
       fixedSalaryYearSummary.netTotals.total;
     const yearGrossIncomeTotal =
       sessionYearGrossTotal +
@@ -5067,6 +5158,7 @@ export class StaffService {
       lessonOutputYearGrossTotal +
       assistantShareYearGrossTotal +
       trainingManagerYearGrossTotal +
+      revenueShareYearSummary.grossTotals.total +
       fixedSalaryYearSummary.grossTotals.total;
     const yearTaxTotal =
       sessionYearTaxTotal +
@@ -5076,6 +5168,7 @@ export class StaffService {
       lessonOutputYearTaxTotal +
       assistantShareYearTaxTotal +
       trainingManagerYearTaxTotal +
+      revenueShareYearSummary.taxTotals.total +
       fixedSalaryYearSummary.taxTotals.total;
     const yearTotalDeductionTotal = yearTaxTotal + yearOperatingDeductionTotal;
 
@@ -5087,6 +5180,7 @@ export class StaffService {
       lessonOutputYearSummary.netTotals.paid +
       assistantShareYearSummary.netTotals.paid +
       trainingManagerYearSummary.netTotals.paid +
+      revenueShareYearSummary.netTotals.paid +
       fixedSalaryYearSummary.netTotals.paid;
 
     const totalReceivedNet = yearPaidNetTotal + snapshotUnpaidNetTotal;
@@ -5154,12 +5248,25 @@ export class StaffService {
       }
     }
 
-    if (staff.roles.includes(StaffRole.training)) {
-      const trainingSummary = otherRoleSummaryMap.get(StaffRole.training);
+    if (trainingManagerIncomeRole) {
+      const trainingSummary = otherRoleSummaryMap.get(
+        trainingManagerIncomeRole,
+      );
       if (trainingSummary) {
         trainingSummary.total += trainingManagerMonthlyTotals.total;
         trainingSummary.paid += trainingManagerMonthlyTotals.paid;
         trainingSummary.unpaid += trainingManagerMonthlyTotals.unpaid;
+      }
+    }
+
+    if (isLessonPlanHead) {
+      const lessonPlanHeadSummary = otherRoleSummaryMap.get(
+        StaffRole.lesson_plan_head,
+      );
+      if (lessonPlanHeadSummary) {
+        lessonPlanHeadSummary.total +=
+          revenueShareMonthlySummary.netTotals.total;
+        lessonPlanHeadSummary.paid += revenueShareMonthlySummary.netTotals.paid;
       }
     }
 
@@ -5968,6 +6075,94 @@ export class StaffService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Trưởng Ban Đào Tạo bật/tắt role gia sư / chuyên môn / đào tạo của nhân sự
+   * khác (CONTEXT.md «Chỉnh role nhân sự (Trưởng Ban Đào Tạo)»). Role bị tắt
+   * mất mức đè lương cứng / % vận hành (xoá im lặng, ghi action_history); khoản
+   * đã chốt/đã trả giữ nguyên; không cascade lớp / quản lý lớp / đội khoá.
+   */
+  async updateStaffTrainingRoles(
+    targetStaffId: string,
+    data: UpdateStaffTrainingRolesDto,
+    auditActor: ActionHistoryActor & { userId: string },
+  ): Promise<StaffTrainingRolesResultDto> {
+    const actor = await this.prisma.staffInfo.findFirst({
+      where: { userId: auditActor.userId },
+      select: { id: true, roles: true, status: true },
+    });
+    if (
+      !actor ||
+      actor.status !== StaffStatus.active ||
+      !actor.roles.includes(StaffRole.training_head)
+    ) {
+      throw new ForbiddenException(
+        'Chỉ Trưởng ban đào tạo được dùng chức năng này.',
+      );
+    }
+
+    const target = await this.prisma.staffInfo.findUnique({
+      where: { id: targetStaffId },
+      select: {
+        id: true,
+        roles: true,
+        userId: true,
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+            accountHandle: true,
+            email: true,
+            roleType: true,
+          },
+        },
+      },
+    });
+    if (!target) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    const plan = planTrainingHeadRoleChange({
+      actorStaffId: actor.id,
+      targetStaffId: target.id,
+      targetRoles: target.roles,
+      targetIsAdminAccount: target.user?.roleType === UserRole.admin,
+      requestedRoles: data.roles,
+    });
+    if (plan.added.length === 0 && plan.removed.length === 0) {
+      return { id: target.id, roles: target.roles };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.staffInfo.update({
+        where: { id: target.id },
+        data: { roles: plan.nextRoles },
+        select: { id: true },
+      });
+
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor: auditActor,
+        entityType: 'staff',
+        entityId: target.id,
+        description: 'Trưởng ban đào tạo chỉnh role nhân sự',
+        beforeValue: { roles: target.roles },
+        afterValue: { roles: plan.nextRoles },
+      });
+
+      if (plan.removed.length > 0) {
+        await this.fixedSalarySettingsService.syncStaffRoleOverridesInTx(tx, {
+          staffId: target.id,
+          nextRoles: plan.nextRoles,
+          items: [],
+          staff: target,
+          actor: auditActor,
+        });
+      }
+    });
+
+    this.invalidateStaffAuthIdentities(target.userId);
+    return { id: target.id, roles: plan.nextRoles };
   }
 
   async updateStaffWithFixedSalaryOverrides(

@@ -85,7 +85,7 @@ export default function AdminAccessGate({
     const title = strictAdminRoute
       ? "Route này chỉ mở cho admin."
       : access.isLessonPlanHead
-        ? `Role Trưởng giáo án chỉ mở được module ${LESSON_PLAN_LABEL}.`
+        ? `Role Trưởng chuyên môn chỉ mở được module ${LESSON_PLAN_LABEL}.`
         : "Tài khoản này không mở được khu quản trị.";
     const description = strictAdminRoute
       ? "Flow nạp thẳng tiền cho học sinh chỉ mở cho admin đầy đủ. Assistant vẫn dùng các luồng QR/SePay thông thường và không được mở queue duyệt nạp ví."

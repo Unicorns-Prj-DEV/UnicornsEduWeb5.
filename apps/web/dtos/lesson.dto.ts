@@ -28,6 +28,7 @@ export type LessonStaffRole =
   | "technical"
   | "customer_care"
   | "training"
+  | "training_head"
   | "sale";
 
 export interface LessonOverviewSummary {

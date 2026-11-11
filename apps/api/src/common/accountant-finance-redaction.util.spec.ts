@@ -3,6 +3,7 @@ import {
   redactClassForTrainingManagerView,
   redactClassStudentWalletBalances,
   redactOtherTeachersIncome,
+  redactOtherTeachersSessions,
   resolveAccountantFinanceView,
 } from './accountant-finance-redaction.util';
 
@@ -164,5 +165,87 @@ describe('redactClassForTrainingManagerView', () => {
     expect(result).not.toHaveProperty('studentTuitionPerBlock');
     expect(result).not.toHaveProperty('tuitionPackageTotal');
     expect(result.students[0]).toEqual({ id: 'student-1' });
+  });
+});
+
+describe('redactOtherTeachersSessions', () => {
+  const buildSession = (teacherId: string) => ({
+    id: `session-${teacherId}`,
+    classId: 'class-1',
+    teacherId,
+    date: '2026-11-01',
+    lessonContent: 'Hàm số',
+    homework: 'Bài 1-5',
+    progressStatus: 'on_track',
+    ordinal: 3,
+    allowanceAmount: 200000,
+    coefficient: 1,
+    tuitionFee: 150000,
+    teacherPaymentStatus: 'paid',
+    snapshotPerStudentAllowance: 50000,
+    trainingManagerAllowanceAmount: 10000,
+    teacher: {
+      id: teacherId,
+      fullName: 'Gia sư',
+      bankAccount: '0123',
+      cccdNumber: '0010',
+    },
+    attendance: [
+      {
+        id: 'att-1',
+        studentId: 'student-1',
+        status: 'present',
+        testComment: 'Tốt',
+        strengths: 'Chăm',
+        tuitionFee: 150000,
+        payrollBasisTuitionFee: 150000,
+        transactionId: 'tx-1',
+        customerCareCoef: 0.1,
+        student: { id: 'student-1', fullName: 'Học sinh A' },
+      },
+    ],
+  });
+
+  it('keeps the viewer own sessions untouched', () => {
+    const own = buildSession('teacher-me');
+    const [result] = redactOtherTeachersSessions([own], 'teacher-me');
+    expect(result).toBe(own);
+  });
+
+  it('keeps only review content for sessions of other teachers', () => {
+    const [result] = redactOtherTeachersSessions(
+      [buildSession('teacher-other')],
+      'teacher-me',
+    ) as unknown as Array<Record<string, unknown>>;
+
+    expect(result).toMatchObject({
+      id: 'session-teacher-other',
+      teacherId: 'teacher-other',
+      lessonContent: 'Hàm số',
+      homework: 'Bài 1-5',
+      progressStatus: 'on_track',
+      ordinal: 3,
+      teacher: { id: 'teacher-other', fullName: 'Gia sư' },
+    });
+    for (const field of [
+      'allowanceAmount',
+      'coefficient',
+      'tuitionFee',
+      'teacherPaymentStatus',
+      'snapshotPerStudentAllowance',
+      'trainingManagerAllowanceAmount',
+    ]) {
+      expect(result).not.toHaveProperty(field);
+    }
+    expect(result.attendance).toEqual([
+      {
+        id: 'att-1',
+        studentId: 'student-1',
+        status: 'present',
+        testComment: 'Tốt',
+        strengths: 'Chăm',
+        student: { id: 'student-1', fullName: 'Học sinh A' },
+      },
+    ]);
   });
 });

@@ -23,6 +23,11 @@ import {
   ActionHistoryActor,
   ActionHistoryService,
 } from 'src/action-history/action-history.service';
+import {
+  TRAINING_ACCESS_ROLES,
+  hasTrainingAccess,
+  resolveTrainingManagerIncomeRole,
+} from 'src/common/training-access';
 import { resolveTaxDeductionRate } from 'src/payroll/deduction-rates';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
@@ -95,7 +100,7 @@ export class TrainingManagerService {
 
     const rows = await this.prisma.staffInfo.findMany({
       where: {
-        roles: { has: StaffRole.training },
+        roles: { hasSome: [...TRAINING_ACCESS_ROLES] },
         status: StaffStatus.active,
         ...(search
           ? {
@@ -178,8 +183,9 @@ export class TrainingManagerService {
         ? undefined
         : normalizeTrainingManagerRatePercent(dto.trainingManagerRatePercent);
 
-    // Gia sư kiêm quản lý lớp: staff `teacher` chưa có `training` được cấp
-    // thêm role này để quyền staff-ops / trợ cấp quản lý chạy như nhân sự Đào Tạo.
+    // Gia sư kiêm quản lý lớp: staff `teacher` chưa thuộc Ban Đào Tạo được cấp
+    // thêm `training` để quyền staff-ops / trợ cấp quản lý chạy như nhân sự Đào Tạo.
+    // Trưởng ban (`training_head`) đã có quyền nên không bị cấp thêm.
     let grantTrainingRoleToStaffId: string | null = null;
     if (nextStaffId) {
       const manager = await this.prisma.staffInfo.findUnique({
@@ -189,7 +195,7 @@ export class TrainingManagerService {
       if (!manager) {
         throw new NotFoundException('Training manager staff not found');
       }
-      const hasTrainingRole = manager.roles.includes(StaffRole.training);
+      const hasTrainingRole = hasTrainingAccess(manager.roles);
       if (
         manager.status !== StaffStatus.active ||
         (!hasTrainingRole && !manager.roles.includes(StaffRole.teacher))
@@ -649,14 +655,20 @@ export class TrainingManagerService {
       );
     }
 
-    const taxRatePercent =
-      paymentStatus === PaymentStatus.paid
-        ? await resolveTaxDeductionRate(this.prisma, {
-            staffId: accessibleStaffId,
-            roleType: StaffRole.training,
-            effectiveDate: new Date(),
-          })
-        : 0;
+    let taxRatePercent = 0;
+    if (paymentStatus === PaymentStatus.paid) {
+      const manager = await this.prisma.staffInfo.findUnique({
+        where: { id: accessibleStaffId },
+        select: { roles: true },
+      });
+      taxRatePercent = await resolveTaxDeductionRate(this.prisma, {
+        staffId: accessibleStaffId,
+        roleType:
+          resolveTrainingManagerIncomeRole(manager?.roles) ??
+          StaffRole.training,
+        effectiveDate: new Date(),
+      });
+    }
 
     const updateResult = await this.prisma.session.updateMany({
       where: {

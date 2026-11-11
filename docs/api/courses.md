@@ -14,7 +14,7 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 | --- | --- | --- | --- | --- | --- |
 | `GET /courses` | ✅ (class-level `admin` + `staff`) | ✅ | ✅ chỉ khoá được gán | ✅ chỉ khoá được gán | ✅ |
 | `GET /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | ❌ |
-| `POST /courses` | ✅ | ✅ | ✅ (tự gán người tạo vào đội giáo án) | ❌ | ❌ |
+| `POST /courses` | ✅ | ✅ | ✅ (tự gán người tạo vào đội chuyên môn) | ❌ | ❌ |
 | `PATCH /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
 | `DELETE /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
 | `GET/POST/PATCH/DELETE` difficulty-levels | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | ❌ |
@@ -22,9 +22,9 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 | `PUT /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
 | `GET /courses/lesson-plan-staff` | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng giáo án sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng giáo án) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng giáo án **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng giáo án không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng giáo án tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/trợ lí hoặc trưởng giáo án khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
+`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng chuyên môn sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng chuyên môn) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng chuyên môn **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng chuyên môn không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng chuyên môn tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/trợ lí hoặc trưởng chuyên môn khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
 
-**Bán một lần (`is_one_time`):** `POST`/`PATCH /courses` nhận `is_one_time?: boolean`. Đổi giá trị (hoặc tạo với `true`) chỉ admin/trợ lí; trưởng giáo án → `403`. Bật trả `400` nếu lớp nào của khoá đã có điểm danh present/excused mang học phí > 0, hoặc còn lớp có Tổng gói null/≤ 0. Tắt luôn được. Mọi lớp của khoá đổi `pricing_mode` theo (`one_time` / `per_session`) trong cùng transaction, không tính lại buổi nào. Response khoá có `isOneTime`. Chi tiết: `docs/Database Schema.md` mục 4.4.0-cat và ADR `docs/adr/2026-10-04-one-time-course-setting.md`.
+**Bán một lần (`is_one_time`):** `POST`/`PATCH /courses` nhận `is_one_time?: boolean`. Đổi giá trị (hoặc tạo với `true`) chỉ admin/trợ lí; trưởng chuyên môn → `403`. Bật trả `400` nếu lớp nào của khoá đã có điểm danh present/excused mang học phí > 0, hoặc còn lớp có Tổng gói null/≤ 0. Tắt luôn được. Mọi lớp của khoá đổi `pricing_mode` theo (`one_time` / `per_session`) trong cùng transaction, không tính lại buổi nào. Response khoá có `isOneTime`. Chi tiết: `docs/Database Schema.md` mục 4.4.0-cat và ADR `docs/adr/2026-10-04-one-time-course-setting.md`.
 
 `DELETE /courses/:id` trả `400` khi còn lớp dùng khoá, message:
 
@@ -46,7 +46,7 @@ Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi g�
 
 | Actor | Kết quả list |
 | --- | --- |
-| Đội giáo án thuần (`lesson_plan` và/hoặc `lesson_plan_head`, không kèm `admin` / `assistant`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
+| Đội chuyên môn thuần (`lesson_plan` và/hoặc `lesson_plan_head`, không kèm `admin` / `assistant`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
 | `admin`, `assistant`, `training`, `accountant_income`, `accountant_expense`, `teacher`, `customer_care` | Tất cả khoá (không đổi so với trước) |
 | User đã auth nhưng không có staff profile, và không phải `lesson_plan` thuần | Tất cả khoá; không crash |
 
@@ -58,7 +58,7 @@ Controller: `apps/api/src/course-content/` — `course-module.controller.ts`, `c
 
 | Endpoint nhóm | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` (decorator) |
 | --- | --- | --- | --- | --- | --- |
-| Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội giáo án |
+| Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội chuyên môn |
 | Tiết học: `GET/POST/PATCH/DELETE /course/:courseId/modules/:moduleId/lessons` + `POST .../reorder` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
 | Quiz ôn nhẹ: `GET/POST/DELETE /lessons/:lessonId/quizzes` | ✅ | ✅ | ✅ khoá được gán | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
 | Câu hỏi tiết thực hành: `GET/POST/PATCH/DELETE /lessons/:lessonId/questions` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
@@ -132,7 +132,7 @@ Thuật ngữ: `CONTEXT.md` (**Đề in**). `GET /public/app-config` có `examPr
 
 | Method | Path | Ghi chú |
 | --- | --- | --- |
-| `GET` | `/lessons/:lessonId/print.pdf?answers=true\|false` | Tiết thực hành cấp khoá. Quyền như đọc câu hỏi của tiết (`GET /lessons/:lessonId/questions`): admin/trợ lí, đội giáo án của khoá. |
+| `GET` | `/lessons/:lessonId/print.pdf?answers=true\|false` | Tiết thực hành cấp khoá. Quyền như đọc câu hỏi của tiết (`GET /lessons/:lessonId/questions`): admin/trợ lí, đội chuyên môn của khoá. |
 | `GET` | `/staff-ops/classes/:classId/assignments/:assignmentId/print.pdf?answers=true\|false` | Lần giao trên lớp. Admin/trợ lí + gia sư phụ trách lớp (`resolveClassViewAccessMode` = `admin` \| `teacher`); CSKH/đào tạo → `403`. Thời gian làm bài lấy từ lần giao. |
 | `GET` | `/users/me/student-classes/:classId/assignments/:assignmentId/print.pdf` | Học sinh của lớp; luôn bản **Đề** (bỏ qua `answers`). Cùng điều kiện thấy lần giao như lobby: lần giao ẩn → `404`, chưa tới `openAt` → `403`, lần giao không có thời lượng → `400`. Không cần đã bắt đầu làm bài. |
 

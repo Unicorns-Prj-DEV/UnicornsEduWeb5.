@@ -1015,7 +1015,7 @@ export class UserService {
             _count: { select: { achievements: true } },
             achievements: {
               where: { isHighlight: true },
-              select: { id: true },
+              select: { id: true, imagePath: true },
               take: 1,
             },
           },
@@ -1034,12 +1034,16 @@ export class UserService {
     const profile = await this.attachProfileMediaUrls(
       this.sanitizeUser({
         ...user,
-        // Gate hồ sơ gia sư: bắt buộc >= 1 thành tích và có thành tích nổi bật.
+        // Gate hồ sơ gia sư: bắt buộc >= 1 thành tích, có thành tích nổi bật và
+        // thành tích nổi bật đã có ảnh minh chứng.
         staffInfo: user.staffInfo
           ? {
               ...staffInfo,
               achievementCount: staffCounts?.achievements ?? 0,
               hasHighlightAchievement: highlightAchievements.length > 0,
+              hasHighlightAchievementProof: Boolean(
+                highlightAchievements[0]?.imagePath,
+              ),
             }
           : null,
       }),

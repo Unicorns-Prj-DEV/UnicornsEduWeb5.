@@ -247,6 +247,23 @@ describe('TrainingManagerService', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
+    it('training_head làm quản lý lớp không bị cấp thêm role training', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.training_head],
+        status: StaffStatus.active,
+      });
+
+      await expect(
+        service.updateClassTrainingManager(
+          classId,
+          { trainingManagerStaffId: 'staff-1', trainingManagerRatePercent: 5 },
+          adminActor,
+        ),
+      ).resolves.toEqual(updatedClass);
+      expect(mockPrisma.staffInfo.update).not.toHaveBeenCalled();
+    });
+
     it('rejects staff that is neither training nor teacher', async () => {
       mockPrisma.staffInfo.findUnique.mockResolvedValue({
         id: 'staff-1',

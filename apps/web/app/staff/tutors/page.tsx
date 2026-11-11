@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
 import { Search } from "lucide-react";
 import StaffAchievementsDialog, {
   StaffAchievementsButton,
 } from "@/components/shared/achievement/StaffAchievementsDialog";
+import EditTrainingRolesButton from "@/components/staff/tutors/EditTrainingRolesButton";
+import EditTrainingRolesDialog from "@/components/staff/tutors/EditTrainingRolesDialog";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
@@ -16,14 +22,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { useQueryErrorToast } from "@/hooks/use-query-error-toast";
 import { useRowLink } from "@/hooks/use-row-link";
+import { useStaffViewer } from "@/hooks/use-staff-viewer";
 import { ROW_LINK_INTERACTION_CLASS } from "@/lib/row-link";
 import type { StaffStatus } from "@/dtos/staff.dto";
-import type { TrainingTutorListItem } from "@/dtos/training-tutor.dto";
+import type {
+  TrainingTutorListItem,
+  TrainingTutorScope,
+} from "@/dtos/training-tutor.dto";
 import {
   listTrainingTutors,
   trainingTutorKeys,
 } from "@/lib/apis/training-tutor.api";
 import { pickAvatarUrl } from "@/lib/avatar";
+import {
+  canTrainingHeadEditRoles,
+  formatStaffRoleLabels,
+} from "@/lib/training-head-roles";
+import { ROLE_LABELS } from "@/lib/staff.constants";
 
 const PAGE_SIZE = 20;
 const TH_CLASS =
@@ -36,31 +51,61 @@ const STATUS_OPTIONS = [
   { value: "active", label: "Hoạt động" },
   { value: "inactive", label: "Ngừng hoạt động" },
 ];
+const SCOPE_OPTIONS = [
+  { value: "tutors", label: "Gia sư" },
+  { value: "all", label: "Tất cả nhân sự" },
+];
 
 export default function StaffTutorsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search] = useDebounce(searchInput.trim(), 300);
   const [status, setStatus] = useState<"" | StaffStatus>("");
   const [page, setPage] = useState(1);
+  const [scopeChoice, setScopeChoice] = useState<TrainingTutorScope>("tutors");
+  const viewer = useStaffViewer();
+  const queryClient = useQueryClient();
   const [achievementsTarget, setAchievementsTarget] =
     useState<TrainingTutorListItem | null>(null);
+  const [roleTarget, setRoleTarget] = useState<TrainingTutorListItem | null>(
+    null,
+  );
   const rowLink = useRowLink();
+  const canEditRoles = (tutor: TrainingTutorListItem) =>
+    canTrainingHeadEditRoles({
+      viewerStaffId: viewer.staffId,
+      viewerRoles: viewer.roles,
+      target: tutor,
+    });
 
-  const params = { page, limit: PAGE_SIZE, search, status };
+  // Chỉ Trưởng ban được chọn «Tất cả nhân sự»; người khác luôn xem gia sư.
+  const scope: TrainingTutorScope = viewer.isTrainingHead
+    ? scopeChoice
+    : "tutors";
+  const isAllScope = scope === "all";
+  const params = { page, limit: PAGE_SIZE, search, status, scope };
   const { data, isLoading, isError } = useQuery({
     queryKey: trainingTutorKeys.list(params),
     queryFn: () => listTrainingTutors(params),
     placeholderData: keepPreviousData,
   });
   const tutors = data?.data ?? [];
-  useQueryErrorToast(isError, "Không tải được danh sách gia sư.");
+  useQueryErrorToast(
+    isError,
+    isAllScope
+      ? "Không tải được danh sách nhân sự."
+      : "Không tải được danh sách gia sư.",
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 bg-bg-primary p-4 pb-8 sm:p-6">
       <header>
-        <h1 className="text-xl font-semibold text-text-primary">Gia sư</h1>
+        <h1 className="text-xl font-semibold text-text-primary">
+          {isAllScope ? "Tất cả nhân sự" : "Gia sư"}
+        </h1>
         <p className="text-sm text-text-muted">
-          Hồ sơ gia sư cho Ban Đào Tạo, gồm cả gia sư đã ngừng hoạt động.
+          {isAllScope
+            ? "Hồ sơ mọi nhân sự ở mức hồ sơ gia sư (không liên hệ, giấy tờ, tiền), gồm cả người đã ngừng hoạt động."
+            : "Hồ sơ gia sư cho Ban Đào Tạo, gồm cả gia sư đã ngừng hoạt động."}
         </p>
       </header>
 
@@ -79,6 +124,20 @@ export default function StaffTutorsPage() {
             className="min-w-0 flex-1 border-0 bg-transparent py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
           />
         </label>
+        {viewer.isTrainingHead ? (
+          <div className="sm:w-48">
+            <UpgradedSelect
+              name="tutor-filter-scope"
+              ariaLabel="Phạm vi"
+              value={scope}
+              options={SCOPE_OPTIONS}
+              onValueChange={(next) => {
+                setScopeChoice(next as TrainingTutorScope);
+                setPage(1);
+              }}
+            />
+          </div>
+        ) : null}
         <div className="sm:w-56">
           <UpgradedSelect
             name="tutor-filter-status"
@@ -101,7 +160,11 @@ export default function StaffTutorsPage() {
         </div>
       ) : tutors.length === 0 ? (
         <p className="py-10 text-center text-sm text-text-muted">
-          {isError ? "Chưa có dữ liệu gia sư." : "Không có gia sư phù hợp."}
+          {isError
+            ? "Chưa có dữ liệu."
+            : isAllScope
+              ? "Không có nhân sự phù hợp."
+              : "Không có gia sư phù hợp."}
         </p>
       ) : (
         <>
@@ -112,18 +175,25 @@ export default function StaffTutorsPage() {
                 {...rowLink(tutorHref(tutor.id), tutorLabel(tutor))}
                 className={`flex flex-col gap-3 rounded-xl border border-border-default bg-bg-surface p-4 ${ROW_LINK_INTERACTION_CLASS}`}
               >
-                <TutorIdentity tutor={tutor} />
+                <TutorIdentity tutor={tutor} showRoles={isAllScope} />
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-text-muted">
                     Lớp đang dạy
                   </span>
                   <TutorClassChips classes={tutor.currentClasses} />
                 </div>
-                <StaffAchievementsButton
-                  count={tutor.achievementCount}
-                  onOpen={() => setAchievementsTarget(tutor)}
-                  className="self-start"
-                />
+                <div className="flex flex-wrap items-center gap-x-4">
+                  <StaffAchievementsButton
+                    count={tutor.achievementCount}
+                    editable={tutor.id !== viewer.staffId}
+                    onOpen={() => setAchievementsTarget(tutor)}
+                  />
+                  {canEditRoles(tutor) ? (
+                    <EditTrainingRolesButton
+                      onOpen={() => setRoleTarget(tutor)}
+                    />
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -168,6 +238,11 @@ export default function StaffTutorsPage() {
                         <p className="font-medium wrap-anywhere text-text-primary">
                           {name}
                         </p>
+                        {isAllScope && tutor.roles.length > 0 ? (
+                          <p className="mt-0.5 text-xs text-text-secondary wrap-anywhere">
+                            {formatStaffRoleLabels(tutor.roles, ROLE_LABELS)}
+                          </p>
+                        ) : null}
                         <div className="mt-1">
                           <TutorStatusBadge status={tutor.status} />
                         </div>
@@ -176,10 +251,18 @@ export default function StaffTutorsPage() {
                         <TutorClassChips classes={tutor.currentClasses} />
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <StaffAchievementsButton
-                          count={tutor.achievementCount}
-                          onOpen={() => setAchievementsTarget(tutor)}
-                        />
+                        <div className="flex flex-col items-start">
+                          <StaffAchievementsButton
+                            count={tutor.achievementCount}
+                            editable={tutor.id !== viewer.staffId}
+                            onOpen={() => setAchievementsTarget(tutor)}
+                          />
+                          {canEditRoles(tutor) ? (
+                            <EditTrainingRolesButton
+                              onOpen={() => setRoleTarget(tutor)}
+                            />
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -204,7 +287,21 @@ export default function StaffTutorsPage() {
           mode="training"
           staffId={achievementsTarget.id}
           staffName={achievementsTarget.fullName}
-          onClose={() => setAchievementsTarget(null)}
+          editable={achievementsTarget.id !== viewer.staffId}
+          onClose={() => {
+            setAchievementsTarget(null);
+            // Số thành tích trên danh sách / hồ sơ đổi theo chỉnh sửa trong popup.
+            void queryClient.invalidateQueries({
+              queryKey: trainingTutorKeys.all,
+            });
+          }}
+        />
+      ) : null}
+
+      {roleTarget ? (
+        <EditTrainingRolesDialog
+          staff={roleTarget}
+          onClose={() => setRoleTarget(null)}
         />
       ) : null}
     </div>

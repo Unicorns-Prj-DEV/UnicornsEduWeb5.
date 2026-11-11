@@ -14,6 +14,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { StaffRole, UserRole } from 'generated/enums';
+import { TRAINING_ACCESS_ROLES } from 'src/common/training-access';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import {
   CurrentUser,
@@ -36,7 +37,7 @@ export class ClassTimelineController {
     StaffRole.assistant,
     StaffRole.teacher,
     StaffRole.customer_care,
-    StaffRole.training,
+    ...TRAINING_ACCESS_ROLES,
     StaffRole.accountant,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,

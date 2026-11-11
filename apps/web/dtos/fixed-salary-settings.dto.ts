@@ -9,6 +9,7 @@ export const FIXED_SALARY_STAFF_ROLES = [
   "technical",
   "customer_care",
   "training",
+  "training_head",
   "assistant",
   "sale",
 ] as const;

@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import { ClassStatus, StaffRole, StaffStatus, UserRole } from 'generated/enums';
-import { AchievementService } from 'src/achievements/achievement.service';
+import { hasTrainingAccess } from 'src/common/training-access';
+import {
+  AchievementService,
+  type StaffAchievementEditor,
+} from 'src/achievements/achievement.service';
 import type { JwtPayload } from 'src/auth/decorators/current-user.decorator';
 import { getPreferredUserFullName } from 'src/common/user-name.util';
 import type { PaginationQueryDto } from 'src/dtos/pagination.dto';
@@ -35,6 +39,7 @@ const MAX_LIMIT = 100;
 const TUTOR_SUMMARY_SELECT = {
   id: true,
   status: true,
+  roles: true,
   university: true,
   highSchool: true,
   user: {
@@ -103,9 +108,20 @@ export class TrainingTutorService {
     private readonly achievementService: AchievementService,
   ) {}
 
-  /** Admin, hoặc staff có role `training` đang active (Ban Đào Tạo). */
-  async assertTrainingViewer(viewer: TrainingTutorViewer) {
-    if (viewer.roleType === UserRole.admin) return;
+  /** Admin, hoặc staff có role `training`/`training_head` đang active (Ban Đào Tạo). */
+  async assertTrainingViewer(viewer: TrainingTutorViewer): Promise<void> {
+    await this.resolveTrainingViewer(viewer);
+  }
+
+  /**
+   * Như `assertTrainingViewer`, kèm phạm vi: Trưởng Ban Đào Tạo (và admin) xem
+   * được mọi nhân sự ở cùng mức dữ liệu hồ sơ gia sư; Ban Đào Tạo thường chỉ
+   * xem staff có role `teacher`.
+   */
+  private async resolveTrainingViewer(
+    viewer: TrainingTutorViewer,
+  ): Promise<{ canViewAllStaff: boolean }> {
+    if (viewer.roleType === UserRole.admin) return { canViewAllStaff: true };
 
     const staff = await this.prisma.staffInfo.findFirst({
       where: { userId: viewer.id },
@@ -115,22 +131,35 @@ export class TrainingTutorService {
     if (
       !staff ||
       staff.status !== StaffStatus.active ||
-      !staff.roles.includes(StaffRole.training)
+      !hasTrainingAccess(staff.roles)
     ) {
       throw new ForbiddenException(
         'Chỉ Ban Đào Tạo mới được xem hồ sơ gia sư.',
       );
     }
+    return {
+      canViewAllStaff: staff.roles.includes(StaffRole.training_head),
+    };
+  }
+
+  private profileWhere(canViewAllStaff: boolean): Prisma.StaffInfoWhereInput {
+    return canViewAllStaff ? {} : TUTOR_WHERE;
   }
 
   async listTutors(
     viewer: TrainingTutorViewer,
     query: TrainingTutorListQueryDto,
   ): Promise<TrainingTutorPageDto<TrainingTutorListItemDto>> {
-    await this.assertTrainingViewer(viewer);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    const isAllScope = query.scope === 'all';
+    if (isAllScope && !canViewAllStaff) {
+      throw new ForbiddenException(
+        'Chỉ Trưởng ban đào tạo mới xem được tất cả nhân sự.',
+      );
+    }
     const { page, limit, skip } = clampPaging(query);
     const where: Prisma.StaffInfoWhereInput = {
-      ...TUTOR_WHERE,
+      ...(isAllScope ? {} : TUTOR_WHERE),
       ...(query.status ? { status: query.status } : {}),
       ...buildNameSearchWhere(query.search),
     };
@@ -165,10 +194,10 @@ export class TrainingTutorService {
     viewer: TrainingTutorViewer,
     staffId: string,
   ): Promise<TrainingTutorDetailDto> {
-    await this.assertTrainingViewer(viewer);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
 
     const row = await this.prisma.staffInfo.findFirst({
-      where: { ...TUTOR_WHERE, id: staffId },
+      where: { ...this.profileWhere(canViewAllStaff), id: staffId },
       select: {
         ...TUTOR_SUMMARY_SELECT,
         classTeachers: TUTOR_CLASS_ASSIGNMENTS_SELECT,
@@ -194,8 +223,8 @@ export class TrainingTutorService {
     staffId: string,
     query: PaginationQueryDto,
   ): Promise<TrainingTutorPageDto<TrainingTutorSessionDto>> {
-    await this.assertTrainingViewer(viewer);
-    await this.assertTutorExists(staffId);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    await this.assertProfileExists(staffId, canViewAllStaff);
     const { page, limit, skip } = clampPaging(query);
     const where = { teacherId: staffId } satisfies Prisma.SessionWhereInput;
 
@@ -221,14 +250,31 @@ export class TrainingTutorService {
   }
 
   async listTutorAchievements(viewer: TrainingTutorViewer, staffId: string) {
-    await this.assertTrainingViewer(viewer);
-    await this.assertTutorExists(staffId);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    await this.assertProfileExists(staffId, canViewAllStaff);
     return this.achievementService.listStaffAchievements(staffId);
   }
 
-  private async assertTutorExists(staffId: string) {
+  /**
+   * Ban Đào Tạo sửa thành tích của người mình xem được (gia sư; Trưởng ban:
+   * mọi nhân sự), không bị ràng buộc minh chứng như admin. Hồ sơ của chính
+   * mình → 403 (sửa ở trang hồ sơ cá nhân).
+   */
+  async resolveAchievementEditor(
+    viewer: Pick<JwtPayload, 'id' | 'email' | 'roleType'>,
+    staffId: string,
+  ): Promise<StaffAchievementEditor> {
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    await this.assertProfileExists(staffId, canViewAllStaff);
+    return this.achievementService.resolveOtherStaffAchievementEditor(
+      viewer,
+      staffId,
+    );
+  }
+
+  private async assertProfileExists(staffId: string, canViewAllStaff: boolean) {
     const tutor = await this.prisma.staffInfo.findFirst({
-      where: { ...TUTOR_WHERE, id: staffId },
+      where: { ...this.profileWhere(canViewAllStaff), id: staffId },
       select: { id: true },
     });
     if (!tutor) throw new NotFoundException('Không tìm thấy gia sư.');
@@ -242,6 +288,7 @@ export class TrainingTutorService {
       id: row.id,
       fullName: getPreferredUserFullName(user) ?? '',
       status: row.status,
+      roles: row.roles,
       avatarUrl: await createSignedStorageUrl({
         bucket: AVATAR_STORAGE_BUCKET,
         path: user?.avatarPath,

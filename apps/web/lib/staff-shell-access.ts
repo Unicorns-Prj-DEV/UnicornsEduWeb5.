@@ -1,3 +1,4 @@
+import { hasTrainingAccess } from "@/lib/training-access";
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 import { canPublishNotifications } from "@/lib/notification-publisher-access";
@@ -32,6 +33,7 @@ export type StaffShellRouteFlags = {
   isCommunicationSelfRoute: boolean;
   isTechnicalSelfRoute: boolean;
   isTrainingSelfRoute: boolean;
+  isTrainingHeadSelfRoute: boolean;
   isSaleSelfRoute: boolean;
   isLessonPlanSelfRoute: boolean;
   isLessonPlanAdminDetailRoute: boolean;
@@ -58,6 +60,9 @@ export type StaffShellAccessContext = {
   isTeacher: boolean;
   isCustomerCare: boolean;
   isTraining: boolean;
+  /** Có đúng role `training` (thu nhập dòng Đào Tạo), khác `isTraining` là quyền Ban Đào Tạo. */
+  isTrainingRole: boolean;
+  isTrainingHead: boolean;
   isAssistant: boolean;
   isAccountant: boolean;
   isAccountantIncome: boolean;
@@ -178,7 +183,9 @@ function resolveStaffShellContext(
     (profile as UserInfoDto | undefined)?.access?.admin?.tier === "full";
   const isTeacher = staffRoles.includes("teacher");
   const isCustomerCare = staffRoles.includes("customer_care");
-  const isTraining = staffRoles.includes("training");
+  const isTraining = hasTrainingAccess(staffRoles);
+  const isTrainingRole = staffRoles.includes("training");
+  const isTrainingHead = staffRoles.includes("training_head");
   const isAssistant = staffRoles.includes("assistant");
   const isAccountantIncome =
     staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
@@ -203,6 +210,8 @@ function resolveStaffShellContext(
     isTeacher,
     isCustomerCare,
     isTraining,
+    isTrainingRole,
+    isTrainingHead,
     isAssistant,
     isAccountant,
     isAccountantIncome,
@@ -256,6 +265,9 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   );
   const isTechnicalSelfRoute = pathname.startsWith("/staff/technical-detail");
   const isTrainingSelfRoute = pathname.startsWith("/staff/training-detail");
+  const isTrainingHeadSelfRoute = pathname.startsWith(
+    "/staff/training-head-detail",
+  );
   const isSaleSelfRoute = pathname.startsWith("/staff/sale-detail");
   const isLessonPlanSelfRoute =
     pathname.startsWith("/staff/lesson-plan-detail") ||
@@ -311,6 +323,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isCommunicationSelfRoute,
     isTechnicalSelfRoute,
     isTrainingSelfRoute,
+    isTrainingHeadSelfRoute,
     isSaleSelfRoute,
     isLessonPlanSelfRoute,
     isLessonPlanAdminDetailRoute,
@@ -342,6 +355,8 @@ export function resolveStaffShellRouteAccess(
     isTeacher,
     isCustomerCare,
     isTraining,
+    isTrainingRole,
+    isTrainingHead,
     isAssistant,
     isAccountant,
     isAccountantIncome,
@@ -454,7 +469,13 @@ export function resolveStaffShellRouteAccess(
                                   : flags.isTrainingSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
-                                      (isTraining ||
+                                      (isTrainingRole ||
+                                        isAssistantStaff ||
+                                        isAccountantExpense)
+                                  : flags.isTrainingHeadSelfRoute
+                                    ? hasStaffWorkspaceAccess &&
+                                      isStaffOrAdmin &&
+                                      (isTrainingHead ||
                                         isAssistantStaff ||
                                         isAccountantExpense)
                                     : flags.isSaleSelfRoute

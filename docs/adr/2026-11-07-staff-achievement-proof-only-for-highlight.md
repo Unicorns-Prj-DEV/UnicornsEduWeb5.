@@ -1,6 +1,6 @@
 # ADR: Chỉ thành tích nổi bật (gắn sao) bắt buộc ảnh minh chứng
 
-- **Status:** Accepted
+- **Status:** Superseded by `docs/adr/2026-11-11-staff-achievement-star-first.md` (gắn sao trước, minh chứng sau; người khác sửa không bị ràng buộc)
 - **Date:** 2026-11-07
 - **Supersedes (một phần):** `docs/adr/2026-10-01-staff-achievement-proof-required.md` — quyết định 2 ("Tạo thành tích nhân sự phải kèm ảnh… Ảnh đã có chỉ được thay, không gỡ"). Các quyết định khác không đổi.
 

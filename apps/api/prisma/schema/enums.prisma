@@ -23,6 +23,7 @@ enum StaffRole {
   technical
   customer_care
   training
+  training_head
   assistant
   sale
 }
@@ -149,6 +150,7 @@ enum RegulationAudience {
   staff_technical
   staff_customer_care
   staff_training
+  staff_training_head
   staff_sale
 }
 

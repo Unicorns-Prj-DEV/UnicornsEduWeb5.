@@ -152,7 +152,7 @@ export class CourseAccessService {
     }
     const label = courseName ? `của khoá "${courseName}"` : 'của khoá này';
     throw new ForbiddenException(
-      `Bạn không có quyền sửa nội dung ${label}. Chỉ admin, trợ lí, hoặc thành viên đội giáo án của khoá (kể cả trưởng giáo án) mới được sửa.`,
+      `Bạn không có quyền sửa nội dung ${label}. Chỉ admin, trợ lí, hoặc thành viên đội chuyên môn của khoá (kể cả trưởng chuyên môn) mới được sửa.`,
     );
   }
 
