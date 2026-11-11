@@ -516,10 +516,17 @@ export default function StaffClassDetailPage() {
   const teacherCount = classDetail?.teachers?.length ?? 0;
   const canManageSchedule = isTeacherWorkspaceActor;
   const canManageSessions = isTeacherWorkspaceActor;
-  const teacherScopedHistorySummary = usesTeacherScope ? "Tổng số buổi bạn dạy" : "Tổng số buổi";
-  const teacherScopedEmptyText = usesTeacherScope
-    ? "Không có buổi bạn dạy hay khảo sát trong tháng này."
-    : "Không có buổi học hay khảo sát trong tháng này.";
+  // Gia sư thấy cả buổi của gia sư khác trong lớp nhưng chỉ ở dạng nhận xét (BE đã bỏ mọi số tiền).
+  const isReviewOnlySession = (session: SessionItem) =>
+    usesTeacherScope && Boolean(actorStaffId) && session.teacherId !== actorStaffId;
+  const ownSessionCount = usesTeacherScope
+    ? sessions.filter((session) => session.teacherId === actorStaffId).length
+    : sessions.length;
+  const historyCountLabel =
+    usesTeacherScope && ownSessionCount !== sessions.length
+      ? `Tổng số buổi: ${sessions.length + surveys.length} · bạn dạy ${ownSessionCount}`
+      : `Tổng số buổi: ${sessions.length + surveys.length}`;
+  const teacherScopedEmptyText = "Không có buổi học hay khảo sát trong tháng này.";
   const canCreateSession =
     canManageSessions &&
     activeClassStudents.length > 0 &&
@@ -1215,7 +1222,7 @@ export default function StaffClassDetailPage() {
         />
 
         <ClassCard
-          title={usesTeacherScope ? "Lịch sử & Nội dung của bạn" : "Lịch sử & Nội dung"}
+          title="Lịch sử & Nội dung"
           className="w-full"
         >
           <div className="mb-3 flex flex-col gap-3">
@@ -1236,7 +1243,7 @@ export default function StaffClassDetailPage() {
                   onChange={setSelectedMonth}
                   monthPopupOpen={monthPopupOpen}
                   setMonthPopupOpen={setMonthPopupOpen}
-                  countLabel={`${teacherScopedHistorySummary}: ${sessions.length + surveys.length}`}
+                  countLabel={historyCountLabel}
                   actionButton={
                     canCreateSession || canManageSurveys ? (
                       <div className="flex w-full items-center gap-2 sm:w-auto">
@@ -1335,6 +1342,7 @@ export default function StaffClassDetailPage() {
                           }
                           allowTrialTeachingToggle
                           showTrainingManagerAllowance={isTrainingView}
+                          isReviewOnlySession={isReviewOnlySession}
                           updateSessionFn={handleUpdateSession}
                         />
                       </div>

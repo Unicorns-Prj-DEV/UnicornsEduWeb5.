@@ -21,6 +21,12 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Changed
+- **Lớp học (staff, gia sư):** tab **Buổi học** của `/staff/classes/[id]` hiện cả buổi do gia sư khác dạy, chỉ ở dạng nhận xét. Backend redact theo allowlist (`redactOtherTeachersSessions`) nên mọi số tiền (trợ cấp, hệ số, học phí, trạng thái thanh toán, trợ cấp QLL, hoa hồng) và hồ sơ nhân sự của gia sư khác không rời server. Frontend mở popup chỉ đọc, badge *Gia sư khác dạy*.
+
+### Security
+- `PATCH` buổi học qua staff-ops: gia sư (access mode `teacher`) không còn sửa được buổi do gia sư khác dạy (`403`).
+
 ### Added
 
 - **Thống kê Học sinh theo Khu vực, Độ tuổi, Category lớp học & Tổng nạp ví (Cả học sinh đang học và đã nghỉ) và Xuất PDF**:

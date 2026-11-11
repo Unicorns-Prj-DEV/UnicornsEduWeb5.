@@ -160,6 +160,11 @@ type Props = {
   enableBulkPaymentStatusEdit?: boolean;
   readOnlySessionDetails?: boolean;
   /**
+   * Buổi chỉ được xem nhận xét (vd. buổi của gia sư khác khi gia sư xem lớp):
+   * mở popup ở chế độ chỉ đọc, ẩn trạng thái thanh toán, hệ số, trợ cấp, học phí.
+   */
+  isReviewOnlySession?: (session: SessionItem) => boolean;
+  /**
    * Admin/trợ lí/kế toán: lưu được khi Nhận xét buổi học còn trống field bắt buộc
    * (khớp `PUT /sessions/:id` skipRequired). Gia sư (staff-ops) để false.
    */
@@ -394,6 +399,12 @@ export function renderSessionStatus(
     className: "bg-text-muted/15 text-text-muted",
   };
 }
+
+/** Trạng thái hiển thị cho buổi chỉ xem nhận xét — không lộ trạng thái thanh toán. */
+const REVIEW_ONLY_SESSION_STATUS = {
+  label: "Gia sư khác dạy",
+  className: "bg-text-muted/15 text-text-muted",
+} as const;
 
 /** Pill for payment/timeline status: wraps inside narrow `table-fixed` cells instead of clipping on overflow. */
 function SessionPaymentStatusPill({
@@ -771,11 +782,14 @@ export function ClassDetailInfoColumn({
   entityMode,
   status,
   showTrainingManagerAllowance = false,
+  reviewOnly = false,
 }: {
   session: SessionItem;
   entityMode: SessionEntityMode;
   status: { label: string; className: string };
   showTrainingManagerAllowance?: boolean;
+  /** Buổi chỉ xem nhận xét: ẩn hệ số Σ / badge dạy thử (liên quan trợ cấp). */
+  reviewOnly?: boolean;
 }) {
   const showTeacherEntity = entityMode === "teacher";
   const showClassEntity = entityMode === "class";
@@ -830,13 +844,15 @@ export function ClassDetailInfoColumn({
       </div>
 
       <div className="flex w-full items-center justify-center gap-3 text-[11px] text-text-muted">
-        <div className="inline-flex items-center justify-center gap-0.5">
-          <span className="text-text-muted">Σ</span>
-          <span className="tabular-nums text-text-secondary">
-            {renderCoefficientLabel(session.coefficient)}
-          </span>
-        </div>
-        {Number(session.coefficient ?? 1) === 0 ? <TrialLessonBadge /> : null}
+        {reviewOnly ? null : (
+          <div className="inline-flex items-center justify-center gap-0.5">
+            <span className="text-text-muted">Σ</span>
+            <span className="tabular-nums text-text-secondary">
+              {renderCoefficientLabel(session.coefficient)}
+            </span>
+          </div>
+        )}
+        {!reviewOnly && Number(session.coefficient ?? 1) === 0 ? <TrialLessonBadge /> : null}
         <div className="inline-flex items-center justify-center gap-0.5">
           <svg
             className="size-3.5 text-text-muted"
@@ -858,7 +874,7 @@ export function ClassDetailInfoColumn({
         </div>
       </div>
 
-      {showTrainingManagerAllowance ? (
+      {showTrainingManagerAllowance && !reviewOnly ? (
         <p className="text-[11px] font-medium tabular-nums text-primary">
           QLL: {formatCurrency(session.trainingManagerAllowanceAmount)}
         </p>
@@ -890,7 +906,8 @@ export default function SessionHistoryTable({
   allowPaymentStatusEdit = true,
   allowDeleteSession = true,
   enableBulkPaymentStatusEdit = false,
-  readOnlySessionDetails = false,
+  readOnlySessionDetails: readOnlySessionDetailsProp = false,
+  isReviewOnlySession,
   skipRequiredReviewValidation = false,
   allowTrialTeachingToggle = false,
   showTrainingManagerAllowance = false,
@@ -932,6 +949,14 @@ export default function SessionHistoryTable({
   const [editingSession, setEditingSession] = useState<SessionItem | null>(
     null,
   );
+  const editingReviewOnly = Boolean(
+    editingSession && isReviewOnlySession?.(editingSession),
+  );
+  const readOnlySessionDetails = readOnlySessionDetailsProp || editingReviewOnly;
+  const resolveRowStatus = (session: SessionItem, mode: SessionStatusMode) =>
+    isReviewOnlySession?.(session)
+      ? REVIEW_ONLY_SESSION_STATUS
+      : renderSessionStatus(session, mode);
   const inClassTestEnabled = useInClassTestEnabled();
   const isSavedTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
   const [editIsTrialLesson, setEditIsTrialLesson] = useState(false);
@@ -988,7 +1013,7 @@ export default function SessionHistoryTable({
     editingSession?.teacherPaymentStatus,
   );
   const canEditAttendanceTuition =
-    allowAttendanceTuitionEdits ?? allowFinancialEdits;
+    !editingReviewOnly && (allowAttendanceTuitionEdits ?? allowFinancialEdits);
   const showTeacherInput =
     allowTeacherSelection && (teachersList.length > 0 || teachersLoading);
   const teacherFieldClass = isWideEditor
@@ -1841,16 +1866,17 @@ export default function SessionHistoryTable({
           ? `${allowanceBreakdownText}. Gross (hệ số + trần max): ${formatCurrency(editTutorAllowanceTotal)}.`
           : `Gross trước CPVH/thuế: ${formatCurrency(editTutorAllowanceTotal)}.`;
   const editHeaderTuition = useMemo(() => {
-    if (!canViewTuitionHeader) return null;
+    if (!canViewTuitionHeader || editingReviewOnly) return null;
     return `Học phí: ${formatCurrency(resolvedEditSessionTuition)}`;
-  }, [canViewTuitionHeader, resolvedEditSessionTuition]);
+  }, [canViewTuitionHeader, editingReviewOnly, resolvedEditSessionTuition]);
   const editHeaderAllowance = useMemo(() => {
-    if (!allowFinancialEdits) return null;
+    if (!allowFinancialEdits || editingReviewOnly) return null;
     if (editTutorAllowanceTotal == null) return null;
     return `Trợ cấp gia sư: ${formatCurrency(editTutorAllowanceTotal)}`;
-  }, [allowFinancialEdits, editTutorAllowanceTotal]);
+  }, [allowFinancialEdits, editingReviewOnly, editTutorAllowanceTotal]);
   const showEditAllowanceEstimate = Boolean(
     editingSession &&
+      !editingReviewOnly &&
       (shouldWaitForClassFormula ||
         usesSessionAllowanceSnapshot ||
         !!editingClassDetail ||
@@ -2027,7 +2053,7 @@ export default function SessionHistoryTable({
               );
             }
             const session = entry.item;
-            const status = renderSessionStatus(session, statusMode);
+            const status = resolveRowStatus(session, statusMode);
             const commentDisplay = resolveSessionCommentDisplayContent({
               ...session,
               hasInClassTest: inClassTestEnabled && session.hasInClassTest,
@@ -2196,13 +2222,16 @@ export default function SessionHistoryTable({
                       />
                       {isClassDetailRowLayout ? (
                         <div className="flex flex-col items-end gap-1 text-xs text-text-muted">
-                          <div className="inline-flex items-center gap-1">
-                            <span className="text-text-muted">Σ</span>
-                            <span className="tabular-nums text-text-secondary">
-                              {renderCoefficientLabel(session.coefficient)}
-                            </span>
-                          </div>
-                          {Number(session.coefficient ?? 1) === 0 ? (
+                          {isReviewOnlySession?.(session) ? null : (
+                            <div className="inline-flex items-center gap-1">
+                              <span className="text-text-muted">Σ</span>
+                              <span className="tabular-nums text-text-secondary">
+                                {renderCoefficientLabel(session.coefficient)}
+                              </span>
+                            </div>
+                          )}
+                          {!isReviewOnlySession?.(session) &&
+                          Number(session.coefficient ?? 1) === 0 ? (
                             <TrialLessonBadge />
                           ) : null}
                           <div className="inline-flex items-center gap-1">
@@ -2366,7 +2395,7 @@ export default function SessionHistoryTable({
                     );
                   }
                   const session = entry.item;
-                  const status = renderSessionStatus(session, "payment");
+                  const status = resolveRowStatus(session, "payment");
                   const commentDisplay = resolveSessionCommentDisplayContent({
                     ...session,
                     hasInClassTest: inClassTestEnabled && session.hasInClassTest,
@@ -2455,6 +2484,7 @@ export default function SessionHistoryTable({
                             showTrainingManagerAllowance={
                               showTrainingManagerAllowance
                             }
+                            reviewOnly={Boolean(isReviewOnlySession?.(session))}
                           />
                         </div>
                       </td>
@@ -2606,7 +2636,7 @@ export default function SessionHistoryTable({
             <tbody>
               {sessions.length > 0 ? (
                 sessions.map((session) => {
-                  const status = renderSessionStatus(session, statusMode);
+                  const status = resolveRowStatus(session, statusMode);
                   const commentDisplay = resolveSessionCommentDisplayContent({
                     ...session,
                     hasInClassTest: inClassTestEnabled && session.hasInClassTest,
@@ -2980,7 +3010,13 @@ export default function SessionHistoryTable({
         maxWidthClass={isWideEditor ? "max-w-[72rem]" : "max-w-3xl"}
       >
         <SessionFormDialogHeader
-          title={readOnlySessionDetails ? "Chi tiết buổi học" : "Chỉnh sửa buổi học"}
+          title={
+            editingReviewOnly
+              ? `Nhận xét buổi học${editingSession?.teacher?.fullName ? ` · ${editingSession.teacher.fullName}` : ""}`
+              : readOnlySessionDetails
+                ? "Chi tiết buổi học"
+                : "Chỉnh sửa buổi học"
+          }
           tuitionText={editHeaderTuition}
           allowanceText={editHeaderAllowance}
           onClose={requestCloseEdit}
@@ -3091,7 +3127,7 @@ export default function SessionHistoryTable({
                       ) : null}
 
 
-                      {allowPaymentStatusEdit ? (
+                      {allowPaymentStatusEdit && !editingReviewOnly ? (
                         <label
                           className={`flex flex-col gap-1.5 text-sm font-medium text-text-primary ${paymentStatusFieldClass}`}
                         >
@@ -3119,7 +3155,7 @@ export default function SessionHistoryTable({
                             if (value) setManualAllowanceGrossOverride(null);
                           }}
                         />
-                      ) : isSavedTrialLesson ? (
+                      ) : isSavedTrialLesson && !editingReviewOnly ? (
                         <div className={fullWidthFieldClass}>
                           <TrialLessonBadge />
                         </div>
@@ -3157,7 +3193,7 @@ export default function SessionHistoryTable({
                         />
                       ) : null}
 
-                      {canEditAllowance ? (
+                      {canEditAllowance && !editingReviewOnly ? (
                         <p
                           className={`rounded-lg border border-border-default/80 bg-bg-secondary/40 px-3 py-2 text-xs ${fullWidthFieldClass} ${
                             isEditingClassDetailError
@@ -3397,7 +3433,8 @@ export default function SessionHistoryTable({
                   >
                     Hủy
                   </button>
-                  {readOnlySessionDetails && !allowPaymentStatusEdit ? null : (
+                  {editingReviewOnly ||
+                  (readOnlySessionDetails && !allowPaymentStatusEdit) ? null : (
                     <button
                       type="button"
                       onClick={handleSaveEdit}

@@ -382,3 +382,108 @@ export function redactSessionsForTrainingManagerView<T>(sessions: T[]): T[] {
     redactSessionForTrainingManagerView(session),
   );
 }
+
+/**
+ * Gia sư xem lịch sử buổi của lớp: buổi do gia sư KHÁC dạy chỉ giữ nội dung
+ * nhận xét (allowlist), bỏ mọi thông tin tiền (trợ cấp, hệ số, học phí, trạng
+ * thái thanh toán, hoa hồng CSKH/trợ lí/QLL) và hồ sơ nhân sự của gia sư đó.
+ * Dùng allowlist để field tiền thêm sau này không tự lộ ra.
+ */
+const OTHER_TEACHER_SESSION_VISIBLE_FIELDS = [
+  'id',
+  'classId',
+  'teacherId',
+  'date',
+  'startTime',
+  'endTime',
+  'snapshotNoAttendance',
+  'notes',
+  'lessonContent',
+  'homework',
+  'tutorial',
+  'progressStatus',
+  'progressDone',
+  'progressRemaining',
+  'hasInClassTest',
+  'inClassTestContent',
+  'inClassTestTotal',
+  'homeworkDueAt',
+  'nextSessionPlan',
+  'hasRetest',
+  'retestContent',
+  'recordingUrl',
+  'createdAt',
+  'updatedAt',
+  'ordinal',
+  'makeupScheduleEvent',
+] as const;
+
+const OTHER_TEACHER_ATTENDANCE_VISIBLE_FIELDS = [
+  'id',
+  'sessionId',
+  'studentId',
+  'status',
+  'notes',
+  'testCorrectCount',
+  'testComment',
+  'strengths',
+  'improvements',
+  'homeworkQuality',
+  'homeworkComment',
+  'createdAt',
+  'student',
+] as const;
+
+function pickFields(
+  value: Record<string, unknown>,
+  fields: readonly string[],
+): Record<string, unknown> {
+  const next: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (field in value) {
+      next[field] = value[field];
+    }
+  }
+  return next;
+}
+
+export function redactSessionForOtherTeacherView<T>(session: T): T {
+  if (!session || typeof session !== 'object') {
+    return session;
+  }
+
+  const source = session as Record<string, unknown>;
+  const next = pickFields(source, OTHER_TEACHER_SESSION_VISIBLE_FIELDS);
+
+  const teacher = source.teacher as
+    | { id?: unknown; fullName?: unknown }
+    | null
+    | undefined;
+  next.teacher = teacher
+    ? { id: teacher.id ?? null, fullName: teacher.fullName ?? '' }
+    : null;
+
+  next.attendance = Array.isArray(source.attendance)
+    ? (source.attendance as unknown[]).map((attendance) =>
+        attendance && typeof attendance === 'object'
+          ? pickFields(
+              attendance as Record<string, unknown>,
+              OTHER_TEACHER_ATTENDANCE_VISIBLE_FIELDS,
+            )
+          : attendance,
+      )
+    : [];
+
+  return next as T;
+}
+
+/** Buổi của chính gia sư giữ nguyên; buổi của gia sư khác chỉ còn nhận xét. */
+export function redactOtherTeachersSessions<
+  T extends { teacherId?: string | null },
+>(sessions: T[], viewerTeacherId: string): T[] {
+  return sessions.map((session) =>
+    session.teacherId === viewerTeacherId
+      ? session
+      : redactSessionForOtherTeacherView(session),
+  );
+}
