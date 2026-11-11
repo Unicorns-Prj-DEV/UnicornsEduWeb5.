@@ -4618,6 +4618,19 @@ export class StaffService {
         WHERE staff_fixed_salary_payables.status::text = 'pending'
         GROUP BY staff_fixed_salary_payables.staff_id
       ),
+      -- Hoa hồng Trưởng chuyên môn: cùng điều kiện với payment preview
+      -- (getRevenueShareAllPendingPreviewRecords, chỉ khi còn role lesson_plan_head).
+      revenue_share_unpaid AS (
+        SELECT
+          lesson_plan_head_commission.staff_id AS staff_id,
+          COALESCE(SUM(lesson_plan_head_commission.amount), 0) AS amount
+        FROM lesson_plan_head_commission
+        INNER JOIN staff_info ON staff_info.id = lesson_plan_head_commission.staff_id
+        INNER JOIN target_staff ON target_staff.id = lesson_plan_head_commission.staff_id
+        WHERE lesson_plan_head_commission.payment_status::text = 'pending'
+          AND 'lesson_plan_head' = ANY(staff_info.roles::text[])
+        GROUP BY lesson_plan_head_commission.staff_id
+      ),
       all_unpaid AS (
         SELECT staff_id, amount FROM session_unpaid
         UNION ALL
@@ -4634,6 +4647,8 @@ export class StaffService {
         SELECT staff_id, amount FROM training_manager_unpaid
         UNION ALL
         SELECT staff_id, amount FROM fixed_salary_unpaid
+        UNION ALL
+        SELECT staff_id, amount FROM revenue_share_unpaid
       )
       SELECT
         target_staff.id AS "staffId",
