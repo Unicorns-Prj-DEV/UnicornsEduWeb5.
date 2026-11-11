@@ -233,6 +233,10 @@ export const EXTRA_ALLOWANCE_ROLE_OPTIONS = (
       label: renderExtraAllowanceRoleOptionLabel("training"),
     },
     {
+      value: "training_head",
+      label: renderExtraAllowanceRoleOptionLabel("training_head"),
+    },
+    {
       value: "sale",
       label: renderExtraAllowanceRoleOptionLabel("sale"),
     },

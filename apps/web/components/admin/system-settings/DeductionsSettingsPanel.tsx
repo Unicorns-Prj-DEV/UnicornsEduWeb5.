@@ -31,6 +31,7 @@ const STAFF_ROLE_OPTIONS: { value: StaffRoleType; label: string }[] = [
   { value: "communication", label: ROLE_LABELS.communication },
   { value: "technical", label: ROLE_LABELS.technical },
   { value: "training", label: ROLE_LABELS.training },
+  { value: "training_head", label: ROLE_LABELS.training_head },
   { value: "sale", label: ROLE_LABELS.sale },
 ];
 

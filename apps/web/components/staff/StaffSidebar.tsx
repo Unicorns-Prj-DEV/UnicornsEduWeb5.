@@ -18,7 +18,7 @@ import { clearLogoutScopedQueries } from "@/lib/query-invalidation";
 import { SidebarNotificationTray, SidebarThemePicker } from "@/components/shell";
 import UserAvatar from "@/components/ui/UserAvatar";
 import { BrandLogoLockup } from "@/components/BrandLogoLockup";
-import { LESSON_PLAN_LABEL } from "@/lib/staff.constants";
+import { LESSON_PLAN_LABEL, ROLE_LABELS } from "@/lib/staff.constants";
 import {
   isGiftedLessonPlanRoute,
   useGiftedLessonPlanEnabled,
@@ -33,6 +33,9 @@ type MenuVisibility = {
   canAccessSurveys: boolean;
   canComposeNotifications: boolean;
   isTraining: boolean;
+  /** Có đúng role `training` / `training_head` — mục thu nhập theo role. */
+  isTrainingRole: boolean;
+  isTrainingHead: boolean;
   /** Ban Đào Tạo đang là quản lý của ít nhất một lớp. */
   hasManagedClasses: boolean;
   isAccountant: boolean;
@@ -206,7 +209,14 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       label: "Đào Tạo",
       icon: <IconCalendar />,
       isActive: (pathname) => pathname.startsWith("/staff/training-detail"),
-      isVisible: ({ isTraining }) => isTraining,
+      isVisible: ({ isTrainingRole }) => isTrainingRole,
+    },
+    {
+      href: "/staff/training-head-detail",
+      label: ROLE_LABELS.training_head,
+      icon: <IconCalendar />,
+      isActive: (pathname) => pathname.startsWith("/staff/training-head-detail"),
+      isVisible: ({ isTrainingHead }) => isTrainingHead,
     },
     {
       href: "/staff/sale-detail",
@@ -600,6 +610,8 @@ export default function StaffSidebar() {
     lessonWorkspace.isLessonPlanHead;
   const isCommunication = staffRoles.includes("communication");
   const isTechnical = staffRoles.includes("technical");
+  const isTrainingRole = staffRoles.includes("training");
+  const isTrainingHead = staffRoles.includes("training_head");
   const isSale = staffRoles.includes("sale");
   const canComposeNotifications = canPublishNotifications(
     staffRoles,
@@ -620,6 +632,8 @@ export default function StaffSidebar() {
     canAccessSurveys,
     canComposeNotifications,
     isTraining,
+    isTrainingRole,
+    isTrainingHead,
     hasManagedClasses,
     isAccountant,
     isAccountantIncome,

@@ -184,6 +184,7 @@ const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
   StaffRole.communication,
   StaffRole.technical,
   StaffRole.training,
+  StaffRole.training_head,
   StaffRole.sale,
 ]);
 
@@ -2933,6 +2934,7 @@ export class StaffService {
       StaffRole.communication,
       StaffRole.technical,
       StaffRole.training,
+      StaffRole.training_head,
       StaffRole.sale,
     ];
 
