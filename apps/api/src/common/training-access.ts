@@ -18,3 +18,17 @@ export function hasTrainingAccess(
   if (!roles?.length) return false;
   return TRAINING_ACCESS_ROLES.some((role) => roles.includes(role));
 }
+
+/**
+ * Role nhận **Trợ cấp quản lý lớp** trong thu nhập (dòng «Công việc khác»,
+ * thuế, preview thanh toán). Người có cả hai role → ghi vào `training`;
+ * Trưởng Ban Đào Tạo không có `training` → ghi vào dòng của chính
+ * `training_head` (ADR 2026-11-11-training-head-independent-role).
+ */
+export function resolveTrainingManagerIncomeRole(
+  roles: readonly string[] | null | undefined,
+): StaffRole | null {
+  if (roles?.includes(StaffRole.training)) return StaffRole.training;
+  if (roles?.includes(StaffRole.training_head)) return StaffRole.training_head;
+  return null;
+}

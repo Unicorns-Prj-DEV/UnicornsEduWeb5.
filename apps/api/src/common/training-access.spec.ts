@@ -1,5 +1,9 @@
 import { StaffRole } from 'generated/enums';
-import { TRAINING_ACCESS_ROLES, hasTrainingAccess } from './training-access';
+import {
+  TRAINING_ACCESS_ROLES,
+  hasTrainingAccess,
+  resolveTrainingManagerIncomeRole,
+} from './training-access';
 
 describe('hasTrainingAccess', () => {
   it('true khi có role training', () => {
@@ -23,5 +27,27 @@ describe('hasTrainingAccess', () => {
     for (const role of TRAINING_ACCESS_ROLES) {
       expect(hasTrainingAccess([role])).toBe(true);
     }
+  });
+});
+
+describe('resolveTrainingManagerIncomeRole', () => {
+  it('ưu tiên training khi có cả hai role', () => {
+    expect(
+      resolveTrainingManagerIncomeRole([
+        StaffRole.training_head,
+        StaffRole.training,
+      ]),
+    ).toBe(StaffRole.training);
+  });
+
+  it('training_head thuần → dòng training_head', () => {
+    expect(resolveTrainingManagerIncomeRole([StaffRole.training_head])).toBe(
+      StaffRole.training_head,
+    );
+  });
+
+  it('null khi không thuộc Ban Đào Tạo', () => {
+    expect(resolveTrainingManagerIncomeRole([StaffRole.teacher])).toBeNull();
+    expect(resolveTrainingManagerIncomeRole(undefined)).toBeNull();
   });
 });

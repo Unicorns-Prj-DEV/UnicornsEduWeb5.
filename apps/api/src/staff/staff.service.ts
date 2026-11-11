@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { resolveTrainingManagerIncomeRole } from 'src/common/training-access';
 import { GoogleCalendarService } from 'src/google-calendar/google-calendar.service';
 import { Prisma } from '../../generated/client';
 import {
@@ -2116,6 +2117,7 @@ export class StaffService {
   private async getTrainingManagerAllPendingPreviewRecords(
     db: StaffPaymentClient,
     staffId: string,
+    incomeRole: StaffRole,
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const rows = await db.session.findMany({
       where: {
@@ -2142,7 +2144,7 @@ export class StaffService {
 
     return rows.map((row) => ({
       id: row.id,
-      role: StaffRole.training,
+      role: incomeRole,
       sourceType: 'training_manager',
       sourceLabel: 'Trợ cấp quản lý lớp',
       label: row.class?.name?.trim() || 'Lớp chưa đặt tên',
@@ -3086,6 +3088,7 @@ export class StaffService {
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const isAssistant = roles.includes(StaffRole.assistant);
     const lessonRoleForOutputs = this.resolveLessonRoleForOutputs(roles);
+    const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(roles);
 
     const draftRecordGroups = await Promise.all([
       this.getTeacherSnapshotPaymentPreviewRecords(db, {
@@ -3104,8 +3107,12 @@ export class StaffService {
       isAssistant
         ? this.getAssistantAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
-      roles.includes(StaffRole.training)
-        ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
+      trainingManagerIncomeRole
+        ? this.getTrainingManagerAllPendingPreviewRecords(
+            db,
+            staffId,
+            trainingManagerIncomeRole,
+          )
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
       roles.includes(StaffRole.lesson_plan_head)
@@ -3123,6 +3130,7 @@ export class StaffService {
     isAssistant: boolean,
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
     const lessonRoleForOutputs = this.resolveLessonRoleForOutputs(roles);
+    const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(roles);
 
     const draftRecordGroups = await Promise.all([
       roles.includes(StaffRole.customer_care)
@@ -3137,8 +3145,12 @@ export class StaffService {
       isAssistant
         ? this.getAssistantAllPendingPreviewRecords(db, staffId)
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
-      roles.includes(StaffRole.training)
-        ? this.getTrainingManagerAllPendingPreviewRecords(db, staffId)
+      trainingManagerIncomeRole
+        ? this.getTrainingManagerAllPendingPreviewRecords(
+            db,
+            staffId,
+            trainingManagerIncomeRole,
+          )
         : Promise.resolve<StaffPaymentPreviewDraftRecord[]>([]),
       this.getExtraAllowanceAllPendingPreviewRecords(db, staffId),
       roles.includes(StaffRole.lesson_plan_head)
@@ -4670,6 +4682,9 @@ export class StaffService {
 
     const isAssistant = staff.roles.includes(StaffRole.assistant);
     const isLessonPlanHead = staff.roles.includes(StaffRole.lesson_plan_head);
+    const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(
+      staff.roles,
+    );
 
     const [
       monthlySessionSummaryRows,
@@ -4800,14 +4815,14 @@ export class StaffService {
             end: range.yearEnd,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
-      staff.roles.includes(StaffRole.training)
+      trainingManagerIncomeRole
         ? this.getTrainingManagerRowsByPaymentStatus({
             staffId: id,
             start: range.start,
             end: range.end,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
-      staff.roles.includes(StaffRole.training)
+      trainingManagerIncomeRole
         ? this.getTrainingManagerRowsByPaymentStatus({
             staffId: id,
             start: range.yearStart,
@@ -5206,8 +5221,10 @@ export class StaffService {
       }
     }
 
-    if (staff.roles.includes(StaffRole.training)) {
-      const trainingSummary = otherRoleSummaryMap.get(StaffRole.training);
+    if (trainingManagerIncomeRole) {
+      const trainingSummary = otherRoleSummaryMap.get(
+        trainingManagerIncomeRole,
+      );
       if (trainingSummary) {
         trainingSummary.total += trainingManagerMonthlyTotals.total;
         trainingSummary.paid += trainingManagerMonthlyTotals.paid;

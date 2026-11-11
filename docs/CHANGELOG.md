@@ -23,6 +23,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Added
 - **Role Trưởng ban đào tạo (`training_head`, #254):** enum `StaffRole.training_head` + `RegulationAudience.staff_training_head` (migration `20261111090000_training_head_role`). Role độc lập, không cần kèm `training`; mọi check quyền Ban Đào Tạo nhận role này qua `hasTrainingAccess`. Người có `training_head` thấy cả quy định gửi `staff_training`. Admin/assistant gán được ở popup thêm/sửa nhân sự, tạo/sửa user; có tag push `@training_head`. ADR `docs/adr/2026-11-11-training-head-independent-role.md`.
+- **Trưởng ban đào tạo làm Quản lý lớp (#255):** `GET /staff/training-manager-options` và popup sửa gia sư/quản lý lớp nhận cả `training_head`; gán Trưởng ban làm quản lý không tự cấp thêm `training`. Trợ cấp quản lý lớp (preview/thanh toán, thuế, dòng «Công việc khác») ghi vào dòng `training` nếu có, ngược lại vào dòng **Trưởng ban đào tạo** — không tính hai lần.
 
 ### Fixed
 - **Thu nhập nhân sự – Trưởng giáo án:** `GET /staff/:id/income-summary` trước đây chỉ đưa hoa hồng doanh thu (`lesson_plan_head_commission`) vào **Chưa nhận**, nên dòng *Trưởng giáo án* ở bảng **Công việc khác** hiện Tổng nhận/Đã nhận = 0 dù tháng đó có hoa hồng. Giờ hoa hồng được cộng vào `total`/`paid` của role `lesson_plan_head` theo tháng (lọc theo ngày buổi học, không khấu trừ thuế), đồng thời vào `monthlyIncomeTotals`/`monthlyGrossTotals`, `yearIncomeTotal`, `yearGrossIncomeTotal`, `yearPaidNetTotal`.
