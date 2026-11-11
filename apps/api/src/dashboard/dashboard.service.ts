@@ -26,6 +26,7 @@ import {
   StaffStatus,
   WalletTransactionType,
 } from 'generated/enums';
+import { hasTrainingAccess } from 'src/common/training-access';
 import {
   type AdminDashboardActionAlertDto,
   type AdminDashboardActionAlertListDto,
@@ -4632,7 +4633,7 @@ export class DashboardService {
                 year: range.year,
               })
             : Promise.resolve(undefined),
-          normalizedRoles.includes(StaffRole.training)
+          hasTrainingAccess(normalizedRoles)
             ? this.getTrainingSection(params.staffId, todayRange)
             : Promise.resolve(undefined),
         ]);

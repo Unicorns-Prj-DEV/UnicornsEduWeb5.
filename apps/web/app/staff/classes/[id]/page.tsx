@@ -1,5 +1,6 @@
 "use client";
 
+import { hasTrainingAccess } from "@/lib/training-access";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useCallback, useMemo, useState } from "react";
@@ -386,7 +387,7 @@ export default function StaffClassDetailPage() {
     (profile.staffInfo?.roles ?? []).includes("customer_care");
   const isTraining =
     profile?.roleType === "staff" &&
-    (profile.staffInfo?.roles ?? []).includes("training");
+    hasTrainingAccess(profile.staffInfo?.roles);
   const shouldUseAdminClassDetailPage = isAssistant || isAccountant;
   /** Dải meta trạng thái/gói/trợ cấp/sĩ số/… — chỉ cho admin, kế toán, CSKH (trợ lí dùng AdminClassDetailPage). */
   const showClassOperationalMeta =

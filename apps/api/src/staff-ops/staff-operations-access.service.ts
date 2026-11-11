@@ -77,7 +77,7 @@ export class StaffOperationsAccessService {
 
     if (
       !staff.roles.includes(StaffRole.teacher) &&
-      !staff.roles.includes(StaffRole.training) &&
+      !hasTrainingAccess(staff.roles) &&
       !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
@@ -104,7 +104,7 @@ export class StaffOperationsAccessService {
 
     const staff = await this.resolveStaffActor(userId);
 
-    if (staff.roles.includes(StaffRole.training)) {
+    if (hasTrainingAccess(staff.roles)) {
       return { ...staff, calendarAccessMode: 'training' };
     }
 
@@ -133,7 +133,7 @@ export class StaffOperationsAccessService {
     if (
       !staff.roles.includes(StaffRole.teacher) &&
       !staff.roles.includes(StaffRole.customer_care) &&
-      !staff.roles.includes(StaffRole.training) &&
+      !hasTrainingAccess(staff.roles) &&
       !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
@@ -168,7 +168,7 @@ export class StaffOperationsAccessService {
       return { lockedTeacherId: null };
     }
 
-    if (staff.roles.includes(StaffRole.training)) {
+    if (hasTrainingAccess(staff.roles)) {
       const managedClass = await this.prisma.class.findFirst({
         where: { id: classId, trainingManagerStaffId: staff.id },
         select: { id: true },
@@ -258,7 +258,7 @@ export class StaffOperationsAccessService {
       }
     }
 
-    if (actor.roles.includes(StaffRole.training)) {
+    if (hasTrainingAccess(actor.roles)) {
       const managedClass = await this.prisma.class.findFirst({
         where: {
           id: classId,
@@ -292,3 +292,4 @@ export class StaffOperationsAccessService {
     return classTeachers[0].teacherId;
   }
 }
+import { hasTrainingAccess } from 'src/common/training-access';

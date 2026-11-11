@@ -1,3 +1,4 @@
+import { hasTrainingAccess } from "@/lib/training-access";
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 import { canPublishNotifications } from "@/lib/notification-publisher-access";
@@ -178,7 +179,7 @@ function resolveStaffShellContext(
     (profile as UserInfoDto | undefined)?.access?.admin?.tier === "full";
   const isTeacher = staffRoles.includes("teacher");
   const isCustomerCare = staffRoles.includes("customer_care");
-  const isTraining = staffRoles.includes("training");
+  const isTraining = hasTrainingAccess(staffRoles);
   const isAssistant = staffRoles.includes("assistant");
   const isAccountantIncome =
     staffRoles.includes("accountant_income") || staffRoles.includes("accountant");

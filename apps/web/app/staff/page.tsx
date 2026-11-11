@@ -1,5 +1,6 @@
 "use client";
 
+import { hasTrainingAccess } from "@/lib/training-access";
 import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -2159,7 +2160,7 @@ export default function StaffDashboardPage() {
     staffRoles.includes("customer_care") ||
     hasIncomeAccountantDashboard ||
     hasExpenseAccountantDashboard ||
-    staffRoles.includes("training");
+    hasTrainingAccess(staffRoles);
 
   const incomeDetailHref =
     isAssistant && linkedStaffId
@@ -2333,7 +2334,7 @@ export default function StaffDashboardPage() {
               <AccountantExpenseSection section={dashboard.accountantExpense} />
             ) : null}
 
-            {staffRoles.includes("training") && dashboard?.training ? (
+            {hasTrainingAccess(staffRoles) && dashboard?.training ? (
               <TrainingSection section={dashboard.training} />
             ) : null}
 

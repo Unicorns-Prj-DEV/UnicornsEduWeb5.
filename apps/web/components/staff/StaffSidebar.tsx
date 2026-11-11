@@ -1,5 +1,6 @@
 "use client";
 
+import { hasTrainingAccess } from "@/lib/training-access";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, useEffect, useSyncExternalStore } from "react";
@@ -571,7 +572,7 @@ export default function StaffSidebar() {
   const isAssistant = hasStaffProfile && staffRoles.includes("assistant");
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
-  const isTraining = staffRoles.includes("training");
+  const isTraining = hasTrainingAccess(staffRoles);
   const canAccessCustomerCareSelf =
     hasStaffProfile && staffRoles.includes("customer_care");
   const lessonWorkspace = resolveStaffLessonWorkspace(fullProfile);

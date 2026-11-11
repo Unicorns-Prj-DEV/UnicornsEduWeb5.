@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import { ClassStatus, StaffRole, StaffStatus, UserRole } from 'generated/enums';
+import { hasTrainingAccess } from 'src/common/training-access';
 import { AchievementService } from 'src/achievements/achievement.service';
 import type { JwtPayload } from 'src/auth/decorators/current-user.decorator';
 import { getPreferredUserFullName } from 'src/common/user-name.util';
@@ -115,7 +116,7 @@ export class TrainingTutorService {
     if (
       !staff ||
       staff.status !== StaffStatus.active ||
-      !staff.roles.includes(StaffRole.training)
+      !hasTrainingAccess(staff.roles)
     ) {
       throw new ForbiddenException(
         'Chỉ Ban Đào Tạo mới được xem hồ sơ gia sư.',
