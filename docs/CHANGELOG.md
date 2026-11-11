@@ -21,6 +21,29 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Added
+
+- **Thống kê Học sinh theo Khu vực, Độ tuổi, Category lớp học & Tổng nạp ví (Cả học sinh đang học và đã nghỉ) và Xuất PDF**:
+  - **Backend API**:
+    - `GET /dashboard/student-demographics?status=all|active|inactive`: trả về cấu trúc DTO thống kê học sinh (mặc định `all` tính toàn bộ học sinh cả đang học lẫn đã nghỉ, hoặc lọc theo `active`/`inactive`), bao gồm KPI tóm tắt, tổng số tiền nạp ví (`totalTopup`) và trung bình nạp (`averageTopup`), phân bổ tỉnh/thành (`byProvince`), phân bổ năm sinh/độ tuổi (`byBirthYear`), tổng hợp danh mục lớp đang/từng học (`categories`), ma trận 2 chiều Tỉnh thành × Category (`provinceMatrix`), ma trận Năm sinh × Category (`birthYearMatrix`) và phân cấp chi tiết (Tỉnh ➔ Năm sinh ➔ Category).
+    - `GET /dashboard/student-demographics/pdf?status=all|active|inactive`: xuất báo cáo A4 Landscape PDF chuyên nghiệp qua Puppeteer (`ReceiptPdfService`) gồm KPI grid 5 thẻ (Tổng học sinh, Đã vào lớp, Độ phủ tỉnh thành, Tổng nạp ví, Nạp TB/học sinh), biểu đồ SVG thanh ngang Top 10 tỉnh thành, biểu đồ cột phân bố năm sinh, các bảng ma trận tổng hợp tích hợp cột Tổng nạp và bảng phân cấp chi tiết.
+    - Utility `apps/api/src/dashboard/student-demographics.util.ts`: chuẩn hóa tên tỉnh thành tiếng Việt (`normalizeProvince`), nhãn năm sinh (`formatBirthYearLabel`), tính toán dồn tiền nạp ví deduplicated theo `studentId`, gom học sinh thiếu thông tin vào `"Chưa cập nhật"` và học sinh chưa vào lớp vào `"Chưa xếp lớp"`.
+    - Unit test: `apps/api/src/dashboard/student-demographics.util.spec.ts`.
+  - **Frontend UI (Admin Dashboard)**:
+    - Component `StudentDemographicsSection.tsx`: card trực quan trên Admin Dashboard với bộ lọc trạng thái (Tất cả cả đã nghỉ / Đang học / Đã nghỉ), hiển thị 3 ô chỉ số (Số tỉnh/thành, Năm sinh trọng điểm, Tổng nạp ví kèm trung bình), thanh phân bổ mini các tỉnh hàng đầu và nút "Xem ma trận chi tiết" / "Xuất PDF".
+    - Component `StudentDemographicsDialog.tsx`: hộp thoại xem chi tiết với bộ chọn trạng thái học sinh, thẻ KPI Tổng nạp ví và 3 tab (Phân cấp Tỉnh ➔ Tuổi ➔ Lớp, Ma trận Tỉnh × Category, Ma trận Năm sinh × Category) đều có cột Tổng nạp, kèm thanh tìm kiếm và nút xuất PDF theo trạng thái đã chọn.
+    - Toolbar Admin Dashboard: thêm nút **PDF học sinh** (`MapPin` icon) cho phép tải nhanh báo cáo PDF toàn diện với Sonner toast loading/success/error.
+  - **File xuất thực tế**: Đã xuất sẵn bản PDF toàn diện từ dữ liệu thực tế tại `exports/thong-ke-khu-vuc-do-tuoi-hoc-sinh.pdf`.
+  - **Mở rộng: doanh thu, độ tuổi theo từng khoá, rà soát năm sinh**:
+    - API `GET /dashboard/student-demographics` thêm query doanh thu (học phí đã học toàn thời gian, gán theo khoá của lớp có buổi) và các field: `summary.totalRevenue/averageRevenue/revenueStudentsCount/topRevenueCategory/averageAge/missingBirthYearCount/unusualBirthYearCount`, `totalRevenue` ở mọi nhóm tỉnh/năm sinh/khoá, `revenueCells` trong 2 ma trận, `byCourse[]` (phân bố năm sinh, tuổi TB, khoảng năm sinh, top tỉnh, doanh thu từng khoá), `students[]` (từng học sinh: lớp, khoá, số buổi, doanh thu theo khoá, tổng nạp), `dataQuality` (thiếu/sai năm sinh, ngoài 6–19 tuổi). Cache key đổi sang `student-demographics-v2`.
+    - Sửa: năm sinh không hợp lệ (ví dụ 1900) trước đây tạo thêm một nhóm «Chưa cập nhật» thứ hai; nay gộp chung với nhóm trống.
+    - PDF viết lại chi tiết hơn (KPI doanh thu/độ tuổi, biểu đồ theo khoá, thẻ độ tuổi từng khoá, ma trận doanh thu, Phụ lục A danh sách học sinh từng khoá, Phụ lục B rà soát năm sinh). Biểu đồ tỉnh đổi về một màu (trước tô theo thứ hạng).
+    - Dialog chuyển sang shadcn `Tabs`, thêm tab **Theo khoá học** và **Cần rà soát**, toggle Số HS / Doanh thu cho ma trận.
+    - Dialog nới rộng toàn màn hình (`ResponsiveDialog size="full"`, cao gần hết viewport), header gọn (nút đóng góc phải trên mobile), KPI 2→3→6 cột, thanh tab + bộ lọc dính khi cuộn, thẻ khoá học 1→2→3 cột (`2xl`), bảng ma trận cao tối đa 70vh.
+    - Ô KPI (dialog, thẻ khoá, thẻ dashboard) dùng container query (`@container` + cỡ chữ `cqi`) để số tiền tới 10 chữ số (`1.234.567.890 đ`) co chữ vừa một dòng thay vì tràn/bị cắt.
+    - Unit test util: 10/10.
+  - Không migration. Docs: `docs/pages/admin.md`, `docs/CHANGELOG.md`.
+
 ### Fixed
 
 - **Trợ cấp / học sinh của gia sư lưu đúng số nhập**: `class_teachers.custom_allowance` lưu theo block 30 phút (`ROUND(giá / số_block_chuẩn)`) nên nhân ngược lệch 1đ khi không chia hết (lớp 3 block: 70.000 → 23.333 → **69.999**, 80.000 → 26.667 → **80.001**; ADVANCED 05/10/11, BASIC 23/25, HARDCORE 02…). Thêm cột `custom_allowance_per_session` (migration `20261106090000_class_teacher_custom_allowance_per_session`) lưu đúng số admin nhập; form roster/trợ cấp và snapshot buổi lớp theo buổi đọc thẳng cột này. `custom_allowance` vẫn lưu per-block cho lớp theo block. Backfill snap về số tròn (1000/500/100/10đ) nếu chia lại khớp per-block cũ. Buổi đã tạo **không** tính lại (snapshot 69.999… giữ nguyên).

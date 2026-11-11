@@ -10,6 +10,7 @@ import {
   AdminDashboardStudentChurnItem,
   AdminDashboardStudentChurnType,
   AdminDashboardTopupHistoryItem,
+  AdminDashboardStudentDemographics,
 } from "@/dtos/dashboard.dto";
 import { api } from "../client";
 
@@ -258,3 +259,45 @@ export async function downloadAdminDashboardFinancialExportExcel(params?: {
     params,
   );
 }
+
+/** Lấy dữ liệu thống kê học sinh theo khu vực tỉnh thành, năm sinh, category lớp học và tổng nạp ví. */
+export async function getAdminStudentDemographics(
+  status?: "all" | "active" | "inactive",
+): Promise<AdminDashboardStudentDemographics> {
+  const params = status ? { status } : undefined;
+  const response = await api.get<AdminDashboardStudentDemographics>(
+    "/dashboard/student-demographics",
+    { params },
+  );
+  return response.data;
+}
+
+/** Tải PDF thống kê học sinh theo khu vực, năm sinh, category lớp học và tổng nạp ví. */
+export async function downloadAdminStudentDemographicsPdf(
+  status?: "all" | "active" | "inactive" | void,
+): Promise<{
+  blob: Blob;
+  filename: string;
+}> {
+  const params = status ? { status } : undefined;
+  const response = await api.get<Blob>("/dashboard/student-demographics/pdf", {
+    params,
+    responseType: "blob",
+  });
+
+  const contentDisposition = response.headers["content-disposition"] as string | undefined;
+  const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const suffix =
+    status === "active"
+      ? "dang-hoc"
+      : status === "inactive"
+        ? "da-nghi"
+        : "toan-bo";
+  const filename =
+    filenameMatch?.[1] ?? `thong-ke-khu-vuc-do-tuoi-${suffix}-${dateStr}.pdf`;
+
+  return { blob: response.data, filename };
+}
+
