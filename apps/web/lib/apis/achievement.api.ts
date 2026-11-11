@@ -45,7 +45,7 @@ export async function createAchievement(
   file?: File,
 ): Promise<AchievementDto> {
   if (owner.kind === "staff") {
-    // Ảnh chỉ bắt buộc với thành tích đầu tiên (tự là nổi bật); API tự kiểm tra.
+    // Ảnh minh chứng luôn tuỳ chọn khi tạo; gate hồ sơ gia sư đòi ảnh ở dòng gắn sao.
     const staffPayload = payload as CreateStaffAchievementPayload;
     const formData = new FormData();
     formData.append("title", staffPayload.title);

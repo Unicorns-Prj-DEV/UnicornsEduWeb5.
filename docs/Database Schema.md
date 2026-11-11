@@ -213,20 +213,21 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 
 ### 4.2.1 `staff_achievements`
 
-- Thành tích của nhân sự: nhiều row/title. Ảnh minh chứng (tối đa 1/row) **chỉ bắt buộc với thành tích nổi bật** (`is_highlight`): thành tích đầu tiên (tự gắn sao) phải kèm ảnh, dòng chưa có ảnh không gắn sao được, ảnh của dòng có sao chỉ thay không gỡ. Dòng không sao ảnh tuỳ chọn, gỡ được. `image_path` nullable (ADR `docs/adr/2026-11-07-staff-achievement-proof-only-for-highlight.md`).
+- Thành tích của nhân sự: nhiều row/title. Ảnh minh chứng (tối đa 1/row) **luôn tuỳ chọn ở thao tác**: tạo không ảnh, gắn sao dòng chưa có ảnh đều được. Minh chứng là điều kiện **gate** gia sư: dòng `is_highlight` phải có `image_path`. Chủ hồ sơ tự sửa thì không gỡ được ảnh dòng có sao (chỉ thay); admin / trợ lí / Ban Đào Tạo sửa người khác không bị ràng buộc. `image_path` nullable (ADR `docs/adr/2026-11-11-staff-achievement-star-first.md`).
 - Trường chính:
   - `staff_id` (FK → `staff_info.id`, `ON DELETE CASCADE`)
   - `title` (`TEXT`, bắt buộc, không giới hạn cứng)
   - `image_path` (`TEXT`, nullable): path ảnh gốc (private) trong bucket `achievements` dạng `staff/{staffId}/{achievementId}.{ext}`
   - `image_watermarked_path` (`TEXT`, nullable): twin watermarked public trong bucket `achievements-public`, path ổn định `staff/{staffId}/{achievementId}.jpg` (JPEG). Landing chỉ expose twin này.
   - `sort_order` (`INT`, mặc định 0): thứ tự kéo-thả; API reorder yêu cầu **full permutation** của mọi id hiện có
-  - `is_highlight` (`BOOLEAN`, mặc định `false`): **thành tích nổi bật** (CONTEXT.md) — dòng nhân sự tích sao, hiện trên landing. Tối đa 1 dòng/nhân sự; list luôn sắp `is_highlight DESC, sort_order, created_at` nên dòng có sao đứng đầu, reorder cũng ghim nó ở `sort_order = 0`. Tạo dòng đầu tiên → tự có sao; xoá dòng có sao mà chỉ còn 1 dòng → dòng còn lại tự có sao; còn ≥ 2 dòng thì không tự chọn (gia sư bị gate chặn tới khi chọn lại).
+  - `is_highlight` (`BOOLEAN`, mặc định `false`): **thành tích nổi bật** (CONTEXT.md) — dòng nhân sự tích sao, hiện trên landing. Tối đa 1 dòng/nhân sự; list luôn sắp `is_highlight DESC, sort_order, created_at` nên dòng có sao đứng đầu, reorder cũng ghim nó ở `sort_order = 0`. Hệ thống **không bao giờ tự gắn sao** (kể cả dòng đầu tiên hay khi xoá còn 1 dòng); gia sư bị gate chặn tới khi tự chọn.
   - `created_at`, `updated_at`
 - Index: `(staff_id, sort_order)`; partial unique `staff_achievements_one_highlight_per_staff` trên `(staff_id) WHERE is_highlight` (migration `20261104090000_staff_highlight_achievement`, đồng thời backfill sao cho nhân sự có đúng 1 thành tích).
-- API: `GET/PATCH/DELETE /staff/:staffId/achievements`, `PUT .../reorder`, `PUT .../:id/highlight` (đặt sao, bỏ sao cũ trong cùng transaction; dòng chưa có ảnh → 400), `POST .../:id/image` (tải/thay ảnh). `POST /staff/:staffId/achievements` nhận multipart `title` + `image` tuỳ chọn — thành tích đầu tiên thiếu ảnh thì 400; có ảnh mà upload lỗi thì không giữ dòng. `DELETE .../:id/image` gỡ ảnh dòng không sao; dòng có sao → 400. Self-service cùng rule tại `/users/me/achievements/*`. Không ghi `action_history`.
+- API: `GET/PATCH/DELETE /staff/:staffId/achievements`, `PUT .../reorder`, `PUT .../:id/highlight` (đặt sao, bỏ sao cũ trong cùng transaction; không cần ảnh), `POST .../:id/image` (tải/thay ảnh), `DELETE .../:id/image` (gỡ ảnh, cả dòng có sao). `POST /staff/:staffId/achievements` nhận multipart `title` + `image` tuỳ chọn; có ảnh mà upload lỗi thì không giữ dòng. Ban Đào Tạo dùng cùng bộ thao tác tại `/training/tutors/:id/achievements/*` (phạm vi = phạm vi xem). Target là hồ sơ của chính người gọi → 403 ở cả hai đường. Self-service tại `/users/me/achievements/*`: như trên, trừ `DELETE .../:id/image` dòng có sao → 400.
+- Audit: thay đổi do người khác (admin / trợ lí / Ban Đào Tạo) ghi `action_history` `entity_type = 'staff_achievement'` (tạo, đổi tiêu đề, xoá, đổi sao, tải/thay/gỡ ảnh; snapshot `{ staffId, title, isHighlight, hasImage }`). Không ghi reorder và self-service.
 - Backfill từ `staff_info.specialization`: tách bullet Markdown (`-` / `*` / `•`, kể cả `-Giải` không space; chèn newline trước pattern `.- ` bị dính), bỏ header ngắn kết thúc bằng `:`; nếu không có bullet thì mỗi dòng non-empty là 1 row; cuối cùng fallback cả khối text. Không backfill `personal_achievement_link`.
 - Watermark twins: script `apps/api/scripts/backfill-watermarked-images.ts`; ADR landing watermark.
-- ADR: `docs/adr/2026-08-11-achievement-separate-owner-tables.md`, `...-single-image-per-row.md`, `...-gate-and-legacy-columns.md`, `...-landing-watermarked-public-images.md`, `docs/adr/2026-10-01-staff-achievement-proof-required.md`, `docs/adr/2026-11-04-staff-highlight-achievement.md`
+- ADR: `docs/adr/2026-08-11-achievement-separate-owner-tables.md`, `...-single-image-per-row.md`, `...-gate-and-legacy-columns.md`, `...-landing-watermarked-public-images.md`, `docs/adr/2026-10-01-staff-achievement-proof-required.md`, `docs/adr/2026-11-04-staff-highlight-achievement.md`, `docs/adr/2026-11-11-staff-achievement-star-first.md`
 
 ### 4.3 `student_info`
 

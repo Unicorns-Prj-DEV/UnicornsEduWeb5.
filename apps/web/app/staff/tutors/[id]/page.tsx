@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import StaffAchievementsDialog, {
   StaffAchievementsButton,
@@ -36,6 +40,7 @@ export default function StaffTutorDetailPage() {
   const [showAchievements, setShowAchievements] = useState(false);
   const [showRoleEditor, setShowRoleEditor] = useState(false);
   const viewer = useStaffViewer();
+  const queryClient = useQueryClient();
 
   const {
     data: tutor,
@@ -75,6 +80,7 @@ export default function StaffTutorDetailPage() {
             <div className="flex flex-wrap items-center gap-x-4">
               <StaffAchievementsButton
                 count={tutor.achievementCount}
+                editable={tutor.id !== viewer.staffId}
                 onOpen={() => setShowAchievements(true)}
               />
               {canTrainingHeadEditRoles({
@@ -107,7 +113,14 @@ export default function StaffTutorDetailPage() {
               mode="training"
               staffId={tutor.id}
               staffName={tutor.fullName}
-              onClose={() => setShowAchievements(false)}
+              editable={tutor.id !== viewer.staffId}
+              onClose={() => {
+                setShowAchievements(false);
+                // Số thành tích trên danh sách / hồ sơ đổi theo chỉnh sửa trong popup.
+                void queryClient.invalidateQueries({
+                  queryKey: trainingTutorKeys.all,
+                });
+              }}
             />
           ) : null}
 

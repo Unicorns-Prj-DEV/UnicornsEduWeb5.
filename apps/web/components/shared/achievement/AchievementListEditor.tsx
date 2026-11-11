@@ -45,6 +45,7 @@ import { ACHIEVEMENT_LEVEL_OPTIONS } from "@/dtos/achievement.dto";
 import * as achievementApi from "@/lib/apis/achievement.api";
 import { useRefreshAuthSession } from "@/hooks/use-refresh-auth-session";
 import ImageLightbox from "@/components/ui/ImageLightbox";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { downloadAvatar, suggestAvatarFilename } from "@/lib/avatar";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
@@ -138,7 +139,7 @@ function ImageActions({
         </button>
       ) : (
         <span className="text-xs text-text-muted">
-          {allowClearImage ? "Chưa có ảnh minh chứng" : "Thiếu minh chứng"}
+          {item.isHighlight ? "Thiếu minh chứng" : "Chưa có ảnh minh chứng"}
         </span>
       )}
 
@@ -213,20 +214,17 @@ function HighlightStarButton({
   busy: boolean;
   onHighlight: (id: string) => void;
 }) {
-  // Thành tích nổi bật bắt buộc có ảnh: dòng chưa có ảnh không gắn sao được.
-  const missingImage = !item.isHighlight && !item.imageUrl;
+  // Gắn sao trước, minh chứng tải sau (ADR 2026-11-11): dòng chưa có ảnh vẫn gắn sao được.
   const label = item.isHighlight
     ? "Thành tích nổi bật (đang hiển thị trên website)"
-    : missingImage
-      ? "Tải ảnh minh chứng lên trước khi đặt làm thành tích nổi bật"
-      : "Đặt làm thành tích nổi bật";
+    : "Đặt làm thành tích nổi bật";
   return (
     <button
       type="button"
       onClick={() => {
-        if (!item.isHighlight && !missingImage) onHighlight(item.id);
+        if (!item.isHighlight) onHighlight(item.id);
       }}
-      disabled={busy || missingImage}
+      disabled={busy}
       aria-pressed={item.isHighlight}
       aria-label={label}
       title={label}
@@ -248,6 +246,7 @@ function SortableStaffRow({
   item,
   editable,
   canHighlight,
+  isSelf,
   busy,
   onHighlight,
   onSaveTitle,
@@ -260,6 +259,8 @@ function SortableStaffRow({
   editable: boolean;
   /** Nút sao luôn hiện (không cần bật chế độ chỉnh sửa) với người được sửa thành tích. */
   canHighlight: boolean;
+  /** Tự sửa hồ sơ của mình: dòng gắn sao không gỡ được ảnh (chỉ thay). */
+  isSelf: boolean;
   busy: boolean;
   onHighlight: (id: string) => void;
   onSaveTitle: (id: string, title: string) => void;
@@ -366,7 +367,7 @@ function SortableStaffRow({
           onClearImage={onClearImage}
           onPreviewImage={onPreviewImage}
           onDelete={onDelete}
-          allowClearImage={!item.isHighlight}
+          allowClearImage={!isSelf || !item.isHighlight}
         />
       </div>
     </li>
@@ -591,10 +592,11 @@ export default function AchievementListEditor({
   const [preview, setPreview] = useState<{ src: string; title: string } | null>(
     null,
   );
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const canMutate = editable && isEditing;
-  // Thành tích nổi bật chỉ có trên thành tích nhân sự; Ban Đào Tạo (training) chỉ xem.
-  const canHighlight =
-    editable && owner.kind === "staff" && owner.mode !== "training";
+  // Thành tích nổi bật chỉ có trên thành tích nhân sự (mọi người được sửa).
+  const canHighlight = editable && owner.kind === "staff";
+  const isSelf = owner.kind === "staff" && owner.mode === "self";
 
   const listQuery = useQuery({
     queryKey,
@@ -711,7 +713,7 @@ export default function AchievementListEditor({
     mutationFn: ({ id, file }: { id: string; file: File }) =>
       achievementApi.uploadAchievementImage(owner, id, file),
     onSuccess: async () => {
-      await invalidate();
+      await Promise.all([invalidate(), refreshSelfProfileGate()]);
       toast.success("Đã tải ảnh minh chứng.");
     },
     onError: () => toast.error("Không thể tải ảnh minh chứng."),
@@ -721,7 +723,7 @@ export default function AchievementListEditor({
     mutationFn: (id: string) =>
       achievementApi.deleteAchievementImage(owner, id),
     onSuccess: async () => {
-      await invalidate();
+      await Promise.all([invalidate(), refreshSelfProfileGate()]);
       toast.success("Đã xoá ảnh minh chứng.");
     },
     onError: (error) =>
@@ -766,9 +768,6 @@ export default function AchievementListEditor({
     setIsEditing(false);
     setNewTitle("");
   };
-
-  // Thành tích đầu tiên tự là nổi bật nên bắt buộc ảnh; thêm sau thì tuỳ chọn.
-  const newStaffNeedsImage = items.length === 0;
 
   const canCreateStudent =
     draftStudent.award.trim().length > 0 &&
@@ -835,6 +834,10 @@ export default function AchievementListEditor({
       {canHighlight && items.length > 0 ? (
         <HighlightAchievementGuide
           hasHighlight={items.some((item) => item.isHighlight)}
+          highlightMissingProof={items.some(
+            (item) => item.isHighlight && !item.imageUrl,
+          )}
+          audience={isSelf ? "self" : "other"}
         />
       ) : null}
 
@@ -858,11 +861,7 @@ export default function AchievementListEditor({
                   onSaveFields={(id, fields) =>
                     updateMutation.mutate({ id, payload: fields })
                   }
-                  onDelete={(id) => {
-                    if (window.confirm("Xoá thành tích này?")) {
-                      deleteMutation.mutate(id);
-                    }
-                  }}
+                  onDelete={setPendingDeleteId}
                   onUpload={(id, file) =>
                     uploadMutation.mutate({ id, file })
                   }
@@ -875,16 +874,13 @@ export default function AchievementListEditor({
                   item={item}
                   editable={canMutate}
                   canHighlight={canHighlight}
+                  isSelf={isSelf}
                   busy={busy}
                   onHighlight={(id) => highlightMutation.mutate(id)}
                   onSaveTitle={(id, title) =>
                     updateMutation.mutate({ id, payload: { title } })
                   }
-                  onDelete={(id) => {
-                    if (window.confirm("Xoá thành tích này?")) {
-                      deleteMutation.mutate(id);
-                    }
-                  }}
+                  onDelete={setPendingDeleteId}
                   onUpload={(id, file) =>
                     uploadMutation.mutate({ id, file })
                   }
@@ -904,12 +900,24 @@ export default function AchievementListEditor({
         onClose={() => setPreview(null)}
       />
 
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+        title="Xoá thành tích này?"
+        confirmLabel="Xoá"
+        variant="destructive"
+        onConfirm={() => {
+          if (pendingDeleteId) deleteMutation.mutate(pendingDeleteId);
+          setPendingDeleteId(null);
+        }}
+      />
+
       {canMutate && !isStudent ? (
         <div className="space-y-2 rounded-lg border border-dashed border-border-default p-3">
           <p className="text-xs font-medium text-text-secondary">
-            {newStaffNeedsImage
-              ? "Thêm thành tích (thành tích đầu tiên là thành tích nổi bật, bắt buộc kèm ảnh minh chứng)"
-              : "Thêm thành tích"}
+            Thêm thành tích
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
@@ -927,11 +935,7 @@ export default function AchievementListEditor({
             >
               <ImagePlus className="h-4 w-4" aria-hidden />
               <span className="text-xs">
-                {newTitleFile
-                  ? "Đã chọn ảnh"
-                  : newStaffNeedsImage
-                    ? "Chọn ảnh minh chứng"
-                    : "Chọn ảnh minh chứng (tuỳ chọn)"}
+                {newTitleFile ? "Đã chọn ảnh" : "Chọn ảnh minh chứng (tuỳ chọn)"}
               </span>
               <input
                 type="file"
@@ -945,12 +949,10 @@ export default function AchievementListEditor({
             </label>
             <button
               type="button"
-              disabled={
-                busy || !newTitle.trim() || (newStaffNeedsImage && !newTitleFile)
-              }
+              disabled={busy || !newTitle.trim()}
               onClick={() => {
                 const title = newTitle.trim();
-                if (!title || (newStaffNeedsImage && !newTitleFile)) return;
+                if (!title) return;
                 createMutation.mutate({
                   payload: { title },
                   file: newTitleFile ?? undefined,

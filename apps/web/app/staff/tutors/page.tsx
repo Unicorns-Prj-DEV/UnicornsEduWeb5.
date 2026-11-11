@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
 import { Search } from "lucide-react";
 import StaffAchievementsDialog, {
@@ -59,6 +63,7 @@ export default function StaffTutorsPage() {
   const [page, setPage] = useState(1);
   const [scopeChoice, setScopeChoice] = useState<TrainingTutorScope>("tutors");
   const viewer = useStaffViewer();
+  const queryClient = useQueryClient();
   const [achievementsTarget, setAchievementsTarget] =
     useState<TrainingTutorListItem | null>(null);
   const [roleTarget, setRoleTarget] = useState<TrainingTutorListItem | null>(
@@ -180,6 +185,7 @@ export default function StaffTutorsPage() {
                 <div className="flex flex-wrap items-center gap-x-4">
                   <StaffAchievementsButton
                     count={tutor.achievementCount}
+                    editable={tutor.id !== viewer.staffId}
                     onOpen={() => setAchievementsTarget(tutor)}
                   />
                   {canEditRoles(tutor) ? (
@@ -248,6 +254,7 @@ export default function StaffTutorsPage() {
                         <div className="flex flex-col items-start">
                           <StaffAchievementsButton
                             count={tutor.achievementCount}
+                            editable={tutor.id !== viewer.staffId}
                             onOpen={() => setAchievementsTarget(tutor)}
                           />
                           {canEditRoles(tutor) ? (
@@ -280,7 +287,14 @@ export default function StaffTutorsPage() {
           mode="training"
           staffId={achievementsTarget.id}
           staffName={achievementsTarget.fullName}
-          onClose={() => setAchievementsTarget(null)}
+          editable={achievementsTarget.id !== viewer.staffId}
+          onClose={() => {
+            setAchievementsTarget(null);
+            // Số thành tích trên danh sách / hồ sơ đổi theo chỉnh sửa trong popup.
+            void queryClient.invalidateQueries({
+              queryKey: trainingTutorKeys.all,
+            });
+          }}
         />
       ) : null}
 

@@ -54,6 +54,22 @@ Query `page`, `limit`. Mỗi buổi: `id`, `date`, `startTime`, `endTime`, `clas
 
 Danh sách thành tích theo thứ tự hồ sơ — thành tích nổi bật (`isHighlight: true`) đứng đầu (reuse `AchievementService.listStaffAchievements`). Web dùng qua `AchievementOwnerRef { kind: "staff", mode: "training", staffId }`.
 
+### Sửa thành tích (Ban Đào Tạo)
+
+ADR `docs/adr/2026-11-11-staff-achievement-star-first.md`. Cùng phạm vi với xem: `training` sửa gia sư (`teacher`), `training_head` / admin sửa mọi nhân sự; ngoài phạm vi → `404`. Target là hồ sơ của chính người gọi → `403` (sửa ở `/users/me/achievements`). Không bị ràng buộc minh chứng (giống admin). Mọi thay đổi trừ reorder ghi `action_history` `entityType=staff_achievement`.
+
+| Method | Path | Body | Ghi chú |
+| --- | --- | --- | --- |
+| `POST` | `/training/tutors/:id/achievements` | multipart `title`, `image?` | Ảnh tuỳ chọn; không tự gắn sao |
+| `PATCH` | `/training/tutors/:id/achievements/:achievementId` | `{ title }` | |
+| `DELETE` | `/training/tutors/:id/achievements/:achievementId` | — | Xoá dòng có sao không tự chọn sao mới |
+| `PUT` | `/training/tutors/:id/achievements/reorder` | `{ orderedIds }` | Full permutation; dòng có sao ghim đầu |
+| `PUT` | `/training/tutors/:id/achievements/:achievementId/highlight` | — | Dòng chưa có ảnh vẫn gắn sao được |
+| `POST` | `/training/tutors/:id/achievements/:achievementId/image` | multipart `image` | Tải/thay ảnh |
+| `DELETE` | `/training/tutors/:id/achievements/:achievementId/image` | — | Gỡ ảnh, kể cả dòng có sao |
+
+Trả về giống `/staff/:staffId/achievements/*` (`AchievementDto` / danh sách). Web: `StaffAchievementsDialog` `editable` (tắt khi target là chính người xem) → `AchievementListEditor` `mode="training"`.
+
 ## Chỉnh role nhân sự (Trưởng Ban Đào Tạo)
 
 ### `PATCH /staff/:id/training-roles`

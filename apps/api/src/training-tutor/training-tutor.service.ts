@@ -6,7 +6,10 @@ import {
 import { Prisma } from '../../generated/client';
 import { ClassStatus, StaffRole, StaffStatus, UserRole } from 'generated/enums';
 import { hasTrainingAccess } from 'src/common/training-access';
-import { AchievementService } from 'src/achievements/achievement.service';
+import {
+  AchievementService,
+  type StaffAchievementEditor,
+} from 'src/achievements/achievement.service';
 import type { JwtPayload } from 'src/auth/decorators/current-user.decorator';
 import { getPreferredUserFullName } from 'src/common/user-name.util';
 import type { PaginationQueryDto } from 'src/dtos/pagination.dto';
@@ -250,6 +253,23 @@ export class TrainingTutorService {
     const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
     await this.assertProfileExists(staffId, canViewAllStaff);
     return this.achievementService.listStaffAchievements(staffId);
+  }
+
+  /**
+   * Ban Đào Tạo sửa thành tích của người mình xem được (gia sư; Trưởng ban:
+   * mọi nhân sự), không bị ràng buộc minh chứng như admin. Hồ sơ của chính
+   * mình → 403 (sửa ở trang hồ sơ cá nhân).
+   */
+  async resolveAchievementEditor(
+    viewer: Pick<JwtPayload, 'id' | 'email' | 'roleType'>,
+    staffId: string,
+  ): Promise<StaffAchievementEditor> {
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    await this.assertProfileExists(staffId, canViewAllStaff);
+    return this.achievementService.resolveOtherStaffAchievementEditor(
+      viewer,
+      staffId,
+    );
   }
 
   private async assertProfileExists(staffId: string, canViewAllStaff: boolean) {
