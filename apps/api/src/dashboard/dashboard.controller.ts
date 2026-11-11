@@ -21,6 +21,7 @@ import {
   type AdminDashboardActiveClassBreakdownDto,
   type AdminDashboardStudentBalanceItemDto,
   type AdminDashboardStudentChurnItemDto,
+  type AdminDashboardStudentDemographicsDto,
   type AdminDashboardDto,
   GetAdminDashboardQueryDto,
   GetAdminDashboardActionAlertsQueryDto,
@@ -50,6 +51,7 @@ import { FinancialExportExcelService } from './financial-export-excel.service';
 import { FinancialExportPdfService } from './financial-export-pdf.service';
 import { MonthlyReportService } from './monthly-report.service';
 import { MonthlyStatisticsExportPdfService } from './monthly-statistics-export-pdf.service';
+import { StudentDemographicsExportPdfService } from './student-demographics-export-pdf.service';
 
 @Controller('dashboard')
 @ApiTags('dashboard')
@@ -63,6 +65,7 @@ export class DashboardController {
     private readonly financialExportPdfService: FinancialExportPdfService,
     private readonly financialExportExcelService: FinancialExportExcelService,
     private readonly monthlyStatisticsExportPdfService: MonthlyStatisticsExportPdfService,
+    private readonly studentDemographicsExportPdfService: StudentDemographicsExportPdfService,
     private readonly monthlyReportService: MonthlyReportService,
   ) {}
 
@@ -449,6 +452,59 @@ export class DashboardController {
     const filename = `thong-ke-thang-${toSafeFilenameSlug(
       `${payload.fromMonthKey}-${payload.toMonthKey}`,
     )}.pdf`;
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    return new StreamableFile(pdfBuffer);
+  }
+
+  @Get('student-demographics')
+  @ApiOperation({
+    summary: 'Get student demographics aggregate',
+    description:
+      'Return student distribution by province, birth year, class category, and wallet topup (all / active / inactive).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Student demographic statistics.',
+  })
+  async getStudentDemographics(
+    @Query('status') status?: 'all' | 'active' | 'inactive',
+  ): Promise<AdminDashboardStudentDemographicsDto> {
+    return this.dashboardService.getStudentDemographics(status);
+  }
+
+  @Get('student-demographics/pdf')
+  @ApiOperation({
+    summary: 'Download student demographics report as PDF',
+    description:
+      'Landscape A4 PDF report with charts and matrices of students by province, birth year, class category, and wallet topup.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF file (application/pdf).',
+  })
+  async getStudentDemographicsPdf(
+    @Res({ passthrough: true }) res: Response,
+    @Query('status') status?: 'all' | 'active' | 'inactive',
+  ): Promise<StreamableFile> {
+    const payload = await this.dashboardService.getStudentDemographics(status);
+    const pdfBuffer =
+      await this.studentDemographicsExportPdfService.toPdfBuffer(payload);
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const suffix =
+      status === 'active'
+        ? 'dang-hoc'
+        : status === 'inactive'
+          ? 'da-nghi'
+          : 'toan-bo';
+    const filename = `thong-ke-khu-vuc-do-tuoi-${suffix}-${dateStr}.pdf`;
 
     res.set({
       'Content-Type': 'application/pdf',

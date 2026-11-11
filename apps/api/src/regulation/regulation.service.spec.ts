@@ -96,6 +96,30 @@ describe('RegulationService', () => {
     );
   });
 
+  it('training_head thấy cả quy định gửi staff_training', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      roles: [StaffRole.training_head],
+    });
+    mockPrisma.regulation.findMany.mockResolvedValue([]);
+
+    await service.getRegulations({
+      id: 'user-training-head',
+      email: 'head@example.com',
+      accountHandle: 'head',
+      roleType: UserRole.staff,
+    });
+
+    const call = mockPrisma.regulation.findMany.mock.calls[0][0];
+    const hasSome = call.where.OR[1].audiences.hasSome;
+    expect(hasSome).toEqual(
+      expect.arrayContaining([
+        RegulationAudience.staff_training_head,
+        RegulationAudience.staff_training,
+      ]),
+    );
+    expect(hasSome).toHaveLength(2);
+  });
+
   it('creates a regulation and records action history', async () => {
     const row = makeRegulationRow({
       title: 'Quy định mới',

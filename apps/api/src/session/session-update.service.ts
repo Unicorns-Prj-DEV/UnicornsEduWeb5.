@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -1793,6 +1794,7 @@ export class SessionUpdateService {
       select: {
         id: true,
         classId: true,
+        teacherId: true,
         snapshotNoAttendance: true,
         snapshotBlockCount: true,
         coefficient: true,
@@ -1841,6 +1843,17 @@ export class SessionUpdateService {
         actor.id,
         existingSession.classId,
       );
+      // Gia sư xem được buổi của gia sư khác (chỉ nhận xét) nhưng không được sửa.
+      const accessMode =
+        await this.staffOperationsAccess.resolveClassViewAccessMode(
+          actor,
+          existingSession.classId,
+        );
+      if (accessMode === 'teacher' && existingSession.teacherId !== actor.id) {
+        throw new ForbiddenException(
+          'Bạn chỉ được sửa buổi học do chính mình dạy.',
+        );
+      }
     }
 
     let enrichedAttendance: SessionUpdateDto['attendance'] | undefined;

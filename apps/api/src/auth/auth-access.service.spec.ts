@@ -97,18 +97,28 @@ describe('AuthAccessService', () => {
   });
 
   it.each([
-    [0, false, false],
-    [1, false, false],
-    [1, true, true],
+    [0, null, false],
+    [1, null, false],
+    // Sao trước, minh chứng sau: có sao nhưng dòng sao chưa có ảnh vẫn bị chặn.
+    [1, '', false],
+    [1, 'staff/x/ach.png', true],
   ])(
-    'requires teacher staff to have achievements + highlight (count=%i, highlight=%s -> complete=%s)',
-    async (achievementCount, hasHighlight, expectedComplete) => {
+    'requires teacher staff to have achievements + highlight with proof (count=%i, highlightImage=%s -> complete=%s)',
+    async (achievementCount, highlightImagePath, expectedComplete) => {
       prisma.user.findUnique.mockResolvedValue({
         ...currentConsent,
         staffInfo: {
           ...completeStaffInfo,
           _count: { achievements: achievementCount },
-          achievements: hasHighlight ? [{ id: 'ach-highlight' }] : [],
+          achievements:
+            highlightImagePath === null
+              ? []
+              : [
+                  {
+                    id: 'ach-highlight',
+                    imagePath: highlightImagePath || null,
+                  },
+                ],
         },
         studentInfo: null,
       });

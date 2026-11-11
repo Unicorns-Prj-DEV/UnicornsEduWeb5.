@@ -1,4 +1,5 @@
 import { StaffRole } from 'generated/enums';
+import { TRAINING_ACCESS_ROLES } from 'src/common/training-access';
 
 /**
  * Staff role được tạo và đẩy thông báo (CONTEXT.md "Tạo push"); admin luôn được.
@@ -13,6 +14,6 @@ export const NOTIFICATION_PUBLISHER_STAFF_ROLES: StaffRole[] = [
   StaffRole.accountant_expense,
   StaffRole.communication,
   StaffRole.technical,
-  StaffRole.training,
+  ...TRAINING_ACCESS_ROLES,
   StaffRole.sale,
 ];

@@ -82,7 +82,7 @@ export class LessonExamPrintController {
   )
   @ApiOperation({
     summary: 'Xuất PDF Đề in của tiết thực hành (cấp khoá)',
-    description: `${PDF_DESCRIPTION} Quyền như xem danh sách câu của tiết: admin/trợ lí hoặc đội giáo án của khoá. Thời gian làm bài lấy từ tiết.`,
+    description: `${PDF_DESCRIPTION} Quyền như xem danh sách câu của tiết: admin/trợ lí hoặc đội chuyên môn của khoá. Thời gian làm bài lấy từ tiết.`,
   })
   @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiQuery(ANSWERS_QUERY)
@@ -94,7 +94,7 @@ export class LessonExamPrintController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Không thuộc đội giáo án của khoá.',
+    description: 'Không thuộc đội chuyên môn của khoá.',
   })
   @ApiResponse({
     status: 404,

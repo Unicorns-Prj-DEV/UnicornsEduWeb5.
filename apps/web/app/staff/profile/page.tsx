@@ -279,6 +279,10 @@ function getOtherRoleDetailHref(role: string) {
     return "/staff/training-detail";
   }
 
+  if (role === "training_head") {
+    return "/staff/training-head-detail";
+  }
+
   if (role === "sale") {
     return "/staff/sale-detail";
   }

@@ -3,16 +3,23 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import StaffAchievementsDialog, {
   StaffAchievementsButton,
 } from "@/components/shared/achievement/StaffAchievementsDialog";
+import EditTrainingRolesButton from "@/components/staff/tutors/EditTrainingRolesButton";
+import EditTrainingRolesDialog from "@/components/staff/tutors/EditTrainingRolesDialog";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryErrorToast } from "@/hooks/use-query-error-toast";
+import { useStaffViewer } from "@/hooks/use-staff-viewer";
 import type { TrainingTutorClass } from "@/dtos/training-tutor.dto";
 import {
   getTrainingTutor,
@@ -23,6 +30,7 @@ import {
   formatTutorSessionDate,
   formatTutorSessionTimeRange,
 } from "@/lib/training-tutor";
+import { canTrainingHeadEditRoles } from "@/lib/training-head-roles";
 
 const SESSION_PAGE_SIZE = 20;
 
@@ -30,6 +38,9 @@ export default function StaffTutorDetailPage() {
   const params = useParams<{ id: string }>();
   const tutorId = decodeURIComponent(params.id ?? "");
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showRoleEditor, setShowRoleEditor] = useState(false);
+  const viewer = useStaffViewer();
+  const queryClient = useQueryClient();
 
   const {
     data: tutor,
@@ -49,7 +60,7 @@ export default function StaffTutorDetailPage() {
         className="inline-flex min-h-10 items-center gap-1.5 self-start text-sm text-text-muted hover:text-text-primary"
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Danh sách gia sư
+        {viewer.isTrainingHead ? "Danh sách nhân sự" : "Danh sách gia sư"}
       </Link>
 
       {isLoading ? (
@@ -61,12 +72,27 @@ export default function StaffTutorDetailPage() {
       ) : (
         <>
           <section className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-surface p-4">
-            <TutorIdentity tutor={tutor} size="lg" />
-            <StaffAchievementsButton
-              count={tutor.achievementCount}
-              onOpen={() => setShowAchievements(true)}
-              className="self-start"
+            <TutorIdentity
+              tutor={tutor}
+              size="lg"
+              showRoles={viewer.isTrainingHead}
             />
+            <div className="flex flex-wrap items-center gap-x-4">
+              <StaffAchievementsButton
+                count={tutor.achievementCount}
+                editable={tutor.id !== viewer.staffId}
+                onOpen={() => setShowAchievements(true)}
+              />
+              {canTrainingHeadEditRoles({
+                viewerStaffId: viewer.staffId,
+                viewerRoles: viewer.roles,
+                target: tutor,
+              }) ? (
+                <EditTrainingRolesButton
+                  onOpen={() => setShowRoleEditor(true)}
+                />
+              ) : null}
+            </div>
           </section>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -87,7 +113,21 @@ export default function StaffTutorDetailPage() {
               mode="training"
               staffId={tutor.id}
               staffName={tutor.fullName}
-              onClose={() => setShowAchievements(false)}
+              editable={tutor.id !== viewer.staffId}
+              onClose={() => {
+                setShowAchievements(false);
+                // Số thành tích trên danh sách / hồ sơ đổi theo chỉnh sửa trong popup.
+                void queryClient.invalidateQueries({
+                  queryKey: trainingTutorKeys.all,
+                });
+              }}
+            />
+          ) : null}
+
+          {showRoleEditor ? (
+            <EditTrainingRolesDialog
+              staff={tutor}
+              onClose={() => setShowRoleEditor(false)}
             />
           ) : null}
         </>

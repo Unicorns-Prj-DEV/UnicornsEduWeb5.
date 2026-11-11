@@ -5,6 +5,8 @@ export interface TrainingTutorSummary {
   id: string;
   fullName: string;
   status: StaffStatus;
+  /** Role nhân sự (không phải PII); Trưởng Ban Đào Tạo dùng để chỉnh role. */
+  roles: string[];
   avatarUrl: string | null;
   university: string | null;
   highSchool: string | null;
@@ -47,4 +49,18 @@ export interface TrainingTutorListParams {
   limit: number;
   search?: string;
   status?: "" | StaffStatus;
+  /** `all` = mọi nhân sự — chỉ Trưởng Ban Đào Tạo. Mặc định chỉ gia sư. */
+  scope?: TrainingTutorScope;
+}
+
+export type TrainingTutorScope = "tutors" | "all";
+
+/** PATCH /staff/:id/training-roles — trạng thái đích của role gia sư/chuyên môn/đào tạo. */
+export interface UpdateStaffTrainingRolesPayload {
+  roles: string[];
+}
+
+export interface StaffTrainingRolesResult {
+  id: string;
+  roles: string[];
 }

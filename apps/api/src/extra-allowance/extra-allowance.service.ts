@@ -301,6 +301,8 @@ export class ExtraAllowanceService {
         return 'Kỹ thuật';
       case StaffRole.training:
         return 'Đào Tạo';
+      case StaffRole.training_head:
+        return 'Trưởng ban đào tạo';
       case StaffRole.sale:
         return 'Sale';
       default:

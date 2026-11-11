@@ -358,8 +358,9 @@ export default function AdminStaffDetailPage({
     resolveAdminShellAccess(fullProfile);
   const { canManageUsers } = resolveUserAdminCapabilities(fullProfile, routeBase);
   const ownStaffId = fullProfile?.staffInfo?.id;
+  const viewingOwnStaffRecord = Boolean(ownStaffId) && ownStaffId === id;
   const viewingOwnStaffRecordOnStaffShell =
-    routeBase === "/staff" && Boolean(ownStaffId) && ownStaffId === id;
+    routeBase === "/staff" && viewingOwnStaffRecord;
   const canViewBeforeDeduction = isAdmin || isAccountant;
   const canCreateBonus = isAdmin || isAssistant || isAccountantExpense;
   const canDeleteBonus = canCreateBonus;
@@ -1864,8 +1865,9 @@ export default function AdminStaffDetailPage({
           qrLink={qrLink ?? resolvedQrLink}
           onQrEdit={() => setQrPopupOpen(true)}
           allowQrEdit={!viewingOwnStaffRecordOnStaffShell}
+          // Thành tích của chính mình sửa ở hồ sơ cá nhân (API trả 403 ở mọi shell).
           allowAchievementEdit={
-            (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell
+            (isAdmin || isAssistant) && !viewingOwnStaffRecord
           }
         />
 

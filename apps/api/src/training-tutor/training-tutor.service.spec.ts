@@ -69,6 +69,7 @@ function leakyTutorRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'UNISTAFF-0000000001',
     status: StaffStatus.inactive,
+    roles: [StaffRole.teacher],
     university: 'ĐH A',
     highSchool: 'THPT B',
     cccdNumber: '001',
@@ -125,7 +126,10 @@ describe('TrainingTutorService', () => {
       count: jest.fn(),
     },
   };
-  const mockAchievements = { listStaffAchievements: jest.fn() };
+  const mockAchievements = {
+    listStaffAchievements: jest.fn(),
+    resolveOtherStaffAchievementEditor: jest.fn(),
+  };
   const trainingViewer = { id: 'user-1', roleType: UserRole.staff };
   let service: TrainingTutorService;
 
@@ -193,6 +197,7 @@ describe('TrainingTutorService', () => {
           id: 'UNISTAFF-0000000001',
           fullName: 'Sư Gia',
           status: StaffStatus.inactive,
+          roles: [StaffRole.teacher],
           avatarUrl: 'signed:a/b.png',
           university: 'ĐH A',
           highSchool: 'THPT B',
@@ -265,6 +270,47 @@ describe('TrainingTutorService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(mockPrisma.staffInfo.findMany).not.toHaveBeenCalled();
     });
+
+    it('scope=all: Trưởng ban xem mọi nhân sự, vẫn allowlist', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.count.mockResolvedValue(1);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([
+        leakyTutorRow({ roles: [StaffRole.sale] }),
+      ]);
+
+      const result = await service.listTutors(trainingViewer, {
+        scope: 'all',
+      });
+
+      const args = firstCallArg<StaffFindManyArgs>(
+        mockPrisma.staffInfo.findMany,
+      );
+      expect(args.where).not.toHaveProperty('roles');
+      expect(result.data[0].roles).toEqual([StaffRole.sale]);
+      expectNoHiddenKeys(result, HIDDEN_STAFF_KEYS);
+      expectNoHiddenKeys(args.select, HIDDEN_STAFF_KEYS);
+    });
+
+    it('scope=all: Ban Đào Tạo thường bị 403', async () => {
+      mockViewer([StaffRole.training]);
+      await expect(
+        service.listTutors(trainingViewer, { scope: 'all' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.staffInfo.findMany).not.toHaveBeenCalled();
+    });
+
+    it('Trưởng ban mặc định vẫn chỉ thấy gia sư', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.count.mockResolvedValue(0);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+      await service.listTutors(trainingViewer, {});
+
+      const args = firstCallArg<StaffFindManyArgs>(
+        mockPrisma.staffInfo.findMany,
+      );
+      expect(args.where.roles).toEqual({ has: StaffRole.teacher });
+    });
   });
 
   describe('getTutor', () => {
@@ -311,6 +357,41 @@ describe('TrainingTutorService', () => {
       await expect(
         service.getTutor(trainingViewer, 'UNISTAFF-0000000002'),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('Trưởng ban mở được hồ sơ nhân sự không phải gia sư', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce(
+        leakyTutorRow({ roles: [StaffRole.sale], classTeachers: [] }),
+      );
+
+      const result = await service.getTutor(
+        trainingViewer,
+        'UNISTAFF-0000000001',
+      );
+
+      const args = (
+        mockPrisma.staffInfo.findFirst.mock.calls as [
+          { where: Prisma.StaffInfoWhereInput },
+        ][]
+      )[1][0];
+      expect(args.where).toEqual({ id: 'UNISTAFF-0000000001' });
+      expect(result.roles).toEqual([StaffRole.sale]);
+      expectNoHiddenKeys(result, HIDDEN_STAFF_KEYS);
+    });
+
+    it('Ban Đào Tạo thường vẫn lọc theo role teacher', async () => {
+      mockViewer([StaffRole.training]);
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce(null);
+      await expect(
+        service.getTutor(trainingViewer, 'UNISTAFF-0000000002'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      const args = (
+        mockPrisma.staffInfo.findFirst.mock.calls as [
+          { where: Prisma.StaffInfoWhereInput },
+        ][]
+      )[1][0];
+      expect(args.where.roles).toEqual({ has: StaffRole.teacher });
     });
   });
 
@@ -359,6 +440,64 @@ describe('TrainingTutorService', () => {
       expect(mockAchievements.listStaffAchievements).toHaveBeenCalledWith(
         'UNISTAFF-0000000001',
       );
+    });
+  });
+
+  describe('resolveAchievementEditor', () => {
+    const viewer = { ...trainingViewer, email: 'bdt@example.com' };
+
+    it('Ban Đào Tạo thường sửa được gia sư → editor other', async () => {
+      mockViewer([StaffRole.training]);
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({ id: 'x' });
+      mockAchievements.resolveOtherStaffAchievementEditor.mockResolvedValue({
+        kind: 'other',
+        actor: { userId: 'user-1' },
+      });
+
+      await expect(
+        service.resolveAchievementEditor(viewer, 'UNISTAFF-0000000001'),
+      ).resolves.toEqual({ kind: 'other', actor: { userId: 'user-1' } });
+      expect(mockPrisma.staffInfo.findFirst).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: {
+            roles: { has: StaffRole.teacher },
+            id: 'UNISTAFF-0000000001',
+          },
+        }),
+      );
+      expect(
+        mockAchievements.resolveOtherStaffAchievementEditor,
+      ).toHaveBeenCalledWith(viewer, 'UNISTAFF-0000000001');
+    });
+
+    it('Ban Đào Tạo thường không sửa được ngoài gia sư → 404', async () => {
+      mockViewer([StaffRole.training]);
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.resolveAchievementEditor(viewer, 'UNISTAFF-0000000002'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(
+        mockAchievements.resolveOtherStaffAchievementEditor,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('Trưởng ban sửa được mọi nhân sự', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({ id: 'x' });
+
+      await service.resolveAchievementEditor(viewer, 'UNISTAFF-0000000002');
+
+      expect(mockPrisma.staffInfo.findFirst).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { id: 'UNISTAFF-0000000002' } }),
+      );
+    });
+
+    it('không phải Ban Đào Tạo → 403', async () => {
+      mockViewer([StaffRole.teacher]);
+      await expect(
+        service.resolveAchievementEditor(viewer, 'UNISTAFF-0000000001'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

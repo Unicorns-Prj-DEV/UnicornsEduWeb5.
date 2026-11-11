@@ -1211,3 +1211,182 @@ export interface AdminMonthlyReportDto {
   newStudents: MonthlyReportNewStudentDto[];
   droppedStudents: MonthlyReportDroppedStudentDto[];
 }
+
+export interface StudentDemographicsCategoryItemDto {
+  courseId: string | null;
+  courseName: string;
+  studentCount: number;
+  classCount?: number;
+}
+
+export interface StudentDemographicsBirthYearGroupDto {
+  birthYear: number | null;
+  label: string;
+  studentCount: number;
+  totalTopup: number;
+  /** Doanh thu = học phí đã học (attendance.tuition_fee, buổi present/excused), toàn thời gian. */
+  totalRevenue: number;
+  categories: StudentDemographicsCategoryItemDto[];
+}
+
+export interface StudentDemographicsProvinceGroupDto {
+  province: string;
+  studentCount: number;
+  percentage: number;
+  totalTopup: number;
+  totalRevenue: number;
+  birthYears: StudentDemographicsBirthYearGroupDto[];
+  categories: StudentDemographicsCategoryItemDto[];
+}
+
+export interface StudentDemographicsBirthYearSummaryDto {
+  birthYear: number | null;
+  label: string;
+  studentCount: number;
+  percentage: number;
+  totalTopup: number;
+  totalRevenue: number;
+  provinces: Array<{
+    province: string;
+    studentCount: number;
+  }>;
+  categories: StudentDemographicsCategoryItemDto[];
+}
+
+export interface StudentDemographicsSummaryDto {
+  statusFilter?: 'all' | 'active' | 'inactive';
+  totalActiveStudents: number;
+  enrolledStudentsCount: number;
+  unenrolledStudentsCount: number;
+  totalProvincesCount: number;
+  totalCategoriesCount: number;
+  totalTopup: number;
+  averageTopup: number;
+  /** Tổng học phí đã học (toàn thời gian) của nhóm học sinh trong phạm vi lọc. */
+  totalRevenue: number;
+  /** Doanh thu TB / học sinh có doanh thu > 0. */
+  averageRevenue: number;
+  revenueStudentsCount: number;
+  topProvince: string | null;
+  topBirthYear: number | null;
+  topCategory: string | null;
+  /** Khoá có doanh thu cao nhất. */
+  topRevenueCategory: string | null;
+  /** Tuổi trung bình (chỉ tính học sinh có năm sinh hợp lệ). */
+  averageAge: number | null;
+  missingBirthYearCount: number;
+  unusualBirthYearCount: number;
+}
+
+export interface StudentDemographicsMatrixColumnDto {
+  key: string;
+  label: string;
+}
+
+export interface StudentDemographicsProvinceMatrixRowDto {
+  province: string;
+  totalStudents: number;
+  totalTopup: number;
+  totalRevenue: number;
+  cells: Record<string, number>;
+  /** Doanh thu theo khoá (key = cột), gán theo khoá của lớp có buổi học. */
+  revenueCells: Record<string, number>;
+}
+
+export interface StudentDemographicsBirthYearMatrixRowDto {
+  birthYear: number | null;
+  label: string;
+  totalStudents: number;
+  totalTopup: number;
+  totalRevenue: number;
+  cells: Record<string, number>;
+  revenueCells: Record<string, number>;
+}
+
+export interface StudentDemographicsCourseBirthYearDto {
+  birthYear: number | null;
+  label: string;
+  studentCount: number;
+  percentage: number;
+  totalRevenue: number;
+}
+
+/** Phân tích chi tiết theo từng khoá (Category): độ tuổi, khu vực, doanh thu. */
+export interface StudentDemographicsCourseBreakdownDto {
+  /** Khoá cột ma trận (courseId hoặc `__unassigned__`). */
+  key: string;
+  courseId: string | null;
+  courseName: string;
+  studentCount: number;
+  classCount: number;
+  percentage: number;
+  totalTopup: number;
+  /** Học phí đã học thuộc các lớp của khoá này. */
+  totalRevenue: number;
+  /** Doanh thu khoá / số học sinh của khoá có doanh thu > 0. */
+  averageRevenue: number;
+  revenueShare: number;
+  averageAge: number | null;
+  minBirthYear: number | null;
+  maxBirthYear: number | null;
+  topBirthYear: number | null;
+  missingBirthYearCount: number;
+  birthYears: StudentDemographicsCourseBirthYearDto[];
+  provinces: Array<{ province: string; studentCount: number }>;
+}
+
+export interface StudentDemographicsStudentRowDto {
+  studentId: string;
+  fullName: string;
+  status: string | null;
+  school: string | null;
+  province: string;
+  /** Năm sinh hợp lệ (null nếu trống hoặc ngoài khoảng hợp lệ). */
+  birthYear: number | null;
+  /** Giá trị gốc trong DB (để rà soát dữ liệu sai). */
+  rawBirthYear: number | null;
+  birthYearLabel: string;
+  age: number | null;
+  classNames: string[];
+  courseKeys: string[];
+  courseNames: string[];
+  totalTopup: number;
+  totalRevenue: number;
+  /** Doanh thu theo key khoá. */
+  revenueByCourse: Record<string, number>;
+  attendanceCount: number;
+}
+
+export interface StudentDemographicsDataQualityDto {
+  /** Năm sinh để trống hoặc không hợp lệ. */
+  missingBirthYear: StudentDemographicsStudentRowDto[];
+  /** Năm sinh hợp lệ nhưng ngoài độ tuổi phổ thông (6–19 tuổi). */
+  unusualBirthYear: StudentDemographicsStudentRowDto[];
+  normalAgeRange: { min: number; max: number };
+}
+
+export interface AdminDashboardStudentDemographicsDto {
+  summary: StudentDemographicsSummaryDto;
+  categories: Array<{
+    courseId: string | null;
+    courseName: string;
+    studentCount: number;
+    classCount: number;
+    totalRevenue: number;
+  }>;
+  byProvince: StudentDemographicsProvinceGroupDto[];
+  byBirthYear: StudentDemographicsBirthYearSummaryDto[];
+  byCourse: StudentDemographicsCourseBreakdownDto[];
+  provinceMatrix: {
+    columns: StudentDemographicsMatrixColumnDto[];
+    rows: StudentDemographicsProvinceMatrixRowDto[];
+  };
+  birthYearMatrix: {
+    columns: StudentDemographicsMatrixColumnDto[];
+    rows: StudentDemographicsBirthYearMatrixRowDto[];
+  };
+  /** Danh sách từng học sinh trong phạm vi lọc (sắp theo tên). */
+  students: StudentDemographicsStudentRowDto[];
+  dataQuality: StudentDemographicsDataQualityDto;
+  generatedAt: string;
+}

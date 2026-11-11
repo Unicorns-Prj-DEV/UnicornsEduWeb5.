@@ -11,6 +11,7 @@ import { StaffOperationsAccessService } from '../staff-ops/staff-operations-acce
 import { getUserFullNameFromParts } from '../common/user-name.util';
 import { SQL_TEACHER_SESSION_CAPPED_GROSS } from '../common/teacher-session-allowance-sql.util';
 import {
+  redactOtherTeachersSessions,
   redactSessionsForAccountantView,
   redactSessionsForTrainingManagerView,
   resolveAccountantFinanceView,
@@ -143,12 +144,8 @@ export class SessionReportingService {
       );
 
     const sessions = await this.prisma.session.findMany({
-      where: this.buildSessionsByClassWhere(
-        classId,
-        month,
-        year,
-        accessMode === 'teacher' ? actor.id : undefined,
-      ),
+      // Gia sư thấy mọi buổi của lớp; buổi của gia sư khác được redact còn nhận xét ở dưới.
+      where: this.buildSessionsByClassWhere(classId, month, year),
       include: {
         teacher: {
           include: {
@@ -175,6 +172,13 @@ export class SessionReportingService {
 
     if (accessMode === 'training_manager') {
       return redactSessionsForTrainingManagerView(mappedSessions);
+    }
+
+    if (accessMode === 'teacher') {
+      return redactSessionsForAccountantView(
+        redactOtherTeachersSessions(mappedSessions, actor.id),
+        resolveAccountantFinanceView(roleType, actor.roles),
+      );
     }
 
     return redactSessionsForAccountantView(

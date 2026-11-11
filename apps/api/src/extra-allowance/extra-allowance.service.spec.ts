@@ -297,6 +297,49 @@ describe('ExtraAllowanceService', () => {
     });
   });
 
+  it('allows training_head (without training) to create own pending allowance under training_head', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'staff-head-1',
+      roles: [StaffRole.training_head],
+    });
+    mockPrisma.extraAllowance.create.mockResolvedValue({
+      id: 'allowance-head-1',
+    });
+    mockPrisma.extraAllowance.findUnique.mockResolvedValue({
+      id: 'allowance-head-1',
+      staffId: 'staff-head-1',
+      amount: 300000,
+      status: PaymentStatus.pending,
+      note: null,
+      month: '2026-11',
+      roleType: StaffRole.training_head,
+      taxDeductionRatePercent: 7.5,
+      staff: {
+        id: 'staff-head-1',
+        fullName: 'Head A',
+        roles: [StaffRole.training_head],
+        status: 'active',
+      },
+    });
+
+    await service.createMyStaffExtraAllowance(
+      {
+        id: 'head-user-1',
+        email: 'head@example.com',
+        roleType: UserRole.staff,
+      },
+      { roleType: StaffRole.training_head, month: '2026-11', amount: 300000 },
+    );
+
+    expect(mockPrisma.extraAllowance.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        staffId: 'staff-head-1',
+        roleType: StaffRole.training_head,
+        status: PaymentStatus.pending,
+      }),
+    });
+  });
+
   it('allows communication staff to update their own extra allowance without changing payment status', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'staff-1',

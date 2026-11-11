@@ -13,6 +13,7 @@ export type RegulationAudience =
   | "staff_technical"
   | "staff_customer_care"
   | "staff_training"
+  | "staff_training_head"
   | "staff_sale";
 
 export interface RegulationAuthor {

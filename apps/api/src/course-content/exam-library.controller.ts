@@ -32,7 +32,7 @@ import {
 import { ExamLibraryService } from './exam-library.service';
 
 const COURSE_CONTENT_FORBIDDEN =
-  'Không thuộc đội giáo án của khoá. Dạy lớp không đồng nghĩa soạn giáo án.';
+  'Không thuộc đội chuyên môn của khoá. Dạy lớp không đồng nghĩa soạn giáo án.';
 
 @Controller('course/:courseId/exam-library')
 @ApiTags('exam-library')

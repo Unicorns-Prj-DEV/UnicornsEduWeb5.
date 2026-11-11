@@ -2540,7 +2540,7 @@ export class LessonService {
 
     if (!staff) {
       throw new BadRequestException(
-        'Chỉ được gán nhân sự thực hiện có role giáo án hoặc trưởng giáo án.',
+        'Chỉ được gán nhân sự thực hiện có role chuyên môn hoặc trưởng chuyên môn.',
       );
     }
 
@@ -2584,7 +2584,7 @@ export class LessonService {
 
     if (assignableStaff.length !== normalizedStaffIds.length) {
       throw new BadRequestException(
-        'Chỉ được gán nhân sự thực hiện có role giáo án hoặc trưởng giáo án.',
+        'Chỉ được gán nhân sự thực hiện có role chuyên môn hoặc trưởng chuyên môn.',
       );
     }
 

@@ -15,6 +15,7 @@ import {
   StudentClassStatus,
   UserRole,
 } from 'generated/enums';
+import { hasTrainingAccess } from 'src/common/training-access';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -311,7 +312,7 @@ export class ClassService {
 
   private shouldScopeStaffClassesToTrainingManager(roles: string[]) {
     return (
-      roles.includes(StaffRole.training) && !this.hasElevatedClassAccess(roles)
+      hasTrainingAccess(roles) && !this.hasElevatedClassAccess(roles)
     );
   }
 
@@ -1271,7 +1272,7 @@ export class ClassService {
     if (accessMode === 'teacher') {
       // Kiêm quản lý lớp này: thấy lương mọi gia sư để chỉnh (trừ dòng của mình ở FE/BE write).
       const managesClass =
-        actor.roles.includes(StaffRole.training) &&
+        hasTrainingAccess(actor.roles) &&
         classDetail.trainingManager?.id === actor.id;
       return redactClassStudentWalletBalances(
         managesClass ? result : redactOtherTeachersIncome(result, actor.id),

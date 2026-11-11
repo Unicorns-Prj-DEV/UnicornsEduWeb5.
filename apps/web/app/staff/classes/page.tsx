@@ -1,5 +1,6 @@
 "use client";
 
+import { hasTrainingAccess } from "@/lib/training-access";
 import { useQuery } from "@tanstack/react-query";
 import AdminClassesPage from "@/app/admin/classes/page";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,7 +50,7 @@ export default function StaffClassesPage() {
     return <AdminClassesPage />;
   }
 
-  if (staffRoles.includes("training")) {
+  if (hasTrainingAccess(staffRoles)) {
     return (
       <AdminClassesPage
         classListFetcher={staffOpsApi.getClasses}

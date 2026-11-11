@@ -10,6 +10,7 @@ export type StaffRoleType =
   | "communication"
   | "technical"
   | "training"
+  | "training_head"
   | "sale";
 
 export interface TaxDeductionSettingsQuery {

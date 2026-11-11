@@ -60,6 +60,7 @@ type SupportedRoleType = Extract<
   | "communication"
   | "technical"
   | "training"
+  | "training_head"
   | "sale"
   | "accountant"
   | "accountant_income"
@@ -112,6 +113,18 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
     popupGlowClassName: "bg-info/10",
   },
   training: {
+    listGradientClassName: "bg-bg-surface",
+    listGlowTopClassName: "bg-secondary/12",
+    listGlowBottomClassName: "bg-info/10",
+    selectionBadgeClassName:
+      "border-secondary/15 bg-secondary/8 text-secondary",
+    activeCardClassName:
+      "border-secondary/35 bg-secondary/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-secondary)_40%,transparent)]",
+    activeRowClassName:
+      "border-secondary/15 bg-secondary/5 hover:bg-secondary/8",
+    popupGlowClassName: "bg-secondary/10",
+  },
+  training_head: {
     listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-secondary/12",
     listGlowBottomClassName: "bg-info/10",
@@ -304,7 +317,8 @@ export default function ExtraAllowanceRoleDetailPage({
   const showAssistantCommissionTab =
     roleType === "assistant" && Boolean(normalizedStaffId);
   const showTrainingClassesTab =
-    roleType === "training" && Boolean(normalizedStaffId);
+    (roleType === "training" || roleType === "training_head") &&
+    Boolean(normalizedStaffId);
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,

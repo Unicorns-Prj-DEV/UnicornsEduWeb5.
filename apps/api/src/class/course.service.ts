@@ -374,7 +374,7 @@ export class CourseService {
     const invalidIds = staffIds.filter((id) => !validIdSet.has(id));
     if (invalidIds.length > 0) {
       throw new BadRequestException(
-        `Không thể gán: ${invalidIds.length} nhân sự không tồn tại, đang ngừng hoạt động, hoặc không có vai trò đội giáo án (lesson_plan/lesson_plan_head).`,
+        `Không thể gán: ${invalidIds.length} nhân sự không tồn tại, đang ngừng hoạt động, hoặc không có vai trò đội chuyên môn (lesson_plan/lesson_plan_head).`,
       );
     }
 

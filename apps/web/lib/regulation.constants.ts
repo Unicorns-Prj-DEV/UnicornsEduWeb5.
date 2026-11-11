@@ -16,6 +16,7 @@ export const REGULATION_AUDIENCE_LABELS: Record<RegulationAudience, string> = {
   staff_technical: ROLE_LABELS.technical,
   staff_customer_care: ROLE_LABELS.customer_care,
   staff_training: ROLE_LABELS.training,
+  staff_training_head: ROLE_LABELS.training_head,
   staff_sale: ROLE_LABELS.sale,
 };
 
@@ -55,6 +56,10 @@ export const REGULATION_AUDIENCE_OPTIONS: Array<{
   {
     value: "staff_training",
     label: REGULATION_AUDIENCE_LABELS.staff_training,
+  },
+  {
+    value: "staff_training_head",
+    label: REGULATION_AUDIENCE_LABELS.staff_training_head,
   },
   { value: "staff_sale", label: REGULATION_AUDIENCE_LABELS.staff_sale },
   { value: "staff_admin", label: REGULATION_AUDIENCE_LABELS.staff_admin },

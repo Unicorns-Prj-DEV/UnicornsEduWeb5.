@@ -5,7 +5,7 @@ jest.mock('./session-student-balance.service', () => ({
   SessionStudentBalanceService: class SessionStudentBalanceServiceMock {},
 }));
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   AttendanceStatus,
   SessionPaymentStatus,
@@ -47,6 +47,7 @@ describe('SessionUpdateService', () => {
   const accessService = {
     resolveActor: jest.fn(),
     assertTeacherAssignedToClass: jest.fn(),
+    resolveClassViewAccessMode: jest.fn().mockResolvedValue('teacher'),
   };
 
   const rosterService = {
@@ -109,6 +110,7 @@ describe('SessionUpdateService', () => {
     mockPrisma.session.findUnique.mockResolvedValue({
       id: 'session-1',
       classId: 'class-1',
+      teacherId: 'teacher-1',
       attendance: [
         {
           studentId: 'student-1',
@@ -201,6 +203,7 @@ describe('SessionUpdateService', () => {
     mockPrisma.session.findUnique.mockResolvedValue({
       id: 'session-1',
       classId: 'class-1',
+      teacherId: 'teacher-1',
       coefficient: 0,
       teacherPaymentStatus: 'deposit',
       attendance: [],
@@ -587,5 +590,26 @@ describe('SessionUpdateService', () => {
         'Không thể sửa giờ buổi đã thanh toán hoặc ghi cọc.',
       ),
     );
+  });
+
+  it('forbids a teacher from updating a session taught by another teacher', async () => {
+    mockPrisma.session.findUnique.mockResolvedValue({
+      id: 'session-2',
+      classId: 'class-1',
+      teacherId: 'teacher-other',
+      attendance: [],
+    });
+    accessService.resolveActor.mockResolvedValue({
+      id: 'teacher-1',
+      roles: [StaffRole.teacher],
+    });
+    const updateSessionSpy = jest.spyOn(service, 'updateSession');
+
+    await expect(
+      service.updateSessionForStaff('user-1', UserRole.staff, 'session-2', {
+        lessonContent: 'Sửa trộm',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(updateSessionSpy).not.toHaveBeenCalled();
   });
 });

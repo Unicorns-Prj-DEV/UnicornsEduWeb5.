@@ -195,7 +195,7 @@ export default function CourseListWorkspace({
             <p className="p-4 text-sm text-text-secondary">
               {capabilities.canViewAllCourses
                 ? "Chưa có khoá học nào."
-                : "Bạn chưa được gán vào đội giáo án của khoá nào."}
+                : "Bạn chưa được gán vào đội chuyên môn của khoá nào."}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -227,7 +227,7 @@ export default function CourseListWorkspace({
                         <span>Mức độ khó: {course._count.difficultyLevels}</span>
                       ) : null}
                       {typeof course._count?.lessonPlanMembers === "number" ? (
-                        <span>Đội giáo án: {course._count.lessonPlanMembers}</span>
+                        <span>Đội chuyên môn: {course._count.lessonPlanMembers}</span>
                       ) : null}
                       {typeof course._count?.classes === "number" ? (
                         <span>Lớp học: {course._count.classes}</span>
