@@ -31,7 +31,7 @@ import { CourseModuleService } from './course-module.service';
 import { COURSE_TREE_STAFF_ROLES } from './course-tree-roles';
 
 const COURSE_CONTENT_FORBIDDEN =
-  'Không thuộc đội giáo án của khoá. Dạy lớp không đồng nghĩa soạn giáo án.';
+  'Không thuộc đội chuyên môn của khoá. Dạy lớp không đồng nghĩa soạn giáo án.';
 
 @Controller('course/:courseId/modules')
 @ApiTags('course-modules')
@@ -45,7 +45,7 @@ export class CourseModuleController {
   @ApiOperation({
     summary: 'Tạo chuyên đề mới cho khoá học',
     description:
-      'Staff: assistant, teacher, lesson_plan, lesson_plan_head. Tầng service vẫn từ chối teacher không thuộc đội giáo án.',
+      'Staff: assistant, teacher, lesson_plan, lesson_plan_head. Tầng service vẫn từ chối teacher không thuộc đội chuyên môn.',
   })
   @ApiParam({ name: 'courseId', description: 'ID khoá học' })
   @ApiBody({ type: ModuleCreateDto })

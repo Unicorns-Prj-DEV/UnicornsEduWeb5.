@@ -170,7 +170,7 @@ export class ReorderCourseDifficultyLevelsDto {
 export class AssignCourseLessonPlanMembersDto {
   @ApiProperty({
     description:
-      'Danh sách staff id (nhân sự) của đội giáo án. Thay thế toàn bộ danh sách hiện tại của khoá.',
+      'Danh sách staff id (nhân sự) của đội chuyên môn. Thay thế toàn bộ danh sách hiện tại của khoá.',
     type: [String],
     example: ['UNISTAFF-c3d4e5f6a7'],
   })

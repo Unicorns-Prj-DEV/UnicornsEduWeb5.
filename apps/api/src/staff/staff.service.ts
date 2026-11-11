@@ -93,7 +93,10 @@ import {
   commissionTuitionBasisVnd,
   isSelfManagedCustomerCareStaff,
 } from 'src/payroll/assistant-share.util';
-import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
+import {
+  LESSON_PLAN_HEAD_ROLE_LABEL,
+  LESSON_PLAN_ROLE_LABEL,
+} from '../common/lesson-plan-label';
 import { findTeacherSurveyDeadlineBlocks } from '../class/survey-deadline-block';
 import {
   FIRST_SESSION_SELECT,
@@ -159,8 +162,8 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   teacher: 'Giáo viên',
   assistant: 'Trợ lí',
-  lesson_plan: LESSON_PLAN_LABEL,
-  lesson_plan_head: 'Trưởng giáo án',
+  lesson_plan: LESSON_PLAN_ROLE_LABEL,
+  lesson_plan_head: LESSON_PLAN_HEAD_ROLE_LABEL,
   accountant: 'Kế toán',
   accountant_income: 'Kế toán thu',
   accountant_expense: 'Kế toán chi',
@@ -4048,8 +4051,8 @@ export class StaffService {
           : 'Thanh toán khoản thưởng đã chọn',
       revenue_share:
         auditScope === 'all'
-          ? 'Thanh toán toàn bộ hoa hồng doanh thu Trưởng giáo án'
-          : 'Thanh toán hoa hồng doanh thu Trưởng giáo án đã chọn',
+          ? 'Thanh toán toàn bộ hoa hồng doanh thu Trưởng chuyên môn'
+          : 'Thanh toán hoa hồng doanh thu Trưởng chuyên môn đã chọn',
       fixed_salary:
         auditScope === 'all'
           ? 'Thanh toán toàn bộ lương cứng'

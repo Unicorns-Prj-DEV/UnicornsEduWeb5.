@@ -202,7 +202,7 @@ export class CreateStaffDto {
   @ApiPropertyOptional({
     example: 3,
     description:
-      'Tỷ lệ % hoa hồng trên tổng doanh thu hệ thống, áp dụng cho nhân sự có vai trò lesson_plan_head (Trưởng giáo án). Đơn vị phần trăm (VD: 3 = 3%).',
+      'Tỷ lệ % hoa hồng trên tổng doanh thu hệ thống, áp dụng cho nhân sự có vai trò lesson_plan_head (Trưởng chuyên môn). Đơn vị phần trăm (VD: 3 = 3%).',
   })
   @IsOptional()
   @IsNumber()

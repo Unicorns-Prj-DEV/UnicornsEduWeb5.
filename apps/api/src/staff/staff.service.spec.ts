@@ -36,7 +36,6 @@ import {
   removeStorageObjects,
 } from 'src/storage/supabase-storage';
 import { StaffService } from './staff.service';
-import { LESSON_PLAN_LABEL } from '../common/lesson-plan-label';
 
 const mockCreateSignedStorageUrl =
   createSignedStorageUrl as jest.MockedFunction<typeof createSignedStorageUrl>;
@@ -894,7 +893,7 @@ describe('StaffService', () => {
       },
       {
         role: StaffRole.lesson_plan,
-        label: LESSON_PLAN_LABEL,
+        label: 'Chuyên môn',
         total: 100000,
         paid: 80000,
         unpaid: 20000,
@@ -1489,7 +1488,7 @@ describe('StaffService', () => {
     expect(result.otherRoleSummaries).toEqual([
       {
         role: StaffRole.lesson_plan_head,
-        label: 'Trưởng giáo án',
+        label: 'Trưởng chuyên môn',
         total: 252933,
         paid: 52320,
         unpaid: 200613,
