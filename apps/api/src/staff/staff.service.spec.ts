@@ -24,7 +24,11 @@ jest.mock('src/storage/supabase-storage', () => ({
   validateImageFile: jest.fn(),
 }));
 
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   PaymentStatus,
   StaffRole,
@@ -68,6 +72,7 @@ describe('StaffService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
@@ -3452,9 +3457,9 @@ describe('StaffService', () => {
         },
       });
 
-      await expect(service.deleteStaffAvatar('staff-1', actor)).resolves.toEqual(
-        { id: 'staff-1' },
-      );
+      await expect(
+        service.deleteStaffAvatar('staff-1', actor),
+      ).resolves.toEqual({ id: 'staff-1' });
 
       expect(mockRemoveStorageObjects).toHaveBeenCalledWith({
         bucket: 'avatars',
@@ -3511,6 +3516,101 @@ describe('StaffService', () => {
       await expect(
         service.deleteStaffAvatar('missing', actor),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('updateStaffTrainingRoles', () => {
+    const actor = {
+      userId: 'head-user',
+      userEmail: 'head@example.com',
+      roleType: UserRole.staff,
+    };
+    const target = {
+      id: 'T1',
+      roles: [StaffRole.teacher, StaffRole.lesson_plan, StaffRole.sale],
+      userId: 'target-user',
+      user: {
+        first_name: 'A',
+        last_name: 'B',
+        accountHandle: 'ab',
+        email: null,
+      },
+    };
+
+    it('403 khi người gọi không có training_head', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'S0',
+        roles: [StaffRole.training],
+        status: StaffStatus.active,
+      });
+
+      await expect(
+        service.updateStaffTrainingRoles('T1', { roles: [] }, actor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.staffInfo.update).not.toHaveBeenCalled();
+    });
+
+    it('tắt role → lưu roles, ghi lịch sử, xoá override của role bị tắt, không trả tiền', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'HEAD',
+        roles: [StaffRole.training_head],
+        status: StaffStatus.active,
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(target);
+      mockPrisma.staffInfo.update.mockResolvedValue({ id: 'T1' });
+
+      const result = await service.updateStaffTrainingRoles(
+        'T1',
+        { roles: [StaffRole.teacher, StaffRole.training] },
+        actor,
+      );
+
+      const nextRoles = [StaffRole.teacher, StaffRole.sale, StaffRole.training];
+      expect(result).toEqual({ id: 'T1', roles: nextRoles });
+      expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith({
+        where: { id: 'T1' },
+        data: { roles: nextRoles },
+        select: { id: true },
+      });
+      expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          entityId: 'T1',
+          beforeValue: { roles: target.roles },
+          afterValue: { roles: nextRoles },
+        }),
+      );
+      expect(
+        fixedSalarySettingsService.syncStaffRoleOverridesInTx,
+      ).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({ staffId: 'T1', nextRoles, items: [] }),
+      );
+      expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+        'target-user',
+      );
+    });
+
+    it('chỉ bật role → không đụng override', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'HEAD',
+        roles: [StaffRole.training_head],
+        status: StaffStatus.active,
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(target);
+      mockPrisma.staffInfo.update.mockResolvedValue({ id: 'T1' });
+
+      await service.updateStaffTrainingRoles(
+        'T1',
+        {
+          roles: [StaffRole.teacher, StaffRole.lesson_plan, StaffRole.training],
+        },
+        actor,
+      );
+
+      expect(
+        fixedSalarySettingsService.syncStaffRoleOverridesInTx,
+      ).not.toHaveBeenCalled();
     });
   });
 });

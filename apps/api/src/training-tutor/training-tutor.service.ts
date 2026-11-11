@@ -36,6 +36,7 @@ const MAX_LIMIT = 100;
 const TUTOR_SUMMARY_SELECT = {
   id: true,
   status: true,
+  roles: true,
   university: true,
   highSchool: true,
   user: {
@@ -243,6 +244,7 @@ export class TrainingTutorService {
       id: row.id,
       fullName: getPreferredUserFullName(user) ?? '',
       status: row.status,
+      roles: row.roles,
       avatarUrl: await createSignedStorageUrl({
         bucket: AVATAR_STORAGE_BUCKET,
         path: user?.avatarPath,

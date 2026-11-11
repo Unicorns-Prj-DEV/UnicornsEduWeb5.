@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { StaffStatus } from 'generated/enums';
+import { StaffRole, StaffStatus } from 'generated/enums';
 import { PaginationQueryDto } from './pagination.dto';
 
 export class TrainingTutorListQueryDto extends PaginationQueryDto {
@@ -23,6 +23,8 @@ export interface TrainingTutorSummaryDto {
   id: string;
   fullName: string;
   status: StaffStatus;
+  /** Role nhân sự (không phải PII) — Trưởng Ban Đào Tạo dùng để chỉnh role. */
+  roles: StaffRole[];
   avatarUrl: string | null;
   university: string | null;
   highSchool: string | null;

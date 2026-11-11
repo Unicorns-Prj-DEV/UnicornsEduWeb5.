@@ -69,6 +69,7 @@ function leakyTutorRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'UNISTAFF-0000000001',
     status: StaffStatus.inactive,
+    roles: [StaffRole.teacher],
     university: 'ĐH A',
     highSchool: 'THPT B',
     cccdNumber: '001',
@@ -193,6 +194,7 @@ describe('TrainingTutorService', () => {
           id: 'UNISTAFF-0000000001',
           fullName: 'Sư Gia',
           status: StaffStatus.inactive,
+          roles: [StaffRole.teacher],
           avatarUrl: 'signed:a/b.png',
           university: 'ĐH A',
           highSchool: 'THPT B',

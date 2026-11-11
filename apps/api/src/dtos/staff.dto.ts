@@ -680,3 +680,26 @@ export interface StaffPayDepositSessionsResultDto {
   updatedCount: number;
   updatedSessionIds: string[];
 }
+
+/**
+ * PATCH /staff/:id/training-roles — Trưởng Ban Đào Tạo bật/tắt role gia sư /
+ * chuyên môn / đào tạo của nhân sự khác. Role ngoài 3 role này → 403.
+ */
+export class UpdateStaffTrainingRolesDto {
+  @ApiProperty({
+    description:
+      'Trạng thái đích của các role quản lý được (teacher, lesson_plan, training). Role khác của nhân sự giữ nguyên; gửi role ngoài phạm vi → 403.',
+    enum: StaffRole,
+    isArray: true,
+    example: [StaffRole.teacher, StaffRole.lesson_plan],
+  })
+  @IsArray()
+  @IsEnum(StaffRole, { each: true })
+  roles: StaffRole[];
+}
+
+/** Không kèm tiền/PII — chỉ danh sách role sau khi lưu. */
+export interface StaffTrainingRolesResultDto {
+  id: string;
+  roles: StaffRole[];
+}

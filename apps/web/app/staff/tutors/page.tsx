@@ -7,6 +7,8 @@ import { Search } from "lucide-react";
 import StaffAchievementsDialog, {
   StaffAchievementsButton,
 } from "@/components/shared/achievement/StaffAchievementsDialog";
+import EditTrainingRolesButton from "@/components/staff/tutors/EditTrainingRolesButton";
+import EditTrainingRolesDialog from "@/components/staff/tutors/EditTrainingRolesDialog";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
@@ -16,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import { useQueryErrorToast } from "@/hooks/use-query-error-toast";
 import { useRowLink } from "@/hooks/use-row-link";
+import { useStaffViewer } from "@/hooks/use-staff-viewer";
 import { ROW_LINK_INTERACTION_CLASS } from "@/lib/row-link";
 import type { StaffStatus } from "@/dtos/staff.dto";
 import type { TrainingTutorListItem } from "@/dtos/training-tutor.dto";
@@ -24,6 +27,7 @@ import {
   trainingTutorKeys,
 } from "@/lib/apis/training-tutor.api";
 import { pickAvatarUrl } from "@/lib/avatar";
+import { canTrainingHeadEditRoles } from "@/lib/training-head-roles";
 
 const PAGE_SIZE = 20;
 const TH_CLASS =
@@ -44,7 +48,17 @@ export default function StaffTutorsPage() {
   const [page, setPage] = useState(1);
   const [achievementsTarget, setAchievementsTarget] =
     useState<TrainingTutorListItem | null>(null);
+  const [roleTarget, setRoleTarget] = useState<TrainingTutorListItem | null>(
+    null,
+  );
   const rowLink = useRowLink();
+  const viewer = useStaffViewer();
+  const canEditRoles = (tutor: TrainingTutorListItem) =>
+    canTrainingHeadEditRoles({
+      viewerStaffId: viewer.staffId,
+      viewerRoles: viewer.roles,
+      target: tutor,
+    });
 
   const params = { page, limit: PAGE_SIZE, search, status };
   const { data, isLoading, isError } = useQuery({
@@ -119,11 +133,17 @@ export default function StaffTutorsPage() {
                   </span>
                   <TutorClassChips classes={tutor.currentClasses} />
                 </div>
-                <StaffAchievementsButton
-                  count={tutor.achievementCount}
-                  onOpen={() => setAchievementsTarget(tutor)}
-                  className="self-start"
-                />
+                <div className="flex flex-wrap items-center gap-x-4">
+                  <StaffAchievementsButton
+                    count={tutor.achievementCount}
+                    onOpen={() => setAchievementsTarget(tutor)}
+                  />
+                  {canEditRoles(tutor) ? (
+                    <EditTrainingRolesButton
+                      onOpen={() => setRoleTarget(tutor)}
+                    />
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -176,10 +196,17 @@ export default function StaffTutorsPage() {
                         <TutorClassChips classes={tutor.currentClasses} />
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <StaffAchievementsButton
-                          count={tutor.achievementCount}
-                          onOpen={() => setAchievementsTarget(tutor)}
-                        />
+                        <div className="flex flex-col items-start">
+                          <StaffAchievementsButton
+                            count={tutor.achievementCount}
+                            onOpen={() => setAchievementsTarget(tutor)}
+                          />
+                          {canEditRoles(tutor) ? (
+                            <EditTrainingRolesButton
+                              onOpen={() => setRoleTarget(tutor)}
+                            />
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -205,6 +232,13 @@ export default function StaffTutorsPage() {
           staffId={achievementsTarget.id}
           staffName={achievementsTarget.fullName}
           onClose={() => setAchievementsTarget(null)}
+        />
+      ) : null}
+
+      {roleTarget ? (
+        <EditTrainingRolesDialog
+          staff={roleTarget}
+          onClose={() => setRoleTarget(null)}
         />
       ) : null}
     </div>

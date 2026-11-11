@@ -17,7 +17,7 @@ Service dùng `select` tường minh (`TUTOR_SUMMARY_SELECT`), không `include`,
 
 | Trả về | Không bao giờ trả |
 | --- | --- |
-| `id`, `fullName`, `status`, `avatarUrl` (signed 1h), `university`, `highSchool`, `achievementCount` | `email`, `phone`, CCCD (số/ngày/nơi cấp), `ethnicity`, `gender`, `birthDate`, `currentAddress`, `bankAccount`, `bankQrLink`, `googleMeetLink`, `revenueSharePercent`, mọi field tiền / trạng thái thanh toán |
+| `id`, `fullName`, `status`, `roles` (role nhân sự, không phải PII), `avatarUrl` (signed 1h), `university`, `highSchool`, `achievementCount` | `email`, `phone`, CCCD (số/ngày/nơi cấp), `ethnicity`, `gender`, `birthDate`, `currentAddress`, `bankAccount`, `bankQrLink`, `googleMeetLink`, `revenueSharePercent`, mọi field tiền / trạng thái thanh toán |
 
 Test: `training-tutor.service.spec.ts` mock Prisma trả row có cả field nhạy cảm và khẳng định output + `select` không chứa chúng.
 
@@ -51,3 +51,27 @@ Query `page`, `limit`. Mỗi buổi: `id`, `date`, `startTime`, `endTime`, `clas
 ### `GET /training/tutors/:id/achievements`
 
 Danh sách thành tích theo thứ tự hồ sơ — thành tích nổi bật (`isHighlight: true`) đứng đầu (reuse `AchievementService.listStaffAchievements`). Web dùng qua `AchievementOwnerRef { kind: "staff", mode: "training", staffId }`.
+
+## Chỉnh role nhân sự (Trưởng Ban Đào Tạo)
+
+### `PATCH /staff/:id/training-roles`
+
+Module `apps/api/src/staff/` (`StaffController.updateStaffTrainingRoles`), `@Roles(UserRole.staff)`. Body `{ "roles": StaffRole[] }` = **trạng thái đích** của 3 role quản lý được (`teacher`, `lesson_plan`, `training`). Trả `{ id, roles }`.
+
+Policy thuần `planTrainingHeadRoleChange` (`staff/training-head-role-policy.ts`):
+
+| Điều kiện | Kết quả |
+| --- | --- |
+| Người gọi không phải staff `active` có `training_head` | `403` |
+| Target là chính người gọi | `403` |
+| Target có `admin`, `assistant` hoặc `training_head` | `403` |
+| Body chứa role ngoài 3 role trên | `403` |
+| Kết quả không còn role nào | `400` |
+| Target không tồn tại | `404` |
+
+- Role khác của target (vd `sale`, `customer_care`) giữ nguyên, giữ thứ tự cũ; role bật thêm nối cuối. Target `inactive` vẫn chỉnh được.
+- Không đổi gì → trả ngay, không ghi DB.
+- Trong 1 transaction: cập nhật `staff_info.roles`, ghi `action_history` (`entityType=staff`, before/after `{ roles }`). Có role bị tắt → `FixedSalarySettingsService.syncStaffRoleOverridesInTx` xoá **mức đè lương cứng** của role đó (ghi lịch sử riêng). Không cascade sang lớp / buổi / phân công.
+- Sau commit: invalidate cache auth identity của user target để quyền mới có hiệu lực ngay.
+
+Web: `updateStaffTrainingRoles` trong `lib/apis/training-tutor.api.ts`; điều kiện hiện nút ở `lib/training-head-roles.ts` (`canTrainingHeadEditRoles`), khớp policy backend.

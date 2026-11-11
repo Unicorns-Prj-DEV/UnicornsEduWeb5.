@@ -58,7 +58,10 @@ import {
   UpdateStaffWithFixedSalaryOverridesDto,
   UpdateStaffStatusDto,
   PatchStaffClassTeacherOperatingDeductionDto,
+  UpdateStaffTrainingRolesDto,
+  StaffTrainingRolesResultDto,
 } from 'src/dtos/staff.dto';
+import { planTrainingHeadRoleChange } from './training-head-role-policy';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { buildNameSearchWhere } from './staff-name-search';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
@@ -6050,6 +6053,92 @@ export class StaffService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Trưởng Ban Đào Tạo bật/tắt role gia sư / chuyên môn / đào tạo của nhân sự
+   * khác (CONTEXT.md «Chỉnh role nhân sự (Trưởng Ban Đào Tạo)»). Role bị tắt
+   * mất mức đè lương cứng / % vận hành (xoá im lặng, ghi action_history); khoản
+   * đã chốt/đã trả giữ nguyên; không cascade lớp / quản lý lớp / đội khoá.
+   */
+  async updateStaffTrainingRoles(
+    targetStaffId: string,
+    data: UpdateStaffTrainingRolesDto,
+    auditActor: ActionHistoryActor & { userId: string },
+  ): Promise<StaffTrainingRolesResultDto> {
+    const actor = await this.prisma.staffInfo.findFirst({
+      where: { userId: auditActor.userId },
+      select: { id: true, roles: true, status: true },
+    });
+    if (
+      !actor ||
+      actor.status !== StaffStatus.active ||
+      !actor.roles.includes(StaffRole.training_head)
+    ) {
+      throw new ForbiddenException(
+        'Chỉ Trưởng ban đào tạo được dùng chức năng này.',
+      );
+    }
+
+    const target = await this.prisma.staffInfo.findUnique({
+      where: { id: targetStaffId },
+      select: {
+        id: true,
+        roles: true,
+        userId: true,
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+            accountHandle: true,
+            email: true,
+          },
+        },
+      },
+    });
+    if (!target) {
+      throw new NotFoundException('Staff not found');
+    }
+
+    const plan = planTrainingHeadRoleChange({
+      actorStaffId: actor.id,
+      targetStaffId: target.id,
+      targetRoles: target.roles,
+      requestedRoles: data.roles,
+    });
+    if (plan.added.length === 0 && plan.removed.length === 0) {
+      return { id: target.id, roles: target.roles };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.staffInfo.update({
+        where: { id: target.id },
+        data: { roles: plan.nextRoles },
+        select: { id: true },
+      });
+
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor: auditActor,
+        entityType: 'staff',
+        entityId: target.id,
+        description: 'Trưởng ban đào tạo chỉnh role nhân sự',
+        beforeValue: { roles: target.roles },
+        afterValue: { roles: plan.nextRoles },
+      });
+
+      if (plan.removed.length > 0) {
+        await this.fixedSalarySettingsService.syncStaffRoleOverridesInTx(tx, {
+          staffId: target.id,
+          nextRoles: plan.nextRoles,
+          items: [],
+          staff: target,
+          actor: auditActor,
+        });
+      }
+    });
+
+    this.invalidateStaffAuthIdentities(target.userId);
+    return { id: target.id, roles: plan.nextRoles };
   }
 
   async updateStaffWithFixedSalaryOverrides(

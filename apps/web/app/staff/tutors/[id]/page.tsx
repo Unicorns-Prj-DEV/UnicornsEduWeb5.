@@ -8,11 +8,14 @@ import { ArrowLeft } from "lucide-react";
 import StaffAchievementsDialog, {
   StaffAchievementsButton,
 } from "@/components/shared/achievement/StaffAchievementsDialog";
+import EditTrainingRolesButton from "@/components/staff/tutors/EditTrainingRolesButton";
+import EditTrainingRolesDialog from "@/components/staff/tutors/EditTrainingRolesDialog";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryErrorToast } from "@/hooks/use-query-error-toast";
+import { useStaffViewer } from "@/hooks/use-staff-viewer";
 import type { TrainingTutorClass } from "@/dtos/training-tutor.dto";
 import {
   getTrainingTutor,
@@ -23,6 +26,7 @@ import {
   formatTutorSessionDate,
   formatTutorSessionTimeRange,
 } from "@/lib/training-tutor";
+import { canTrainingHeadEditRoles } from "@/lib/training-head-roles";
 
 const SESSION_PAGE_SIZE = 20;
 
@@ -30,6 +34,8 @@ export default function StaffTutorDetailPage() {
   const params = useParams<{ id: string }>();
   const tutorId = decodeURIComponent(params.id ?? "");
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showRoleEditor, setShowRoleEditor] = useState(false);
+  const viewer = useStaffViewer();
 
   const {
     data: tutor,
@@ -62,11 +68,21 @@ export default function StaffTutorDetailPage() {
         <>
           <section className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-surface p-4">
             <TutorIdentity tutor={tutor} size="lg" />
-            <StaffAchievementsButton
-              count={tutor.achievementCount}
-              onOpen={() => setShowAchievements(true)}
-              className="self-start"
-            />
+            <div className="flex flex-wrap items-center gap-x-4">
+              <StaffAchievementsButton
+                count={tutor.achievementCount}
+                onOpen={() => setShowAchievements(true)}
+              />
+              {canTrainingHeadEditRoles({
+                viewerStaffId: viewer.staffId,
+                viewerRoles: viewer.roles,
+                target: tutor,
+              }) ? (
+                <EditTrainingRolesButton
+                  onOpen={() => setShowRoleEditor(true)}
+                />
+              ) : null}
+            </div>
           </section>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -88,6 +104,13 @@ export default function StaffTutorDetailPage() {
               staffId={tutor.id}
               staffName={tutor.fullName}
               onClose={() => setShowAchievements(false)}
+            />
+          ) : null}
+
+          {showRoleEditor ? (
+            <EditTrainingRolesDialog
+              staff={tutor}
+              onClose={() => setShowRoleEditor(false)}
             />
           ) : null}
         </>

@@ -1,9 +1,11 @@
 import type {
+  StaffTrainingRolesResult,
   TrainingTutorDetail,
   TrainingTutorListParams,
   TrainingTutorPage,
   TrainingTutorSession,
   TrainingTutorListItem,
+  UpdateStaffTrainingRolesPayload,
 } from "@/dtos/training-tutor.dto";
 import { api } from "@/lib/client";
 
@@ -50,6 +52,18 @@ export async function listTrainingTutorSessions(
   const response = await api.get<TrainingTutorPage<TrainingTutorSession>>(
     `/training/tutors/${encodeURIComponent(id)}/sessions`,
     { params: { page, limit } },
+  );
+  return response.data;
+}
+
+/** Trưởng Ban Đào Tạo bật/tắt role gia sư, chuyên môn, đào tạo của nhân sự. */
+export async function updateStaffTrainingRoles(
+  staffId: string,
+  payload: UpdateStaffTrainingRolesPayload,
+): Promise<StaffTrainingRolesResult> {
+  const response = await api.patch<StaffTrainingRolesResult>(
+    `/staff/${encodeURIComponent(staffId)}/training-roles`,
+    payload,
   );
   return response.data;
 }
