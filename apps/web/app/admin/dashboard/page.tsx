@@ -614,9 +614,8 @@ export default function AdminDashboardTabPage() {
   const studentChurn = isCurrentMonthComparison ? studentWindowQuery.data?.summary : summary;
   const studentNetChange =
     comparison && studentChurn
-      ? studentChurn.newStudentsThisMonth -
-        studentChurn.droppedStudentsThisMonth -
-        studentChurn.trialDroppedStudentsThisMonth
+      ? // Thử nghỉ chưa từng là học sinh thực sự của trung tâm → không trừ vào biến động.
+        studentChurn.newStudentsThisMonth - studentChurn.droppedStudentsThisMonth
       : null;
   // Giải thích badge delta: so cùng ngày tháng trước, kèm số hai kỳ để tự đối chiếu.
   const moneyHint = (name: string, pick: (value: AdminDashboardSummary) => number) =>
@@ -632,11 +631,11 @@ export default function AdminDashboardTabPage() {
   const studentHint =
     comparison && studentChurn ? (
       <KpiDeltaHint
-        summary={`Số học sinh đang học tăng/giảm bao nhiêu trong 1 tháng gần nhất (${comparison.studentWindowLabel}) = mới vào − cũ nghỉ − thử nghỉ.`}
+        summary={`Số học sinh đang học tăng/giảm bao nhiêu trong 1 tháng gần nhất (${comparison.studentWindowLabel}) = mới vào − cũ nghỉ (thử nghỉ không tính).`}
         rows={[
           { label: "Mới vào", value: `+${formatVnInteger(studentChurn.newStudentsThisMonth)}` },
           { label: "Cũ nghỉ", value: `−${formatVnInteger(studentChurn.droppedStudentsThisMonth)}` },
-          { label: "Thử nghỉ", value: `−${formatVnInteger(studentChurn.trialDroppedStudentsThisMonth)}` },
+          { label: "Thử nghỉ (không tính)", value: formatVnInteger(studentChurn.trialDroppedStudentsThisMonth) },
         ]}
       />
     ) : undefined;
