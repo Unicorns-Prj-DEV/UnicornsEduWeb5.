@@ -29,6 +29,7 @@ export async function listTrainingTutors(
         limit: params.limit,
         ...(params.search ? { search: params.search } : {}),
         ...(params.status ? { status: params.status } : {}),
+        ...(params.scope === "all" ? { scope: "all" } : {}),
       },
     },
   );

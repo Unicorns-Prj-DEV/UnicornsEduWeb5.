@@ -1,7 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
 import { StaffRole, StaffStatus } from 'generated/enums';
 import { PaginationQueryDto } from './pagination.dto';
+
+export const TRAINING_TUTOR_SCOPES = ['tutors', 'all'] as const;
+export type TrainingTutorScope = (typeof TRAINING_TUTOR_SCOPES)[number];
 
 export class TrainingTutorListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Tìm theo họ tên gia sư' })
@@ -13,6 +16,15 @@ export class TrainingTutorListQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(StaffStatus)
   status?: StaffStatus;
+
+  @ApiPropertyOptional({
+    enum: TRAINING_TUTOR_SCOPES,
+    description:
+      '`tutors` (mặc định): staff có role teacher. `all`: mọi nhân sự — chỉ Trưởng Ban Đào Tạo (và admin).',
+  })
+  @IsOptional()
+  @IsIn(TRAINING_TUTOR_SCOPES)
+  scope?: TrainingTutorScope;
 }
 
 /**

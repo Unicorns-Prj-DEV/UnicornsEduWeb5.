@@ -49,7 +49,11 @@ export interface TrainingTutorListParams {
   limit: number;
   search?: string;
   status?: "" | StaffStatus;
+  /** `all` = mọi nhân sự — chỉ Trưởng Ban Đào Tạo. Mặc định chỉ gia sư. */
+  scope?: TrainingTutorScope;
 }
+
+export type TrainingTutorScope = "tutors" | "all";
 
 /** PATCH /staff/:id/training-roles — trạng thái đích của role gia sư/chuyên môn/đào tạo. */
 export interface UpdateStaffTrainingRolesPayload {

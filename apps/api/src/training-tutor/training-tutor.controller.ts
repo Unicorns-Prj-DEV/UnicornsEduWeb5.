@@ -28,7 +28,7 @@ export class TrainingTutorController {
   @ApiOperation({
     summary: 'Ban Đào Tạo: danh sách gia sư (gồm cả inactive)',
     description:
-      'Chỉ trả field allowlist: id, fullName, status, avatarUrl, university, highSchool, achievementCount, currentClasses (Lớp đang dạy: {id, name}[]).',
+      'Chỉ trả field allowlist: id, fullName, status, roles, avatarUrl, university, highSchool, achievementCount, currentClasses (Lớp đang dạy: {id, name}[]). `scope=all`: mọi nhân sự — chỉ Trưởng Ban Đào Tạo/admin, Ban Đào Tạo thường 403.',
   })
   @ApiResponse({ status: 200, description: 'Paginated tutor summaries.' })
   @ApiResponse({ status: 403, description: 'Không phải Ban Đào Tạo.' })
@@ -49,7 +49,11 @@ export class TrainingTutorController {
     description: 'Tutor detail without hidden fields.',
   })
   @ApiResponse({ status: 403, description: 'Không phải Ban Đào Tạo.' })
-  @ApiResponse({ status: 404, description: 'Không phải gia sư.' })
+  @ApiResponse({
+    status: 404,
+    description:
+      'Không phải gia sư (Ban Đào Tạo thường) hoặc không tồn tại. Trưởng ban/admin mở được mọi nhân sự.',
+  })
   detail(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStaffIdPipe()) staffId: string,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canTrainingHeadEditRoles,
+  formatStaffRoleLabels,
   getManageableRoles,
   getReadOnlyRoles,
   hasAnyRoleAfterChange,
@@ -61,5 +62,13 @@ describe("tách role", () => {
     expect(hasAnyRoleAfterChange(["teacher"], [])).toBe(false);
     expect(hasAnyRoleAfterChange(["teacher", "sale"], [])).toBe(true);
     expect(hasAnyRoleAfterChange(["teacher"], ["training"])).toBe(true);
+  });
+});
+
+describe("formatStaffRoleLabels", () => {
+  it("dùng nhãn, fallback mã role", () => {
+    expect(
+      formatStaffRoleLabels(["teacher", "x"], { teacher: "Giáo viên" }),
+    ).toBe("Giáo viên · x");
   });
 });

@@ -9,7 +9,9 @@ Module: `apps/api/src/training-tutor/`. Controller `@Controller('training/tutors
 - `roleType=admin` → qua.
 - `roleType=staff` → `staffInfo` theo `userId` phải có role `training` hoặc `training_head` (`hasTrainingAccess`) **và** `status=active`; ngược lại `403`.
 
-"Gia sư" = `staff_info.roles` có `teacher`, mọi trạng thái. Staff chỉ có role vận hành (không `teacher`) → `404` ở endpoint chi tiết, không xuất hiện ở danh sách.
+"Gia sư" = `staff_info.roles` có `teacher`, mọi trạng thái. Với Ban Đào Tạo thường, staff chỉ có role vận hành (không `teacher`) → `404` ở endpoint chi tiết, không xuất hiện ở danh sách.
+
+**Phạm vi Trưởng Ban Đào Tạo** (`resolveTrainingViewer` → `canViewAllStaff`): staff có `training_head` (và admin) mở được `GET /training/tutors/:id`, `/sessions`, `/achievements` của **mọi nhân sự**, và dùng `scope=all` ở danh sách. Cùng allowlist field — không thêm dữ liệu nhạy cảm.
 
 ## Field allowlist
 
@@ -25,7 +27,7 @@ Test: `training-tutor.service.spec.ts` mock Prisma trả row có cả field nh�
 
 ### `GET /training/tutors`
 
-Query: `search?` (họ tên, tối đa 5 token), `status?` (`active|inactive`), `page?` (mặc định 1), `limit?` (mặc định 20, tối đa 100).
+Query: `search?` (họ tên, tối đa 5 token), `status?` (`active|inactive`), `scope?` (`tutors` mặc định = staff có `teacher`; `all` = mọi nhân sự, chỉ Trưởng ban/admin — Ban Đào Tạo thường `403`), `page?` (mặc định 1), `limit?` (mặc định 20, tối đa 100).
 
 ```json
 { "data": [TrainingTutorListItemDto], "meta": { "total": 0, "page": 1, "limit": 20 } }

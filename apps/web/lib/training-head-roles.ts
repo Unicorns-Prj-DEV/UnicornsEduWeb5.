@@ -24,6 +24,14 @@ export function isTrainingHeadManageableRole(
   return (TRAINING_HEAD_MANAGEABLE_ROLES as readonly string[]).includes(role);
 }
 
+/** Nhãn role nối bằng « · » (dùng ở chế độ «Tất cả nhân sự»). */
+export function formatStaffRoleLabels(
+  roles: readonly string[],
+  labels: Record<string, string>,
+): string {
+  return roles.map((role) => labels[role] ?? role).join(" · ");
+}
+
 /** Hiện nút «Sửa role» khi người xem là Trưởng ban và target hợp lệ. */
 export function canTrainingHeadEditRoles(params: {
   viewerStaffId: string | null | undefined;

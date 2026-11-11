@@ -55,7 +55,7 @@ export default function StaffTutorDetailPage() {
         className="inline-flex min-h-10 items-center gap-1.5 self-start text-sm text-text-muted hover:text-text-primary"
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Danh sách gia sư
+        {viewer.isTrainingHead ? "Danh sách nhân sự" : "Danh sách gia sư"}
       </Link>
 
       {isLoading ? (
@@ -67,7 +67,11 @@ export default function StaffTutorDetailPage() {
       ) : (
         <>
           <section className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-surface p-4">
-            <TutorIdentity tutor={tutor} size="lg" />
+            <TutorIdentity
+              tutor={tutor}
+              size="lg"
+              showRoles={viewer.isTrainingHead}
+            />
             <div className="flex flex-wrap items-center gap-x-4">
               <StaffAchievementsButton
                 count={tutor.achievementCount}

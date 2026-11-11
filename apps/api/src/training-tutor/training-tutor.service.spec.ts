@@ -267,6 +267,47 @@ describe('TrainingTutorService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(mockPrisma.staffInfo.findMany).not.toHaveBeenCalled();
     });
+
+    it('scope=all: Trưởng ban xem mọi nhân sự, vẫn allowlist', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.count.mockResolvedValue(1);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([
+        leakyTutorRow({ roles: [StaffRole.sale] }),
+      ]);
+
+      const result = await service.listTutors(trainingViewer, {
+        scope: 'all',
+      });
+
+      const args = firstCallArg<StaffFindManyArgs>(
+        mockPrisma.staffInfo.findMany,
+      );
+      expect(args.where).not.toHaveProperty('roles');
+      expect(result.data[0].roles).toEqual([StaffRole.sale]);
+      expectNoHiddenKeys(result, HIDDEN_STAFF_KEYS);
+      expectNoHiddenKeys(args.select, HIDDEN_STAFF_KEYS);
+    });
+
+    it('scope=all: Ban Đào Tạo thường bị 403', async () => {
+      mockViewer([StaffRole.training]);
+      await expect(
+        service.listTutors(trainingViewer, { scope: 'all' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.staffInfo.findMany).not.toHaveBeenCalled();
+    });
+
+    it('Trưởng ban mặc định vẫn chỉ thấy gia sư', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.count.mockResolvedValue(0);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+      await service.listTutors(trainingViewer, {});
+
+      const args = firstCallArg<StaffFindManyArgs>(
+        mockPrisma.staffInfo.findMany,
+      );
+      expect(args.where.roles).toEqual({ has: StaffRole.teacher });
+    });
   });
 
   describe('getTutor', () => {
@@ -313,6 +354,41 @@ describe('TrainingTutorService', () => {
       await expect(
         service.getTutor(trainingViewer, 'UNISTAFF-0000000002'),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('Trưởng ban mở được hồ sơ nhân sự không phải gia sư', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce(
+        leakyTutorRow({ roles: [StaffRole.sale], classTeachers: [] }),
+      );
+
+      const result = await service.getTutor(
+        trainingViewer,
+        'UNISTAFF-0000000001',
+      );
+
+      const args = (
+        mockPrisma.staffInfo.findFirst.mock.calls as [
+          { where: Prisma.StaffInfoWhereInput },
+        ][]
+      )[1][0];
+      expect(args.where).toEqual({ id: 'UNISTAFF-0000000001' });
+      expect(result.roles).toEqual([StaffRole.sale]);
+      expectNoHiddenKeys(result, HIDDEN_STAFF_KEYS);
+    });
+
+    it('Ban Đào Tạo thường vẫn lọc theo role teacher', async () => {
+      mockViewer([StaffRole.training]);
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce(null);
+      await expect(
+        service.getTutor(trainingViewer, 'UNISTAFF-0000000002'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      const args = (
+        mockPrisma.staffInfo.findFirst.mock.calls as [
+          { where: Prisma.StaffInfoWhereInput },
+        ][]
+      )[1][0];
+      expect(args.where.roles).toEqual({ has: StaffRole.teacher });
     });
   });
 

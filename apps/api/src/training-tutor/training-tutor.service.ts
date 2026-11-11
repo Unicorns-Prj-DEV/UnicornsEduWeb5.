@@ -105,9 +105,20 @@ export class TrainingTutorService {
     private readonly achievementService: AchievementService,
   ) {}
 
-  /** Admin, hoặc staff có role `training` đang active (Ban Đào Tạo). */
-  async assertTrainingViewer(viewer: TrainingTutorViewer) {
-    if (viewer.roleType === UserRole.admin) return;
+  /** Admin, hoặc staff có role `training`/`training_head` đang active (Ban Đào Tạo). */
+  async assertTrainingViewer(viewer: TrainingTutorViewer): Promise<void> {
+    await this.resolveTrainingViewer(viewer);
+  }
+
+  /**
+   * Như `assertTrainingViewer`, kèm phạm vi: Trưởng Ban Đào Tạo (và admin) xem
+   * được mọi nhân sự ở cùng mức dữ liệu hồ sơ gia sư; Ban Đào Tạo thường chỉ
+   * xem staff có role `teacher`.
+   */
+  private async resolveTrainingViewer(
+    viewer: TrainingTutorViewer,
+  ): Promise<{ canViewAllStaff: boolean }> {
+    if (viewer.roleType === UserRole.admin) return { canViewAllStaff: true };
 
     const staff = await this.prisma.staffInfo.findFirst({
       where: { userId: viewer.id },
@@ -123,16 +134,29 @@ export class TrainingTutorService {
         'Chỉ Ban Đào Tạo mới được xem hồ sơ gia sư.',
       );
     }
+    return {
+      canViewAllStaff: staff.roles.includes(StaffRole.training_head),
+    };
+  }
+
+  private profileWhere(canViewAllStaff: boolean): Prisma.StaffInfoWhereInput {
+    return canViewAllStaff ? {} : TUTOR_WHERE;
   }
 
   async listTutors(
     viewer: TrainingTutorViewer,
     query: TrainingTutorListQueryDto,
   ): Promise<TrainingTutorPageDto<TrainingTutorListItemDto>> {
-    await this.assertTrainingViewer(viewer);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    const isAllScope = query.scope === 'all';
+    if (isAllScope && !canViewAllStaff) {
+      throw new ForbiddenException(
+        'Chỉ Trưởng ban đào tạo mới xem được tất cả nhân sự.',
+      );
+    }
     const { page, limit, skip } = clampPaging(query);
     const where: Prisma.StaffInfoWhereInput = {
-      ...TUTOR_WHERE,
+      ...(isAllScope ? {} : TUTOR_WHERE),
       ...(query.status ? { status: query.status } : {}),
       ...buildNameSearchWhere(query.search),
     };
@@ -167,10 +191,10 @@ export class TrainingTutorService {
     viewer: TrainingTutorViewer,
     staffId: string,
   ): Promise<TrainingTutorDetailDto> {
-    await this.assertTrainingViewer(viewer);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
 
     const row = await this.prisma.staffInfo.findFirst({
-      where: { ...TUTOR_WHERE, id: staffId },
+      where: { ...this.profileWhere(canViewAllStaff), id: staffId },
       select: {
         ...TUTOR_SUMMARY_SELECT,
         classTeachers: TUTOR_CLASS_ASSIGNMENTS_SELECT,
@@ -196,8 +220,8 @@ export class TrainingTutorService {
     staffId: string,
     query: PaginationQueryDto,
   ): Promise<TrainingTutorPageDto<TrainingTutorSessionDto>> {
-    await this.assertTrainingViewer(viewer);
-    await this.assertTutorExists(staffId);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    await this.assertProfileExists(staffId, canViewAllStaff);
     const { page, limit, skip } = clampPaging(query);
     const where = { teacherId: staffId } satisfies Prisma.SessionWhereInput;
 
@@ -223,14 +247,14 @@ export class TrainingTutorService {
   }
 
   async listTutorAchievements(viewer: TrainingTutorViewer, staffId: string) {
-    await this.assertTrainingViewer(viewer);
-    await this.assertTutorExists(staffId);
+    const { canViewAllStaff } = await this.resolveTrainingViewer(viewer);
+    await this.assertProfileExists(staffId, canViewAllStaff);
     return this.achievementService.listStaffAchievements(staffId);
   }
 
-  private async assertTutorExists(staffId: string) {
+  private async assertProfileExists(staffId: string, canViewAllStaff: boolean) {
     const tutor = await this.prisma.staffInfo.findFirst({
-      where: { ...TUTOR_WHERE, id: staffId },
+      where: { ...this.profileWhere(canViewAllStaff), id: staffId },
       select: { id: true },
     });
     if (!tutor) throw new NotFoundException('Không tìm thấy gia sư.');
