@@ -1422,6 +1422,81 @@ describe('StaffService', () => {
     ]);
   });
 
+  it('includes lesson-plan-head revenue share commissions in monthly total and paid', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      roles: [StaffRole.lesson_plan_head],
+      classTeachers: [],
+    });
+    mockPrisma.bonus.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockPrisma.extraAllowance.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockEmptyTeacherIncome();
+    jest
+      .spyOn(service as any, 'getLessonOutputRowsByPaymentStatus')
+      .mockResolvedValue([]);
+    jest
+      .spyOn(service as any, 'getRevenueShareAllPendingPreviewRecords')
+      .mockResolvedValue([]);
+    jest
+      .spyOn(service as any, 'getRevenueShareRowsByPaymentStatus')
+      .mockResolvedValueOnce([
+        {
+          paymentStatus: PaymentStatus.paid,
+          grossAmount: 52320,
+          taxRatePercent: 0,
+          operatingAmount: 0,
+        },
+        {
+          paymentStatus: PaymentStatus.pending,
+          grossAmount: 200613,
+          taxRatePercent: 0,
+          operatingAmount: 0,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          paymentStatus: PaymentStatus.paid,
+          grossAmount: 100000,
+          taxRatePercent: 0,
+          operatingAmount: 0,
+        },
+        {
+          paymentStatus: PaymentStatus.pending,
+          grossAmount: 200613,
+          taxRatePercent: 0,
+          operatingAmount: 0,
+        },
+      ]);
+
+    mockOtherRoleUnpaidByRole([[StaffRole.lesson_plan_head, 200613]]);
+
+    const result = await service.getIncomeSummary('staff-1', {
+      month: '11',
+      year: '2026',
+      days: 14,
+    });
+
+    expect(result.monthlyIncomeTotals).toEqual({
+      total: 252933,
+      paid: 52320,
+      unpaid: 200613,
+    });
+    expect(result.yearIncomeTotal).toBe(300613);
+    expect(result.otherRoleSummaries).toEqual([
+      {
+        role: StaffRole.lesson_plan_head,
+        label: 'Trưởng giáo án',
+        total: 252933,
+        paid: 52320,
+        unpaid: 200613,
+      },
+    ]);
+  });
+
   it('uses full-scope unpaid per role in other-role summaries while keeping monthly total and paid', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',

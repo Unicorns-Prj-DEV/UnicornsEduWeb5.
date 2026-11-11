@@ -2172,6 +2172,32 @@ export class StaffService {
     `);
   }
 
+  /**
+   * Hoa hồng doanh thu Trưởng giáo án (snapshot `lesson_plan_head_commission`) theo
+   * trạng thái thanh toán, lọc theo ngày buổi học. Không khấu trừ thuế (khớp payment
+   * preview: revenue_share có taxRatePercent = 0).
+   */
+  private async getRevenueShareRowsByPaymentStatus(params: {
+    staffId: string;
+    start: Date;
+    end: Date;
+  }): Promise<SourcePaymentTaxBucketRow[]> {
+    return this.prisma.$queryRaw<SourcePaymentTaxBucketRow[]>(Prisma.sql`
+      SELECT
+        lesson_plan_head_commission.payment_status::text AS "paymentStatus",
+        0 AS "taxRatePercent",
+        COALESCE(SUM(COALESCE(lesson_plan_head_commission.amount, 0)), 0) AS "grossAmount",
+        0 AS "operatingAmount"
+      FROM lesson_plan_head_commission
+      INNER JOIN attendance ON attendance.id = lesson_plan_head_commission.attendance_id
+      INNER JOIN sessions ON sessions.id = attendance.session_id
+      WHERE lesson_plan_head_commission.staff_id = ${params.staffId}
+        AND sessions.date >= ${params.start}
+        AND sessions.date < ${params.end}
+      GROUP BY lesson_plan_head_commission.payment_status
+    `);
+  }
+
   private async getCustomerCareAllPendingPreviewRecords(
     db: StaffPaymentClient,
     staffId: string,
@@ -4639,6 +4665,7 @@ export class StaffService {
     }
 
     const isAssistant = staff.roles.includes(StaffRole.assistant);
+    const isLessonPlanHead = staff.roles.includes(StaffRole.lesson_plan_head);
 
     const [
       monthlySessionSummaryRows,
@@ -4658,6 +4685,8 @@ export class StaffService {
       assistantShareYearRows,
       trainingManagerMonthlyRows,
       trainingManagerYearRows,
+      revenueShareMonthlyRows,
+      revenueShareYearRows,
       unpaidSnapshotTotalsByStaffId,
       bonusIncomeTaxRatePercent,
       allFixedSalaryPayables,
@@ -4781,6 +4810,20 @@ export class StaffService {
             end: range.yearEnd,
           })
         : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
+      isLessonPlanHead
+        ? this.getRevenueShareRowsByPaymentStatus({
+            staffId: id,
+            start: range.start,
+            end: range.end,
+          })
+        : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
+      isLessonPlanHead
+        ? this.getRevenueShareRowsByPaymentStatus({
+            staffId: id,
+            start: range.yearStart,
+            end: range.yearEnd,
+          })
+        : Promise.resolve<SourcePaymentTaxBucketRow[]>([]),
       this.getUnpaidTotalsByStaffIds([id]),
       this.resolveBonusIncomeTaxRatePercent(id, staff.roles),
       this.prisma.staffFixedSalaryPayable.findMany({
@@ -4840,6 +4883,11 @@ export class StaffService {
     const trainingManagerYearSummary = summarizeSourceBucketRows(
       trainingManagerYearRows,
     );
+    const revenueShareMonthlySummary = summarizeSourceBucketRows(
+      revenueShareMonthlyRows,
+    );
+    const revenueShareYearSummary =
+      summarizeSourceBucketRows(revenueShareYearRows);
 
     const sessionMonthlyTotals = sessionMonthlySummary.netTotals;
     const sessionMonthlyGrossTotals = sessionMonthlySummary.grossTotals;
@@ -4976,6 +5024,7 @@ export class StaffService {
       lessonOutputMonthlyTotals,
       assistantShareMonthlyTotals,
       trainingManagerMonthlyTotals,
+      revenueShareMonthlySummary.netTotals,
       fixedSalaryMonthlyTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
     const snapshotUnpaidTotal = unpaidSnapshotTotalsByStaffId.get(id) ?? 0;
@@ -4988,6 +5037,7 @@ export class StaffService {
       lessonOutputMonthlyGrossTotals,
       assistantShareMonthlyGrossTotals,
       trainingManagerMonthlyGrossTotals,
+      revenueShareMonthlySummary.grossTotals,
       fixedSalaryMonthlyGrossTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
@@ -4999,6 +5049,7 @@ export class StaffService {
       lessonOutputMonthlyTaxTotals,
       assistantShareMonthlyTaxTotals,
       trainingManagerMonthlyTaxTotals,
+      revenueShareMonthlySummary.taxTotals,
       fixedSalaryMonthlyTaxTotals,
     ].reduce(mergeAmountSummary, makeAmountSummary());
 
@@ -5051,6 +5102,7 @@ export class StaffService {
       lessonOutputYearTotal +
       assistantShareYearTotal +
       trainingManagerYearTotal +
+      revenueShareYearSummary.netTotals.total +
       fixedSalaryYearSummary.netTotals.total;
     const yearGrossIncomeTotal =
       sessionYearGrossTotal +
@@ -5060,6 +5112,7 @@ export class StaffService {
       lessonOutputYearGrossTotal +
       assistantShareYearGrossTotal +
       trainingManagerYearGrossTotal +
+      revenueShareYearSummary.grossTotals.total +
       fixedSalaryYearSummary.grossTotals.total;
     const yearTaxTotal =
       sessionYearTaxTotal +
@@ -5069,6 +5122,7 @@ export class StaffService {
       lessonOutputYearTaxTotal +
       assistantShareYearTaxTotal +
       trainingManagerYearTaxTotal +
+      revenueShareYearSummary.taxTotals.total +
       fixedSalaryYearSummary.taxTotals.total;
     const yearTotalDeductionTotal = yearTaxTotal + yearOperatingDeductionTotal;
 
@@ -5080,6 +5134,7 @@ export class StaffService {
       lessonOutputYearSummary.netTotals.paid +
       assistantShareYearSummary.netTotals.paid +
       trainingManagerYearSummary.netTotals.paid +
+      revenueShareYearSummary.netTotals.paid +
       fixedSalaryYearSummary.netTotals.paid;
 
     const totalReceivedNet = yearPaidNetTotal + snapshotUnpaidNetTotal;
@@ -5153,6 +5208,17 @@ export class StaffService {
         trainingSummary.total += trainingManagerMonthlyTotals.total;
         trainingSummary.paid += trainingManagerMonthlyTotals.paid;
         trainingSummary.unpaid += trainingManagerMonthlyTotals.unpaid;
+      }
+    }
+
+    if (isLessonPlanHead) {
+      const lessonPlanHeadSummary = otherRoleSummaryMap.get(
+        StaffRole.lesson_plan_head,
+      );
+      if (lessonPlanHeadSummary) {
+        lessonPlanHeadSummary.total +=
+          revenueShareMonthlySummary.netTotals.total;
+        lessonPlanHeadSummary.paid += revenueShareMonthlySummary.netTotals.paid;
       }
     }
 

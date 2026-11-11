@@ -21,6 +21,9 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Fixed
+- **Thu nhập nhân sự – Trưởng giáo án:** `GET /staff/:id/income-summary` trước đây chỉ đưa hoa hồng doanh thu (`lesson_plan_head_commission`) vào **Chưa nhận**, nên dòng *Trưởng giáo án* ở bảng **Công việc khác** hiện Tổng nhận/Đã nhận = 0 dù tháng đó có hoa hồng. Giờ hoa hồng được cộng vào `total`/`paid` của role `lesson_plan_head` theo tháng (lọc theo ngày buổi học, không khấu trừ thuế), đồng thời vào `monthlyIncomeTotals`/`monthlyGrossTotals`, `yearIncomeTotal`, `yearGrossIncomeTotal`, `yearPaidNetTotal`.
+
 ### Changed
 - **Lớp học (staff, gia sư):** tab **Buổi học** của `/staff/classes/[id]` hiện cả buổi do gia sư khác dạy, chỉ ở dạng nhận xét. Backend redact theo allowlist (`redactOtherTeachersSessions`) nên mọi số tiền (trợ cấp, hệ số, học phí, trạng thái thanh toán, trợ cấp QLL, hoa hồng) và hồ sơ nhân sự của gia sư khác không rời server. Frontend mở popup chỉ đọc, badge *Gia sư khác dạy*.
 
