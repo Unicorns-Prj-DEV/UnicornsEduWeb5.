@@ -7,7 +7,10 @@ import { StaffRole } from 'generated/enums';
  * Chỉ dùng cho check *quyền*. Check theo *thu nhập của role* (extra allowance,
  * lương cứng, dòng Công việc khác) vẫn so đúng role cụ thể, không đi qua đây.
  */
-export const TRAINING_ACCESS_ROLES: readonly StaffRole[] = [StaffRole.training];
+export const TRAINING_ACCESS_ROLES: readonly StaffRole[] = [
+  StaffRole.training,
+  StaffRole.training_head,
+];
 
 export function hasTrainingAccess(
   roles: readonly string[] | null | undefined,

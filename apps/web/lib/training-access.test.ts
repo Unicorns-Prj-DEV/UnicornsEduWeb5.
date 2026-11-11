@@ -6,6 +6,10 @@ describe("hasTrainingAccess", () => {
     expect(hasTrainingAccess(["teacher", "training"])).toBe(true);
   });
 
+  it("true khi chỉ có training_head (role độc lập, không cần training)", () => {
+    expect(hasTrainingAccess(["training_head"])).toBe(true);
+  });
+
   it("false khi không có role nào thuộc Ban Đào Tạo", () => {
     expect(hasTrainingAccess(["teacher"])).toBe(false);
     expect(hasTrainingAccess([])).toBe(false);

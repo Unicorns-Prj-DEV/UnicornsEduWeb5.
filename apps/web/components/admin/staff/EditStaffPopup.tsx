@@ -79,7 +79,8 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "communication", label: "Truyền thông" },
   { value: "technical", label: "Kỹ thuật" },
   { value: "customer_care", label: "CSKH" },
-  { value: "training", label: "Đào Tạo" },
+  { value: "training", label: ROLE_LABELS.training },
+  { value: "training_head", label: ROLE_LABELS.training_head },
   { value: "sale", label: "Sale" },
 ];
 

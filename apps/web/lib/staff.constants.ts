@@ -21,5 +21,6 @@ export const ROLE_LABELS: Record<string, string> = {
   technical: "Kỹ thuật",
   customer_care: "CSKH",
   training: "Đào Tạo",
+  training_head: "Trưởng ban đào tạo",
   sale: "Sale",
 };

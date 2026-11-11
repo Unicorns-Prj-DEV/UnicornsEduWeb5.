@@ -20,6 +20,7 @@ import { runBackgroundSave } from "@/lib/mutation-feedback";
 import {
   LESSON_PLAN_HEAD_ROLE_LABEL,
   LESSON_PLAN_ROLE_LABEL,
+  ROLE_LABELS,
 } from "@/lib/staff.constants";
 
 type Props = {
@@ -51,7 +52,8 @@ const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "communication", label: "Truyền thông" },
   { value: "technical", label: "Kỹ thuật" },
   { value: "customer_care", label: "CSKH" },
-  { value: "training", label: "Đào Tạo" },
+  { value: "training", label: ROLE_LABELS.training },
+  { value: "training_head", label: ROLE_LABELS.training_head },
   { value: "sale", label: "Sale" },
 ];
 

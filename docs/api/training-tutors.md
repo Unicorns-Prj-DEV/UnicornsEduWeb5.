@@ -7,7 +7,7 @@ Module: `apps/api/src/training-tutor/`. Controller `@Controller('training/tutors
 `TrainingTutorService.assertTrainingViewer`:
 
 - `roleType=admin` → qua.
-- `roleType=staff` → `staffInfo` theo `userId` phải có role `training` **và** `status=active`; ngược lại `403`.
+- `roleType=staff` → `staffInfo` theo `userId` phải có role `training` hoặc `training_head` (`hasTrainingAccess`) **và** `status=active`; ngược lại `403`.
 
 "Gia sư" = `staff_info.roles` có `teacher`, mọi trạng thái. Staff chỉ có role vận hành (không `teacher`) → `404` ở endpoint chi tiết, không xuất hiện ở danh sách.
 

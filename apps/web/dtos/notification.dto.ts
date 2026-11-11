@@ -13,6 +13,7 @@ export type NotificationTargetStaffRole =
   | "technical"
   | "customer_care"
   | "training"
+  | "training_head"
   | "assistant"
   | "sale";
 

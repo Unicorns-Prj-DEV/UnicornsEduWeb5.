@@ -105,6 +105,12 @@ const PRESET_TARGET_TAGS: AudiencePresetTag[] = [
     value: "training",
   },
   {
+    key: "@training_head",
+    label: "@training_head",
+    kind: "staffRole",
+    value: "training_head",
+  },
+  {
     key: "@lesson_plan",
     label: "@lesson_plan",
     kind: "staffRole",

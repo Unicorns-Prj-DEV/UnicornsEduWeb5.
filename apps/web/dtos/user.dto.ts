@@ -15,6 +15,7 @@ export type StaffRole =
   | "technical"
   | "customer_care"
   | "training"
+  | "training_head"
   | "sale";
 
 export interface CreateUserPayload {

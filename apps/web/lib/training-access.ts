@@ -6,7 +6,7 @@
  * Check theo *thu nhập của role* (trang chi tiết thu nhập, extra allowance,
  * lương cứng) vẫn so đúng role cụ thể.
  */
-export const TRAINING_ACCESS_ROLES = ["training"] as const;
+export const TRAINING_ACCESS_ROLES = ["training", "training_head"] as const;
 
 export function hasTrainingAccess(
   staffRoles: readonly string[] | null | undefined,
