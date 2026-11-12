@@ -1,6 +1,5 @@
 "use client";
 
-import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
@@ -475,15 +474,15 @@ export default function TrainingManagerClassesTabPanel({
     staleTime: 60_000,
   });
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  // Khớp BE bulkUpdatePaymentStatus: chỉ Admin + Kế toán chi.
   const canEditPaymentStatus =
     fullProfile?.roleType === "admin" ||
-    hasSaleCsHeadAccess(staffRoles) ||
-    staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
     staffRoles.includes("admin");
-  // Khớp quyền BE `assertCanEditTrainingManager`: chỉ admin hoặc trợ lí.
+  // #276: % trợ cấp quản lý lớp chỉ Admin sửa (BE
+  // `assertCanEditClassManagerAllowanceRate`).
   const canEditRate =
-    fullProfile?.roleType === "admin" || hasSaleCsHeadAccess(staffRoles);
+    fullProfile?.roleType === "admin" || staffRoles.includes("admin");
   const [rateEditTarget, setRateEditTarget] =
     useState<SessionRateEditTarget | null>(null);
 

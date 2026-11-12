@@ -38,6 +38,9 @@ describe('StaffOpsClassController makeup management', () => {
     updateMakeupScheduleEventForClass: jest.fn(),
     deleteMakeupScheduleEventForClass: jest.fn(),
     assertTeacherCanManageMakeupScheduleEventForClass: jest.fn(),
+    resyncClassScheduleWithGoogleCalendar: jest.fn(),
+    resyncClassScheduleWithGoogleCalendarForTeacher: jest.fn(),
+    resyncMakeupScheduleEventWithGoogleCalendarForClass: jest.fn(),
   };
   const staffOperationsAccess = {
     resolveClassWorkAccess: jest.fn(),
@@ -260,5 +263,84 @@ describe('StaffOpsClassController makeup management', () => {
     expect(
       calendarService.createMakeupScheduleEventForClass,
     ).not.toHaveBeenCalled();
+  });
+  describe('#276 resync Google Calendar (link Meet)', () => {
+    it('lets Quản lý lớp resync the whole class schedule', async () => {
+      staffOperationsAccess.resolveClassWorkAccess.mockResolvedValueOnce(
+        workAccess({ staffId: 'manager-1', isClassManager: true }),
+      );
+
+      await controller.resyncClassScheduleGoogleCalendar(
+        user({ id: 'manager-user' }),
+        'class-1',
+      );
+
+      expect(
+        calendarService.resyncClassScheduleWithGoogleCalendar,
+      ).toHaveBeenCalledWith('class-1');
+      expect(
+        calendarService.resyncClassScheduleWithGoogleCalendarForTeacher,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('keeps pure teacher on own schedule slots only', async () => {
+      await controller.resyncClassScheduleGoogleCalendar(
+        user({ id: 'teacher-user' }),
+        'class-1',
+      );
+
+      expect(
+        calendarService.resyncClassScheduleWithGoogleCalendarForTeacher,
+      ).toHaveBeenCalledWith('class-1', 'teacher-1');
+      expect(
+        calendarService.resyncClassScheduleWithGoogleCalendar,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('rejects staff unrelated to the class', async () => {
+      staffOperationsAccess.resolveClassWorkAccess.mockRejectedValueOnce(
+        new ForbiddenException(),
+      );
+
+      await expect(
+        controller.resyncClassScheduleGoogleCalendar(
+          user({ id: 'other-user' }),
+          'class-1',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(
+        calendarService.resyncClassScheduleWithGoogleCalendar,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('lets Quản lý lớp resync makeup events of any teacher', async () => {
+      staffOperationsAccess.resolveClassWorkAccess.mockResolvedValueOnce(
+        workAccess({ staffId: 'manager-1', isClassManager: true }),
+      );
+
+      await controller.resyncClassMakeupGoogleCalendar(
+        user({ id: 'manager-user' }),
+        'class-1',
+        'event-1',
+      );
+
+      const options =
+        calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass.mock
+          .calls[0][2];
+      expect(options.teacherId).toBeUndefined();
+    });
+
+    it('scopes pure teacher makeup resync to own events', async () => {
+      await controller.resyncClassMakeupGoogleCalendar(
+        user({ id: 'teacher-user' }),
+        'class-1',
+        'event-1',
+      );
+
+      const options =
+        calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass.mock
+          .calls[0][2];
+      expect(options.teacherId).toBe('teacher-1');
+    });
   });
 });

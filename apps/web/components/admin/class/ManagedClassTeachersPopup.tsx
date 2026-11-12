@@ -19,6 +19,7 @@ import {
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
 import { moneyInputInitialFromNumber, parseMoneyInput } from "@/lib/money-input.helpers";
+import { resolveOwnPayLockedClassDefaults } from "@/lib/class-teacher-own-pay";
 import {
   classEditorModalCloseButtonClassName,
   classEditorModalPrimaryButtonClassName,
@@ -86,20 +87,25 @@ function MoneyField({
   value,
   placeholder,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: string;
   placeholder?: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <label className="block min-w-0">
       <span className={fieldLabelClassName}>{label}</span>
-      <span className={`${fieldShellClassName} flex items-center gap-1.5`}>
+      <span
+        className={`${fieldShellClassName} flex items-center gap-1.5 ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+      >
         <MoneyInput
           value={value}
           onValueChange={onChange}
           placeholder={placeholder}
+          disabled={disabled}
           className={fieldInputClassName}
         />
         <span className="shrink-0 text-xs font-medium text-text-muted">VNĐ</span>
@@ -152,6 +158,15 @@ export default function ManagedClassTeachersPopup({
   const classId = classDetail.id;
   // Chi tiết lớp không trả gia sư đã nghỉ; backend tự mở lại dòng cũ khi thêm lại.
   const activeTeachers = (classDetail.teachers ?? []).filter(isActiveAssignment);
+  // #276: mức lớp mà dòng của chính Quản lý lớp đang kế thừa = lương của mình → khoá.
+  const lockedClassDefaults = resolveOwnPayLockedClassDefaults(
+    classDetail.teachers,
+    actorStaffId,
+  );
+  const hasLockedClassDefault =
+    lockedClassDefaults.allowance ||
+    lockedClassDefaults.maxAllowance ||
+    lockedClassDefaults.scale;
 
   const [classDraft, setClassDraft] = useState<ClassDraft>(() => classDraftFrom(classDetail));
   // Chỉ lưu dòng đã chạm; dòng chưa chạm (kể cả gia sư vừa thêm) đọc thẳng từ classDetail.
@@ -321,21 +336,30 @@ export default function ManagedClassTeachersPopup({
               <MoneyField
                 label="Trợ cấp / HS / buổi"
                 value={classDraft.allowance}
+                disabled={lockedClassDefaults.allowance}
                 onChange={(allowance) => setClassDraft((prev) => ({ ...prev, allowance }))}
               />
               <MoneyField
                 label="Trần / buổi"
                 value={classDraft.maxAllowance}
                 placeholder="Không trần"
+                disabled={lockedClassDefaults.maxAllowance}
                 onChange={(maxAllowance) => setClassDraft((prev) => ({ ...prev, maxAllowance }))}
               />
               <MoneyField
                 label="Scale / buổi"
                 value={classDraft.scale}
                 placeholder="0"
+                disabled={lockedClassDefaults.scale}
                 onChange={(scale) => setClassDraft((prev) => ({ ...prev, scale }))}
               />
             </div>
+            {hasLockedClassDefault ? (
+              <p className="text-xs text-text-muted">
+                Bạn đang dạy lớp này nên không tự sửa được mức đang áp vào lương của chính mình
+                (trần luôn áp cho mọi gia sư). Nhờ Admin chỉnh nếu cần.
+              </p>
+            ) : null}
           </section>
 
           <section className="space-y-2">

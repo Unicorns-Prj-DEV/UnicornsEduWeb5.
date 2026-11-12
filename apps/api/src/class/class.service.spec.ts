@@ -139,6 +139,8 @@ describe('ClassService', () => {
     resolveActor: jest.fn(),
     assertTeacherAssignedToClass: jest.fn(),
     resolveClassWorkAccess: jest.fn(),
+    resolveClassViewerActor: jest.fn(),
+    resolveClassAccess: jest.fn(),
   };
   const mockActionHistoryService = {
     recordUpdate: jest.fn(),
@@ -1955,13 +1957,94 @@ describe('ClassService', () => {
     });
   });
 
+  describe('getClassByIdForStaff ẩn học phí với Quản lý lớp (#276)', () => {
+    const classDetail = () => ({
+      id: 'class-1',
+      studentTuitionPerSession: 200000,
+      tuitionPackageTotal: 2000000,
+      tuitionPackageSession: 10,
+      teachers: [
+        { id: 'teacher-actor', customAllowance: 100000 },
+        { id: 'teacher-2', customAllowance: 90000 },
+      ],
+      students: [
+        {
+          id: 'student-1',
+          customTuitionPerSession: 180000,
+          effectiveTuitionPerSession: 180000,
+        },
+      ],
+    });
+
+    const viewAs = async (flags: {
+      mode: 'teacher' | 'training_manager';
+      isClassManager: boolean;
+    }) => {
+      mockStaffOperationsAccess.resolveClassViewerActor.mockResolvedValue({
+        id: 'teacher-actor',
+        roles: ['teacher', 'training'],
+      });
+      mockStaffOperationsAccess.resolveClassAccess.mockResolvedValue({
+        ...flags,
+        isAdmin: false,
+        isClassTeacher: flags.mode === 'teacher',
+      });
+      jest
+        .spyOn(service, 'getClassById')
+        .mockResolvedValue(classDetail() as never);
+      return (await service.getClassByIdForStaff(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+      )) as unknown as Record<string, unknown> & {
+        students: Record<string, unknown>[];
+        teachers: Record<string, unknown>[];
+      };
+    };
+
+    it.each([
+      ['Quản lý lớp kiêm gia sư', 'teacher'],
+      ['Quản lý lớp thuần', 'training_manager'],
+    ] as const)('%s không thấy học phí lớp / học sinh', async (_l, mode) => {
+      const result = await viewAs({ mode, isClassManager: true });
+
+      expect(result.studentTuitionPerSession).toBeUndefined();
+      expect(result.tuitionPackageTotal).toBeUndefined();
+      expect(result.students[0].customTuitionPerSession).toBeUndefined();
+      expect(result.students[0].effectiveTuitionPerSession).toBeUndefined();
+      // Vẫn thấy lương các gia sư khác để chỉnh.
+      expect(result.teachers[1].customAllowance).toBe(90000);
+    });
+
+    it('gia sư thuần giữ nguyên hành vi cũ (thấy học phí lớp)', async () => {
+      const result = await viewAs({ mode: 'teacher', isClassManager: false });
+
+      expect(result.studentTuitionPerSession).toBe(200000);
+    });
+  });
+
   describe('updateClassTeacherPay', () => {
     beforeEach(() => {
       mockPrisma.class.findUnique.mockResolvedValue({
         id: 'class-1',
         teachers: [
-          { teacherId: 'teacher-1', operatingDeductionRatePercent: 5 },
-          { teacherId: 'manager-1', operatingDeductionRatePercent: 0 },
+          {
+            teacherId: 'teacher-1',
+            operatingDeductionRatePercent: 5,
+            customAllowance: null,
+            customAllowancePerSession: null,
+            customScaleAmount: null,
+            status: 'active',
+          },
+          // Quản lý lớp kiêm gia sư, có trợ cấp + scale riêng.
+          {
+            teacherId: 'manager-1',
+            operatingDeductionRatePercent: 0,
+            customAllowance: 120000,
+            customAllowancePerSession: 120000,
+            customScaleAmount: 10000,
+            status: 'active',
+          },
         ],
       });
     });
@@ -2031,15 +2114,105 @@ describe('ClassService', () => {
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('still allows class defaults when the manager also teaches the class', async () => {
+    it('allows class defaults the teaching manager does not inherit (custom allowance/scale)', async () => {
       await service.updateClassTeacherPay(
         'class-1',
-        { allowance_per_session_per_student: 100000 },
+        { allowance_per_session_per_student: 100000, scale_amount: 5000 },
         { lockedTeacherId: 'manager-1' },
       );
 
       expect(mockTx.class.update).toHaveBeenCalled();
       expect(mockTx.classTeacher.update).not.toHaveBeenCalled();
+    });
+
+    // #276: mức mặc định lớp mà dòng của Quản lý lớp đang kế thừa = lương của chính mình.
+    it.each([
+      [{ allowance_per_session_per_student: 100000 }],
+      [{ scale_amount: 5000 }],
+      [{ max_allowance_per_session: 300000 }],
+    ])(
+      'rejects class default %p inherited by the teaching manager',
+      async (dto) => {
+        mockPrisma.class.findUnique.mockResolvedValue({
+          id: 'class-1',
+          teachers: [
+            {
+              teacherId: 'manager-1',
+              operatingDeductionRatePercent: 0,
+              customAllowance: null,
+              customAllowancePerSession: null,
+              customScaleAmount: null,
+              status: 'active',
+            },
+          ],
+        });
+
+        await expect(
+          service.updateClassTeacherPay('class-1', dto, {
+            lockedTeacherId: 'manager-1',
+          }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects the pay cap even when the teaching manager has custom pay', async () => {
+      await expect(
+        service.updateClassTeacherPay(
+          'class-1',
+          { max_allowance_per_session: 300000 },
+          { lockedTeacherId: 'manager-1' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows any class default when the manager does not teach (or stopped teaching) the class', async () => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: 'class-1',
+        teachers: [
+          {
+            teacherId: 'teacher-1',
+            operatingDeductionRatePercent: 5,
+            customAllowance: null,
+            customAllowancePerSession: null,
+            customScaleAmount: null,
+            status: 'active',
+          },
+          {
+            teacherId: 'manager-1',
+            operatingDeductionRatePercent: 0,
+            customAllowance: null,
+            customAllowancePerSession: null,
+            customScaleAmount: null,
+            status: 'inactive',
+          },
+        ],
+      });
+
+      await service.updateClassTeacherPay(
+        'class-1',
+        {
+          allowance_per_session_per_student: 100000,
+          max_allowance_per_session: 300000,
+          scale_amount: 5000,
+        },
+        { lockedTeacherId: 'manager-1' },
+      );
+
+      expect(mockTx.class.update).toHaveBeenCalled();
+    });
+
+    it('lets Admin (no locked teacher) change every class default', async () => {
+      await service.updateClassTeacherPay(
+        'class-1',
+        {
+          max_allowance_per_session: 300000,
+          teachers: [{ teacher_id: 'manager-1', custom_allowance: 1 }],
+        },
+        { lockedTeacherId: null },
+      );
+
+      expect(mockTx.classTeacher.update).toHaveBeenCalled();
     });
 
     it('rejects teachers not assigned to the class', async () => {

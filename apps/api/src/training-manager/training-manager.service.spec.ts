@@ -43,6 +43,8 @@ describe('TrainingManagerService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Không rò actor của test trước sang `resolveStaffPolicyActor`.
+    mockPrisma.user.findUnique.mockReset();
     service = new TrainingManagerService(
       mockPrisma as never,
       mockActionHistory as never,
@@ -386,6 +388,87 @@ describe('TrainingManagerService', () => {
           adminActor,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('% trợ cấp quản lý lớp chỉ Admin sửa (#276)', () => {
+    const classId = 'class-1';
+    const staffActor = {
+      userId: 'staff-user',
+      userEmail: 'staff@edu.vn',
+      roleType: UserRole.staff,
+    };
+    const asStaff = (roles: StaffRole[]) =>
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: { id: 'staff-actor', roles },
+      });
+
+    beforeEach(() => {
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: classId,
+        trainingManagerStaffId: 'staff-actor',
+        trainingManagerRatePercent: 3,
+      });
+      mockPrisma.class.update.mockResolvedValue({
+        id: classId,
+        trainingManagerStaffId: 'staff-actor',
+        trainingManagerRatePercent: 5,
+      });
+      mockPrisma.$transaction.mockImplementation(
+        (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
+      );
+    });
+
+    it.each([
+      [[StaffRole.training]],
+      [[StaffRole.training_head]],
+      [[StaffRole.training, StaffRole.teacher]],
+      [[StaffRole.sale_customer_care_head]],
+      [[StaffRole.accountant_expense]],
+      [[StaffRole.accountant_income]],
+    ])('từ chối %p sửa % của lớp', async (roles) => {
+      asStaff(roles);
+
+      await expect(
+        service.updateClassTrainingManager(
+          classId,
+          { trainingManagerRatePercent: 5 },
+          staffActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.class.update).not.toHaveBeenCalled();
+    });
+
+    it('staff mang role admin được sửa % của lớp', async () => {
+      asStaff([StaffRole.admin]);
+
+      await expect(
+        service.updateClassTrainingManager(
+          classId,
+          { trainingManagerRatePercent: 5 },
+          staffActor,
+        ),
+      ).resolves.toMatchObject({ trainingManagerRatePercent: 5 });
+      expect(mockPrisma.class.update).toHaveBeenCalled();
+    });
+
+    it.each([
+      [[StaffRole.training_head]],
+      [[StaffRole.training]],
+      [[StaffRole.sale_customer_care_head]],
+    ])('từ chối %p sửa % trên buổi', async (roles) => {
+      asStaff(roles);
+
+      await expect(
+        service.updateSessionRatePercent(
+          staffActor,
+          'UNISTAFF-1',
+          '15ecdca1-4cbb-4148-9929-8e8cdab3b90d',
+          3,
+        ),
+      ).rejects.toThrow('Chỉ Admin được sửa % trợ cấp quản lý lớp.');
+      expect(mockPrisma.session.findFirst).not.toHaveBeenCalled();
     });
   });
 

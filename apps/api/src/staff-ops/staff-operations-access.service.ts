@@ -46,6 +46,35 @@ export function canWorkOnAllClassSessions(
   return access.isAdmin || access.isClassManager;
 }
 
+/**
+ * Phạm vi chỉnh gia sư + lương gia sư theo lớp (#276) — dùng cho thêm / cho
+ * nghỉ gia sư và `PATCH /staff-ops/classes/:id/teacher-pay`.
+ */
+export interface StaffClassTeacherManagementScope {
+  /**
+   * `staff_info.id` của actor không phải Admin: không được thêm / cho nghỉ /
+   * sửa lương dòng của chính mình (luật #265). `null` với Admin.
+   */
+  lockedTeacherId: string | null;
+  isAdmin: boolean;
+  /** Ban Đào tạo được giao làm Quản lý lớp của lớp. */
+  isClassManager: boolean;
+}
+
+/**
+ * Ai được thêm / bớt gia sư và sửa lương gia sư theo lớp (biên bản 12/11/2026
+ * mục 5.2): Admin, hoặc Quản lý lớp trên lớp mình (#276).
+ *
+ * Điểm mở rộng cho #277: Trưởng ban Đào tạo làm trên **mọi lớp** — thêm cờ
+ * vào `StaffClassTeacherManagementScope` và OR vào đây; phần «không sửa lương
+ * của chính mình» vẫn đi qua `lockedTeacherId`.
+ */
+export function canManageClassTeachersAndPay(
+  access: Pick<StaffClassTeacherManagementScope, 'isAdmin' | 'isClassManager'>,
+): boolean {
+  return access.isAdmin || access.isClassManager;
+}
+
 /** Gia sư chỉ buổi do mình dạy; Admin / Quản lý lớp mọi buổi của lớp. */
 export function canWorkOnClassSession(
   access: StaffClassWorkAccess,
@@ -196,40 +225,37 @@ export class StaffOperationsAccessService {
   }
 
   /**
-   * Quyền chỉnh gia sư / lương gia sư của lớp từ staff workspace.
-   * Admin (user hoặc staff role): toàn quyền (#267: Trợ lí không còn quyền này). Ban Đào Tạo: chỉ lớp
-   * có `training_manager_staff_id` là chính mình, và không được đụng dòng của
-   * chính mình (`lockedTeacherId`).
+   * Quyền chỉnh gia sư / lương gia sư của lớp từ staff workspace (#276).
+   * Admin (user hoặc staff role): toàn quyền (#267: Trợ lí không còn quyền này).
+   * Quản lý lớp: chỉ lớp có `training_manager_staff_id` là chính mình, và không
+   * được đụng dòng / lương của chính mình (`lockedTeacherId`). Predicate quyền
+   * nằm ở `canManageClassTeachersAndPay`.
    */
   async resolveClassTeacherManagerScope(
     userId: string,
     roleType: UserRole,
     classId: string,
-  ): Promise<{ lockedTeacherId: string | null }> {
+  ): Promise<StaffClassTeacherManagementScope> {
     if (roleType === UserRole.admin) {
-      return { lockedTeacherId: null };
+      return { lockedTeacherId: null, isAdmin: true, isClassManager: false };
     }
 
     const staff = await this.resolveStaffActor(userId);
+    const isAdmin = staff.roles.includes(StaffRole.admin);
+    const isClassManager =
+      !isAdmin && (await this.isManagerOfClass(staff, classId));
 
-    if (staff.roles.includes(StaffRole.admin)) {
-      return { lockedTeacherId: null };
+    if (!canManageClassTeachersAndPay({ isAdmin, isClassManager })) {
+      throw new ForbiddenException(
+        'Chỉ Quản lý lớp (Đào Tạo) hoặc Admin mới được chỉnh gia sư và lương gia sư của lớp này.',
+      );
     }
 
-    if (hasTrainingAccess(staff.roles)) {
-      const managedClass = await this.prisma.class.findFirst({
-        where: { id: classId, trainingManagerStaffId: staff.id },
-        select: { id: true },
-      });
-
-      if (managedClass) {
-        return { lockedTeacherId: staff.id };
-      }
-    }
-
-    throw new ForbiddenException(
-      'Chỉ quản lý lớp (Đào Tạo) hoặc Admin mới được chỉnh gia sư của lớp này.',
-    );
+    return {
+      lockedTeacherId: isAdmin ? null : staff.id,
+      isAdmin,
+      isClassManager,
+    };
   }
 
   async assertTeacherAssignedToClass(

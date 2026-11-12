@@ -12,6 +12,7 @@ import { StaffRole, UserRole } from '../../generated/enums';
 import {
   StaffOperationsAccessService,
   canEditClassSessionCoefficient,
+  canManageClassTeachersAndPay,
   canWorkOnClassSession,
 } from './staff-operations-access.service';
 
@@ -269,7 +270,11 @@ describe('StaffOperationsAccessService', () => {
           UserRole.admin,
           'class-1',
         ),
-      ).resolves.toEqual({ lockedTeacherId: null });
+      ).resolves.toEqual({
+        lockedTeacherId: null,
+        isAdmin: true,
+        isClassManager: false,
+      });
       expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
     });
 
@@ -285,7 +290,11 @@ describe('StaffOperationsAccessService', () => {
           UserRole.staff,
           'class-1',
         ),
-      ).resolves.toEqual({ lockedTeacherId: null });
+      ).resolves.toEqual({
+        lockedTeacherId: null,
+        isAdmin: true,
+        isClassManager: false,
+      });
       expect(mockPrisma.class.findFirst).not.toHaveBeenCalled();
     });
 
@@ -318,7 +327,11 @@ describe('StaffOperationsAccessService', () => {
           UserRole.staff,
           'class-1',
         ),
-      ).resolves.toEqual({ lockedTeacherId: 'staff-training' });
+      ).resolves.toEqual({
+        lockedTeacherId: 'staff-training',
+        isAdmin: false,
+        isClassManager: true,
+      });
       expect(mockPrisma.class.findFirst).toHaveBeenCalledWith({
         where: { id: 'class-1', trainingManagerStaffId: 'staff-training' },
         select: { id: true },
@@ -339,6 +352,39 @@ describe('StaffOperationsAccessService', () => {
           'class-2',
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    // #276: Trưởng ban Đào tạo chưa có quyền trên lớp không quản lý (#277 mở).
+    it.each([
+      [[StaffRole.training_head]],
+      [[StaffRole.accountant_expense]],
+      [[StaffRole.accountant_income]],
+    ])('rejects %p on classes they do not manage', async (roles) => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'staff-x',
+        roles,
+      });
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.resolveClassTeacherManagerScope(
+          'user-1',
+          UserRole.staff,
+          'class-2',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('canManageClassTeachersAndPay: Admin hoặc Quản lý lớp', () => {
+      expect(
+        canManageClassTeachersAndPay({ isAdmin: true, isClassManager: false }),
+      ).toBe(true);
+      expect(
+        canManageClassTeachersAndPay({ isAdmin: false, isClassManager: true }),
+      ).toBe(true);
+      expect(
+        canManageClassTeachersAndPay({ isAdmin: false, isClassManager: false }),
+      ).toBe(false);
     });
 
     it('rejects plain teachers', async () => {

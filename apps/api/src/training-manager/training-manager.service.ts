@@ -39,6 +39,12 @@ import {
 } from 'src/common/staff-role-policy';
 import { computeStaffSensitiveView } from 'src/common/staff-sensitive-view';
 import {
+  assertCanEditClassManagerAllowanceRate,
+  assertClassTrainingManagerUpdateAllowed,
+  canAssignClassManager,
+  canEditClassManagerAllowanceRate,
+} from './class-manager-allowance-policy';
+import {
   grantTrainingRoleForManager,
   resolveTrainingManagerAssignment,
 } from './training-manager-assignment';
@@ -168,7 +174,13 @@ export class TrainingManagerService {
     dto: UpdateClassTrainingManagerDto,
     actor: ActionHistoryActor & { userId: string; roleType: UserRole },
   ) {
-    await this.assertCanEditTrainingManager(actor);
+    const policyActor = await resolveStaffPolicyActor(this.prisma, actor);
+    if (
+      !canAssignClassManager(policyActor) &&
+      !canEditClassManagerAllowanceRate(policyActor)
+    ) {
+      throw new ForbiddenException('Chỉ Admin được chỉnh quản lý lớp.');
+    }
 
     const existing = await this.prisma.class.findUnique({
       where: { id: classId },
@@ -190,6 +202,19 @@ export class TrainingManagerService {
       dto.trainingManagerRatePercent === undefined
         ? undefined
         : normalizeTrainingManagerRatePercent(dto.trainingManagerRatePercent);
+
+    // #276: % trợ cấp quản lý lớp chỉ Admin sửa; giao/gỡ quản lý theo
+    // `canAssignClassManager` (#277 mở thêm). Chỉ xét phần thật sự đổi.
+    const currentRate =
+      existing.trainingManagerRatePercent == null
+        ? null
+        : toNumber(existing.trainingManagerRatePercent);
+    assertClassTrainingManagerUpdateAllowed(policyActor, {
+      changesManager:
+        nextStaffId !== undefined &&
+        nextStaffId !== existing.trainingManagerStaffId,
+      changesRate: nextRate !== undefined && nextRate !== currentRate,
+    });
 
     // Gia sư kiêm quản lý lớp: staff `teacher` chưa thuộc Ban Đào Tạo được cấp
     // thêm `training` để quyền staff-ops / trợ cấp quản lý chạy như nhân sự Đào Tạo.
@@ -456,7 +481,10 @@ export class TrainingManagerService {
     sessionId: string,
     ratePercentInput: unknown,
   ): Promise<TrainingManagerSessionAllowanceDto> {
-    await this.assertCanEditTrainingManager(actor);
+    // #276: % trợ cấp quản lý lớp trên buổi — chỉ Admin.
+    assertCanEditClassManagerAllowanceRate(
+      await resolveStaffPolicyActor(this.prisma, actor),
+    );
 
     const ratePercent = normalizeTrainingManagerRatePercent(ratePercentInput);
     if (ratePercent == null || ratePercent <= 0) {
@@ -553,20 +581,6 @@ export class TrainingManagerService {
           snapshot.trainingManagerPaymentStatus ?? PaymentStatus.pending,
       };
     });
-  }
-
-  private async assertCanEditTrainingManager(actor: {
-    userId: string;
-    roleType: UserRole;
-  }) {
-    if (actor.roleType === UserRole.admin) return;
-    const staff = await this.prisma.staffInfo.findFirst({
-      where: { userId: actor.userId },
-      select: { roles: true },
-    });
-    if (!staff?.roles.includes(StaffRole.admin)) {
-      throw new ForbiddenException('Chỉ Admin được chỉnh quản lý lớp.');
-    }
   }
 
   async bulkUpdatePaymentStatus(

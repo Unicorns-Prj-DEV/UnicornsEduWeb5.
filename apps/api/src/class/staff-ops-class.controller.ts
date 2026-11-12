@@ -330,7 +330,8 @@ export class StaffOpsClassController {
     summary: 'Update teacher pay of a class (training manager)',
     description:
       'Quản lý lớp (Ban Đào Tạo) hoặc admin chỉnh trợ cấp/hs, trần trợ cấp, scale mặc định của lớp và trợ cấp/scale/% vận hành của gia sư đã có trong lớp. ' +
-      'Không nhận học phí hay thông tin lớp khác. Quản lý lớp không được sửa dòng của chính mình (403). ' +
+      'Không nhận học phí, % trợ cấp quản lý lớp (chỉ Admin, qua PATCH /class/:id/training-manager) hay thông tin lớp khác. ' +
+      '#276: Quản lý lớp không được sửa phần lương của chính mình (403): dòng của mình, và khi đang dạy lớp thì cả trợ cấp tối đa, trợ cấp mỗi học sinh / scale mặc định mà dòng của mình đang kế thừa. ' +
       'Chỉ áp dụng cho buổi tạo sau khi lưu.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
@@ -339,7 +340,8 @@ export class StaffOpsClassController {
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({
     status: 403,
-    description: 'Không phải quản lý lớp, hoặc sửa dòng của chính mình.',
+    description:
+      'Không phải Admin / Quản lý lớp của lớp, hoặc chạm phần lương của chính mình (#276).',
   })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassTeacherPay(
@@ -511,13 +513,17 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'Resync class schedule to Google Calendar for staff operations',
     description:
-      'Admin resyncs the whole class schedule. Staff accounts resync only the current actor teacher schedule entries. Existing Google events are updated before orphaned events are deleted.',
+      'Admin và Quản lý lớp (#276) resync toàn bộ lịch của lớp. Gia sư chỉ resync khung giờ của chính mình. Existing Google events are updated before orphaned events are deleted.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({
     status: 200,
     description: 'Class schedule resynced to Google Calendar.',
     type: ClassScheduleGoogleCalendarResyncResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không phải Admin / Quản lý lớp / gia sư của lớp.',
   })
   async resyncClassScheduleGoogleCalendar(
     @CurrentUser() user: JwtPayload,
@@ -527,14 +533,22 @@ export class StaffOpsClassController {
       return this.calendarService.resyncClassScheduleWithGoogleCalendar(id);
     }
 
-    const actor = await this.staffOperationsAccess.resolveActor(
+    // #276: Admin (staff role) + Quản lý lớp đồng bộ lại toàn bộ lịch (link
+    // Meet) của lớp; gia sư chỉ khung giờ của mình; lớp khác → 403.
+    const access = await this.staffOperationsAccess.resolveClassWorkAccess(
       user.id,
       user.roleType,
+      id,
     );
-    await this.staffOperationsAccess.assertTeacherAssignedToClass(actor.id, id);
+    if (canWorkOnAllClassSessions(access)) {
+      return this.calendarService.resyncClassScheduleWithGoogleCalendar(id);
+    }
+    if (!access.staffId) {
+      throw new ForbiddenException('Staff profile required');
+    }
     return this.calendarService.resyncClassScheduleWithGoogleCalendarForTeacher(
       id,
-      actor.id,
+      access.staffId,
     );
   }
 
@@ -542,7 +556,7 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'Resync one makeup event to Google Calendar for staff operations',
     description:
-      'Admin resyncs any makeup event in the class. Staff accounts resync only makeup events assigned to their own staff profile.',
+      'Admin và Quản lý lớp (#276) resync mọi buổi bù của lớp. Gia sư chỉ resync buổi bù do chính mình phụ trách.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiParam({ name: 'eventId', description: 'Makeup event id' })
@@ -550,6 +564,10 @@ export class StaffOpsClassController {
     status: 200,
     description: 'Makeup event resynced to Google Calendar.',
     type: MakeupGoogleCalendarResyncResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không phải Admin / Quản lý lớp / gia sư của lớp.',
   })
   async resyncClassMakeupGoogleCalendar(
     @CurrentUser() user: JwtPayload,
@@ -570,16 +588,23 @@ export class StaffOpsClassController {
       );
     }
 
-    const actor = await this.staffOperationsAccess.resolveActor(
+    // #276: Admin (staff role) + Quản lý lớp đồng bộ mọi buổi bù của lớp;
+    // gia sư chỉ buổi bù do mình phụ trách.
+    const access = await this.staffOperationsAccess.resolveClassWorkAccess(
       user.id,
       user.roleType,
+      id,
     );
-    await this.staffOperationsAccess.assertTeacherAssignedToClass(actor.id, id);
+    if (!access.staffId) {
+      throw new ForbiddenException('Staff profile required');
+    }
     return this.calendarService.resyncMakeupScheduleEventWithGoogleCalendarForClass(
       id,
       eventId,
       {
-        teacherId: actor.id,
+        ...(canWorkOnAllClassSessions(access)
+          ? {}
+          : { teacherId: access.staffId }),
         actor: {
           userId: user.id,
           userEmail: user.email,

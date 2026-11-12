@@ -588,11 +588,13 @@ export default function StaffClassDetailPage() {
   const canCreateMakeupSchedule =
     (canWorkOnAllClassSessions && teacherCount > 0) ||
     (hasTeacherSelfServiceAccess && teacherAssignedToClass);
+  // #276: Quản lý lớp đồng bộ lại toàn bộ lịch + link Meet của lớp mình.
   const canResyncSchedule =
-    isAdmin ||
+    canWorkOnAllClassSessions ||
     (hasTeacherSelfServiceAccess &&
       scheduleItems.some((item) => item.teacherId === actorStaffId));
-  const canResyncMakeupSchedule = isAdmin || hasTeacherSelfServiceAccess;
+  const canResyncMakeupSchedule =
+    canWorkOnAllClassSessions || hasTeacherSelfServiceAccess;
   const makeupTeacherMode =
     hasTeacherSelfServiceAccess && !canWorkOnAllClassSessions ? "readOnly" : "select";
   const defaultMakeupTeacherId = teacherAssignedToClass
@@ -1251,7 +1253,8 @@ export default function StaffClassDetailPage() {
           canDeleteEvent={canManageOwnUnlinkedMakeupEvent}
           canResync={canResyncMakeupSchedule}
           canResyncEvent={(event) =>
-            isAdmin || (Boolean(actorStaffId) && event.teacherId === actorStaffId)
+            canWorkOnAllClassSessions ||
+            (Boolean(actorStaffId) && event.teacherId === actorStaffId)
           }
           onOpenPastEvents={() => setPastMakeupPopupOpen(true)}
           disabledCreateMessage={makeupScheduleDisabledMessage}

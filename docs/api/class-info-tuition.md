@@ -56,7 +56,20 @@ Policy: `apps/api/src/class/class-write-field-policy.ts` (`assertCreateClassAllo
 | Trưởng ban Đào tạo (#274) | `expense` | học phí lớp + học phí riêng học sinh (trợ cấp từng buổi: #277) |
 | Trưởng ban Đào tạo kiêm Trưởng phòng / Kế toán thu | `full` | — (hợp quyền) |
 
-Route staff-ops (gia sư / quản lý lớp) vẫn dùng `resolveAccountantFinanceView`, không đổi.
+Route staff-ops (gia sư / quản lý lớp) vẫn dùng `resolveAccountantFinanceView`. Riêng `GET /staff-ops/classes/:id` (#276): **Quản lý lớp** của lớp — thuần hoặc kiêm gia sư lớp — không nhận học phí lớp (`studentTuitionPerSession`, `studentTuitionPerBlock`, `tuitionPackageTotal`, `tuitionPackageSession`, `sessionTuitionTotal`) và học phí riêng / số dư của học sinh (`redactClassForTrainingManagerView`). Gia sư thuần, CSKH, Admin, Kế toán giữ nguyên.
+
+## % trợ cấp quản lý lớp và lương gia sư theo lớp (#276)
+
+| Route | Admin | Quản lý lớp (lớp mình) | Trưởng ban Đào tạo | Trưởng phòng | Kế toán thu/chi |
+|---|---|---|---|---|---|
+| `PATCH /class/:id/training-manager` — đổi `%` | sửa | 403 | 403 | 403 | 403 |
+| `PATCH /class/:id/training-manager` — giao / gỡ Quản lý lớp | sửa | 403 | 403 (#277 mở) | 403 | 403 |
+| `PATCH /training-manager/staff/:staffId/sessions/:sessionId/rate` | sửa | 403 | 403 | 403 | 403 |
+| `PATCH /staff-ops/classes/:id/teacher-pay`, thêm / cho nghỉ gia sư | sửa | sửa, trừ phần của mình | 403 nếu không quản lý lớp (#277 mở) | 403 | 403 |
+
+- Gửi lại `%` hiện tại (không đổi) không bị chặn — kiểm theo giá trị thật sự đổi.
+- «Phần của mình» với Quản lý lớp kiêm gia sư đang dạy lớp: dòng `teachers[]` của mình; `allowance_per_session_per_student` khi không có trợ cấp riêng; `scale_amount` khi không có scale riêng; `max_allowance_per_session` luôn → `403`.
+- Điểm mở rộng #277: `canManageClassTeachersAndPay` (`staff-ops/staff-operations-access.service.ts`) và `canAssignClassManager` (`training-manager/class-manager-allowance-policy.ts`). `canEditClassManagerAllowanceRate` giữ chỉ Admin.
 
 ## Thêm/bớt học sinh (#273)
 

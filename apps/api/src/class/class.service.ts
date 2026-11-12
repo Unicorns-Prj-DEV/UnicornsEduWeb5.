@@ -54,6 +54,7 @@ import {
   assertCreateClassAllowed,
   assertUpdateClassBasicInfoAllowed,
 } from './class-write-field-policy';
+import { assertTeacherPayUpdateExcludesOwnPay } from './class-teacher-pay-policy';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
@@ -1269,14 +1270,24 @@ export class ClassService {
       userId,
       roleType,
     );
-    const accessMode =
-      await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
+    const access = await this.staffOperationsAccess.resolveClassAccess(
+      actor,
+      id,
+    );
+    const accessMode = access.mode;
 
     const classDetail = await this.getClassById(id);
     const financeView = resolveAccountantFinanceView(roleType, actor.roles);
     let result = redactClassForAccountantView(classDetail, financeView);
 
-    if (accessMode === 'training_manager') {
+    // #276: Quản lý lớp không thấy học phí lớp / học phí từng học sinh — kể
+    // cả khi kiêm gia sư của lớp (mode `teacher`). Tổng học phí buổi vẫn hiện
+    // trên dòng thu nhập của chính họ (lịch sử buổi / trợ cấp quản lý lớp).
+    // Role xem được học phí (Admin, Kế toán, CSKH của học sinh) giữ nguyên.
+    if (
+      accessMode === 'training_manager' ||
+      (accessMode === 'teacher' && access.isClassManager)
+    ) {
       result = redactClassForTrainingManagerView(result);
     }
 
@@ -1286,11 +1297,10 @@ export class ClassService {
 
     if (accessMode === 'teacher') {
       // Kiêm quản lý lớp này: thấy lương mọi gia sư để chỉnh (trừ dòng của mình ở FE/BE write).
-      const managesClass =
-        hasTrainingAccess(actor.roles) &&
-        classDetail.trainingManager?.id === actor.id;
       return redactClassStudentWalletBalances(
-        managesClass ? result : redactOtherTeachersIncome(result, actor.id),
+        access.isClassManager
+          ? result
+          : redactOtherTeachersIncome(result, actor.id),
         { mode: 'none' },
       );
     }
@@ -2783,7 +2793,9 @@ export class ClassService {
   /**
    * Ban Đào Tạo (quản lý lớp): chỉnh mức trợ cấp/scale mặc định của lớp và
    * trợ cấp/scale/% vận hành của gia sư đã có trong lớp, trong 1 transaction.
-   * `lockedTeacherId` = staff id của quản lý lớp — không được sửa dòng của chính mình.
+   * `lockedTeacherId` = staff id của quản lý lớp — không được sửa phần lương
+   * của chính mình (#276: dòng của mình + mức mặc định lớp mà mình đang kế
+   * thừa, xem `class-teacher-pay-policy.ts`).
    * Không đụng tới buổi đã tạo (buổi snapshot tiền lúc tạo).
    */
   async updateClassTeacherPay(
@@ -2800,6 +2812,10 @@ export class ClassService {
           select: {
             teacherId: true,
             operatingDeductionRatePercent: true,
+            customAllowance: true,
+            customAllowancePerSession: true,
+            customScaleAmount: true,
+            status: true,
           },
         },
       },
@@ -2819,14 +2835,15 @@ export class ClassService {
     }
 
     const lockedTeacherId = options.lockedTeacherId ?? null;
-    if (
-      lockedTeacherId &&
-      teachers.some((teacher) => teacher.teacher_id === lockedTeacherId)
-    ) {
-      throw new ForbiddenException(
-        'Quản lý lớp không được tự chỉnh lương của chính mình.',
-      );
-    }
+    assertTeacherPayUpdateExcludesOwnPay(
+      dto,
+      lockedTeacherId,
+      lockedTeacherId
+        ? existing.teachers.find(
+            (teacher) => teacher.teacherId === lockedTeacherId,
+          )
+        : null,
+    );
 
     const existingRateByTeacherId = new Map(
       existing.teachers.map((teacher) => [

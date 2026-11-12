@@ -65,10 +65,19 @@ export class TrainingManagerController {
   }
 
   @Patch('class/:id/training-manager')
-  @ApiOperation({ summary: 'Assign class training manager and rate percent' })
+  @ApiOperation({
+    summary: 'Assign class training manager and rate percent',
+    description:
+      'Chỉ Admin (#276): giao / gỡ Quản lý lớp và sửa % trợ cấp quản lý lớp. Chỉ kiểm phần thật sự đổi so với giá trị hiện tại.',
+  })
   @ApiParam({ name: 'id', description: 'Class ID' })
   @ApiBody({ description: 'Training manager assignment payload' })
   @ApiResponse({ status: 200, description: 'Updated class training manager.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Admin: «Chỉ Admin được sửa % trợ cấp quản lý lớp.» / «Chỉ Admin được chỉnh quản lý lớp.»',
+  })
   async updateClassTrainingManager(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) classId: string,
@@ -143,7 +152,10 @@ export class TrainingManagerController {
     description: 'Session allowance recomputed with the new rate.',
   })
   @ApiResponse({ status: 400, description: 'Invalid rate or session paid.' })
-  @ApiResponse({ status: 403, description: 'Only admin.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Chỉ Admin được sửa % trợ cấp quản lý lớp (#276).',
+  })
   async updateSessionRatePercent(
     @CurrentUser() user: JwtPayload,
     @Param('staffId', new ParseStaffIdPipe()) staffId: string,
