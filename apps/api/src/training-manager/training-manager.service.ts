@@ -35,6 +35,7 @@ import {
   computeTrainingManagerSessionSnapshot,
   normalizeTrainingManagerRatePercent,
 } from './training-manager.utils';
+import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 
 function parseMonthRange(monthKey: string): {
   start: Date;
@@ -606,6 +607,11 @@ export class TrainingManagerService {
     ) {
       throw new BadRequestException('paymentStatus must be pending or paid.');
     }
+    await assertActorNotEditingOwnCompensation(
+      this.prisma,
+      { userId, roleType },
+      [staffId],
+    );
 
     const accessibleStaffId = await this.resolveAccessibleStaffId(
       userId,

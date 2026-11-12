@@ -38,6 +38,7 @@ describe('ExtraAllowanceService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    user: { findUnique: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn(),
   };
 
@@ -62,6 +63,63 @@ describe('ExtraAllowanceService', () => {
       mockPrisma as never,
       actionHistoryService as never,
     );
+  });
+
+  describe('luật không tự sửa lương của chính mình (#265)', () => {
+    const selfActor = {
+      userId: 'user-head',
+      userEmail: 'head@example.com',
+      roleType: UserRole.staff,
+    };
+
+    beforeEach(() => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        roleType: UserRole.staff,
+        staffInfo: { id: 'staff-1', roles: [StaffRole.assistant] },
+      });
+    });
+
+    it('chặn trưởng phòng tạo trợ cấp cho chính mình qua route quản lý', async () => {
+      await expect(
+        service.createExtraAllowance(
+          {
+            staffId: 'staff-1',
+            month: '2026-04',
+            amount: 200000,
+            status: PaymentStatus.paid,
+            roleType: StaffRole.assistant,
+          },
+          selfActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.extraAllowance.create).not.toHaveBeenCalled();
+    });
+
+    it('chặn xoá trợ cấp của chính mình qua route quản lý', async () => {
+      mockPrisma.extraAllowance.findUnique.mockResolvedValueOnce({
+        id: 'allowance-1',
+        staffId: 'staff-1',
+        status: PaymentStatus.pending,
+      });
+      await expect(
+        service.deleteExtraAllowance('allowance-1', selfActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.extraAllowance.delete).not.toHaveBeenCalled();
+    });
+
+    it('vẫn cho sửa trợ cấp của người khác', async () => {
+      mockPrisma.extraAllowance.findUnique.mockResolvedValueOnce({
+        id: 'allowance-2',
+        staffId: 'staff-2',
+        status: PaymentStatus.pending,
+      });
+      mockPrisma.extraAllowance.delete.mockResolvedValueOnce({
+        id: 'allowance-2',
+      });
+      await expect(
+        service.deleteExtraAllowance('allowance-2', selfActor),
+      ).resolves.toEqual({ id: 'allowance-2' });
+    });
   });
 
   it('creates admin extra allowances without requiring a client-provided id', async () => {

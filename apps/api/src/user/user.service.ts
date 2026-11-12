@@ -33,6 +33,11 @@ import {
   UpdateUserDto,
 } from 'src/dtos/user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  assertStaffRoleChangeAllowed,
+  assertUserRoleTypeChangeAllowed,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
 import type {
   StudentClassCardDto,
   StudentClassDetailDto,
@@ -440,6 +445,16 @@ export class UserService {
       throw new BadRequestException('Vui lòng nhập tên học sinh.');
     }
 
+    // Chặn trước khi tạo user pending, tránh tạo xong mới 403.
+    await this.assertRoleWriteAllowed(auditActor, {
+      targetStaffId: null,
+      previousRoleType: null,
+      nextRoleType,
+      previousStaffRoles: [],
+      nextStaffRoles:
+        nextRoleType === UserRole.staff ? (data.staffRoles ?? []) : [],
+    });
+
     const response =
       await this.authService.createPendingUserWithVerificationEmail(data, {
         auditActor,
@@ -731,6 +746,26 @@ export class UserService {
     return response;
   }
 
+  /** Luật 2 (#265): chỉ Admin cấp/thu hồi role trưởng, Admin; không tự thêm role. */
+  private async assertRoleWriteAllowed(
+    auditActor: ActionHistoryActor | undefined,
+    change: {
+      targetStaffId: string | null;
+      previousRoleType: UserRole | null;
+      nextRoleType: UserRole;
+      previousStaffRoles: readonly StaffRole[];
+      nextStaffRoles: readonly StaffRole[];
+    },
+  ) {
+    const policyActor = await resolveStaffPolicyActor(this.prisma, auditActor);
+    assertUserRoleTypeChangeAllowed(policyActor, change);
+    assertStaffRoleChangeAllowed(policyActor, {
+      targetStaffId: change.targetStaffId,
+      previousRoles: change.previousStaffRoles,
+      nextRoles: change.nextStaffRoles,
+    });
+  }
+
   async updateUser(data: UpdateUserDto, auditActor?: ActionHistoryActor) {
     const existingUser = await this.getUserAuditSnapshot(this.prisma, data.id);
 
@@ -740,6 +775,17 @@ export class UserService {
 
     const nextRoleType = data.roleType ?? existingUser.roleType;
     const normalizedStaffRoles = this.normalizeStaffRoles(data.staffRoles);
+    const previousStaffRoles = existingUser.staffInfo?.roles ?? [];
+    await this.assertRoleWriteAllowed(auditActor, {
+      targetStaffId: existingUser.staffInfo?.id ?? null,
+      previousRoleType: existingUser.roleType,
+      nextRoleType,
+      previousStaffRoles,
+      nextStaffRoles:
+        nextRoleType === UserRole.staff
+          ? (normalizedStaffRoles ?? previousStaffRoles)
+          : previousStaffRoles,
+    });
     const updateData: Prisma.UserUpdateInput = {};
 
     if (data.email !== undefined) {

@@ -71,6 +71,7 @@ import {
   presentCustomAllowanceAsPerSession,
   standardBlockCountFromSlots,
 } from '../common/block-pricing.util';
+import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 
 const SESSION_UPDATE_TRANSACTION_MAX_WAIT_MS = 10_000;
 const SESSION_UPDATE_TRANSACTION_TIMEOUT_MS = 20_000;
@@ -362,6 +363,12 @@ export class SessionUpdateService {
             teacherPaymentStatus: true,
           },
         });
+
+        await assertActorNotEditingOwnCompensation(
+          tx,
+          actor,
+          existingSessions.map((session) => session.teacherId),
+        );
 
         if (existingSessions.length !== uniqueSessionIds.length) {
           const existingIds = new Set(

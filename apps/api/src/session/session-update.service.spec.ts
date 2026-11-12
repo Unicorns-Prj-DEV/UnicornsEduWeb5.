@@ -17,6 +17,7 @@ import { SessionUpdateService } from './session-update.service';
 
 describe('SessionUpdateService', () => {
   const mockPrisma = {
+    user: { findUnique: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn(),
     session: {
       findUnique: jest.fn(),

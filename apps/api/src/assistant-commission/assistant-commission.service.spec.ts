@@ -40,6 +40,7 @@ describe('AssistantCommissionService', () => {
       updateMany: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    user: { findUnique: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn(),
   };
 

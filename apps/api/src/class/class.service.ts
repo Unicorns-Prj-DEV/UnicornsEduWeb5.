@@ -40,6 +40,11 @@ import {
 } from 'src/dtos/class.dto';
 import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  assertActorNotEditingOwnCompensation,
+  assertNotEditingOwnCompensation,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
@@ -2446,6 +2451,39 @@ export class ClassService {
         ),
       }));
 
+      // Luật 1 (#265): tự gán mình vào lớp hoặc đổi lương/% vận hành dòng của
+      // mình = tự sửa lương. Gỡ mình khỏi lớp thì vẫn được.
+      const policyActor = await resolveStaffPolicyActor(tx, auditActor);
+      const ownPayload = policyActor.staffId
+        ? teacherPayload.find((t) => t.teacherId === policyActor.staffId)
+        : undefined;
+      if (ownPayload) {
+        const ownExisting = existingTeachers.find(
+          (t) => t.teacherId === ownPayload.teacherId,
+        );
+        const same = (
+          a: number | { toString(): string } | null | undefined,
+          b: number | { toString(): string } | null | undefined,
+        ) =>
+          (a == null ? null : a.toString()) ===
+          (b == null ? null : b.toString());
+        const changed =
+          !ownExisting ||
+          !same(ownPayload.customAllowance, ownExisting.customAllowance) ||
+          !same(
+            ownPayload.customAllowancePerSession,
+            ownExisting.customAllowancePerSession,
+          ) ||
+          !same(ownPayload.customScaleAmount, ownExisting.customScaleAmount) ||
+          !same(
+            ownPayload.operatingDeductionRatePercent,
+            normalizeRatePercent(ownExisting.operatingDeductionRatePercent),
+          );
+        if (changed) {
+          assertNotEditingOwnCompensation(policyActor, [ownPayload.teacherId]);
+        }
+      }
+
       const nextTeacherIds = new Set(
         teacherPayload.map((teacher) => teacher.teacherId),
       );
@@ -2517,6 +2555,11 @@ export class ClassService {
     auditActor?: ActionHistoryActor,
   ) {
     const teacherIds = dto.teachers.map((teacher) => teacher.teacher_id);
+    await assertActorNotEditingOwnCompensation(
+      this.prisma,
+      auditActor,
+      teacherIds,
+    );
     const existing = await this.prisma.class.findUnique({
       where: { id },
       select: {
@@ -2781,6 +2824,9 @@ export class ClassService {
     teacherId: string,
     auditActor?: ActionHistoryActor,
   ) {
+    await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [
+      teacherId,
+    ]);
     await this.prisma.$transaction(async (tx) => {
       const beforeValue = await this.getClassAuditSnapshot(tx, classId);
       if (!beforeValue) {

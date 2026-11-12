@@ -34,6 +34,7 @@ import {
 } from 'src/payroll/assistant-share.util';
 import { resolveTaxDeductionRate } from 'src/payroll/deduction-rates';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 
 const DEFAULT_DAYS = 30;
 const RECENT_TOP_UP_DAYS = 21;
@@ -981,6 +982,11 @@ export class CustomerCareService {
         'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán hoa hồng CSKH.',
       );
     }
+    await assertActorNotEditingOwnCompensation(
+      this.prisma,
+      { userId, roleType },
+      [staffId],
+    );
 
     const accessibleStaffId = await this.resolveAccessibleStaffId(
       userId,
@@ -1121,6 +1127,11 @@ export class CustomerCareService {
         'Tài khoản hiện tại không có quyền chỉnh % CSKH.',
       );
     }
+    await assertActorNotEditingOwnCompensation(
+      this.prisma,
+      { userId, roleType },
+      [staffId],
+    );
 
     const accessibleStaffId = await this.resolveAccessibleStaffId(
       userId,

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { StaffRole, UserRole } from '../../generated/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { hasAnyStaffRole } from '../common/staff-role-policy';
 
 export interface StaffOperationsActor {
   id: string;
@@ -30,13 +31,6 @@ const ELEVATED_CLASS_ACCESS_ROLES = [
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
 ] as const;
-
-function hasAnyStaffRole(
-  roles: StaffRole[],
-  allowedRoles: readonly StaffRole[],
-) {
-  return roles.some((role) => allowedRoles.includes(role));
-}
 
 @Injectable()
 export class StaffOperationsAccessService {

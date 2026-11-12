@@ -1,14 +1,8 @@
 import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { StaffRole, UserRole } from 'generated/enums';
+import { hasAnyStaffRole } from './staff-role-policy';
 
 export type AccountantFinanceView = 'full' | 'income' | 'expense';
-
-function hasAnyRole(
-  roles: readonly StaffRole[],
-  allowed: readonly StaffRole[],
-) {
-  return roles.some((role) => allowed.includes(role));
-}
 
 export function resolveAccountantFinanceView(
   roleType: UserRole,
@@ -16,12 +10,12 @@ export function resolveAccountantFinanceView(
 ): AccountantFinanceView {
   if (
     roleType === UserRole.admin ||
-    hasAnyRole(staffRoles, [StaffRole.admin, SALE_CS_HEAD_ROLE])
+    hasAnyStaffRole(staffRoles, [StaffRole.admin, SALE_CS_HEAD_ROLE])
   ) {
     return 'full';
   }
 
-  const hasIncomeRole = hasAnyRole(staffRoles, [
+  const hasIncomeRole = hasAnyStaffRole(staffRoles, [
     StaffRole.accountant,
     StaffRole.accountant_income,
   ]);

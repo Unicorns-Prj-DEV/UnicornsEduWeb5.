@@ -578,6 +578,11 @@ describe('StaffService', () => {
       .spyOn(service, 'getStaffById')
       .mockResolvedValue(updatedStaff as never);
 
+    // Policy #265 tra actor trước: actor là Admin hệ thống.
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      roleType: 'admin',
+      staffInfo: null,
+    });
     await service.updateStaffWithFixedSalaryOverrides(
       'staff-1',
       {
@@ -655,6 +660,11 @@ describe('StaffService', () => {
       .spyOn(service, 'getStaffById')
       .mockResolvedValue(updatedStaff as never);
 
+    // Policy #265 tra actor trước: actor là Admin hệ thống.
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      roleType: 'admin',
+      staffInfo: null,
+    });
     await service.updateStaffWithFixedSalaryOverrides(
       'staff-1',
       {
@@ -3241,8 +3251,13 @@ describe('StaffService', () => {
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     const where = { roles: { has: StaffRole.teacher } };
 
-    await expect(service.getLandingProfiles({}, true)).resolves.toEqual({ data: [], total: 125 });
-    await expect(service.getLandingTutorCount()).resolves.toEqual({ total: 125 });
+    await expect(service.getLandingProfiles({}, true)).resolves.toEqual({
+      data: [],
+      total: 125,
+    });
+    await expect(service.getLandingTutorCount()).resolves.toEqual({
+      total: 125,
+    });
     expect(mockPrisma.staffInfo.count).toHaveBeenCalledWith({ where });
     const args = mockPrisma.staffInfo.findMany.mock.calls.at(-1)?.[0];
     expect(args).toEqual(expect.objectContaining({ where }));

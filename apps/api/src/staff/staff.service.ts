@@ -67,6 +67,12 @@ import {
 } from 'src/dtos/staff.dto';
 import { planTrainingHeadRoleChange } from './training-head-role-policy';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  assertActorNotEditingOwnCompensation,
+  assertNotEditingOwnCompensation,
+  assertStaffRoleChangeAllowed,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
 import { buildNameSearchWhere } from './staff-name-search';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
 import {
@@ -2509,6 +2515,9 @@ export class StaffService {
         'Cần gửi số tiền hoặc ghi chú để cập nhật lương cứng.',
       );
     }
+    await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [
+      staffId,
+    ]);
 
     return this.prisma.$transaction(async (tx) => {
       const payable = await tx.staffFixedSalaryPayable.findFirst({
@@ -3792,6 +3801,7 @@ export class StaffService {
     },
     auditActor?: ActionHistoryActor,
   ): Promise<StaffPayDepositSessionsResultDto> {
+    await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [id]);
     await this.guardOverdueSurveyReports(id, data.confirmOverdueSurveyReports);
     return this.prisma.$transaction(async (tx) => {
       const sessionIds = Array.from(
@@ -3905,6 +3915,7 @@ export class StaffService {
     },
     auditActor?: ActionHistoryActor,
   ): Promise<StaffPayAllPaymentsResultDto> {
+    await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [id]);
     await this.guardOverdueSurveyReports(id, query.confirmOverdueSurveyReports);
     return this.prisma.$transaction(async (tx) => {
       const { monthKey, records } = await this.loadStaffPaymentPreviewRecords(
@@ -3930,6 +3941,7 @@ export class StaffService {
     data: StaffPaySelectedPaymentsDto,
     auditActor?: ActionHistoryActor,
   ): Promise<StaffPayAllPaymentsResultDto> {
+    await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [id]);
     await this.guardOverdueSurveyReports(id, data.confirmOverdueSurveyReports);
     return this.prisma.$transaction(async (tx) => {
       const { monthKey, records: previewRecords } =
@@ -5613,6 +5625,9 @@ export class StaffService {
         'Chỉ admin hoặc kế toán chi được chỉnh % khấu trừ vận hành theo lớp.',
       );
     }
+    await assertActorNotEditingOwnCompensation(this.prisma, actor.auditActor, [
+      staffId,
+    ]);
 
     const ratePercent = normalizePercent(dto.operating_deduction_rate_percent);
 
@@ -5880,6 +5895,21 @@ export class StaffService {
 
     if (!existingStaff) {
       throw new NotFoundException('Staff not found');
+    }
+
+    const policyActor = await resolveStaffPolicyActor(this.prisma, auditActor);
+    const relinksUser =
+      data.user_id != null && data.user_id !== existingStaff.userId;
+    if (data.roles != null || relinksUser) {
+      // Gắn hồ sơ sang user khác = user đó nhận toàn bộ role của hồ sơ.
+      assertStaffRoleChangeAllowed(policyActor, {
+        targetStaffId: data.id,
+        previousRoles: relinksUser ? [] : (existingStaff.roles ?? []),
+        nextRoles: data.roles ?? existingStaff.roles ?? [],
+      });
+    }
+    if (options?.roleFixedSalaryOverrides) {
+      assertNotEditingOwnCompensation(policyActor, [data.id]);
     }
 
     if (options?.roleFixedSalaryOverrides) {
@@ -6249,6 +6279,11 @@ export class StaffService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    assertStaffRoleChangeAllowed(
+      await resolveStaffPolicyActor(this.prisma, auditActor),
+      { targetStaffId: null, previousRoles: [], nextRoles: data.roles ?? [] },
+    );
 
     const eligibility = this.getUserEligibilityForStaffAssignment(user);
     if (!eligibility.isEligible) {

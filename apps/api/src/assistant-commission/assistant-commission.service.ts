@@ -30,6 +30,7 @@ import {
   commissionTuitionBasisVnd,
 } from 'src/payroll/assistant-share.util';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -688,6 +689,11 @@ export class AssistantCommissionService {
         'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán hoa hồng trợ lí.',
       );
     }
+    await assertActorNotEditingOwnCompensation(
+      this.prisma,
+      { userId, roleType },
+      [assistantStaffId],
+    );
 
     const accessibleAssistantStaffId =
       await this.resolveAccessibleAssistantStaffId(

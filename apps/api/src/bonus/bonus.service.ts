@@ -4,6 +4,7 @@ import {
   ActionHistoryService,
 } from '../action-history/action-history.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 import { PaginationQueryDto } from '../dtos/pagination.dto';
 import { CreateBonusDto, UpdateBonusDto } from '../dtos/bonus.dto';
 
@@ -105,7 +106,20 @@ export class BonusService {
     return bonus;
   }
 
-  async createBonus(data: CreateBonusDto, auditActor?: ActionHistoryActor) {
+  /**
+   * `allowSelf`: chỉ route tự khai thưởng (`/users/me/staff-bonuses`, ép trạng
+   * thái chờ thanh toán) được bỏ qua luật «không tự sửa lương của mình» (#265).
+   */
+  async createBonus(
+    data: CreateBonusDto,
+    auditActor?: ActionHistoryActor,
+    options?: { allowSelf?: boolean },
+  ) {
+    if (!options?.allowSelf) {
+      await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [
+        data.staffId,
+      ]);
+    }
     return this.prisma.$transaction(async (tx) => {
       const createdBonus = await tx.bonus.create({
         data: {
@@ -136,7 +150,11 @@ export class BonusService {
     });
   }
 
-  async updateBonus(data: UpdateBonusDto, auditActor?: ActionHistoryActor) {
+  async updateBonus(
+    data: UpdateBonusDto,
+    auditActor?: ActionHistoryActor,
+    options?: { allowSelf?: boolean },
+  ) {
     if (!data.id) {
       throw new NotFoundException('Bonus not found');
     }
@@ -145,6 +163,12 @@ export class BonusService {
 
     if (!existingBonus) {
       throw new NotFoundException('Bonus not found');
+    }
+    if (!options?.allowSelf) {
+      await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [
+        existingBonus.staffId,
+        data.staffId,
+      ]);
     }
 
     const updateData: Omit<UpdateBonusDto, 'id'> = {};
@@ -181,11 +205,20 @@ export class BonusService {
     });
   }
 
-  async deleteBonus(id: string, auditActor?: ActionHistoryActor) {
+  async deleteBonus(
+    id: string,
+    auditActor?: ActionHistoryActor,
+    options?: { allowSelf?: boolean },
+  ) {
     const existingBonus = await this.getBonusSnapshot(id);
 
     if (!existingBonus) {
       throw new NotFoundException('Bonus not found');
+    }
+    if (!options?.allowSelf) {
+      await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [
+        existingBonus.staffId,
+      ]);
     }
 
     return this.prisma.$transaction(async (tx) => {

@@ -3529,6 +3529,7 @@ describe('LessonService', () => {
       select: {
         id: true,
         paymentStatus: true,
+        staffId: true,
       },
     });
     expect(mockPrisma.lessonOutput.updateMany).toHaveBeenCalledWith({

@@ -347,6 +347,7 @@ export class UserProfileController {
         userEmail: user.email,
         roleType: user.roleType,
       },
+      { allowSelf: true },
     );
   }
 
@@ -394,6 +395,7 @@ export class UserProfileController {
         userEmail: user.email,
         roleType: user.roleType,
       },
+      { allowSelf: true },
     );
   }
 
@@ -428,11 +430,15 @@ export class UserProfileController {
       throw new NotFoundException('Bonus not found');
     }
 
-    return this.bonusService.deleteBonus(id, {
-      userId: user.id,
-      userEmail: user.email,
-      roleType: user.roleType,
-    });
+    return this.bonusService.deleteBonus(
+      id,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+      { allowSelf: true },
+    );
   }
 
   @Get('staff-sessions')

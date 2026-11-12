@@ -64,6 +64,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { resolveTaxDeductionRate } from '../payroll/deduction-rates';
+import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 
 type LessonTaskRecord = {
   id: string;
@@ -1394,8 +1395,15 @@ export class LessonService {
         select: {
           id: true,
           paymentStatus: true,
+          staffId: true,
         },
       });
+
+      await assertActorNotEditingOwnCompensation(
+        tx,
+        auditActor,
+        existingOutputs.map((output) => output.staffId),
+      );
 
       const existingOutputIds = new Set(
         existingOutputs.map((output) => output.id),
