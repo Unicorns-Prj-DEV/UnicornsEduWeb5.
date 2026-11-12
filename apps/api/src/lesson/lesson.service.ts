@@ -20,6 +20,12 @@ import {
   getLessonOutputPricingError,
 } from './lesson-output-pricing';
 import {
+  assertCanDeleteLessonWork,
+  assertCanSetLessonOutputPricing,
+  canEditLessonOutputPaymentStatus,
+  redactLessonOutputCost,
+} from './lesson-plan-head-policy';
+import {
   ActionHistoryActor,
   ActionHistoryService,
 } from '../action-history/action-history.service';
@@ -499,7 +505,9 @@ export class LessonService {
         completedOutputCount,
         cancelledOutputCount,
       },
-      outputs: outputs.map((output) => this.mapWorkOutputItem(output)),
+      outputs: outputs.map((output) =>
+        redactLessonOutputCost(this.mapWorkOutputItem(output), access),
+      ),
       outputsMeta: outputMeta,
     };
   }
@@ -772,11 +780,11 @@ export class LessonService {
       throw new NotFoundException('Lesson resource not found');
     }
 
-    this.assertResourceWriteAccess(
-      existingResource,
-      access,
-      'xóa tài nguyên giáo án',
-    );
+    // #279: xoá tài liệu chỉ Admin + Trưởng ban Chuyên môn (Ban Chuyên môn
+    // thường không xoá, kể cả tài liệu tự tạo).
+    if (access) {
+      assertCanDeleteLessonWork(access);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const deletedResource = await tx.lessonResource.delete({
@@ -1018,10 +1026,29 @@ export class LessonService {
     );
     const cost =
       computeLessonOutputCost(difficultyBand, pricingItems, level) ?? 0;
+    // #279: chỉ Admin + Kế toán chi đặt trạng thái thanh toán khác `pending`;
+    // Trưởng ban Chuyên môn 403 (Ban Chuyên môn thường vẫn bị ép `pending`).
+    if (
+      access?.canManage &&
+      data.paymentStatus != null &&
+      data.paymentStatus !== PaymentStatus.pending &&
+      !canEditLessonOutputPaymentStatus(access)
+    ) {
+      throw new ForbiddenException(
+        'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán output.',
+      );
+    }
     const paymentStatus =
       access?.canParticipate && !access.canManage
         ? PaymentStatus.pending
         : (data.paymentStatus ?? PaymentStatus.pending);
+    const setsPricing =
+      difficultyBand != null ||
+      level != null ||
+      includesTest ||
+      includesSolution ||
+      includesLectureVideo ||
+      includesTheoryLecture;
     const date = this.requireDateOnly(data.date, 'date');
     const contestUploaded = toTrimmedString(data.contestUploaded);
     const link = toTrimmedString(data.link);
@@ -1046,6 +1073,9 @@ export class LessonService {
         access?.canParticipate && !access.canManage
           ? this.requireParticipantStaffId(access)
           : await this.resolveLessonOutputStaffId(tx, data.staffId);
+      if (access && setsPricing) {
+        assertCanSetLessonOutputPricing(access, staffId);
+      }
       const outputDeductionSnapshot =
         await this.resolveLessonOutputDeductionSnapshot(tx, staffId, date);
 
@@ -1088,7 +1118,7 @@ export class LessonService {
         });
       }
 
-      return this.mapOutput(createdOutput);
+      return redactLessonOutputCost(this.mapOutput(createdOutput), access);
     });
   }
 
@@ -1322,6 +1352,35 @@ export class LessonService {
       updateData.status = data.status;
     }
 
+    // #279: bậc độ khó / level / hạng mục quyết định chi phí — chỉ Admin và
+    // Trưởng ban Chuyên môn cài (Trưởng ban không cài cho sản phẩm của mình).
+    const pricingChanged =
+      (data.difficultyBand !== undefined &&
+        (data.difficultyBand ?? null) !==
+          (existingOutput.difficultyBand ?? null)) ||
+      (data.level !== undefined &&
+        toTrimmedString(data.level) !== existingOutput.level) ||
+      (data.includesTest !== undefined &&
+        (data.includesTest === true) !==
+          Boolean(existingOutput.includesTest)) ||
+      (data.includesSolution !== undefined &&
+        (data.includesSolution === true) !==
+          Boolean(existingOutput.includesSolution)) ||
+      (data.includesLectureVideo !== undefined &&
+        (data.includesLectureVideo === true) !==
+          Boolean(existingOutput.includesLectureVideo)) ||
+      (data.includesTheoryLecture !== undefined &&
+        (data.includesTheoryLecture === true) !==
+          Boolean(existingOutput.includesTheoryLecture));
+    const assignsOutputToSelf =
+      data.staffId !== undefined &&
+      nextStaffId !== existingOutput.staffId &&
+      access?.staffId != null &&
+      nextStaffId === access.staffId;
+    if (access && (pricingChanged || assignsOutputToSelf)) {
+      assertCanSetLessonOutputPricing(access, nextStaffId);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const nextOutputDate =
         updateData.date instanceof Date ? updateData.date : existingOutput.date;
@@ -1353,7 +1412,7 @@ export class LessonService {
         });
       }
 
-      return this.mapOutput(updatedOutput);
+      return redactLessonOutputCost(this.mapOutput(updatedOutput), access);
     });
   }
 
@@ -1592,7 +1651,7 @@ export class LessonService {
       throw new NotFoundException('Lesson output not found');
     }
 
-    return this.mapOutput(output);
+    return redactLessonOutputCost(this.mapOutput(output), access);
   }
 
   async searchTaskStaffOptions(
@@ -2202,8 +2261,7 @@ export class LessonService {
 
     return (
       access.roleType === UserRole.admin ||
-      access.staffRoles.includes(StaffRole.admin) ||
-      access.staffRoles.includes(StaffRole.accountant_expense)
+      canEditLessonOutputPaymentStatus(access)
     );
   }
 

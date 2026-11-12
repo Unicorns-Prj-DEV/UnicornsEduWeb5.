@@ -21,6 +21,10 @@ export type StaffLessonWorkspaceAccess = {
   canAccessManageDetails: boolean;
   workAccessMode: StaffLessonEndpointAccessMode | null;
   createOutputAccessMode: Exclude<StaffLessonEndpointAccessMode, "account"> | null;
+  /** #279: xoá đầu việc / sản phẩm / tài liệu — Admin + Trưởng ban Chuyên môn. */
+  canDeleteLessonWork: boolean;
+  /** #279: cài bậc độ khó / level / hạng mục — Admin + Trưởng ban Chuyên môn. */
+  canSetLessonOutputPricing: boolean;
   isAssistant: boolean;
   isAccountant: boolean;
   isAccountantExpense: boolean;
@@ -96,6 +100,10 @@ export function resolveStaffLessonWorkspace(
       workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head",
     workAccessMode,
     createOutputAccessMode,
+    canDeleteLessonWork:
+      workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head",
+    canSetLessonOutputPricing:
+      workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head",
     isAssistant,
     isAccountant,
     isAccountantExpense,

@@ -164,7 +164,8 @@ export interface LessonWorkOutputItem extends LessonOutputListItem {
   link: string | null;
   /** Link gốc — fallback khi `link` trống (copy / mở ngoài) */
   originalLink: string | null;
-  cost: number;
+  /** `null` khi người xem không được thấy chi phí sản phẩm người khác (#279). */
+  cost: number | null;
 }
 
 export interface LessonWorkResponse {
@@ -288,7 +289,8 @@ export interface LessonOutputItem {
   /** Link video bàn giao của Bài giảng lý thuyết. */
   theoryLectureLinks: string[];
   tags: string[];
-  cost: number;
+  /** `null` khi người xem không được thấy chi phí sản phẩm người khác (#279). */
+  cost: number | null;
   date: string;
   contestUploaded: string | null;
   link: string | null;

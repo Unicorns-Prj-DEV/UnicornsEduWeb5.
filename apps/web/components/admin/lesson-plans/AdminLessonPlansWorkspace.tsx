@@ -332,7 +332,9 @@ export default function AdminLessonPlansWorkspace({
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const canManageWorkspace = !participantMode && workspacePolicy !== "accountant";
   const canCreate = workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head" || (participantMode && workspacePolicy !== "accountant");
-  const canDelete = workspacePolicy === "admin";
+  // #279: Trưởng ban Chuyên môn được xoá đầu việc / sản phẩm / tài liệu.
+  const canDelete =
+    workspacePolicy === "admin" || workspacePolicy === "lesson_plan_head";
   const canEditOutputPaymentStatus =
     workspacePolicy === "admin" || workspacePolicy === "accountant";
   const visibleTabs = POLICY_VISIBLE_TABS[workspacePolicy];

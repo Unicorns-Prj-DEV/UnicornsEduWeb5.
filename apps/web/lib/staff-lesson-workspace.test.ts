@@ -53,3 +53,21 @@ describe("giáo án / trợ cấp nhân sự khác chỉ Admin (#267)", () => {
     ).toBe(true);
   });
 });
+
+describe("khu giáo án học sinh giỏi: xoá + cài đặt (#279)", () => {
+  it("Admin và Trưởng ban Chuyên môn được xoá và cài bậc độ khó / level / hạng mục", () => {
+    for (const roles of [["admin"], ["lesson_plan_head"], ["lesson_plan", "lesson_plan_head"]]) {
+      const access = resolveStaffLessonWorkspace(staffProfile(roles));
+      expect(access.canDeleteLessonWork).toBe(true);
+      expect(access.canSetLessonOutputPricing).toBe(true);
+    }
+  });
+
+  it("Ban Chuyên môn thường, Kế toán chi và Trợ lí bị từ chối", () => {
+    for (const roles of [["lesson_plan"], ["accountant_expense"], ["sale_customer_care_head"]]) {
+      const access = resolveStaffLessonWorkspace(staffProfile(roles));
+      expect(access.canDeleteLessonWork).toBe(false);
+      expect(access.canSetLessonOutputPricing).toBe(false);
+    }
+  });
+});

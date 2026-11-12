@@ -256,7 +256,9 @@ export default function LessonOutputQuickPopup({
                       Chi phí
                     </p>
                     <p className="mt-1 text-sm font-medium text-text-primary">
-                      {formatVnNumber(outputDetail.cost ?? 0)} đ
+                      {outputDetail.cost == null
+                        ? "Ẩn"
+                        : `${formatVnNumber(outputDetail.cost)} đ`}
                     </p>
                   </div>
                   <div className="sm:col-span-2">

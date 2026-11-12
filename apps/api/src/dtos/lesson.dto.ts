@@ -166,8 +166,11 @@ export interface LessonWorkOutputItemDto extends LessonTaskOutputListItemDto {
   link: string | null;
   /** Link gốc (bài) — dùng fallback khi `link` trống */
   originalLink: string | null;
-  /** Chi phí trợ cấp của output, độc lập với `paymentStatus`. */
-  cost: number;
+  /**
+   * Chi phí trợ cấp của output, độc lập với `paymentStatus`. `null` khi người
+   * xem là Ban Chuyên môn thường và output thuộc người khác (#279).
+   */
+  cost: number | null;
 }
 
 export interface LessonWorkResponseDto {
@@ -227,7 +230,8 @@ export interface LessonOutputResponseDto {
   includesTheoryLecture: boolean;
   theoryLectureLinks: string[];
   tags: string[];
-  cost: number;
+  /** `null` khi người xem không được thấy chi phí output của người khác (#279). */
+  cost: number | null;
   date: string;
   contestUploaded: string | null;
   link: string | null;

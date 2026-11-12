@@ -47,7 +47,6 @@ import {
   UpdateLessonTaskDto,
 } from '../dtos/lesson.dto';
 import { LessonService } from './lesson.service';
-import { AdminOnlyDeleteGuard } from './admin-only-delete.guard';
 import { LessonManagementGuard } from './lesson-management.guard';
 
 @Controller()
@@ -78,7 +77,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Get lesson work board',
     description:
-      'Load the admin lesson work board with paginated lesson outputs and task context.',
+      'Load the admin lesson work board with paginated lesson outputs and task context. `cost` của output người khác là `null` với Ban Chuyên môn thường; Admin, Trưởng ban Chuyên môn, Kế toán chi thấy hết (#279).',
   })
   @ApiResponse({
     status: 200,
@@ -202,7 +201,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Get lesson output detail',
     description:
-      'Load a single lesson output detail by id. Participant staff can only access outputs inside assigned lesson tasks.',
+      'Load a single lesson output detail by id. Participant staff can only access outputs inside assigned lesson tasks; `cost` là `null` nếu output thuộc người khác (#279).',
   })
   @ApiParam({
     name: 'id',
@@ -301,7 +300,8 @@ export class LessonController {
   @Delete('lesson-resources/:id')
   @ApiOperation({
     summary: 'Delete lesson resource',
-    description: 'Delete a lesson resource by id.',
+    description:
+      'Delete a lesson resource by id. Admin và Trưởng ban Chuyên môn (`lesson_plan_head`, #279); Ban Chuyên môn thường 403 kể cả tài liệu tự tạo.',
   })
   @ApiParam({
     name: 'id',
@@ -310,6 +310,10 @@ export class LessonController {
   })
   @ApiResponse({ status: 200, description: 'Lesson resource deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson resource not found.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Không phải Admin hoặc Trưởng ban Chuyên môn.',
+  })
   async deleteResource(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseLessonResourceIdPipe()) id: string,
@@ -337,6 +341,11 @@ export class LessonController {
   })
   @ApiResponse({ status: 201, description: 'Lesson output created.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Ban Chuyên môn thường cài bậc độ khó/level/hạng mục; Trưởng ban cài cho sản phẩm của chính mình; hoặc người không phải Admin/Kế toán chi đặt `paymentStatus` khác `pending` (#279).',
+  })
   async createOutput(
     @CurrentUser() user: JwtPayload,
     @Body() data: CreateLessonOutputDto,
@@ -369,6 +378,11 @@ export class LessonController {
   })
   @ApiResponse({ status: 200, description: 'Lesson output updated.' })
   @ApiResponse({ status: 404, description: 'Lesson output not found.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Sửa `paymentStatus` khi không phải Admin/Kế toán chi; Ban Chuyên môn thường đổi bậc độ khó/level/hạng mục; Trưởng ban đổi chi phí hoặc tự nhận sản phẩm của chính mình (#279).',
+  })
   async updateOutput(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseLessonOutputIdPipe()) id: string,
@@ -390,7 +404,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Bulk update lesson output payment status',
     description:
-      'Update payment status for multiple lesson outputs in a single request.',
+      'Update payment status for multiple lesson outputs in a single request. Chỉ Admin và Kế toán chi; Trưởng ban Chuyên môn 403 (#279).',
   })
   @ApiBody({
     type: BulkUpdateLessonOutputPaymentStatusDto,
@@ -405,6 +419,10 @@ export class LessonController {
   @ApiResponse({
     status: 404,
     description: 'At least one lesson output was not found.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không phải Admin hoặc Kế toán chi.',
   })
   async bulkUpdateOutputPaymentStatus(
     @CurrentUser() user: JwtPayload,
@@ -425,7 +443,8 @@ export class LessonController {
   @Delete('lesson-outputs/:id')
   @ApiOperation({
     summary: 'Delete lesson output',
-    description: 'Delete a lesson output by id.',
+    description:
+      'Delete a lesson output by id. Admin và Trưởng ban Chuyên môn (`lesson_plan_head`, #279); Ban Chuyên môn thường 403.',
   })
   @ApiParam({
     name: 'id',
@@ -434,7 +453,11 @@ export class LessonController {
   })
   @ApiResponse({ status: 200, description: 'Lesson output deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson output not found.' })
-  @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
+  @ApiResponse({
+    status: 403,
+    description: 'Không phải Admin hoặc Trưởng ban Chuyên môn.',
+  })
+  @UseGuards(LessonManagementGuard)
   async deleteOutput(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseLessonOutputIdPipe()) id: string,
@@ -503,7 +526,8 @@ export class LessonController {
   @Delete('lesson-tasks/:id')
   @ApiOperation({
     summary: 'Delete lesson task',
-    description: 'Delete a lesson task by id.',
+    description:
+      'Delete a lesson task by id. Admin và Trưởng ban Chuyên môn (`lesson_plan_head`, #279); Ban Chuyên môn thường 403.',
   })
   @ApiParam({
     name: 'id',
@@ -512,7 +536,11 @@ export class LessonController {
   })
   @ApiResponse({ status: 200, description: 'Lesson task deleted.' })
   @ApiResponse({ status: 404, description: 'Lesson task not found.' })
-  @UseGuards(LessonManagementGuard, AdminOnlyDeleteGuard)
+  @ApiResponse({
+    status: 403,
+    description: 'Không phải Admin hoặc Trưởng ban Chuyên môn.',
+  })
+  @UseGuards(LessonManagementGuard)
   async deleteTask(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseLessonTaskIdPipe()) id: string,

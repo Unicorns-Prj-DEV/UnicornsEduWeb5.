@@ -37,7 +37,13 @@ type Props = {
   theoryLectureLinks: string[];
   /** `level` của output — nguồn giá Bài giảng lý thuyết. */
   level: string;
-  storedCost: number;
+  /** `null` = backend ẩn chi phí (sản phẩm của người khác, #279/#270). */
+  storedCost: number | null;
+  /**
+   * #279: `true` = chỉ xem bậc độ khó / hạng mục (Ban Chuyên môn thường, Kế toán chi).
+   * Chỉ Admin và Trưởng ban Chuyên môn cài đặt.
+   */
+  pricingLocked?: boolean;
   selectButtonClassName: string;
   selectMenuClassName: string;
   linkInputClassName: string;
@@ -59,6 +65,7 @@ export default function LessonOutputPricingFields({
   theoryLectureLinks,
   level,
   storedCost,
+  pricingLocked = false,
   selectButtonClassName,
   selectMenuClassName,
   linkInputClassName,
@@ -85,7 +92,8 @@ export default function LessonOutputPricingFields({
       ? "giá theo level — chọn Level 0–5"
       : `${formatCurrency(LESSON_OUTPUT_THEORY_LECTURE_PRICES[parsedLevel])} đ theo Level ${parsedLevel}`;
   const isLegacyRate = computedCost == null;
-  const displayCost = isLegacyRate ? storedCost : computedCost;
+  const isCostHidden = storedCost === null;
+  const displayCost = isLegacyRate ? (storedCost ?? 0) : computedCost;
   const labelClass = compact
     ? "text-sm text-text-secondary"
     : "text-sm text-text-secondary";
@@ -105,6 +113,7 @@ export default function LessonOutputPricingFields({
           options={DIFFICULTY_OPTIONS}
           ariaLabel="Bậc độ khó giáo án"
           placeholder="Chọn bậc độ khó"
+          disabled={pricingLocked}
           buttonClassName={`${selectButtonClassName} flex items-center justify-between text-left`}
           menuClassName={selectMenuClassName}
         />
@@ -115,12 +124,18 @@ export default function LessonOutputPricingFields({
 
       <fieldset className="space-y-2">
         <legend className={labelClass}>Hạng mục đã làm</legend>
+        {pricingLocked ? (
+          <p className="text-xs text-text-muted">
+            Bậc độ khó, level và hạng mục do Trưởng ban Chuyên môn cài đặt.
+          </p>
+        ) : null}
         <div className="flex flex-col gap-2 pt-1">
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-text-primary">
             <input
               type="checkbox"
               checked={includesTest}
               onChange={(event) => onIncludesTestChange(event.target.checked)}
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             Sinh test
@@ -130,6 +145,7 @@ export default function LessonOutputPricingFields({
               type="checkbox"
               checked={includesSolution}
               onChange={(event) => onIncludesSolutionChange(event.target.checked)}
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             Lời giải
@@ -141,6 +157,7 @@ export default function LessonOutputPricingFields({
               onChange={(event) =>
                 onIncludesLectureVideoChange(event.target.checked)
               }
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             Bài giảng video
@@ -152,6 +169,7 @@ export default function LessonOutputPricingFields({
               onChange={(event) =>
                 onIncludesTheoryLectureChange(event.target.checked)
               }
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             <span>
@@ -176,26 +194,33 @@ export default function LessonOutputPricingFields({
         </div>
       ) : null}
 
-      <label className={`flex flex-col gap-1.5 sm:col-span-2 ${labelClass}`}>
-        <span>Chi phí</span>
-        <MoneyInput
-          value={moneyInputInitialFromNumber(displayCost)}
-          onValueChange={() => {
-            /* Chi phí luôn read-only; backend là nguồn sự thật. */
-          }}
-          readOnly
-          aria-readonly
-          className="min-h-11 cursor-not-allowed rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2.5 text-text-muted shadow-sm focus:outline-none"
-        />
-        <span className="text-sm font-semibold text-text-primary">
-          {formatCurrency(displayCost)} đ
-        </span>
-        <span className="text-xs text-text-muted">
-          {isLegacyRate
-            ? "Mức cũ — output chưa có bậc độ khó, số tiền đã lưu được giữ nguyên."
-            : "Chi phí do hệ thống tính từ bậc, level và hạng mục đã tick; không sửa tay được."}
-        </span>
-      </label>
+      {isCostHidden ? (
+        <p className={`sm:col-span-2 ${labelClass}`}>
+          Chi phí: chỉ người làm sản phẩm, Trưởng ban Chuyên môn, Admin và Kế toán
+          chi được xem.
+        </p>
+      ) : (
+        <label className={`flex flex-col gap-1.5 sm:col-span-2 ${labelClass}`}>
+          <span>Chi phí</span>
+          <MoneyInput
+            value={moneyInputInitialFromNumber(displayCost)}
+            onValueChange={() => {
+              /* Chi phí luôn read-only; backend là nguồn sự thật. */
+            }}
+            readOnly
+            aria-readonly
+            className="min-h-11 cursor-not-allowed rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2.5 text-text-muted shadow-sm focus:outline-none"
+          />
+          <span className="text-sm font-semibold text-text-primary">
+            {formatCurrency(displayCost)} đ
+          </span>
+          <span className="text-xs text-text-muted">
+            {isLegacyRate
+              ? "Mức cũ — output chưa có bậc độ khó, số tiền đã lưu được giữ nguyên."
+              : "Chi phí do hệ thống tính từ bậc, level và hạng mục đã tick; không sửa tay được."}
+          </span>
+        </label>
+      )}
     </div>
   );
 }
