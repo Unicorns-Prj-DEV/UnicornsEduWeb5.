@@ -741,15 +741,27 @@ export class StaffController {
   @ApiOperation({
     summary: 'Regenerate Google Meet link for a tutor',
     description:
-      'Generates a new Google Meet link for the specified staff member and saves it to staff_info.google_meet_link. Any authenticated admin or staff user can call this endpoint. Returns the new Meet link.',
+      'Generates a new Google Meet link for the specified staff member and saves it to staff_info.google_meet_link. #278: chỉ Admin, chính nhân sự, hoặc Trưởng ban Đào tạo đang hoạt động trên cấp dưới (nhân sự mang role Gia sư / Ban Chuyên môn / Đào tạo, không phải Admin hay role trưởng). Returns the new Meet link.',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiResponse({
     status: 200,
     description: 'New Google Meet link generated and saved.',
   })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Admin, chính nhân sự hay Trưởng ban Đào tạo với cấp dưới.',
+  })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
-  async regenerateMeetLink(@Param('id', new ParseStaffIdPipe()) id: string) {
+  async regenerateMeetLink(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStaffIdPipe()) id: string,
+  ) {
+    await this.staffService.assertCanRegenerateMeetLink(id, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
     return this.staffService.regenerateMeetLink(id);
   }
 
@@ -896,7 +908,7 @@ export class StaffController {
     summary:
       'Trưởng ban Đào tạo bật/tắt role gia sư / Ban Chuyên môn / Đào Tạo',
     description:
-      'Chỉ staff active có role training_head. Body là trạng thái đích của 3 role teacher / lesson_plan / training; role khác của nhân sự giữ nguyên. 403 nếu body có role ngoài 3 role này, nếu target có admin / assistant / training_head, hoặc target là chính mình. Role bị tắt: mức đè lương cứng / % vận hành của role đó bị xoá và ghi action_history; khoản đã chốt/đã trả không đổi; không cascade lớp dạy, quản lý lớp, đội chuyên môn. Response chỉ có id + roles (không tiền, không PII).',
+      'Chỉ staff active có role training_head. Body là trạng thái đích của 3 role teacher / lesson_plan / training; role khác của nhân sự giữ nguyên. 403 nếu body có role ngoài 3 role này, nếu target là Admin / mang role trưởng (admin, sale_customer_care_head, training_head, lesson_plan_head — #278), hoặc target là chính mình. Role bị tắt: mức đè lương cứng / % vận hành của role đó bị xoá và ghi action_history; khoản đã chốt/đã trả không đổi; không cascade lớp dạy, quản lý lớp, đội chuyên môn. Response chỉ có id + roles, roles chỉ gồm teacher / lesson_plan / training (#278: không lộ role khác).',
   })
   @ApiParam({ name: 'id', description: 'Staff id của nhân sự được chỉnh' })
   @ApiBody({ type: UpdateStaffTrainingRolesDto })

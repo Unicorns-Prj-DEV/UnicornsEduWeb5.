@@ -66,7 +66,11 @@ import {
   UpdateStaffTrainingRolesDto,
   StaffTrainingRolesResultDto,
 } from 'src/dtos/staff.dto';
-import { planTrainingHeadRoleChange } from './training-head-role-policy';
+import {
+  isTrainingHeadSubordinate,
+  pickTrainingTeamRoles,
+  planTrainingHeadRoleChange,
+} from './training-head-role-policy';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   assertActorNotEditingOwnCompensation,
@@ -6188,7 +6192,8 @@ export class StaffService {
       requestedRoles: data.roles,
     });
     if (plan.added.length === 0 && plan.removed.length === 0) {
-      return { id: target.id, roles: target.roles };
+      // #278: Trưởng ban chỉ thấy phần role thuộc ba nhóm.
+      return { id: target.id, roles: pickTrainingTeamRoles(target.roles) };
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -6219,7 +6224,7 @@ export class StaffService {
     });
 
     this.invalidateStaffAuthIdentities(target.userId);
-    return { id: target.id, roles: plan.nextRoles };
+    return { id: target.id, roles: pickTrainingTeamRoles(plan.nextRoles) };
   }
 
   async updateStaffWithFixedSalaryOverrides(
@@ -6446,8 +6451,52 @@ export class StaffService {
   }
 
   /**
+   * #278: tạo lại link Meet chỉ dành cho Admin, chính nhân sự, hoặc Trưởng ban
+   * Đào tạo đang hoạt động trên cấp dưới (`isTrainingHeadSubordinate`).
+   */
+  async assertCanRegenerateMeetLink(
+    staffId: string,
+    actor: { userId: string; roleType?: string | null },
+  ): Promise<void> {
+    if (actor.roleType === UserRole.admin) return;
+    const viewer = await this.prisma.staffInfo.findFirst({
+      where: { userId: actor.userId },
+      select: { id: true, roles: true, status: true },
+    });
+    if (viewer?.roles.includes(StaffRole.admin) || viewer?.id === staffId) {
+      return;
+    }
+    if (
+      viewer &&
+      viewer.status === StaffStatus.active &&
+      viewer.roles.includes(StaffRole.training_head)
+    ) {
+      const target = await this.prisma.staffInfo.findUnique({
+        where: { id: staffId },
+        select: { id: true, roles: true, user: { select: { roleType: true } } },
+      });
+      if (!target) {
+        throw new NotFoundException('Staff not found');
+      }
+      if (
+        isTrainingHeadSubordinate({
+          actorStaffId: viewer.id,
+          targetStaffId: target.id,
+          targetRoles: target.roles,
+          targetIsAdminAccount: target.user?.roleType === UserRole.admin,
+        })
+      ) {
+        return;
+      }
+    }
+    throw new ForbiddenException(
+      'Chỉ Admin, chính nhân sự hoặc Trưởng ban Đào tạo (với cấp dưới) được tạo lại link Meet.',
+    );
+  }
+
+  /**
    * Regenerates the Google Meet link for a tutor and saves it to `staff_info`.
-   * Any authenticated user can trigger this action (enforced at controller level).
+   * Quyền do `assertCanRegenerateMeetLink` kiểm (#278).
    */
   async regenerateMeetLink(
     staffId: string,

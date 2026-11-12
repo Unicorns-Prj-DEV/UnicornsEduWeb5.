@@ -38,7 +38,12 @@ describe("canTrainingHeadEditRoles", () => {
     ).toBe(false);
   });
 
-  it.each(["admin", "sale_customer_care_head", "training_head"])(
+  it.each([
+    "admin",
+    "sale_customer_care_head",
+    "training_head",
+    "lesson_plan_head",
+  ])(
     "false khi target có role %s",
     (role) => {
       expect(
@@ -62,6 +67,11 @@ describe("tách role", () => {
     expect(hasAnyRoleAfterChange(["teacher"], [])).toBe(false);
     expect(hasAnyRoleAfterChange(["teacher", "sale"], [])).toBe(true);
     expect(hasAnyRoleAfterChange(["teacher"], ["training"])).toBe(true);
+  });
+
+  it("hasAnyRoleAfterChange cho tắt hết ba role khi còn role khác bị ẩn", () => {
+    expect(hasAnyRoleAfterChange(["teacher"], [], true)).toBe(true);
+    expect(hasAnyRoleAfterChange(["teacher"], [], false)).toBe(false);
   });
 });
 

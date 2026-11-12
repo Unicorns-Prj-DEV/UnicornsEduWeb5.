@@ -3768,7 +3768,11 @@ describe('StaffService', () => {
       );
 
       const nextRoles = [StaffRole.teacher, StaffRole.sale, StaffRole.training];
-      expect(result).toEqual({ id: 'T1', roles: nextRoles });
+      // #278: response chỉ gồm ba role Trưởng ban quản lý (ẩn role khác).
+      expect(result).toEqual({
+        id: 'T1',
+        roles: [StaffRole.teacher, StaffRole.training],
+      });
       expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith({
         where: { id: 'T1' },
         data: { roles: nextRoles },
@@ -3813,6 +3817,80 @@ describe('StaffService', () => {
       expect(
         fixedSalarySettingsService.syncStaffRoleOverridesInTx,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('assertCanRegenerateMeetLink (#278)', () => {
+    const staffActor = { userId: 'u1', roleType: UserRole.staff };
+
+    it('Admin (roleType) được phép, không cần tra staff', async () => {
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', {
+          userId: 'admin',
+          roleType: UserRole.admin,
+        }),
+      ).resolves.toBeUndefined();
+      expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('chính nhân sự được phép', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'T1',
+        roles: [StaffRole.teacher],
+        status: StaffStatus.active,
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).resolves.toBeUndefined();
+    });
+
+    it('Trưởng ban Đào tạo được phép với cấp dưới', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'HEAD',
+        roles: [StaffRole.training_head],
+        status: StaffStatus.active,
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
+        id: 'T1',
+        roles: [StaffRole.teacher, StaffRole.sale],
+        user: { roleType: UserRole.staff },
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).resolves.toBeUndefined();
+    });
+
+    it.each([
+      [
+        'người mang role trưởng',
+        [StaffRole.teacher, StaffRole.lesson_plan_head],
+      ],
+      ['ngoài ba nhóm', [StaffRole.sale]],
+    ])('Trưởng ban Đào tạo bị từ chối với %s', async (_label, roles) => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'HEAD',
+        roles: [StaffRole.training_head],
+        status: StaffStatus.active,
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
+        id: 'T1',
+        roles,
+        user: { roleType: UserRole.staff },
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('nhân sự khác (không phải Trưởng ban) bị từ chối', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'S2',
+        roles: [StaffRole.training, StaffRole.teacher],
+        status: StaffStatus.active,
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

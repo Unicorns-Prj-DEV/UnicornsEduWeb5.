@@ -34,10 +34,7 @@ import {
   trainingTutorKeys,
 } from "@/lib/apis/training-tutor.api";
 import { pickAvatarUrl } from "@/lib/avatar";
-import {
-  canTrainingHeadEditRoles,
-  formatStaffRoleLabels,
-} from "@/lib/training-head-roles";
+import { formatStaffRoleLabels } from "@/lib/training-head-roles";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 
 const PAGE_SIZE = 20;
@@ -53,7 +50,7 @@ const STATUS_OPTIONS = [
 ];
 const SCOPE_OPTIONS = [
   { value: "tutors", label: "Gia sư" },
-  { value: "all", label: "Tất cả nhân sự" },
+  { value: "all", label: "Nhân sự ba nhóm" },
 ];
 
 export default function StaffTutorsPage() {
@@ -70,14 +67,11 @@ export default function StaffTutorsPage() {
     null,
   );
   const rowLink = useRowLink();
+  // #278: cờ quyền do backend tính (cấp dưới, role trưởng, chính mình).
   const canEditRoles = (tutor: TrainingTutorListItem) =>
-    canTrainingHeadEditRoles({
-      viewerStaffId: viewer.staffId,
-      viewerRoles: viewer.roles,
-      target: tutor,
-    });
+    tutor.management?.permissions.canEditRoles ?? false;
 
-  // Chỉ Trưởng ban được chọn «Tất cả nhân sự»; người khác luôn xem gia sư.
+  // Chỉ Trưởng ban được chọn «Nhân sự ba nhóm»; người khác luôn xem gia sư.
   const scope: TrainingTutorScope = viewer.isTrainingHead
     ? scopeChoice
     : "tutors";
@@ -100,11 +94,11 @@ export default function StaffTutorsPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-4 bg-bg-primary p-4 pb-8 sm:p-6">
       <header>
         <h1 className="text-xl font-semibold text-text-primary">
-          {isAllScope ? "Tất cả nhân sự" : "Gia sư"}
+          {isAllScope ? "Nhân sự ba nhóm" : "Gia sư"}
         </h1>
         <p className="text-sm text-text-muted">
           {isAllScope
-            ? "Hồ sơ mọi nhân sự ở mức hồ sơ gia sư (không liên hệ, giấy tờ, tiền), gồm cả người đã ngừng hoạt động."
+            ? "Gia sư, Ban Chuyên môn, Đào tạo ở mức hồ sơ chuyên môn (không liên hệ, giấy tờ, thu nhập), gồm cả người đã ngừng hoạt động. Chỉ hiện ba role này."
             : "Hồ sơ gia sư cho Ban Đào Tạo, gồm cả gia sư đã ngừng hoạt động."}
         </p>
       </header>

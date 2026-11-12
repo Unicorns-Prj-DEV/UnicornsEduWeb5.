@@ -28,7 +28,12 @@ import {
 } from "@/lib/training-head-roles";
 
 type Props = {
-  staff: { id: string; fullName: string; roles: string[] };
+  staff: {
+    id: string;
+    fullName: string;
+    roles: string[];
+    management?: { hasOtherRoles: boolean };
+  };
   onClose: () => void;
 };
 
@@ -49,7 +54,12 @@ export default function EditTrainingRolesDialog({ staff, onClose }: Props) {
   const isDirty =
     selected.length !== initial.length ||
     selected.some((role) => !initial.includes(role));
-  const hasAnyRole = hasAnyRoleAfterChange(staff.roles, selected);
+  const hasOtherRoles = staff.management?.hasOtherRoles ?? false;
+  const hasAnyRole = hasAnyRoleAfterChange(
+    staff.roles,
+    selected,
+    hasOtherRoles,
+  );
 
   const mutation = useMutation({
     mutationFn: () => updateStaffTrainingRoles(staff.id, { roles: selected }),
@@ -153,6 +163,10 @@ export default function EditTrainingRolesDialog({ staff, onClose }: Props) {
                   ))}
                 </div>
               </div>
+            ) : hasOtherRoles ? (
+              <p className="mt-4 text-xs text-text-muted">
+                Nhân sự còn role khác ngoài ba nhóm (giữ nguyên).
+              </p>
             ) : null}
 
             {removed.length > 0 ? (

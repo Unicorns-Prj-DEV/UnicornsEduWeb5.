@@ -1,5 +1,10 @@
 import type {
   StaffTrainingRolesResult,
+  TrainingTutorAccountStatusResult,
+  TrainingTutorBonus,
+  TrainingTutorStatusResult,
+  UpdateTrainingTutorProfilePayload,
+  UpdateTrainingTutorStatusPayload,
   TrainingTutorDetail,
   TrainingTutorListParams,
   TrainingTutorPage,
@@ -16,7 +21,13 @@ export const trainingTutorKeys = {
   detail: (id: string) => ["training-tutors", "detail", id] as const,
   sessions: (id: string, page: number) =>
     ["training-tutors", "sessions", id, page] as const,
+  bonuses: (id: string, month: string) =>
+    ["training-tutors", "bonuses", id, month] as const,
 };
+
+function tutorPath(id: string, suffix = ""): string {
+  return `/training/tutors/${encodeURIComponent(id)}${suffix}`;
+}
 
 export async function listTrainingTutors(
   params: TrainingTutorListParams,
@@ -65,6 +76,64 @@ export async function updateStaffTrainingRoles(
   const response = await api.patch<StaffTrainingRolesResult>(
     `/staff/${encodeURIComponent(staffId)}/training-roles`,
     payload,
+  );
+  return response.data;
+}
+
+/** Thưởng của cấp dưới — chỉ xem (#278). */
+export async function listTrainingTutorBonuses(
+  id: string,
+  month: string,
+): Promise<TrainingTutorBonus[]> {
+  const response = await api.get<TrainingTutorBonus[]>(
+    tutorPath(id, "/bonuses"),
+    { params: month ? { month } : {} },
+  );
+  return response.data;
+}
+
+export async function updateTrainingTutorProfile(
+  id: string,
+  payload: UpdateTrainingTutorProfilePayload,
+): Promise<TrainingTutorDetail> {
+  const response = await api.patch<TrainingTutorDetail>(
+    tutorPath(id, "/professional-profile"),
+    payload,
+  );
+  return response.data;
+}
+
+export async function uploadTrainingTutorAvatar(
+  id: string,
+  file: File,
+): Promise<TrainingTutorDetail> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  const response = await api.post<TrainingTutorDetail>(
+    tutorPath(id, "/avatar"),
+    formData,
+  );
+  return response.data;
+}
+
+export async function updateTrainingTutorStatus(
+  id: string,
+  payload: UpdateTrainingTutorStatusPayload,
+): Promise<TrainingTutorStatusResult> {
+  const response = await api.patch<TrainingTutorStatusResult>(
+    tutorPath(id, "/status"),
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateTrainingTutorAccountStatus(
+  id: string,
+  locked: boolean,
+): Promise<TrainingTutorAccountStatusResult> {
+  const response = await api.patch<TrainingTutorAccountStatusResult>(
+    tutorPath(id, "/account-status"),
+    { locked },
   );
   return response.data;
 }

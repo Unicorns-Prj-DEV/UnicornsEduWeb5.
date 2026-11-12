@@ -1,6 +1,14 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { StaffRole } from 'generated/enums';
-import { planTrainingHeadRoleChange } from './training-head-role-policy';
+import {
+  assertTrainingHeadCanChangeStatus,
+  assertTrainingHeadCanLockAccount,
+  assertTrainingHeadSubordinate,
+  canTrainingHeadLockAccount,
+  isTrainingHeadSubordinate,
+  pickTrainingTeamRoles,
+  planTrainingHeadRoleChange,
+} from './training-head-role-policy';
 
 const base = {
   actorStaffId: 'HEAD',
@@ -60,6 +68,7 @@ describe('planTrainingHeadRoleChange', () => {
     StaffRole.admin,
     StaffRole.sale_customer_care_head,
     StaffRole.training_head,
+    StaffRole.lesson_plan_head,
   ])('403 khi target có role %s', (role) => {
     expect(() =>
       planTrainingHeadRoleChange({
@@ -90,5 +99,78 @@ describe('planTrainingHeadRoleChange', () => {
         requestedRoles: [],
       }),
     ).toThrow(BadRequestException);
+  });
+});
+
+describe('pickTrainingTeamRoles', () => {
+  it('chỉ giữ ba role Gia sư / Ban Chuyên môn / Đào tạo, giữ thứ tự', () => {
+    expect(
+      pickTrainingTeamRoles([
+        StaffRole.sale,
+        StaffRole.training,
+        StaffRole.customer_care,
+        StaffRole.teacher,
+      ]),
+    ).toEqual([StaffRole.training, StaffRole.teacher]);
+    expect(pickTrainingTeamRoles(null)).toEqual([]);
+  });
+});
+
+describe('cấp dưới của Trưởng ban Đào tạo (#278)', () => {
+  const target = (
+    targetRoles: StaffRole[],
+    overrides: Partial<typeof base> = {},
+  ) => ({ ...base, targetRoles, ...overrides });
+
+  it('người mang role ba nhóm (kể cả kiêm role khác) là cấp dưới', () => {
+    expect(isTrainingHeadSubordinate(target([StaffRole.teacher]))).toBe(true);
+    expect(
+      isTrainingHeadSubordinate(
+        target([StaffRole.lesson_plan, StaffRole.customer_care]),
+      ),
+    ).toBe(true);
+    expect(() =>
+      assertTrainingHeadSubordinate(target([StaffRole.training]), 'sửa hồ sơ'),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['ngoài ba nhóm', target([StaffRole.sale])],
+    [
+      'mang role trưởng',
+      target([StaffRole.teacher, StaffRole.lesson_plan_head]),
+    ],
+    ['Admin', target([StaffRole.teacher, StaffRole.admin])],
+    [
+      'tài khoản admin hệ thống',
+      target([StaffRole.teacher], { targetIsAdminAccount: true }),
+    ],
+    ['chính mình', target([StaffRole.teacher], { targetStaffId: 'HEAD' })],
+  ])('không phải cấp dưới: %s', (_label, value) => {
+    expect(isTrainingHeadSubordinate(value)).toBe(false);
+    expect(() => assertTrainingHeadSubordinate(value, 'sửa hồ sơ')).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('khoá / đổi trạng thái được khi chỉ mang role ba nhóm', () => {
+    const value = target([StaffRole.teacher, StaffRole.training]);
+    expect(canTrainingHeadLockAccount(value)).toBe(true);
+    expect(() => assertTrainingHeadCanLockAccount(value)).not.toThrow();
+    expect(() => assertTrainingHeadCanChangeStatus(value)).not.toThrow();
+  });
+
+  it.each([
+    ['kiêm role ngoài ba nhóm', target([StaffRole.teacher, StaffRole.sale])],
+    ['mang role trưởng', target([StaffRole.teacher, StaffRole.training_head])],
+    ['chính mình', target([StaffRole.teacher], { targetStaffId: 'HEAD' })],
+  ])('từ chối khoá / đổi trạng thái: %s', (_label, value) => {
+    expect(canTrainingHeadLockAccount(value)).toBe(false);
+    expect(() => assertTrainingHeadCanLockAccount(value)).toThrow(
+      ForbiddenException,
+    );
+    expect(() => assertTrainingHeadCanChangeStatus(value)).toThrow(
+      ForbiddenException,
+    );
   });
 });
