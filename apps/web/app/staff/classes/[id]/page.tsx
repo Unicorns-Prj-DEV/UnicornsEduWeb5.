@@ -29,6 +29,7 @@ import {
 import AdminClassDetailPage from "@/app/admin/classes/[id]/page";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import ManagedClassTeachersPopup from "@/components/admin/class/ManagedClassTeachersPopup";
+import ClassTrainingManagerAssignDialog from "@/components/admin/class/ClassTrainingManagerAssignDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import MonthNav from "@/components/admin/MonthNav";
@@ -362,6 +363,7 @@ export default function StaffClassDetailPage() {
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
   const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
   const [managedTeachersPopupOpen, setManagedTeachersPopupOpen] = useState(false);
+  const [managerAssignDialogOpen, setManagerAssignDialogOpen] = useState(false);
   const [stopTeachingTarget, setStopTeachingTarget] = useState<{
     teacherId: string;
     teacherName: string;
@@ -416,6 +418,12 @@ export default function StaffClassDetailPage() {
   });
   const canEditClassInfo =
     !isAdmin && (profile?.staffInfo?.roles ?? []).includes(TRAINING_HEAD_ROLE);
+  /**
+   * #277: Trưởng ban Đào tạo xem mọi lớp, chỉnh gia sư + lương gia sư và giao /
+   * gỡ Quản lý lớp trên mọi lớp. Lịch / buổi / điểm danh vẫn chỉ lớp mình quản
+   * lý (BE chặn 403).
+   */
+  const isTrainingHead = isTraining && canEditClassInfo;
   const resolveCaretakerHref = useCallback(
     (student: ClassStudent) =>
       resolveClassStudentCaretakerHref({
@@ -515,11 +523,13 @@ export default function StaffClassDetailPage() {
     tuitionPerBlock: student.customTuitionPerBlock ?? null,
   }));
 
-  const hasTeacherSelfServiceAccess = isTeacher && Boolean(actorStaffId);
-  const isTeacherWorkspaceActor = isAdmin || hasTeacherSelfServiceAccess;
   const teacherAssignedToClass =
     Boolean(actorStaffId) &&
     (classDetail?.teachers ?? []).some((teacher) => teacher.id === actorStaffId);
+  // #277: Trưởng ban kiêm gia sư mở lớp mình không dạy → không có quyền gia sư ở lớp đó.
+  const hasTeacherSelfServiceAccess =
+    isTeacher && Boolean(actorStaffId) && (!isTrainingHead || teacherAssignedToClass);
+  const isTeacherWorkspaceActor = isAdmin || hasTeacherSelfServiceAccess;
   const isCustomerCareView = isCustomerCare && !isTeacherWorkspaceActor;
   const isTrainingView = isTraining && !isTeacherWorkspaceActor && !isCustomerCare;
   /** Ban Đào Tạo là quản lý của lớp này: được chỉnh gia sư + lương gia sư (trừ dòng của mình). */
@@ -527,7 +537,12 @@ export default function StaffClassDetailPage() {
     isTraining &&
     Boolean(actorStaffId) &&
     classDetail?.trainingManager?.id === actorStaffId;
-  const canManageClassTeachers = isManagingTrainer && classDetail?.status !== "ended";
+  const canManageClassTeachers =
+    (isManagingTrainer || isTrainingHead) && classDetail?.status !== "ended";
+  /** #277: giao / gỡ Quản lý lớp — Admin hoặc Trưởng ban Đào tạo (% chỉ Admin). */
+  const canAssignClassManager = isAdmin || isTrainingHead;
+  /** Thấy lương mọi gia sư của lớp: Admin, Quản lý lớp, Trưởng ban Đào tạo. */
+  const seesAllTeacherCompensation = isAdmin || isManagingTrainer || isTrainingHead;
   /** Admin on staff shell + CSKH (assigned students only; others empty via BE redact). */
   const showStudentBalanceColumn = isAdmin || isCustomerCareView;
   /** #275: Quản lý lớp làm mọi việc của gia sư trên mọi buổi của lớp (BE chặn lớp khác). */
@@ -816,7 +831,9 @@ export default function StaffClassDetailPage() {
         : isCustomerCareView
           ? "Không tìm thấy lớp học này trong danh sách học sinh bạn đang chăm sóc."
           : isTrainingView
-            ? "Không tìm thấy lớp học này trong danh sách lớp bạn đang quản lý."
+            ? isTrainingHead
+              ? "Không tìm thấy lớp học này."
+              : "Không tìm thấy lớp học này trong danh sách lớp bạn đang quản lý."
             : "Không tìm thấy lớp học hoặc bạn chưa được phân công lớp này.";
 
     return (
@@ -917,6 +934,14 @@ export default function StaffClassDetailPage() {
         onSubmitSchedule={handleScheduleSubmit}
       />
 
+      {managerAssignDialogOpen && canAssignClassManager ? (
+        <ClassTrainingManagerAssignDialog
+          classDetail={classDetail}
+          onClose={() => setManagerAssignDialogOpen(false)}
+          onChanged={invalidateClassTeacherQueries}
+        />
+      ) : null}
+
       {managedTeachersPopupOpen && canManageClassTeachers ? (
         <ManagedClassTeachersPopup
           classDetail={classDetail}
@@ -1005,8 +1030,8 @@ export default function StaffClassDetailPage() {
             trainingManagerRatePercent={classDetail.trainingManagerRatePercent}
             defaultAllowancePerStudent={classDetail.allowancePerSessionPerStudent}
             defaultScaleAmount={classDetail.scaleAmount}
-            showTeacherCompensation={isAdmin || isManagingTrainer || teacherAssignedToClass}
-            compensationTeacherId={isAdmin || isManagingTrainer ? null : actorStaffId}
+            showTeacherCompensation={seesAllTeacherCompensation || teacherAssignedToClass}
+            compensationTeacherId={seesAllTeacherCompensation ? null : actorStaffId}
             className="flex-1"
             enableTeacherNavigation={false}
             canStopTeaching={canManageClassTeachers}
@@ -1018,14 +1043,27 @@ export default function StaffClassDetailPage() {
                 : null
             }
             action={
-              canManageClassTeachers ? (
-                <button
-                  type="button"
-                  onClick={() => setManagedTeachersPopupOpen(true)}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
-                >
-                  Chỉnh sửa
-                </button>
+              canManageClassTeachers || canAssignClassManager ? (
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                  {canAssignClassManager ? (
+                    <button
+                      type="button"
+                      onClick={() => setManagerAssignDialogOpen(true)}
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                    >
+                      Quản lý lớp
+                    </button>
+                  ) : null}
+                  {canManageClassTeachers ? (
+                    <button
+                      type="button"
+                      onClick={() => setManagedTeachersPopupOpen(true)}
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                    >
+                      Chỉnh sửa
+                    </button>
+                  ) : null}
+                </div>
               ) : (
                 <div className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary sm:min-h-0 sm:w-auto">
                   Chỉ xem
@@ -1421,7 +1459,7 @@ export default function StaffClassDetailPage() {
                           }
                           allowTrialTeachingToggle
                           canToggleTrialForSession={canToggleTrialForSession}
-                          showTrainingManagerAllowance={isTrainingView}
+                          showTrainingManagerAllowance={isTrainingView && isManagingTrainer}
                           isReviewOnlySession={isReviewOnlySession}
                           updateSessionFn={handleUpdateSession}
                         />

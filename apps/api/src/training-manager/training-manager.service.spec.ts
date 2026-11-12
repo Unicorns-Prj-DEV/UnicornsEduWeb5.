@@ -440,6 +440,58 @@ describe('TrainingManagerService', () => {
       expect(mockPrisma.class.update).not.toHaveBeenCalled();
     });
 
+    // #277: Trưởng ban Đào tạo giao / gỡ Quản lý lớp trên mọi lớp, không sửa %.
+    it.each([
+      ['giao', 'staff-other'],
+      ['gỡ', null],
+    ])(
+      'Trưởng ban Đào tạo được %s Quản lý lớp trên lớp không quản lý',
+      async (_label, nextStaffId) => {
+        asStaff([StaffRole.training_head]);
+        mockPrisma.staffInfo.findUnique.mockResolvedValue({
+          id: 'staff-other',
+          roles: [StaffRole.training],
+          status: StaffStatus.active,
+        });
+
+        await service.updateClassTrainingManager(
+          classId,
+          // Form gửi lại % cũ (3) — không bị chặn vì % không đổi.
+          {
+            trainingManagerStaffId: nextStaffId,
+            trainingManagerRatePercent: 3,
+          },
+          staffActor,
+        );
+        expect(mockPrisma.class.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: classId },
+            data: expect.objectContaining({
+              trainingManagerStaffId: nextStaffId,
+            }),
+          }),
+        );
+      },
+    );
+
+    it.each([
+      [[StaffRole.training]],
+      [[StaffRole.training, StaffRole.teacher]],
+      [[StaffRole.sale_customer_care_head]],
+      [[StaffRole.accountant_expense]],
+    ])('từ chối %p giao / gỡ Quản lý lớp', async (roles) => {
+      asStaff(roles);
+
+      await expect(
+        service.updateClassTrainingManager(
+          classId,
+          { trainingManagerStaffId: null },
+          staffActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.class.update).not.toHaveBeenCalled();
+    });
+
     it('staff mang role admin được sửa % của lớp', async () => {
       asStaff([StaffRole.admin]);
 

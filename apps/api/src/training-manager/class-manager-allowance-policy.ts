@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { StaffRole } from 'generated/enums';
 import type { StaffPolicyActor } from 'src/common/staff-role-policy';
 
 /**
@@ -7,8 +8,9 @@ import type { StaffPolicyActor } from 'src/common/staff-role-policy';
  * - **% trợ cấp quản lý lớp** (`classes.training_manager_rate_percent` và %
  *   trên từng buổi): **chỉ Admin** sửa (#276). Ban Đào tạo, Trưởng ban Đào
  *   tạo, Quản lý lớp, Trưởng phòng, Kế toán đều bị 403 — ở mọi đường ghi.
- * - **Giao / gỡ Quản lý lớp:** hiện chỉ Admin. #277 mở thêm cho Trưởng ban
- *   Đào tạo bằng cách sửa `canAssignClassManager` — không đụng quyền sửa %.
+ * - **Giao / gỡ Quản lý lớp:** Admin và Trưởng ban Đào tạo trên **mọi lớp**
+ *   (#277, mục 5.2 + 7). Trưởng ban được tự nhận làm Quản lý lớp (giống khi
+ *   tạo lớp ở #274) vì % trợ cấp quản lý lớp vẫn chỉ Admin đặt.
  */
 
 export function canEditClassManagerAllowanceRate(
@@ -20,7 +22,7 @@ export function canEditClassManagerAllowanceRate(
 export function canAssignClassManager(
   actor: Pick<StaffPolicyActor, 'isAdmin' | 'roles'>,
 ): boolean {
-  return actor.isAdmin;
+  return actor.isAdmin || actor.roles.includes(StaffRole.training_head);
 }
 
 export const CLASS_MANAGER_RATE_FORBIDDEN_MESSAGE =
@@ -37,7 +39,7 @@ export function assertCanEditClassManagerAllowanceRate(
 /**
  * `PATCH /class/:id/training-manager` nhận cả người quản lý lẫn %. Kiểm từng
  * phần **thật sự đổi** so với giá trị hiện tại, để form gửi lại % cũ không bị
- * chặn oan khi role chỉ được giao/gỡ quản lý (sau #277).
+ * chặn oan khi role chỉ được giao/gỡ quản lý (Trưởng ban Đào tạo, #277).
  */
 export function assertClassTrainingManagerUpdateAllowed(
   actor: Pick<StaffPolicyActor, 'isAdmin' | 'roles'>,
@@ -47,7 +49,9 @@ export function assertClassTrainingManagerUpdateAllowed(
     !canAssignClassManager(actor) &&
     !canEditClassManagerAllowanceRate(actor)
   ) {
-    throw new ForbiddenException('Chỉ Admin được chỉnh quản lý lớp.');
+    throw new ForbiddenException(
+      'Chỉ Admin hoặc Trưởng ban Đào tạo được giao / gỡ Quản lý lớp.',
+    );
   }
   if (change.changesRate) {
     assertCanEditClassManagerAllowanceRate(actor);

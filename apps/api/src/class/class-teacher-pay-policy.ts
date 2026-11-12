@@ -3,7 +3,8 @@ import type { UpdateClassTeacherPayDto } from 'src/dtos/class.dto';
 
 /**
  * #276 — Quản lý lớp sửa lương gia sư theo lớp, **trừ phần của chính mình**
- * (luật #265, biên bản 12/11/2026 mục 2 + 6).
+ * (luật #265, biên bản 12/11/2026 mục 2 + 6). #277: Trưởng ban Đào tạo dùng
+ * cùng luật trên mọi lớp (mục 7).
  *
  * «Phần của chính mình» gồm:
  * - Dòng gia sư của chính mình (`teachers[].teacher_id === lockedTeacherId`).
@@ -97,6 +98,6 @@ export function assertTeacherPayUpdateExcludesOwnPay(
   }
   const labels = fields.map((field) => OWN_PAY_FIELD_LABELS[field] ?? field);
   throw new ForbiddenException(
-    `Quản lý lớp không được tự chỉnh lương của chính mình: ${labels.join('; ')}.`,
+    `Không được tự chỉnh lương của chính mình: ${labels.join('; ')}.`,
   );
 }

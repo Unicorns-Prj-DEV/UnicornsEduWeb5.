@@ -7,12 +7,16 @@ import {
   previewNextSessionOrdinal,
   withSessionOrdinals,
 } from './session-ordinal.util';
-import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
+import {
+  StaffOperationsAccessService,
+  seesClassAsTrainingManager,
+} from '../staff-ops/staff-operations-access.service';
 import { getUserFullNameFromParts } from '../common/user-name.util';
 import { SQL_TEACHER_SESSION_CAPPED_GROSS } from '../common/teacher-session-allowance-sql.util';
 import {
   redactOtherTeachersSessions,
   redactSessionsForAccountantView,
+  redactSessionForTrainingHeadView,
   redactSessionForTrainingManagerView,
   redactSessionsForTrainingManagerView,
   resolveAccountantFinanceView,
@@ -171,19 +175,29 @@ export class SessionReportingService {
       sessions.map((session) => this.withDerivedTeacherFullName(session)),
     );
 
+    // #277: Trưởng ban Đào tạo xem lịch sử buổi mọi lớp — không tiền buổi
+    // (trợ cấp từng buổi, hệ số, học phí, vận hành, trạng thái thanh toán).
     if (accessMode === 'training_manager') {
       return redactSessionsForTrainingManagerView(mappedSessions);
+    }
+    if (accessMode === 'training_head') {
+      // Lớp không quản lý: ẩn thêm trợ cấp quản lý lớp từng buổi.
+      return mappedSessions.map((session) =>
+        redactSessionForTrainingHeadView(session),
+      );
     }
 
     if (accessMode === 'teacher') {
       const financeView = resolveAccountantFinanceView(roleType, actor.roles);
-      // #275 hợp quyền: kiêm Quản lý lớp → buổi của gia sư khác hiện đủ như
-      // Quản lý lớp (để thao tác), không chỉ còn phần nhận xét.
-      if (access.isClassManager) {
+      // #275 hợp quyền: kiêm Quản lý lớp (hoặc #277 Trưởng ban Đào tạo) →
+      // buổi của gia sư khác hiện như Quản lý lớp, không chỉ còn phần nhận xét.
+      if (seesClassAsTrainingManager(access)) {
         return mappedSessions.map((session) =>
           session.teacherId === actor.id
             ? redactSessionsForAccountantView([session], financeView)[0]
-            : redactSessionForTrainingManagerView(session),
+            : access.isClassManager
+              ? redactSessionForTrainingManagerView(session)
+              : redactSessionForTrainingHeadView(session),
         );
       }
       return redactSessionsForAccountantView(

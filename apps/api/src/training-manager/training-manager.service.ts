@@ -179,7 +179,9 @@ export class TrainingManagerService {
       !canAssignClassManager(policyActor) &&
       !canEditClassManagerAllowanceRate(policyActor)
     ) {
-      throw new ForbiddenException('Chỉ Admin được chỉnh quản lý lớp.');
+      throw new ForbiddenException(
+        'Chỉ Admin hoặc Trưởng ban Đào tạo được giao / gỡ Quản lý lớp.',
+      );
     }
 
     const existing = await this.prisma.class.findUnique({
@@ -204,7 +206,8 @@ export class TrainingManagerService {
         : normalizeTrainingManagerRatePercent(dto.trainingManagerRatePercent);
 
     // #276: % trợ cấp quản lý lớp chỉ Admin sửa; giao/gỡ quản lý theo
-    // `canAssignClassManager` (#277 mở thêm). Chỉ xét phần thật sự đổi.
+    // `canAssignClassManager` (#277: Admin + Trưởng ban Đào tạo, mọi lớp).
+    // Chỉ xét phần thật sự đổi.
     const currentRate =
       existing.trainingManagerRatePercent == null
         ? null

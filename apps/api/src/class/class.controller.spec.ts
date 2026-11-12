@@ -26,7 +26,13 @@ describe('ClassController #272 redaction', () => {
         operatingDeductionRatePercent: 10,
       },
     ],
-    students: [{ id: 'student-1', customTuitionPerSession: 150000 }],
+    students: [
+      {
+        id: 'student-1',
+        customTuitionPerSession: 150000,
+        accountBalance: 500000,
+      },
+    ],
   });
 
   const classService = {
@@ -105,5 +111,28 @@ describe('ClassController #272 redaction', () => {
       'class-1',
     );
     expect(result).toEqual(classDetail());
+  });
+
+  // #277: Trưởng ban Đào tạo không thấy học phí → cũng không thấy số dư ví.
+  it('Trưởng ban Đào tạo xem chi tiết lớp: không học phí, không số dư ví', async () => {
+    const result = (await controller.getClassById(
+      user(UserRole.staff),
+      req([StaffRole.training_head]),
+      'class-1',
+    )) as unknown as Record<string, unknown> & {
+      students: Record<string, unknown>[];
+    };
+    expect(result).not.toHaveProperty('studentTuitionPerSession');
+    expect(result.students[0]).not.toHaveProperty('accountBalance');
+    expect(result).toHaveProperty('allowancePerSessionPerStudent', 90000);
+  });
+
+  it('Kế toán chi vẫn giữ số dư ví (ngoài phạm vi #277)', async () => {
+    const result = (await controller.getClassById(
+      user(UserRole.staff),
+      req([StaffRole.accountant_expense]),
+      'class-1',
+    )) as unknown as { students: Record<string, unknown>[] };
+    expect(result.students[0]).toHaveProperty('accountBalance', 500000);
   });
 });

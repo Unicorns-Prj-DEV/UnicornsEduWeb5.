@@ -64,6 +64,7 @@ import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-conte
 import {
   redactClassForAccountantView,
   redactClassListForAccountantView,
+  redactClassStudentWalletBalances,
   redactStudentClassRowsForAccountantView,
   resolveAdminClassFinanceView,
 } from 'src/common/accountant-finance-redaction.util';
@@ -636,7 +637,7 @@ export class ClassController {
   @ApiResponse({
     status: 200,
     description:
-      'Class found. Trưởng phòng Sale & CSKH / Kế toán thu: không có lương gia sư; Kế toán chi: không có học phí (#272).',
+      'Class found. Trưởng phòng Sale & CSKH / Kế toán thu: không có lương gia sư; Kế toán chi: không có học phí (#272). Trưởng ban Đào tạo: không có học phí, không số dư ví học sinh (#274/#277).',
   })
   @ApiResponse({ status: 403, description: 'Role không được xem lớp.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
@@ -647,10 +648,17 @@ export class ClassController {
     @Param('id', new ParseClassIdPipe()) id: string,
   ) {
     const classDetail = await this.classService.getClassById(id);
-    return redactClassForAccountantView(
-      classDetail,
-      resolveAdminClassFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
-    );
+    const staffRoles = req.resolvedStaffRoles ?? [];
+    const financeView = resolveAdminClassFinanceView(user.roleType, staffRoles);
+    const redacted = redactClassForAccountantView(classDetail, financeView);
+    // #277: Trưởng ban Đào tạo không thấy học phí → bỏ cả số dư ví học sinh.
+    if (
+      financeView === 'expense' &&
+      staffRoles.includes(StaffRole.training_head)
+    ) {
+      return redactClassStudentWalletBalances(redacted, { mode: 'none' });
+    }
+    return redacted;
   }
 
   @Post()

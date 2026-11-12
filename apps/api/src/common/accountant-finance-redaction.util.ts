@@ -421,6 +421,29 @@ export function redactSessionsForTrainingManagerView<T>(sessions: T[]): T[] {
 }
 
 /**
+ * #277: Trưởng ban Đào tạo xem buổi của lớp mình **không** quản lý — ngoài
+ * phần ẩn như Quản lý lớp, bỏ cả trợ cấp quản lý lớp từng buổi (tiền của
+ * người quản lý khác).
+ */
+const SESSION_TRAINING_HEAD_EXTRA_HIDDEN_FIELDS = [
+  'trainingManagerAllowanceAmount',
+  'trainingManagerPaymentStatus',
+  'trainingManagerRatePercent',
+  'trainingManagerTaxDeductionRatePercent',
+] as const;
+
+export function redactSessionForTrainingHeadView<T>(session: T): T {
+  const redacted = redactSessionForTrainingManagerView(session);
+  if (!redacted || typeof redacted !== 'object') {
+    return redacted;
+  }
+  return omitFields(
+    redacted as Record<string, unknown>,
+    SESSION_TRAINING_HEAD_EXTRA_HIDDEN_FIELDS,
+  ) as T;
+}
+
+/**
  * Gia sư xem lịch sử buổi của lớp: buổi do gia sư KHÁC dạy chỉ giữ nội dung
  * nhận xét (allowlist), bỏ mọi thông tin tiền (trợ cấp, hệ số, học phí, trạng
  * thái thanh toán, hoa hồng CSKH/trợ lí/QLL) và hồ sơ nhân sự của gia sư đó.

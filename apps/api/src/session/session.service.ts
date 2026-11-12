@@ -18,7 +18,10 @@ import { SessionUpdateService } from './session-update.service';
 import { ReviewValidationOptions } from './session-validation.service';
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { MissedTeachingExplanationService } from './missed-teaching-explanation.service';
-import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
+import {
+  StaffOperationsAccessService,
+  seesClassAsTrainingManager,
+} from '../staff-ops/staff-operations-access.service';
 import { StaffRole } from '../../generated/enums';
 
 const ELEVATED_CLASS_ACCESS_ROLES: StaffRole[] = [
@@ -197,11 +200,12 @@ export class SessionService {
       classId,
     );
 
-    // #275: kiêm Quản lý lớp → thấy cảnh báo của mọi gia sư trong lớp.
+    // #275: kiêm Quản lý lớp (#277: hoặc Trưởng ban Đào tạo) → thấy cảnh
+    // báo của mọi gia sư trong lớp.
     return this.sessionScheduleRulesService.getMissedTeachingAlertsByClass(
       classId,
       days,
-      access.mode === 'teacher' && !access.isClassManager
+      access.mode === 'teacher' && !seesClassAsTrainingManager(access)
         ? actor.id
         : undefined,
     );

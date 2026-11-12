@@ -55,7 +55,11 @@ import {
   assertUpdateClassBasicInfoAllowed,
 } from './class-write-field-policy';
 import { assertTeacherPayUpdateExcludesOwnPay } from './class-teacher-pay-policy';
-import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
+import {
+  StaffOperationsAccessService,
+  isTrainingHeadActor,
+  seesClassAsTrainingManager,
+} from 'src/staff-ops/staff-operations-access.service';
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
@@ -1244,12 +1248,23 @@ export class ClassService {
     const scopeToTrainingManager =
       this.shouldScopeStaffClassesToTrainingManager(actor.roles);
     const managedOnly = scope === 'managed' && scopeToTrainingManager;
+    // #277: Trưởng ban Đào tạo thấy **mọi lớp** (không học phí); `managed`
+    // vẫn lọc về lớp mình quản lý.
+    const seesAllClasses =
+      scopeToTrainingManager && isTrainingHeadActor(actor.roles);
     const classes = await this.getClasses({
       ...listQuery,
-      ...(!managedOnly && this.shouldScopeStaffClassesToTeacher(actor.roles)
-        ? { teacherId: actor.id }
-        : {}),
-      ...(scopeToTrainingManager ? { trainingManagerStaffId: actor.id } : {}),
+      ...(seesAllClasses && !managedOnly
+        ? {}
+        : {
+            ...(!managedOnly &&
+            this.shouldScopeStaffClassesToTeacher(actor.roles)
+              ? { teacherId: actor.id }
+              : {}),
+            ...(scopeToTrainingManager
+              ? { trainingManagerStaffId: actor.id }
+              : {}),
+          }),
     });
 
     const financeView = resolveAccountantFinanceView(roleType, actor.roles);
@@ -1284,9 +1299,12 @@ export class ClassService {
     // cả khi kiêm gia sư của lớp (mode `teacher`). Tổng học phí buổi vẫn hiện
     // trên dòng thu nhập của chính họ (lịch sử buổi / trợ cấp quản lý lớp).
     // Role xem được học phí (Admin, Kế toán, CSKH của học sinh) giữ nguyên.
+    // #277: Trưởng ban Đào tạo (mọi lớp) cùng góc nhìn: không học phí.
+    const managerView = seesClassAsTrainingManager(access);
     if (
       accessMode === 'training_manager' ||
-      (accessMode === 'teacher' && access.isClassManager)
+      accessMode === 'training_head' ||
+      (accessMode === 'teacher' && managerView)
     ) {
       result = redactClassForTrainingManagerView(result);
     }
@@ -1296,16 +1314,15 @@ export class ClassService {
     }
 
     if (accessMode === 'teacher') {
-      // Kiêm quản lý lớp này: thấy lương mọi gia sư để chỉnh (trừ dòng của mình ở FE/BE write).
+      // Kiêm quản lý lớp này / Trưởng ban Đào tạo: thấy lương mọi gia sư để
+      // chỉnh (trừ dòng của mình ở FE/BE write).
       return redactClassStudentWalletBalances(
-        access.isClassManager
-          ? result
-          : redactOtherTeachersIncome(result, actor.id),
+        managerView ? result : redactOtherTeachersIncome(result, actor.id),
         { mode: 'none' },
       );
     }
 
-    if (accessMode === 'training_manager') {
+    if (accessMode === 'training_manager' || accessMode === 'training_head') {
       return redactClassStudentWalletBalances(result, { mode: 'none' });
     }
 

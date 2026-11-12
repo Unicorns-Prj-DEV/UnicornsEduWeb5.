@@ -3,6 +3,8 @@ jest.mock('../prisma/prisma.service', () => ({
 }));
 
 jest.mock('../staff-ops/staff-operations-access.service', () => ({
+  // Giữ các predicate thuần (#277: `seesClassAsTrainingManager`, ...).
+  ...jest.requireActual('../staff-ops/staff-operations-access.service'),
   StaffOperationsAccessService: class StaffOperationsAccessServiceMock {},
 }));
 
@@ -83,6 +85,7 @@ describe('SessionReportingService', () => {
       date: new Date('2026-11-01T00:00:00.000Z'),
       lessonContent: '<p>Nội dung</p>',
       allowanceAmount: 200000,
+      trainingManagerAllowanceAmount: 6000,
       coefficient: 1,
       teacherPaymentStatus: 'unpaid',
       teacher: { id: teacherId, user: { first_name: 'A', last_name: 'B' } },
@@ -118,6 +121,7 @@ describe('SessionReportingService', () => {
         isAdmin: false,
         isClassTeacher: true,
         isClassManager: true,
+        isTrainingHead: false,
       });
 
       const sessions = (await reporting.getSessionsByClassIdForStaff(
@@ -135,6 +139,8 @@ describe('SessionReportingService', () => {
       expect(other.allowanceAmount).toBeUndefined();
       expect(other.coefficient).toBeUndefined();
       expect(other.teacherPaymentStatus).toBeUndefined();
+      // Quản lý lớp vẫn thấy trợ cấp quản lý lớp của chính mình trên buổi.
+      expect(other.trainingManagerAllowanceAmount).toBe(6000);
       expect(other.lessonContent).toBe('<p>Nội dung</p>');
       expect(
         (other.attendance as Array<Record<string, unknown>>)[0],
@@ -150,6 +156,7 @@ describe('SessionReportingService', () => {
         isAdmin: false,
         isClassTeacher: true,
         isClassManager: false,
+        isTrainingHead: false,
       });
 
       const sessions = (await reporting.getSessionsByClassIdForStaff(
@@ -166,6 +173,42 @@ describe('SessionReportingService', () => {
         id: 'teacher-2',
         fullName: expect.any(String),
       });
+    });
+
+    // #277: Trưởng ban Đào tạo xem lịch sử buổi mọi lớp — không tiền buổi,
+    // không học phí.
+    it('redacts every session money field for training_head on a non-managed class', async () => {
+      staffOperationsAccess.resolveClassViewerActor.mockResolvedValue({
+        id: 'head-1',
+        roles: [StaffRole.training_head],
+      });
+      staffOperationsAccess.resolveClassAccess.mockResolvedValue({
+        mode: 'training_head',
+        isAdmin: false,
+        isClassTeacher: false,
+        isClassManager: false,
+        isTrainingHead: true,
+      });
+
+      const sessions = (await reporting.getSessionsByClassIdForStaff(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+        '11',
+        '2026',
+      )) as Array<Record<string, unknown>>;
+
+      expect(sessions).toHaveLength(2);
+      for (const session of sessions) {
+        expect(session.allowanceAmount).toBeUndefined();
+        expect(session.coefficient).toBeUndefined();
+        expect(session.teacherPaymentStatus).toBeUndefined();
+        expect(session.trainingManagerAllowanceAmount).toBeUndefined();
+        expect(session.lessonContent).toBe('<p>Nội dung</p>');
+        expect(
+          (session.attendance as Array<Record<string, unknown>>)[0].tuitionFee,
+        ).toBeUndefined();
+      }
     });
   });
 });

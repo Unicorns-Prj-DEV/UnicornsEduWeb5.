@@ -53,12 +53,18 @@ export default function StaffClassesPage() {
   }
 
   if (hasTrainingAccess(staffRoles)) {
+    // #277: Trưởng ban Đào tạo thấy mọi lớp (BE không lọc, đã ẩn học phí).
+    const isTrainingHead = staffRoles.includes(TRAINING_HEAD_ROLE);
     return (
       <AdminClassesPage
         classListFetcher={staffOpsApi.getClasses}
         forceReadOnlyList
-        allowCreateClass={staffRoles.includes(TRAINING_HEAD_ROLE)}
-        pageSubtitle="Danh sách các lớp bạn đang được gán quản lý."
+        allowCreateClass={isTrainingHead}
+        pageSubtitle={
+          isTrainingHead
+            ? "Tất cả lớp học (không hiển thị học phí)."
+            : "Danh sách các lớp bạn đang được gán quản lý."
+        }
       />
     );
   }

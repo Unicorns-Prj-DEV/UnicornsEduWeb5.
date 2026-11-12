@@ -114,7 +114,8 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'List classes for staff operations',
     description:
-      'List classes for staff operations UI. Finance and student/teacher mutations remain unavailable from this route family.',
+      'List classes for staff operations UI. Finance and student/teacher mutations remain unavailable from this route family. ' +
+      '#277: Trưởng ban Đào tạo nhận **mọi lớp** (bỏ học phí lớp + học phí từng học sinh); `scope=managed` lọc về lớp mình quản lý.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
@@ -130,7 +131,7 @@ export class StaffOpsClassController {
     required: false,
     enum: ['managed'],
     description:
-      'Ban Đào Tạo kiêm gia sư: `managed` chỉ trả lớp mình quản lý (mặc định trả lớp mình dạy hoặc quản lý). Role khác bỏ qua.',
+      'Ban Đào Tạo: `managed` chỉ trả lớp mình quản lý (mặc định: lớp mình dạy hoặc quản lý; Trưởng ban Đào tạo mặc định mọi lớp — #277). Role khác bỏ qua.',
   })
   @ApiResponse({ status: 200, description: 'Paginated class list.' })
   async getClasses(
@@ -153,9 +154,15 @@ export class StaffOpsClassController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get class detail for staff operations',
+    description:
+      '#277: Trưởng ban Đào tạo xem mọi lớp: thông tin lớp, gia sư + lương gia sư theo lớp, lịch; không có học phí lớp / học phí từng học sinh / số dư ví.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'Class detail.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Role không được mở màn chi tiết lớp.',
+  })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async getClassById(
     @CurrentUser() user: JwtPayload,
@@ -329,9 +336,9 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'Update teacher pay of a class (training manager)',
     description:
-      'Quản lý lớp (Ban Đào Tạo) hoặc admin chỉnh trợ cấp/hs, trần trợ cấp, scale mặc định của lớp và trợ cấp/scale/% vận hành của gia sư đã có trong lớp. ' +
+      'Admin, Trưởng ban Đào tạo (mọi lớp — #277) hoặc Quản lý lớp (lớp mình) chỉnh trợ cấp/hs, trần trợ cấp, scale mặc định của lớp và trợ cấp/scale/% vận hành của gia sư đã có trong lớp. ' +
       'Không nhận học phí, % trợ cấp quản lý lớp (chỉ Admin, qua PATCH /class/:id/training-manager) hay thông tin lớp khác. ' +
-      '#276: Quản lý lớp không được sửa phần lương của chính mình (403): dòng của mình, và khi đang dạy lớp thì cả trợ cấp tối đa, trợ cấp mỗi học sinh / scale mặc định mà dòng của mình đang kế thừa. ' +
+      '#276/#277: Quản lý lớp và Trưởng ban Đào tạo không được sửa phần lương của chính mình (403): dòng của mình, và khi đang dạy lớp thì cả trợ cấp tối đa, trợ cấp mỗi học sinh / scale mặc định mà dòng của mình đang kế thừa. ' +
       'Chỉ áp dụng cho buổi tạo sau khi lưu.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
@@ -341,7 +348,7 @@ export class StaffOpsClassController {
   @ApiResponse({
     status: 403,
     description:
-      'Không phải Admin / Quản lý lớp của lớp, hoặc chạm phần lương của chính mình (#276).',
+      'Không phải Admin / Trưởng ban Đào tạo / Quản lý lớp của lớp, hoặc chạm phần lương của chính mình (#276/#277).',
   })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassTeacherPay(
@@ -368,7 +375,8 @@ export class StaffOpsClassController {
     summary: 'Add a teacher to a class (training manager)',
     description:
       'Thêm 1 gia sư (staff role `teacher`, đang active) mà không đụng gia sư khác. Gia sư từng nghỉ dạy lớp này được mở lại với lương reset về mặc định lớp. ' +
-      'Gia sư mới tự thêm khung giờ của mình qua PATCH :id/schedule.',
+      'Gia sư mới tự thêm khung giờ của mình qua PATCH :id/schedule. ' +
+      'Quyền: Admin, Trưởng ban Đào tạo (mọi lớp — #277), Quản lý lớp (lớp mình); không tự thêm chính mình (403).',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: AddClassTeacherDto })
@@ -379,7 +387,8 @@ export class StaffOpsClassController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Không phải quản lý lớp, hoặc tự thêm chính mình.',
+    description:
+      'Không phải Admin / Trưởng ban Đào tạo / Quản lý lớp của lớp, hoặc tự thêm chính mình.',
   })
   @ApiResponse({ status: 404, description: 'Class or teacher not found.' })
   @ApiResponse({ status: 409, description: 'Gia sư đã ở trong lớp.' })
@@ -396,7 +405,7 @@ export class StaffOpsClassController {
       );
     if (lockedTeacherId && dto.teacher_id === lockedTeacherId) {
       throw new ForbiddenException(
-        'Quản lý lớp không được tự thêm chính mình làm gia sư.',
+        'Không được tự thêm chính mình làm gia sư (lương của chính mình).',
       );
     }
     await this.classService.addClassTeacher(id, dto.teacher_id, {
@@ -411,7 +420,7 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'Mark a teacher as stopped teaching (training manager)',
     description:
-      'Chuyển phân công gia sư sang nghỉ dạy, xoá khung giờ cố định và buổi bù tương lai của gia sư đó. Quản lý lớp không được cho chính mình nghỉ (403).',
+      'Chuyển phân công gia sư sang nghỉ dạy, xoá khung giờ cố định và buổi bù tương lai của gia sư đó. Quyền: Admin, Trưởng ban Đào tạo (mọi lớp — #277), Quản lý lớp (lớp mình); không được cho chính mình nghỉ (403).',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiParam({ name: 'teacherId', description: 'Staff id of the teacher' })
@@ -427,7 +436,8 @@ export class StaffOpsClassController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Không phải quản lý lớp, hoặc cho chính mình nghỉ.',
+    description:
+      'Không phải Admin / Trưởng ban Đào tạo / Quản lý lớp của lớp, hoặc cho chính mình nghỉ.',
   })
   @ApiResponse({
     status: 404,
@@ -447,7 +457,7 @@ export class StaffOpsClassController {
       );
     if (lockedTeacherId && teacherId === lockedTeacherId) {
       throw new ForbiddenException(
-        'Quản lý lớp không được tự cho chính mình nghỉ dạy.',
+        'Không được tự cho chính mình nghỉ dạy (lương của chính mình).',
       );
     }
     const { calendarSyncWarnings } = await this.classService.stopClassTeacher(

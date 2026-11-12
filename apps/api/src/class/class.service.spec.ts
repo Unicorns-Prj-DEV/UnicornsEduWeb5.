@@ -3,6 +3,8 @@ jest.mock('../prisma/prisma.service', () => ({
 }));
 
 jest.mock('../staff-ops/staff-operations-access.service', () => ({
+  // Giữ các predicate thuần (#277: `seesClassAsTrainingManager`, ...).
+  ...jest.requireActual('../staff-ops/staff-operations-access.service'),
   StaffOperationsAccessService: class StaffOperationsAccessServiceMock {},
 }));
 
@@ -540,6 +542,50 @@ describe('ClassService', () => {
         page: 1,
         limit: 1,
         trainingManagerStaffId: 'staff-1',
+      });
+    });
+
+    // #277: Trưởng ban Đào tạo thấy mọi lớp (không học phí); scope=managed
+    // vẫn chỉ lớp mình quản lý.
+    it('gives training_head every class without tuition, managed only with scope=managed', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'head-1',
+        roles: [StaffRole.training_head, StaffRole.teacher],
+      });
+      const getClassesSpy = jest
+        .spyOn(service, 'getClasses')
+        .mockResolvedValue({
+          data: [
+            {
+              id: 'class-9',
+              allowancePerSessionPerStudent: 100_000,
+              studentTuitionPerSession: 250_000,
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 20 },
+        } as never);
+
+      const result = await service.getClassesForStaff(
+        'user-1',
+        UserRole.staff,
+        { page: 1, limit: 20 },
+      );
+      expect(getClassesSpy).toHaveBeenLastCalledWith({ page: 1, limit: 20 });
+      expect(result.data[0]).toHaveProperty(
+        'allowancePerSessionPerStudent',
+        100_000,
+      );
+      expect(result.data[0]).not.toHaveProperty('studentTuitionPerSession');
+
+      await service.getClassesForStaff('user-1', UserRole.staff, {
+        page: 1,
+        limit: 20,
+        scope: 'managed',
+      });
+      expect(getClassesSpy).toHaveBeenLastCalledWith({
+        page: 1,
+        limit: 20,
+        trainingManagerStaffId: 'head-1',
       });
     });
   });
@@ -1977,14 +2023,16 @@ describe('ClassService', () => {
     });
 
     const viewAs = async (flags: {
-      mode: 'teacher' | 'training_manager';
+      mode: 'teacher' | 'training_manager' | 'training_head';
       isClassManager: boolean;
+      isTrainingHead?: boolean;
     }) => {
       mockStaffOperationsAccess.resolveClassViewerActor.mockResolvedValue({
         id: 'teacher-actor',
         roles: ['teacher', 'training'],
       });
       mockStaffOperationsAccess.resolveClassAccess.mockResolvedValue({
+        isTrainingHead: false,
         ...flags,
         isAdmin: false,
         isClassTeacher: flags.mode === 'teacher',
@@ -2015,6 +2063,25 @@ describe('ClassService', () => {
       // Vẫn thấy lương các gia sư khác để chỉnh.
       expect(result.teachers[1].customAllowance).toBe(90000);
     });
+
+    it.each([
+      ['Trưởng ban Đào tạo trên lớp không quản lý', 'training_head'],
+      ['Trưởng ban Đào tạo kiêm gia sư lớp', 'teacher'],
+    ] as const)(
+      '%s không thấy học phí, thấy lương mọi gia sư (#277)',
+      async (_l, mode) => {
+        const result = await viewAs({
+          mode,
+          isClassManager: false,
+          isTrainingHead: true,
+        });
+
+        expect(result.studentTuitionPerSession).toBeUndefined();
+        expect(result.tuitionPackageTotal).toBeUndefined();
+        expect(result.students[0].customTuitionPerSession).toBeUndefined();
+        expect(result.teachers[1].customAllowance).toBe(90000);
+      },
+    );
 
     it('gia sư thuần giữ nguyên hành vi cũ (thấy học phí lớp)', async () => {
       const result = await viewAs({ mode: 'teacher', isClassManager: false });

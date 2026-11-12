@@ -30,6 +30,7 @@ describe('StaffOperationsAccessService', () => {
     },
     class: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
     },
   };
 
@@ -274,6 +275,7 @@ describe('StaffOperationsAccessService', () => {
         lockedTeacherId: null,
         isAdmin: true,
         isClassManager: false,
+        isTrainingHead: false,
       });
       expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
     });
@@ -294,6 +296,7 @@ describe('StaffOperationsAccessService', () => {
         lockedTeacherId: null,
         isAdmin: true,
         isClassManager: false,
+        isTrainingHead: false,
       });
       expect(mockPrisma.class.findFirst).not.toHaveBeenCalled();
     });
@@ -331,6 +334,7 @@ describe('StaffOperationsAccessService', () => {
         lockedTeacherId: 'staff-training',
         isAdmin: false,
         isClassManager: true,
+        isTrainingHead: false,
       });
       expect(mockPrisma.class.findFirst).toHaveBeenCalledWith({
         where: { id: 'class-1', trainingManagerStaffId: 'staff-training' },
@@ -354,9 +358,30 @@ describe('StaffOperationsAccessService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    // #276: Trưởng ban Đào tạo chưa có quyền trên lớp không quản lý (#277 mở).
+    // #277: Trưởng ban Đào tạo chỉnh gia sư + lương gia sư trên mọi lớp, khoá
+    // dòng lương của chính mình.
+    it('lets training_head manage teachers on classes they do not manage (#277)', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'staff-head',
+        roles: [StaffRole.training_head],
+      });
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.resolveClassTeacherManagerScope(
+          'user-1',
+          UserRole.staff,
+          'class-2',
+        ),
+      ).resolves.toEqual({
+        lockedTeacherId: 'staff-head',
+        isAdmin: false,
+        isClassManager: false,
+        isTrainingHead: true,
+      });
+    });
+
     it.each([
-      [[StaffRole.training_head]],
       [[StaffRole.accountant_expense]],
       [[StaffRole.accountant_income]],
     ])('rejects %p on classes they do not manage', async (roles) => {
@@ -375,16 +400,22 @@ describe('StaffOperationsAccessService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('canManageClassTeachersAndPay: Admin hoặc Quản lý lớp', () => {
+    it('canManageClassTeachersAndPay: Admin, Quản lý lớp hoặc Trưởng ban Đào tạo', () => {
+      const none = {
+        isAdmin: false,
+        isClassManager: false,
+        isTrainingHead: false,
+      };
+      expect(canManageClassTeachersAndPay({ ...none, isAdmin: true })).toBe(
+        true,
+      );
       expect(
-        canManageClassTeachersAndPay({ isAdmin: true, isClassManager: false }),
+        canManageClassTeachersAndPay({ ...none, isClassManager: true }),
       ).toBe(true);
       expect(
-        canManageClassTeachersAndPay({ isAdmin: false, isClassManager: true }),
+        canManageClassTeachersAndPay({ ...none, isTrainingHead: true }),
       ).toBe(true);
-      expect(
-        canManageClassTeachersAndPay({ isAdmin: false, isClassManager: false }),
-      ).toBe(false);
+      expect(canManageClassTeachersAndPay(none)).toBe(false);
     });
 
     it('rejects plain teachers', async () => {
@@ -468,6 +499,26 @@ describe('StaffOperationsAccessService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
+    // #277: Trưởng ban Đào tạo xem mọi lớp nhưng việc của gia sư (lịch, điểm
+    // danh, nhận xét, tạo buổi) chỉ trên lớp mình quản lý.
+    it('rejects training_head on a class they do not manage (#277)', async () => {
+      staff('head-1', [StaffRole.training_head]);
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.resolveClassWorkAccess('user-1', UserRole.staff, 'class-2'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows training_head on a class they manage (#277)', async () => {
+      staff('head-1', [StaffRole.training_head]);
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+
+      await expect(
+        service.resolveClassWorkAccess('user-1', UserRole.staff, 'class-1'),
+      ).resolves.toMatchObject({ staffId: 'head-1', isClassManager: true });
+    });
+
     it.each([
       StaffRole.accountant_income,
       StaffRole.accountant_expense,
@@ -539,6 +590,7 @@ describe('StaffOperationsAccessService', () => {
         isAdmin: false,
         isClassTeacher: true,
         isClassManager: true,
+        isTrainingHead: false,
       });
     });
 
@@ -554,6 +606,68 @@ describe('StaffOperationsAccessService', () => {
         mode: 'training_manager',
         isClassManager: true,
       });
+    });
+  });
+
+  describe('resolveClassAccess (#277 Trưởng ban Đào tạo)', () => {
+    it('returns training_head mode on a class they neither teach nor manage', async () => {
+      mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'class-2' });
+
+      await expect(
+        service.resolveClassAccess(
+          { id: 'head-1', roles: [StaffRole.training_head] },
+          'class-2',
+        ),
+      ).resolves.toEqual({
+        mode: 'training_head',
+        isAdmin: false,
+        isClassTeacher: false,
+        isClassManager: false,
+        isTrainingHead: true,
+      });
+    });
+
+    it('keeps training_manager mode when the head manages the class', async () => {
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+
+      await expect(
+        service.resolveClassAccess(
+          { id: 'head-1', roles: [StaffRole.training_head] },
+          'class-1',
+        ),
+      ).resolves.toMatchObject({
+        mode: 'training_manager',
+        isClassManager: true,
+        isTrainingHead: true,
+      });
+    });
+
+    it('returns 404 when the class does not exist', async () => {
+      mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockPrisma.class.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.resolveClassAccess(
+          { id: 'head-1', roles: [StaffRole.training_head] },
+          'missing',
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('still 404s plain training staff on classes they do not manage', async () => {
+      mockPrisma.classTeacher.findUnique.mockResolvedValue(null);
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockPrisma.class.findUnique.mockResolvedValue({ id: 'class-2' });
+
+      await expect(
+        service.resolveClassAccess(
+          { id: 'training-1', roles: [StaffRole.training] },
+          'class-2',
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

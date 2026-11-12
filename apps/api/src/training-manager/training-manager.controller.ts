@@ -68,7 +68,7 @@ export class TrainingManagerController {
   @ApiOperation({
     summary: 'Assign class training manager and rate percent',
     description:
-      'Chỉ Admin (#276): giao / gỡ Quản lý lớp và sửa % trợ cấp quản lý lớp. Chỉ kiểm phần thật sự đổi so với giá trị hiện tại.',
+      'Giao / gỡ Quản lý lớp: Admin và Trưởng ban Đào tạo trên mọi lớp (#277). Sửa % trợ cấp quản lý lớp: chỉ Admin (#276). Chỉ kiểm phần thật sự đổi so với giá trị hiện tại (gửi lại % cũ không bị chặn).',
   })
   @ApiParam({ name: 'id', description: 'Class ID' })
   @ApiBody({ description: 'Training manager assignment payload' })
@@ -76,7 +76,7 @@ export class TrainingManagerController {
   @ApiResponse({
     status: 403,
     description:
-      'Không phải Admin: «Chỉ Admin được sửa % trợ cấp quản lý lớp.» / «Chỉ Admin được chỉnh quản lý lớp.»',
+      'Đổi % trợ cấp quản lý lớp khi không phải Admin («Chỉ Admin được sửa % trợ cấp quản lý lớp.»), hoặc giao / gỡ Quản lý lớp khi không phải Admin / Trưởng ban Đào tạo.',
   })
   async updateClassTrainingManager(
     @CurrentUser() user: JwtPayload,
