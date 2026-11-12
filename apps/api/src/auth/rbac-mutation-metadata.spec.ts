@@ -73,12 +73,21 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
     },
   );
 
-  it.each(['updateClassStudents', 'endClass', 'stopClassTeacher'])(
+  it.each(['endClass', 'stopClassTeacher'])(
     'keeps ClassController.%s admin-only',
     (methodName) => {
       expect(getAllowedStaffRoles(ClassController, methodName)).toEqual([]);
     },
   );
+
+  it('#273: thêm/bớt học sinh trong lớp chỉ mở thêm cho Trưởng phòng Sale & CSKH', () => {
+    expect(
+      getAllowedStaffRoles(ClassController, 'updateClassStudents'),
+    ).toEqual([StaffRole.sale_customer_care_head]);
+    expect(
+      getAllowedStaffRoles(StudentController, 'updateStudentClasses'),
+    ).toEqual([StaffRole.sale_customer_care_head]);
+  });
 
   it('allows assistant and customer care on student status/profile actions', () => {
     for (const methodName of [

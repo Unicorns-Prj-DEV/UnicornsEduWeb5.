@@ -60,6 +60,7 @@ describe('ClassService', () => {
     class: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
     classTeacher: {
@@ -199,6 +200,8 @@ describe('ClassService', () => {
       updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     });
     mockTx.class.update.mockResolvedValue({ id: 'class-1' });
+    // #273: mặc định lớp đã có học phí → không chặn test cũ.
+    mockTx.class.findMany.mockResolvedValue([]);
     mockTx.classTeacher.findMany.mockResolvedValue([]);
     mockTx.classTeacher.deleteMany.mockResolvedValue({ count: 1 });
     mockTx.classTeacher.createMany.mockResolvedValue({ count: 1 });
@@ -1875,6 +1878,209 @@ describe('ClassService', () => {
       ).rejects.toThrow('Học sinh đang ở trạng thái nghỉ học.');
 
       expect(mockTx.studentClass.create).not.toHaveBeenCalled();
+    });
+
+    describe('#273 bắt điền học phí lớp khi thêm học sinh đầu tiên', () => {
+      const classTuitionRow = (overrides: Record<string, unknown> = {}) => ({
+        id: 'class-1',
+        name: 'Math 10A',
+        pricingMode: ClassPricingMode.per_session,
+        studentTuitionPerSession: null,
+        studentTuitionPerBlock: null,
+        tuitionPackageTotal: null,
+        tuitionPackageSession: null,
+        ...overrides,
+      });
+      /** Truy vấn học sinh đang học của #273 có `OR` status; còn lại là roster cũ. */
+      const mockRoster = (activeClassIds: string[]) => {
+        mockTx.studentClass.findMany.mockImplementation((args: any) =>
+          Promise.resolve(
+            args?.where?.OR
+              ? activeClassIds.map((classId) => ({ classId }))
+              : [],
+          ),
+        );
+      };
+
+      it('lớp trống, học phí lớp null → 400 và không thêm học sinh', async () => {
+        mockRoster([]);
+        mockTx.class.findMany.mockResolvedValue([classTuitionRow()]);
+
+        await expect(
+          service.updateClassStudents('class-1', {
+            students: [{ id: 'student-1' }],
+          }),
+        ).rejects.toThrow(
+          'Lớp chưa có học phí. Hãy điền Học phí lớp trước khi thêm học sinh đầu tiên.',
+        );
+        expect(mockTx.studentClass.create).not.toHaveBeenCalled();
+        expect(mockTx.studentClass.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('học sinh có học phí riêng vẫn bị chặn khi lớp chưa có học phí', async () => {
+        mockRoster([]);
+        mockTx.class.findMany.mockResolvedValue([classTuitionRow()]);
+
+        await expect(
+          service.updateClassStudents('class-1', {
+            students: [
+              {
+                id: 'student-1',
+                custom_tuition_package_total: 3600000,
+                custom_tuition_package_session: 12,
+              },
+            ],
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(mockTx.studentClass.create).not.toHaveBeenCalled();
+      });
+
+      it('học phí lớp 0đ tính là đã điền', async () => {
+        mockRoster([]);
+        mockTx.class.findMany.mockResolvedValue([
+          classTuitionRow({ studentTuitionPerSession: 0 }),
+        ]);
+
+        await service.updateClassStudents('class-1', {
+          students: [{ id: 'student-1' }],
+        });
+        expect(mockTx.studentClass.create).toHaveBeenCalledTimes(1);
+      });
+
+      it.each([
+        [
+          'theo buổi',
+          {
+            pricingMode: ClassPricingMode.per_session,
+            studentTuitionPerSession: 250000,
+          },
+        ],
+        [
+          'theo gói buổi',
+          {
+            pricingMode: ClassPricingMode.per_session,
+            tuitionPackageTotal: 3000000,
+            tuitionPackageSession: 12,
+          },
+        ],
+        [
+          'theo 30 phút',
+          {
+            pricingMode: ClassPricingMode.per_block,
+            studentTuitionPerBlock: 80000,
+          },
+        ],
+        [
+          'trọn gói',
+          {
+            pricingMode: ClassPricingMode.one_time,
+            tuitionPackageTotal: 5000000,
+          },
+        ],
+      ])('cho thêm khi lớp đã có học phí %s', async (_label, tuition) => {
+        mockRoster([]);
+        mockTx.class.findMany.mockResolvedValue([classTuitionRow(tuition)]);
+
+        await service.updateClassStudents('class-1', {
+          students: [{ id: 'student-1' }],
+        });
+        expect(mockTx.studentClass.create).toHaveBeenCalledTimes(1);
+      });
+
+      it('trọn gói chỉ có học phí / buổi (thiếu tổng gói) → 400', async () => {
+        mockRoster([]);
+        mockTx.class.findMany.mockResolvedValue([
+          classTuitionRow({
+            pricingMode: ClassPricingMode.one_time,
+            studentTuitionPerSession: 300000,
+          }),
+        ]);
+
+        await expect(
+          service.updateClassStudents('class-1', {
+            students: [{ id: 'student-1' }],
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('lớp đã có học sinh đang học → không áp quy tắc', async () => {
+        mockRoster(['class-1']);
+        mockTx.class.findMany.mockResolvedValue([classTuitionRow()]);
+
+        await service.updateClassStudents('class-1', {
+          students: [{ id: 'student-1' }],
+        });
+        expect(mockTx.class.findMany).not.toHaveBeenCalled();
+        expect(mockTx.studentClass.create).toHaveBeenCalledTimes(1);
+      });
+
+      it('bớt hết học sinh không cần học phí', async () => {
+        mockRoster([]);
+        mockTx.class.findMany.mockResolvedValue([classTuitionRow()]);
+
+        await service.updateClassStudents('class-1', { students: [] });
+        expect(mockTx.class.findMany).not.toHaveBeenCalled();
+      });
+
+      it('PATCH /class: học phí gửi cùng payload được tính (kiểm sau khi ghi lớp)', async () => {
+        mockRoster([]);
+        mockPrisma.class.findUnique.mockResolvedValue({ id: 'class-1' });
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: 'course-basic',
+          tuitionPackageTotal: null,
+          course: { isOneTime: false },
+        });
+        mockTx.class.findMany.mockResolvedValue([
+          classTuitionRow({ studentTuitionPerSession: 0 }),
+        ]);
+
+        await service.updateClass({
+          id: 'class-1',
+          student_tuition_per_session: 0,
+          student_ids: ['student-1'],
+        } as never);
+
+        expect(mockTx.class.findMany).toHaveBeenCalledTimes(1);
+        expect(mockTx.class.update.mock.invocationCallOrder[0]).toBeLessThan(
+          mockTx.class.findMany.mock.invocationCallOrder[0],
+        );
+      });
+
+      it('PATCH /class: lớp trống, không học phí → 400', async () => {
+        mockRoster([]);
+        mockPrisma.class.findUnique.mockResolvedValue({ id: 'class-1' });
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: 'course-basic',
+          tuitionPackageTotal: null,
+          course: { isOneTime: false },
+        });
+        mockTx.class.findMany.mockResolvedValue([classTuitionRow()]);
+
+        await expect(
+          service.updateClass({
+            id: 'class-1',
+            student_ids: ['student-1'],
+          } as never),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('POST /class kèm học sinh mà chưa có học phí → 400 trước khi ghi roster', async () => {
+        mockTx.course.findUnique.mockResolvedValue({
+          id: 'basic-category-id',
+          defaultDurationDays: null,
+        });
+        mockTx.class.findMany.mockResolvedValue([classTuitionRow()]);
+
+        await expect(
+          service.createClass({
+            name: 'Math 10A',
+            course_id: 'basic-category-id',
+            status: ClassStatus.running,
+            student_ids: ['student-1'],
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(mockTx.studentClass.createMany).not.toHaveBeenCalled();
+      });
     });
   });
 

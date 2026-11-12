@@ -182,6 +182,8 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   'ClassController.listMakeupEventsByClassId',
   'ClassController.updateClassStudentTuition',
   'ClassController.updateClassTuition',
+  // #273: thêm/bớt học sinh trong lớp (Admin + Trưởng phòng).
+  'ClassController.updateClassStudents',
   // Gửi thông báo.
   'NotificationController.createNotificationDraft',
   'NotificationController.deleteNotification',
@@ -227,6 +229,8 @@ const SALE_CS_HEAD_CLASS_ROUTES = [
   'listMakeupEventsByClassId',
   'updateClassTuition',
   'updateClassStudentTuition',
+  // #273: thêm/bớt học sinh trong lớp.
+  'updateClassStudents',
 ] as const;
 
 const asStaff = (
@@ -449,6 +453,55 @@ describe('Admin routes deny-by-default (#267)', () => {
         await expect(asAdmin(ClassController, methodName)).resolves.toBe(true);
       },
     );
+  });
+
+  describe('#273 thêm/bớt học sinh trong lớp: chỉ Admin + Trưởng phòng', () => {
+    const rosterRoutes: [ControllerClass, string][] = [
+      [ClassController, 'updateClassStudents'],
+      [StudentController, 'updateStudentClasses'],
+    ];
+    const otherRoles: [string, StaffRole[]][] = [
+      ['Quản lý lớp / Đào tạo', [StaffRole.training]],
+      ['Trưởng ban Đào tạo', [StaffRole.training_head]],
+      ['Kế toán thu', [StaffRole.accountant_income]],
+      ['Kế toán chi', [StaffRole.accountant_expense]],
+      ['CSKH', [StaffRole.customer_care]],
+      ['Gia sư', [StaffRole.teacher]],
+      [
+        'kiêm nhiều role (trừ Trưởng phòng)',
+        [
+          StaffRole.training_head,
+          StaffRole.training,
+          StaffRole.customer_care,
+          StaffRole.accountant_income,
+        ],
+      ],
+    ];
+
+    it.each(rosterRoutes)(
+      'Admin vào được %p.%s',
+      async (controller, methodName) => {
+        await expect(asAdmin(controller, methodName)).resolves.toBe(true);
+      },
+    );
+
+    it.each(rosterRoutes)(
+      'Trưởng phòng vào được %p.%s',
+      async (controller, methodName) => {
+        await expect(asAssistant(controller, methodName)).resolves.toBe(true);
+      },
+    );
+
+    describe.each(otherRoles)('%s', (_label, staffRoles) => {
+      it.each(rosterRoutes)(
+        'bị 403 ở %p.%s',
+        async (controller, methodName) => {
+          await expect(
+            asStaff(controller, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
   });
 
   describe('nạp thẳng số dương vào ví học sinh', () => {

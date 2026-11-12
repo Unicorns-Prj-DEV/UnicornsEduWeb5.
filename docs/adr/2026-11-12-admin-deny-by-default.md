@@ -6,6 +6,8 @@
 
 > **Ghi chú #272 (Thông tin lớp / Học phí lớp):** mở lại cho Trưởng phòng Sale & CSKH các route admin đọc lớp — `GET /class`, `GET /class/:id`, `GET /class/:id/students`, `GET /class/:id/makeup-events` (cùng Kế toán thu/chi) — và route sửa `PATCH /class/:id/tuition` (Học phí lớp, cùng Admin), `PATCH /class/:id/student-tuition` (học phí riêng học sinh, cùng Kế toán thu). Response lọc qua `resolveAdminClassFinanceView`: Trưởng phòng không thấy lương gia sư. Đồng thời vá lỗ `PATCH /class` (trước kế thừa Kế toán thu/chi từ cấp controller) và `basic-info` thành chỉ Admin. Allowlist trong `admin-deny-by-default.spec.ts` cập nhật theo. Xem `docs/api/class-info-tuition.md`.
 
+> **Ghi chú #273 (thêm/bớt học sinh):** mở `PATCH /class/:id/students` cho Trưởng phòng Sale & CSKH (cùng `PATCH /student/:id/classes` đã có). Allowlist thêm `ClassController.updateClassStudents`; test từ chối mọi role khác (Quản lý lớp, Trưởng ban Đào tạo, Kế toán thu/chi, CSKH, gia sư). `POST /class` / `PATCH /class` có `student_ids` vẫn chỉ Admin.
+
 - **Status:** Accepted (#267)
 - **Thay thế:** `docs/adr/2026-06-02-explicit-admin-mirror-rbac.md`
 

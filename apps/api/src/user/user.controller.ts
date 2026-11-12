@@ -158,7 +158,8 @@ export class UserController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation error or email/handle exists.',
+    description:
+      'Validation error or email/handle exists, hoặc xếp vào lớp đang trống chưa có Học phí lớp (#273).',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({

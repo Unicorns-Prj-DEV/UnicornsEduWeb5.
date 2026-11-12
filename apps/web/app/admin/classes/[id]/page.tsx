@@ -79,6 +79,10 @@ import {
 } from "@/lib/class-detail-tabs";
 import { useClassDetailTab } from "@/hooks/use-class-detail-tab";
 import { cn } from "@/lib/utils";
+import {
+  CLASS_TUITION_REQUIRED_MESSAGE,
+  needsClassTuitionBeforeFirstStudent,
+} from "@/lib/class-first-student-tuition";
 import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
 
@@ -161,6 +165,9 @@ export default function AdminClassDetailPage() {
   const [teachersPopupOpen, setTeachersPopupOpen] = useState(false);
   const [schedulePopupOpen, setSchedulePopupOpen] = useState(false);
   const [studentsPopupOpen, setStudentsPopupOpen] = useState(false);
+  /** #273: popup Học phí lớp mở trước khi thêm học sinh đầu tiên. */
+  const [tuitionRequiredForFirstStudent, setTuitionRequiredForFirstStudent] =
+    useState(false);
   const [selectedTuitionStudent, setSelectedTuitionStudent] =
     useState<ClassStudent | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -222,8 +229,8 @@ export default function AdminClassDetailPage() {
   /** POST /sessions chỉ Admin trên route admin; giữ CTA khớp backend. */
   const canCreateSession = isAdmin;
   const canManageSurveys = isAdmin;
-  /** PATCH /class/:id/students chỉ Admin; giữ CTA roster khớp backend. */
-  const canManageClassStudents = isAdmin;
+  /** Thêm/bớt học sinh (PATCH /class/:id/students): Admin + Trưởng phòng (#273). */
+  const canManageClassStudents = isAdmin || isSaleCsHead;
   /** Học phí riêng của học sinh: Admin, Trưởng phòng, Kế toán thu (#272). */
   const canManageStudentTuition =
     showStudentTuitionColumn &&
@@ -438,6 +445,25 @@ export default function AdminClassDetailPage() {
     [classStudents],
   );
   const totalSessionTuition = classDetail?.sessionTuitionTotal ?? 0;
+
+  /**
+   * #273: lớp chưa có học sinh đang học + chưa có Học phí lớp → mở popup Học phí lớp
+   * trước, lưu xong mới mở popup thêm học sinh (backend vẫn chặn 400 nếu bỏ qua).
+   */
+  const openClassStudentsPopup = () => {
+    if (
+      classDetail &&
+      canManageClassStudents &&
+      canEditClassTuition &&
+      needsClassTuitionBeforeFirstStudent(classDetail, activeClassStudents.length)
+    ) {
+      toast.info(CLASS_TUITION_REQUIRED_MESSAGE);
+      setTuitionRequiredForFirstStudent(true);
+      setTuitionPopupOpen(true);
+      return;
+    }
+    setStudentsPopupOpen(true);
+  };
 
   const activeSurveyStudents = useMemo(
     () =>
@@ -740,8 +766,20 @@ export default function AdminClassDetailPage() {
       {canEditClassTuition ? (
         <EditClassTuitionPopup
           open={tuitionPopupOpen}
-          onClose={() => setTuitionPopupOpen(false)}
+          onClose={() => {
+            setTuitionPopupOpen(false);
+            setTuitionRequiredForFirstStudent(false);
+          }}
           classDetail={classDetail}
+          requiredBeforeFirstStudent={tuitionRequiredForFirstStudent}
+          onSaved={
+            tuitionRequiredForFirstStudent
+              ? () => {
+                  setTuitionRequiredForFirstStudent(false);
+                  setStudentsPopupOpen(true);
+                }
+              : undefined
+          }
         />
       ) : null}
       {canEditTeacherRoster ? (
@@ -915,7 +953,10 @@ export default function AdminClassDetailPage() {
           <ClassTuitionCard
             classDetail={classDetail}
             canEdit={canEditClassTuition}
-            onEdit={() => setTuitionPopupOpen(true)}
+            onEdit={() => {
+              setTuitionRequiredForFirstStudent(false);
+              setTuitionPopupOpen(true);
+            }}
           />
         ) : null}
 
@@ -927,7 +968,7 @@ export default function AdminClassDetailPage() {
             canOpenClassStudentsPopup ? (
               <button
                 type="button"
-                onClick={() => setStudentsPopupOpen(true)}
+                onClick={openClassStudentsPopup}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
               >
                 Chỉnh sửa

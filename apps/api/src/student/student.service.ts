@@ -26,6 +26,10 @@ import {
   WalletTransactionType,
 } from 'generated/enums';
 import { Prisma } from '../../generated/client';
+import {
+  assertClassTuitionBeforeFirstStudent,
+  findClassIdsWithoutActiveStudents,
+} from 'src/common/class-first-student-tuition';
 import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
 import {
   CreateStudentSePayTopUpOrderDto,
@@ -2824,6 +2828,15 @@ export class StudentService {
     );
     const classIdsToAdd = classIds.filter(
       (classId) => !existingClassIds.has(classId),
+    );
+    // #273: lớp đang trống nhận học sinh đầu tiên → lớp phải có học phí.
+    // Thao tác này không ghi học phí lớp nên kiểm trước transaction.
+    await assertClassTuitionBeforeFirstStudent(
+      this.prisma,
+      await findClassIdsWithoutActiveStudents(this.prisma, [
+        ...classIdsToAdd,
+        ...classIdsToActivate,
+      ]),
     );
 
     const beforeValue = auditActor

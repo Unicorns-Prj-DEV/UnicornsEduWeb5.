@@ -9,6 +9,10 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
 import {
+  assertClassTuitionBeforeFirstStudent,
+  findClassIdsWithoutActiveStudents,
+} from 'src/common/class-first-student-tuition';
+import {
   generateStudentId,
   generateStaffId,
   isEntityIdUniqueConstraintError,
@@ -548,6 +552,11 @@ export class UserService {
       if (classes.length !== classIds.length) {
         throw new NotFoundException('One or more classes not found');
       }
+      // #273: xếp vào lớp đang trống = học sinh đầu tiên → lớp phải có học phí.
+      await assertClassTuitionBeforeFirstStudent(
+        this.prisma,
+        await findClassIdsWithoutActiveStudents(this.prisma, classIds),
+      );
     }
 
     const response =

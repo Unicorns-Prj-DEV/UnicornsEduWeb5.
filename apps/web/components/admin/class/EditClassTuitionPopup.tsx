@@ -45,6 +45,12 @@ type Props = {
   open: boolean;
   onClose: () => void;
   classDetail: ClassDetail;
+  /**
+   * #273: mở từ luồng thêm học sinh đầu tiên vào lớp chưa có học phí — bắt
+   * buộc điền (0đ tính là đã điền) và gọi `onSaved` để mở tiếp popup học sinh.
+   */
+  requiredBeforeFirstStudent?: boolean;
+  onSaved?: () => void;
 };
 
 /**
@@ -52,13 +58,18 @@ type Props = {
  * lớp tính theo block. Admin và Trưởng phòng Sale & CSKH sửa — tách khỏi
  * Thông tin lớp (chỉ Admin).
  */
-export default function EditClassTuitionPopup({ open, onClose, classDetail }: Props) {
+export default function EditClassTuitionPopup({ open, ...props }: Props) {
   if (!open) return null;
   // Mount lại mỗi lần mở để form lấy số mới nhất của lớp.
-  return <EditClassTuitionForm onClose={onClose} classDetail={classDetail} />;
+  return <EditClassTuitionForm {...props} />;
 }
 
-function EditClassTuitionForm({ onClose, classDetail }: Omit<Props, "open">) {
+function EditClassTuitionForm({
+  onClose,
+  classDetail,
+  requiredBeforeFirstStudent = false,
+  onSaved,
+}: Omit<Props, "open">) {
   const queryClient = useQueryClient();
   const pricingMode = classDetail.pricingMode ?? "per_session";
   const standardBlockCount = standardBlockCountFromClassSchedule(classDetail.schedule ?? []);
@@ -95,6 +106,7 @@ function EditClassTuitionForm({ onClose, classDetail }: Omit<Props, "open">) {
         queryClient.invalidateQueries({ queryKey: ["class", "detail", classDetail.id] }),
         queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
       ]);
+      onSaved?.();
     },
     onError: (error: unknown) => {
       toast.error(getMutationErrorMessage(error, "Không thể cập nhật học phí lớp."));
@@ -113,7 +125,7 @@ function EditClassTuitionForm({ onClose, classDetail }: Omit<Props, "open">) {
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (mutation.isPending) return;
-    if (!isDirty) {
+    if (!isDirty && !requiredBeforeFirstStudent) {
       onClose();
       return;
     }
@@ -136,6 +148,10 @@ function EditClassTuitionForm({ onClose, classDetail }: Omit<Props, "open">) {
       mode: pricingMode,
       displayedAmount: parseOptionalMoneyInt(perBlockInput),
     });
+    if (requiredBeforeFirstStudent && pkg.mode === "empty" && perBlock == null) {
+      toast.error("Hãy điền Học phí lớp (nhập 0đ nếu học miễn phí) trước khi thêm học sinh đầu tiên.");
+      return;
+    }
     const payload: UpdateClassTuitionPayload =
       pkg.mode === "empty"
         ? {}
@@ -176,7 +192,9 @@ function EditClassTuitionForm({ onClose, classDetail }: Omit<Props, "open">) {
                 Học phí lớp
               </h2>
               <p id={DESCRIPTION_ID} className="mt-1 text-sm text-text-secondary">
-                Học phí chung của lớp. Học sinh có học phí riêng giữ nguyên số riêng.
+                {requiredBeforeFirstStudent
+                  ? "Lớp chưa có học phí. Điền Học phí lớp trước khi thêm học sinh đầu tiên — 0đ vẫn tính là đã điền, học phí riêng của học sinh không thay được học phí lớp."
+                  : "Học phí chung của lớp. Học sinh có học phí riêng giữ nguyên số riêng."}
               </p>
             </div>
 
@@ -233,7 +251,11 @@ function EditClassTuitionForm({ onClose, classDetail }: Omit<Props, "open">) {
               disabled={mutation.isPending}
               className={classEditorModalPrimaryButtonClassName}
             >
-              {mutation.isPending ? "Đang lưu..." : "Lưu"}
+              {mutation.isPending
+                ? "Đang lưu..."
+                : requiredBeforeFirstStudent
+                  ? "Lưu và thêm học sinh"
+                  : "Lưu"}
             </button>
           </ResponsiveActionFooter>
         </form>

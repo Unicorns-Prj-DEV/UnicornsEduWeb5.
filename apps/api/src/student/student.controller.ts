@@ -622,8 +622,17 @@ export class StudentController {
     description: 'Student class membership payload',
   })
   @ApiResponse({ status: 200, description: 'Student classes updated.' })
-  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, hoặc lớp đang trống chưa có Học phí lớp (#273): «Lớp chưa có học phí. Hãy điền Học phí lớp trước khi thêm học sinh đầu tiên.»',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Chỉ Admin và Trưởng phòng Sale & CSKH (#273).',
+  })
   @ApiResponse({ status: 404, description: 'Student or class not found.' })
+  // #273: thêm/bớt học sinh trong lớp — Admin + Trưởng phòng Sale & CSKH.
   @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async updateStudentClasses(
     @CurrentUser() user: JwtPayload,

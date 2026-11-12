@@ -373,15 +373,25 @@ export class ClassController {
   @Patch(':id/students')
   @ApiOperation({
     summary: 'Update class students',
-    description: 'Replace the list of students in the class.',
+    description:
+      'Replace the list of students in the class (thêm/bớt học sinh). Admin + Trưởng phòng Sale & CSKH (#273). ' +
+      'Lớp đang chưa có học sinh đang học mà chưa có Học phí lớp theo cách thu đang chọn → 400 (0đ tính là đã điền; học phí riêng của học sinh không thay được).',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: UpdateClassStudentsDto })
   @ApiResponse({ status: 200, description: 'Class updated.' })
-  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, hoặc «Lớp chưa có học phí. Hãy điền Học phí lớp trước khi thêm học sinh đầu tiên.»',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Chỉ Admin và Trưởng phòng Sale & CSKH.',
+  })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // #273: thêm/bớt học sinh trong lớp — Admin + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async updateClassStudents(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,
@@ -640,7 +650,11 @@ export class ClassController {
   })
   @ApiBody({ type: CreateClassDto, description: 'Class create payload' })
   @ApiResponse({ status: 201, description: 'Class created.' })
-  @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, hoặc có student_ids mà lớp chưa có học phí theo cách thu (#273).',
+  })
   // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
   @AllowStaffRolesOnAdminRoutes()
   async createClass(

@@ -267,6 +267,69 @@ describe('UserService', () => {
       expect(mockPrisma.customerCareService.upsert).not.toHaveBeenCalled();
     });
 
+    describe('#273 xếp lớp khi tạo học sinh', () => {
+      const adminActor = {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: UserRole.admin,
+      };
+      const classRow = (overrides: Record<string, unknown> = {}) => ({
+        id: 'class-1',
+        name: 'Toán 10A',
+        pricingMode: 'per_session',
+        studentTuitionPerSession: null,
+        studentTuitionPerBlock: null,
+        tuitionPackageTotal: null,
+        tuitionPackageSession: null,
+        ...overrides,
+      });
+
+      it('lớp trống chưa có học phí → 400, không tạo tài khoản', async () => {
+        mockPrisma.class.findMany.mockResolvedValue([classRow()]);
+        mockPrisma.studentClass.findMany.mockResolvedValue([]);
+
+        await expect(
+          service.createStudentUser(
+            { ...payload, class_ids: ['class-1'] },
+            adminActor,
+          ),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(
+          authService.createPendingUserWithVerificationEmail,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('lớp trống có học phí 0đ → tạo được', async () => {
+        mockPrisma.class.findMany.mockResolvedValue([
+          classRow({ studentTuitionPerSession: 0 }),
+        ]);
+        mockPrisma.studentClass.findMany.mockResolvedValue([]);
+
+        await service.createStudentUser(
+          { ...payload, class_ids: ['class-1'] },
+          adminActor,
+        );
+        expect(
+          authService.createPendingUserWithVerificationEmail,
+        ).toHaveBeenCalled();
+      });
+
+      it('lớp đã có học sinh đang học → không áp quy tắc', async () => {
+        mockPrisma.class.findMany.mockResolvedValue([classRow()]);
+        mockPrisma.studentClass.findMany.mockResolvedValue([
+          { classId: 'class-1' },
+        ]);
+
+        await service.createStudentUser(
+          { ...payload, class_ids: ['class-1'] },
+          adminActor,
+        );
+        expect(
+          authService.createPendingUserWithVerificationEmail,
+        ).toHaveBeenCalled();
+      });
+    });
+
     it('does not look up staff when an admin creates a student', async () => {
       await service.createStudentUser(payload, {
         userId: 'admin-1',

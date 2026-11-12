@@ -78,6 +78,10 @@ import {
 } from 'src/common/class-pricing-mode.util';
 import { findOneTimeChargedStudentIds } from 'src/common/one-time-charge.util';
 import {
+  assertClassTuitionBeforeFirstStudent,
+  findClassIdsWithoutActiveStudents,
+} from 'src/common/class-first-student-tuition';
+import {
   dualWritePerBlockClassFields,
   perSessionToPerBlock,
   presentCustomAllowanceAsPerSession,
@@ -1632,6 +1636,9 @@ export class ClassService {
       }
 
       if (data.student_ids && data.student_ids.length > 0) {
+        // #273: lớp mới luôn trống → học sinh đầu tiên cần học phí lớp (điền
+        // ngay trong payload tạo lớp cũng được).
+        await assertClassTuitionBeforeFirstStudent(tx, [createdClass.id]);
         await tx.studentClass.createMany({
           data: data.student_ids.map((studentId) => ({
             classId: createdClass.id,
@@ -1725,6 +1732,12 @@ export class ClassService {
       let removedScheduleEntries = 0;
       let oldSchedule: StoredClassScheduleEntry[] = [];
       let removedTeacherIds: string[] = [];
+      // #273: lớp đang trống mà payload thêm học sinh → kiểm học phí sau khi
+      // ghi lớp (học phí gửi cùng payload được tính).
+      const firstStudentClassIds =
+        data.student_ids !== undefined && data.student_ids.length > 0
+          ? await findClassIdsWithoutActiveStudents(tx, [data.id])
+          : [];
 
       if (teacherPayload !== null) {
         await this.assertActiveStaffIds(
@@ -1894,6 +1907,7 @@ export class ClassService {
           }),
         },
       });
+      await assertClassTuitionBeforeFirstStudent(tx, firstStudentClassIds);
 
       const classRecord = await tx.classTeacher.findMany({
         where: {
@@ -3299,6 +3313,13 @@ export class ClassService {
         : null;
       const standardBlockCount = await this.loadStandardBlockCount(tx, id);
       await this.assertActiveStudentIds(tx, normalizedStudentIds);
+      // #273: học sinh đầu tiên (kể cả có học phí riêng) cần học phí lớp.
+      if (normalizedStudentIds.length > 0) {
+        await assertClassTuitionBeforeFirstStudent(
+          tx,
+          await findClassIdsWithoutActiveStudents(tx, [id]),
+        );
+      }
 
       const existingStudentClasses = await tx.studentClass.findMany({
         where: { classId: id },
