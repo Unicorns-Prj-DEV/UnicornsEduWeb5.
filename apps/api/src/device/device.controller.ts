@@ -19,7 +19,6 @@ import {
 import { UserRole } from 'generated/enums';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
-import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
 import {
   CurrentUser,
   type JwtPayload,
@@ -36,7 +35,6 @@ import { DeviceService } from './device.service';
   StaffRole.customer_care,
   SALE_CS_HEAD_ROLE,
 )
-@AllowAssistantOnAdminRoutes()
 export class DeviceController {
   constructor(private readonly deviceService: DeviceService) {}
 
@@ -105,7 +103,7 @@ export class DeviceController {
   @Delete('cleanup-expired')
   @HttpCode(HttpStatus.OK)
   // Dọn thiết bị toàn hệ thống: không cho CSKH (chỉ admin + trợ lí).
-  @AllowStaffRolesOnAdminRoutes(StaffRole.admin, SALE_CS_HEAD_ROLE)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.admin)
   @ApiOperation({
     summary: 'Dọn dẹp thiết bị hết hạn',
     description:

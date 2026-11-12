@@ -1,4 +1,3 @@
-import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ConflictException,
@@ -956,8 +955,8 @@ export class AuthService {
   /**
    * Admin/trợ lí đặt mật khẩu mới cho user khác (không cần mật khẩu cũ).
    * Thu hồi mọi thiết bị + refresh token của user đích để buộc đăng nhập lại.
-   * Trợ lí (không phải admin đầy đủ) không được đặt mật khẩu cho tài khoản
-   * admin/trợ lí khác, tránh leo thang quyền qua chiếm tài khoản.
+   * #267: Trợ lí (không phải admin đầy đủ) chỉ được đặt mật khẩu cho tài khoản
+   * học sinh — quản lý tài khoản staff/admin là quyền chỉ Admin.
    */
   async adminSetUserPassword(
     targetUserId: string,
@@ -970,7 +969,6 @@ export class AuthService {
         select: {
           id: true,
           roleType: true,
-          staffInfo: { select: { roles: true } },
         },
       }),
       this.prisma.staffInfo.findUnique({
@@ -986,15 +984,10 @@ export class AuthService {
     const actorIsFullAdmin =
       actor.roleType === UserRole.admin ||
       (actorStaff?.roles ?? []).includes(StaffRole.admin);
-    const targetRoles = target.staffInfo?.roles ?? [];
-    const targetIsPrivileged =
-      target.roleType === UserRole.admin ||
-      targetRoles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(targetRoles);
 
-    if (!actorIsFullAdmin && targetIsPrivileged && target.id !== actor.userId) {
+    if (!actorIsFullAdmin && target.roleType !== UserRole.student) {
       throw new ForbiddenException(
-        'Trợ lí không được đổi mật khẩu của tài khoản admin/trợ lí.',
+        'Trợ lí chỉ được đặt mật khẩu cho tài khoản học sinh.',
       );
     }
 

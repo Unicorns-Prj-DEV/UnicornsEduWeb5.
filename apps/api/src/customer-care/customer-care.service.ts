@@ -184,9 +184,9 @@ export class CustomerCareService {
       return false;
     }
 
+    // #267: thanh toán hoa hồng CSKH là việc trả lương → Trợ lí không còn quyền.
     return (
       staff.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
     );

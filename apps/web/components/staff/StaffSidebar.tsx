@@ -41,6 +41,8 @@ type MenuVisibility = {
   hasManagedClasses: boolean;
   isAccountant: boolean;
   isAccountantIncome: boolean;
+  /** Trợ lí (#267): chỉ Học sinh (kèm ví) và Soạn thông báo. */
+  isAssistant: boolean;
   isAccountantExpense: boolean;
   isCommunication: boolean;
   isTechnical: boolean;
@@ -126,7 +128,8 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       label: "Học sinh",
       icon: <IconStudents />,
       isActive: (pathname) => pathname.startsWith("/staff/students"),
-      isVisible: ({ isAccountantIncome }) => isAccountantIncome,
+      isVisible: ({ isAccountantIncome, isAssistant }) =>
+        isAccountantIncome || isAssistant,
     },
     {
       href: "/staff/calendar",
@@ -192,6 +195,13 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isVisible: ({ canComposeNotifications }) => canComposeNotifications,
     },
     {
+      href: "/staff/assistant-detail",
+      label: "Trợ lí",
+      icon: <IconOperations />,
+      isActive: (pathname) => pathname.startsWith("/staff/assistant-detail"),
+      isVisible: ({ isAssistant }) => isAssistant,
+    },
+    {
       href: "/staff/communication-detail",
       label: "Truyền thông",
       icon: <IconCommunication />,
@@ -235,7 +245,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     },
   ];
 
-function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
+function buildAdminMirrorMenuItems(ownStaffId: string): MenuItem[] {
   const ownStaffDetailHref = ownStaffId
     ? `/staff/staffs/${encodeURIComponent(ownStaffId)}`
     : "";
@@ -592,7 +602,6 @@ export default function StaffSidebar() {
     lessonWorkspace.isLessonPlan || lessonWorkspace.isLessonPlanHead;
   const canAccessSurveys =
     isFullAdmin ||
-    isAssistant ||
     lessonWorkspace.isLessonPlan ||
     lessonWorkspace.isLessonPlanHead;
   const isCommunication = staffRoles.includes("communication");
@@ -604,9 +613,10 @@ export default function StaffSidebar() {
     staffRoles,
     isFullAdmin,
   );
-  const baseMenuItems = isFullAdmin || isAssistant
+  // #267: chỉ Admin còn menu mirror quản trị; Trợ lí dùng menu staff mặc định.
+  const baseMenuItems = isFullAdmin
     ? [
-        ...buildAssistantMenuItems(fullProfile?.staffInfo?.id ?? ""),
+        ...buildAdminMirrorMenuItems(fullProfile?.staffInfo?.id ?? ""),
         ...DEFAULT_MENU_ITEMS.filter((item) => item.href !== "/staff/profile"),
       ]
     : DEFAULT_MENU_ITEMS;
@@ -625,6 +635,7 @@ export default function StaffSidebar() {
     isAccountant,
     isAccountantIncome,
     isAccountantExpense,
+    isAssistant,
     isCommunication,
     isTechnical,
     isSale,

@@ -335,6 +335,47 @@ describe('CustomerCareService', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it('rejects bulk payment updates for assistant staff (#267)', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'assistant-staff',
+      roles: [StaffRole.assistant],
+    });
+
+    await expect(
+      service.bulkUpdateCommissionPaymentStatus(
+        'assistant-user',
+        UserRole.staff,
+        'staff-1',
+        ['attendance-1'],
+        PaymentStatus.paid,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('still allows bulk payment updates for accountant_income staff (#267)', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'accountant-staff',
+      roles: [StaffRole.accountant_income],
+    });
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
+    mockPrisma.attendance.findMany.mockResolvedValue([
+      { id: 'attendance-1', customerCarePaymentStatus: PaymentStatus.pending },
+    ]);
+    mockPrisma.attendance.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      service.bulkUpdateCommissionPaymentStatus(
+        'accountant-user',
+        UserRole.staff,
+        'staff-1',
+        ['attendance-1'],
+        PaymentStatus.paid,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ staffId: 'staff-1' }));
+  });
+
   it('bulk updates only customer-care attendances that change status', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
     mockPrisma.attendance.findMany.mockResolvedValue([

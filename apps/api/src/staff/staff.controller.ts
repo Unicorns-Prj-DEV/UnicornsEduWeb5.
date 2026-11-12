@@ -75,7 +75,7 @@ import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-conte
 @Controller('staff')
 @ApiTags('staff')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
+@AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
 @Roles(UserRole.admin)
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
@@ -753,7 +753,6 @@ export class StaffController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create staff',
     description: 'Create a new staff record.',
@@ -762,6 +761,8 @@ export class StaffController {
   @ApiResponse({ status: 201, description: 'Staff created.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
+  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
+  @AllowStaffRolesOnAdminRoutes()
   async createStaff(
     @CurrentUser() user: JwtPayload,
     @Body() data: CreateStaffDto,
@@ -785,7 +786,6 @@ export class StaffController {
   }
 
   @Patch()
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update staff',
     description: 'Update a staff record.',
@@ -797,6 +797,8 @@ export class StaffController {
   @ApiResponse({ status: 200, description: 'Staff updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
+  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
+  @AllowStaffRolesOnAdminRoutes()
   async updateStaff(
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateStaffDto,
@@ -820,7 +822,6 @@ export class StaffController {
   }
 
   @Patch(':id/with-fixed-salary-overrides')
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update staff roles and fixed-salary overrides together',
     description:
@@ -842,6 +843,8 @@ export class StaffController {
       'Validation error, override for a role not in the payload roles list, or duplicate roleType.',
   })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
+  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
+  @AllowStaffRolesOnAdminRoutes()
   async updateStaffWithFixedSalaryOverrides(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStaffIdPipe()) id: string,
@@ -869,7 +872,8 @@ export class StaffController {
   @Patch(':id/training-roles')
   @Roles(UserRole.staff)
   @ApiOperation({
-    summary: 'Trưởng ban Đào tạo bật/tắt role gia sư / Ban Chuyên môn / Đào Tạo',
+    summary:
+      'Trưởng ban Đào tạo bật/tắt role gia sư / Ban Chuyên môn / Đào Tạo',
     description:
       'Chỉ staff active có role training_head. Body là trạng thái đích của 3 role teacher / lesson_plan / training; role khác của nhân sự giữ nguyên. 403 nếu body có role ngoài 3 role này, nếu target có admin / assistant / training_head, hoặc target là chính mình. Role bị tắt: mức đè lương cứng / % vận hành của role đó bị xoá và ghi action_history; khoản đã chốt/đã trả không đổi; không cascade lớp dạy, quản lý lớp, đội chuyên môn. Response chỉ có id + roles (không tiền, không PII).',
   })
@@ -896,7 +900,6 @@ export class StaffController {
   }
 
   @Patch(':id/status')
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update staff operational status',
     description:
@@ -910,6 +913,8 @@ export class StaffController {
   @ApiResponse({ status: 200, description: 'Staff status updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
+  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
+  @AllowStaffRolesOnAdminRoutes()
   async updateStaffStatus(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStaffIdPipe()) id: string,
@@ -945,7 +950,6 @@ export class StaffController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete staff',
     description: 'Delete a staff record by id.',
@@ -953,6 +957,8 @@ export class StaffController {
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiResponse({ status: 200, description: 'Staff deleted.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
+  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
+  @AllowStaffRolesOnAdminRoutes()
   async deleteStaff(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStaffIdPipe()) id: string,

@@ -91,7 +91,7 @@ describe('StaffOperationsAccessService', () => {
       ),
     ).rejects.toThrow(
       new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho teacher, Đào Tạo, trợ lí, kế toán, hoặc staff admin.',
+        'Màn /staff hiện chỉ mở cho teacher, Đào Tạo, kế toán, hoặc staff admin.',
       ),
     );
   });
@@ -112,16 +112,28 @@ describe('StaffOperationsAccessService', () => {
 
   it('allows elevated non-teacher staff roles for staff operations', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'accountant-1',
+      roles: [StaffRole.accountant_income],
+    });
+
+    await expect(
+      service.resolveActor('accountant-user', UserRole.staff),
+    ).resolves.toEqual({
+      id: 'accountant-1',
+      roles: [StaffRole.accountant_income],
+    });
+  });
+
+  // #267: Trợ lí không còn quyền lớp ở staff workspace.
+  it('rejects assistant-only staff for class staff operations', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'assistant-1',
       roles: [StaffRole.assistant],
     });
 
     await expect(
       service.resolveActor('assistant-user', UserRole.staff),
-    ).resolves.toEqual({
-      id: 'assistant-1',
-      roles: [StaffRole.assistant],
-    });
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('returns teacher actor when the staff profile is eligible', async () => {
@@ -257,7 +269,24 @@ describe('StaffOperationsAccessService', () => {
       expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
     });
 
-    it('gives assistant staff full scope', async () => {
+    it('gives staff admin full scope', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'staff-admin',
+        roles: [StaffRole.admin],
+      });
+
+      await expect(
+        service.resolveClassTeacherManagerScope(
+          'user-1',
+          UserRole.staff,
+          'class-1',
+        ),
+      ).resolves.toEqual({ lockedTeacherId: null });
+      expect(mockPrisma.class.findFirst).not.toHaveBeenCalled();
+    });
+
+    // #267: Trợ lí không còn chỉnh gia sư của lớp.
+    it('rejects assistant staff', async () => {
       mockPrisma.staffInfo.findFirst.mockResolvedValue({
         id: 'staff-assistant',
         roles: [StaffRole.assistant],
@@ -269,8 +298,7 @@ describe('StaffOperationsAccessService', () => {
           UserRole.staff,
           'class-1',
         ),
-      ).resolves.toEqual({ lockedTeacherId: null });
-      expect(mockPrisma.class.findFirst).not.toHaveBeenCalled();
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('locks the training manager own teacher row on managed classes', async () => {

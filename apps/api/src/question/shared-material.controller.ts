@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -44,7 +43,6 @@ import { SharedMaterialService } from './shared-material.service';
 @Controller('shared-materials')
 @Roles(UserRole.admin)
 @AllowStaffRolesOnAdminRoutes(
-  SALE_CS_HEAD_ROLE,
   StaffRole.teacher,
   StaffRole.lesson_plan,
   StaffRole.lesson_plan_head,

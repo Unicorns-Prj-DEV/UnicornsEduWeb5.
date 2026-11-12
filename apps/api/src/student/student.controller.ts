@@ -33,7 +33,6 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { StaffRole, UserRole } from 'generated/enums';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
-import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
 import { CurrentAuth } from 'src/auth/decorators/current-auth.decorator';
 import {
   CurrentUser,
@@ -149,10 +148,7 @@ export class StudentController {
     status: 200,
     description: 'Paginated students list with data and meta.',
   })
-  @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
-    StaffRole.accountant_income,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_income)
   @ApiQuery({
     name: 'page',
     required: false,
@@ -252,7 +248,7 @@ export class StudentController {
   @ApiResponse({
     status: 403,
     description:
-      'Assistant can only submit negative balance deltas (withdraw). Positive manual top-up remains admin-only.',
+      'Trợ lí chỉ được gửi số âm (rút tiền). Nạp thẳng số dương chỉ Admin (#267).',
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
@@ -261,9 +257,13 @@ export class StudentController {
     @CurrentAuth() auth: ResolvedAuthAccess | null,
     @Body() data: UpdateStudentAccountBalanceCreateDto,
   ) {
-    if (auth?.access.admin.tier === 'assistant' && data.amount > 0) {
+    // #267: nạp thẳng số dương chỉ Admin; Trợ lí chỉ được rút (số âm) và nạp
+    // qua yêu cầu nạp / QR SePay (hàng đợi duyệt nạp cũng chỉ Admin).
+    const isFullAdmin =
+      user.roleType === UserRole.admin || auth?.access.admin.tier === 'full';
+    if (!isFullAdmin && data.amount > 0) {
       throw new ForbiddenException(
-        'Assistant cannot top up student balance directly.',
+        'Chỉ Admin được nạp thẳng tiền vào ví học sinh. Trợ lí hãy tạo yêu cầu nạp hoặc dùng QR.',
       );
     }
 
@@ -275,7 +275,6 @@ export class StudentController {
   }
 
   @Get('wallet-direct-topup-requests')
-  @AllowAssistantOnAdminRoutes(false)
   @ApiOperation({
     summary: 'List direct wallet top-up approval requests',
     description:
@@ -302,7 +301,6 @@ export class StudentController {
   }
 
   @Get('wallet-direct-topup-requests/:requestId')
-  @AllowAssistantOnAdminRoutes(false)
   @ApiOperation({
     summary: 'Get one direct wallet top-up approval request',
     description:
@@ -325,7 +323,6 @@ export class StudentController {
   }
 
   @Post('wallet-direct-topup-requests/:requestId/approve')
-  @AllowAssistantOnAdminRoutes(false)
   @ApiOperation({
     summary: 'Approve a direct wallet top-up request from the admin queue',
     description:

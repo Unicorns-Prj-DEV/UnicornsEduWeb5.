@@ -1,4 +1,3 @@
-import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -50,10 +49,7 @@ export class ClassCoverService {
     if (!staff) {
       return false;
     }
-    if (
-      staff.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(staff.roles)
-    ) {
+    if (staff.roles.includes(StaffRole.admin)) {
       return true;
     }
 

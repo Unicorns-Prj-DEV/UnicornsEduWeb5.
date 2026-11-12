@@ -79,7 +79,6 @@ export class UserController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async getUsers(
     @CurrentUser() user: JwtPayload,
     @Query() query: GetUsersQueryDto,
@@ -97,7 +96,6 @@ export class UserController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async getUserById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -106,7 +104,6 @@ export class UserController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create user',
     description:
@@ -187,7 +184,6 @@ export class UserController {
   }
 
   @Patch()
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update user',
     description: 'Update a user. Admin only.',
@@ -220,7 +216,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Set user password',
     description:
-      'Admin/assistant sets a new password for a user without the old one. Revokes all devices and refresh token of the target user. Assistants cannot change passwords of admin/assistant accounts.',
+      'Admin/assistant sets a new password for a user without the old one. Revokes all devices and refresh token of the target user. Assistants (#267) may only set passwords of student accounts.',
   })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiBody({ type: AdminSetUserPasswordDto })
@@ -229,7 +225,8 @@ export class UserController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden. Assistant targeting an admin/assistant account.',
+    description:
+      'Forbidden. Non-admin staff, or assistant targeting a non-student account.',
   })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async setUserPassword(
@@ -245,7 +242,6 @@ export class UserController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete user',
     description:

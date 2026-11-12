@@ -407,7 +407,11 @@ describe('ClassService', () => {
     it('uses accountant access instead of teacher scope for multi-role staff', async () => {
       mockStaffOperationsAccess.resolveActor.mockResolvedValue({
         id: 'staff-1',
-        roles: [StaffRole.teacher, StaffRole.lesson_plan, StaffRole.accountant_income],
+        roles: [
+          StaffRole.teacher,
+          StaffRole.lesson_plan,
+          StaffRole.accountant_income,
+        ],
       });
       const getClassesSpy = jest
         .spyOn(service, 'getClasses')
@@ -938,7 +942,7 @@ describe('ClassService', () => {
     it('does not apply teacher assignment scope to elevated multi-role staff', async () => {
       mockStaffOperationsAccess.resolveActor.mockResolvedValue({
         id: 'staff-1',
-        roles: [StaffRole.teacher, StaffRole.assistant],
+        roles: [StaffRole.teacher, StaffRole.accountant_income],
       });
       const updateScheduleSpy = jest
         .spyOn(service, 'updateClassSchedule')
@@ -961,7 +965,30 @@ describe('ClassService', () => {
       );
     });
 
-    it('strips effectiveFrom from a pure-teacher actor submission (only admin/assistant may backdate)', async () => {
+    // #267: Trợ lí không còn quyền lớp cấp quản trị; kiêm giáo viên thì bị
+    // giới hạn như giáo viên.
+    it('applies teacher assignment scope to assistant who is also a teacher', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.teacher, StaffRole.assistant],
+      });
+      jest
+        .spyOn(service, 'updateClassSchedule')
+        .mockResolvedValue({ id: 'class-1' } as never);
+
+      await service.updateClassScheduleForStaff(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+        { schedule: [] } as never,
+      );
+
+      expect(
+        mockStaffOperationsAccess.assertTeacherAssignedToClass,
+      ).toHaveBeenCalledWith('staff-1', 'class-1');
+    });
+
+    it('strips effectiveFrom from a pure-teacher actor submission (only elevated staff may backdate)', async () => {
       mockStaffOperationsAccess.resolveActor.mockResolvedValue({
         id: 'teacher-1',
         roles: [StaffRole.teacher],

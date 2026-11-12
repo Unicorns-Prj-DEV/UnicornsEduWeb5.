@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -84,7 +83,7 @@ export class CourseController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'List of lesson-plan staff.' })
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   async searchLessonPlanStaff(
     @Query('search') search?: string,
     @Query('limit') limit?: string,
@@ -107,7 +106,6 @@ export class CourseController {
   @ApiResponse({ status: 403, description: 'Không có quyền xem khoá này.' })
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -122,7 +120,7 @@ export class CourseController {
 
   @Post()
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Create a new course',
     description:
@@ -137,7 +135,7 @@ export class CourseController {
 
   @Patch(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Update a course',
     description:
@@ -158,7 +156,7 @@ export class CourseController {
 
   @Delete(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Delete a course',
     description:
@@ -193,7 +191,6 @@ export class CourseController {
   @ApiResponse({ status: 200, description: 'List of difficulty levels.' })
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -213,7 +210,6 @@ export class CourseController {
   @Post(':id/difficulty-levels')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -233,7 +229,6 @@ export class CourseController {
   @Patch(':id/difficulty-levels/reorder')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -253,7 +248,6 @@ export class CourseController {
   @Patch(':id/difficulty-levels/:levelId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -275,7 +269,6 @@ export class CourseController {
   @Delete(':id/difficulty-levels/:levelId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -300,7 +293,6 @@ export class CourseController {
   @ApiResponse({ status: 200, description: 'List of lesson plan members.' })
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -315,7 +307,7 @@ export class CourseController {
 
   @Put(':id/lesson-plan-members')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Assign lesson plan members to a course',
     description:

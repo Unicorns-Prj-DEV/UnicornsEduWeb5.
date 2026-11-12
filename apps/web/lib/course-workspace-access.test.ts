@@ -126,3 +126,25 @@ describe("resolveCourseWorkspaceTab", () => {
     });
   });
 });
+
+describe("khoá học chỉ Admin (#267)", () => {
+  it("không cho Trợ lí vào workspace khoá học ở /admin", () => {
+    const caps = resolveCourseWorkspaceCapabilities(
+      staffProfile(["assistant"]),
+      "/admin",
+    );
+    expect(caps.canEnterWorkspace).toBe(false);
+    expect(caps.canMutateCourses).toBe(false);
+    expect(caps.canChangeCourseSaleMode).toBe(false);
+    expect(caps.visibleTabIds).toEqual([]);
+  });
+
+  it("Admin vẫn vào được và sửa được", () => {
+    const caps = resolveCourseWorkspaceCapabilities(
+      staffProfile(["admin"]),
+      "/admin",
+    );
+    expect(caps.canEnterWorkspace).toBe(true);
+    expect(caps.canMutateCourses).toBe(true);
+  });
+});

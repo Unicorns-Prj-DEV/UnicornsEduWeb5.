@@ -18,7 +18,8 @@ import {
     StudentClassTuitionPopup,
     StudentDevicePopup,
 } from "@/components/admin/student";
-import { UserLinkedProfileLinks } from "@/components/admin/user";
+import { SetUserPasswordDialog, UserLinkedProfileLinks } from "@/components/admin/user";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import OjProgressSection from "@/components/student/OjProgressSection";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
@@ -113,6 +114,8 @@ export default function AdminStudentDetailPage() {
     const [balancePopupMode, setBalancePopupMode] = useState<"topup" | "withdraw" | null>(null);
     const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
     const [devicePopupOpen, setDevicePopupOpen] = useState(false);
+    const [forceLogoutConfirmOpen, setForceLogoutConfirmOpen] = useState(false);
+    const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
     const [editingPackageForClassId, setEditingPackageForClassId] = useState<string | null>(null);
     const queryClient = useQueryClient();
     const { data: fullProfile } = useQuery({
@@ -191,6 +194,7 @@ export default function AdminStudentDetailPage() {
             return forceLogoutStudent(student.userId);
         },
         onSuccess: async () => {
+            setForceLogoutConfirmOpen(false);
             toast.success("Đã buộc đăng xuất học sinh.");
         },
         onError: (err: unknown) => {
@@ -481,6 +485,26 @@ export default function AdminStudentDetailPage() {
                     currentBalance={student.accountBalance ?? 0}
                 />
             ) : null}
+            {canManageStudent && student.userId ? (
+                <>
+                    <SetUserPasswordDialog
+                        userId={student.userId}
+                        displayName={student.fullName?.trim() || student.email || "Học sinh"}
+                        open={passwordDialogOpen}
+                        onClose={() => setPasswordDialogOpen(false)}
+                    />
+                    <ConfirmDialog
+                        open={forceLogoutConfirmOpen}
+                        onOpenChange={setForceLogoutConfirmOpen}
+                        title="Buộc đăng xuất học sinh?"
+                        description="Mọi thiết bị đang đăng nhập của học sinh này sẽ bị ngắt kết nối."
+                        confirmLabel="Buộc đăng xuất"
+                        variant="destructive"
+                        confirmPending={forceLogoutMutation.isPending}
+                        onConfirm={() => forceLogoutMutation.mutate()}
+                    />
+                </>
+            ) : null}
             {canManageStudent ? (
                 <StudentDevicePopup
                     open={devicePopupOpen}
@@ -591,14 +615,24 @@ export default function AdminStudentDetailPage() {
                                                 </svg>
                                             </button>
                                         ) : null}
-                                        {canManageUsers && student.userId ? (
+                                        {/* #267: Trợ lí giữ quyền đặt mật khẩu / đăng xuất thiết bị học sinh. */}
+                                        {canManageStudent && student.userId ? (
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    if (confirm("Buộc đăng xuất học sinh này? Thiết bị hiện tại sẽ bị ngắt kết nối.")) {
-                                                        forceLogoutMutation.mutate();
-                                                    }
-                                                }}
+                                                onClick={() => setPasswordDialogOpen(true)}
+                                                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8"
+                                                aria-label="Đặt mật khẩu học sinh"
+                                                title="Đặt mật khẩu"
+                                            >
+                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 0 1 2 2m4 0a6 6 0 0 1-7.743 5.743L11 17H9v2H7v2H4a1 1 0 0 1-1-1v-2.586a1 1 0 0 1 .293-.707l5.964-5.964A6 6 0 1 1 21 9Z" />
+                                                </svg>
+                                            </button>
+                                        ) : null}
+                                        {canManageStudent && student.userId ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setForceLogoutConfirmOpen(true)}
                                                 disabled={forceLogoutMutation.isPending}
                                                 className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-error/10 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8 disabled:opacity-50"
                                                 aria-label="Buộc đăng xuất học sinh"

@@ -1,4 +1,3 @@
-import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ConflictException,
@@ -192,9 +191,9 @@ export class CourseContentSupportService {
       where: { classId, teacherId: staffInfo.id, status: 'active' },
     });
 
-    const isAssistant = hasSaleCsHeadAccess(staffInfo.roles);
-
-    if (!isTeacher && !isAssistant) {
+    // #267: Trợ lí không còn truy cập nội dung lớp; chỉ giáo viên của lớp
+    // (hoặc Admin, đã xử lý phía trên).
+    if (!isTeacher) {
       throw new ForbiddenException('You do not have access to this class');
     }
   }

@@ -1389,6 +1389,16 @@ describe('AuthService', () => {
         'other assistant',
         { roleType: UserRole.staff, roles: [StaffRole.assistant] },
       ],
+      // #267: Trợ lí chỉ còn đặt mật khẩu cho học sinh, kể cả staff thường.
+      [
+        'teacher staff',
+        { roleType: UserRole.staff, roles: [StaffRole.teacher] },
+      ],
+      [
+        'accountant staff',
+        { roleType: UserRole.staff, roles: [StaffRole.accountant_income] },
+      ],
+      ['guest user', { roleType: UserRole.guest }],
     ])('forbids assistant from targeting %s', async (_label, target) => {
       mockTarget(target);
       mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({

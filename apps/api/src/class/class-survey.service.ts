@@ -1,4 +1,3 @@
-import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ConflictException,
@@ -453,10 +452,7 @@ export class ClassSurveyService {
       roleType,
     );
 
-    if (
-      actor.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(actor.roles)
-    ) {
+    if (actor.roles.includes(StaffRole.admin)) {
       return { actorId: actor.id, teacherScoped: false };
     }
 

@@ -1,5 +1,7 @@
 # ADR: Assistant Admin-Mirror Policy
 
+- **Status:** Superseded bởi `docs/adr/2026-11-12-admin-deny-by-default.md` (#267). Trang quản trị nay mặc định đóng; `AllowAssistantOnAdminRoutes` đã bị xoá; Trợ lí chỉ còn Học sinh, ví học sinh và Thông báo. Nội dung dưới đây chỉ còn giá trị lịch sử.
+
 ## Context
 
 Assistant is expected to operate almost like admin across the admin-mirror surface, but a few high-risk areas must remain admin-only. The repo currently has both implicit assistant fallback and explicit per-endpoint overrides, so the documented policy must be unambiguous.

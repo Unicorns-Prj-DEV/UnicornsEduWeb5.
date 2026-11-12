@@ -84,21 +84,45 @@ describe('StaffOpsClassController makeup management', () => {
     );
   });
 
-  it('allows assistant to update a makeup event without teacher ownership checks', async () => {
+  // #267: Trợ lí không còn quản lý buổi bù (lớp là quyền chỉ Admin).
+  it('rejects assistant updating a makeup event', async () => {
     staffOperationsAccess.resolveClassViewerActor.mockResolvedValueOnce({
       id: 'assistant-1',
       roles: [StaffRole.assistant],
     });
 
+    await expect(
+      controller.updateMakeupEventByClassId(
+        user({
+          id: 'assistant-user',
+          email: 'assistant@example.com',
+          accountHandle: 'assistant',
+        }),
+        'class-1',
+        'makeup-1',
+        { note: 'assistant edit' },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(
+      calendarService.updateMakeupScheduleEventForClass,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows staff admin to update a makeup event without teacher ownership checks', async () => {
+    staffOperationsAccess.resolveClassViewerActor.mockResolvedValueOnce({
+      id: 'staff-admin-1',
+      roles: [StaffRole.admin],
+    });
+
     await controller.updateMakeupEventByClassId(
       user({
-        id: 'assistant-user',
-        email: 'assistant@example.com',
-        accountHandle: 'assistant',
+        id: 'staff-admin-user',
+        email: 'staff-admin@example.com',
+        accountHandle: 'staff-admin',
       }),
       'class-1',
       'makeup-1',
-      { note: 'assistant edit' },
+      { note: 'admin edit' },
     );
 
     expect(
@@ -109,8 +133,8 @@ describe('StaffOpsClassController makeup management', () => {
     ).toHaveBeenCalledWith(
       'class-1',
       'makeup-1',
-      { note: 'assistant edit' },
-      expect.objectContaining({ userId: 'assistant-user' }),
+      { note: 'admin edit' },
+      expect.objectContaining({ userId: 'staff-admin-user' }),
     );
   });
 

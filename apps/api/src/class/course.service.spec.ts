@@ -22,10 +22,10 @@ describe('CourseService – lesson_plan_head scope', () => {
     roles: ['lesson_plan_head'],
     isAdminUser: false,
   };
-  const assistant: CourseActor = {
-    userId: 'user-assistant',
-    staffId: 'UNISTAFF-assistant',
-    roles: ['assistant'],
+  const staffAdmin: CourseActor = {
+    userId: 'user-staff-admin',
+    staffId: 'UNISTAFF-staff-admin',
+    roles: ['admin'],
     isAdminUser: false,
   };
   const course = { id: 'course-x', name: 'Khoá X' };
@@ -56,7 +56,7 @@ describe('CourseService – lesson_plan_head scope', () => {
   });
 
   it('does not add managers to the team when they create a course', async () => {
-    await service.create(assistant, { name: 'Khoá mới' } as never);
+    await service.create(staffAdmin, { name: 'Khoá mới' } as never);
     expect(prisma.course.create).toHaveBeenCalledWith({
       data: {
         name: 'Khoá mới',

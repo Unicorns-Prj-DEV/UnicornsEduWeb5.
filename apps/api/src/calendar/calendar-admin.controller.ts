@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -23,7 +22,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
-import { AllowStaffRolesOnAdminRoutes } from '../auth/decorators/allow-staff-roles-on-admin.decorator';
 import {
   CurrentUser,
   type JwtPayload,
@@ -42,7 +40,6 @@ import {
 @Controller('admin/calendar')
 @ApiTags('calendar-admin')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
 @Roles(UserRole.admin)
 export class CalendarAdminController {
   constructor(private readonly calendarService: CalendarService) {}

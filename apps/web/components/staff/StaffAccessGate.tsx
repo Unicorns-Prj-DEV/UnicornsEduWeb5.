@@ -116,7 +116,7 @@ export default function StaffAccessGate({
                 : isAssistantStaffsRoute
                   ? "Tài khoản này không dùng được danh sách nhân sự trong staff shell."
                   : isAssistantAdminLikeRoute
-                    ? "Route này chỉ mở cho staff có role `assistant`."
+                    ? "Route này chỉ mở cho Admin."
                     : isCustomerCareSelfRoute
                       ? "Tài khoản này không dùng được màn CSKH cá nhân."
                       : isAssistantSelfRoute
@@ -146,23 +146,23 @@ export default function StaffAccessGate({
       : isStaffNotificationRoute
         ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo đã push."
         : isStaffSurveysRoute
-          ? "Route `/staff/surveys` mở cho `admin`, `staff.assistant`, `staff.lesson_plan`, và `staff.lesson_plan_head` — dùng để tạo/sửa/xóa Bài khảo sát, soạn thông báo kèm (Title/Thời gian/Nội dung/Hướng dẫn/Lưu ý/Gia sư) và sao chép để dán vào Zalo."
+          ? "Route `/staff/surveys` mở cho `admin`, `staff.lesson_plan`, và `staff.lesson_plan_head` — dùng để tạo/sửa/xóa Bài khảo sát, soạn thông báo kèm (Title/Thời gian/Nội dung/Hướng dẫn/Lưu ý/Gia sư) và sao chép để dán vào Zalo."
           : isStaffTutorsRoute
             ? "Route `/staff/tutors` chỉ mở cho Ban Đào Tạo (`staff.training` đang active). Màn này chỉ đọc hồ sơ gia sư: không có CCCD, thông tin cá nhân, ngân hàng hay tiền."
           : isStaffCoursesRoute
-            ? "Route `/staff/courses` mở cho `staff.lesson_plan` và `staff.lesson_plan_head`. Đây là workspace khoá học dùng chung với `/admin/courses` (wrapper mỏng, `routeBase=/staff`). `lesson_plan` chỉ thấy khoá được phân công, không thêm/sửa/xoá/switch khoá, nhưng soạn được tab Nội dung / Câu hỏi / Cài đặt (3 tab). `lesson_plan_head` chỉ thấy khoá mình được gán vào đội chuyên môn (khoá tự tạo được tự gán) và đủ thao tác workspace trên các khoá đó. `teacher`, `accountant_*`, `customer_care`, `training` bị chặn. Admin/assistant dùng `/admin/courses`."
+            ? "Route `/staff/courses` mở cho `staff.lesson_plan` và `staff.lesson_plan_head`. Đây là workspace khoá học dùng chung với `/admin/courses` (wrapper mỏng, `routeBase=/staff`). `lesson_plan` chỉ thấy khoá được phân công, không thêm/sửa/xoá/switch khoá, nhưng soạn được tab Nội dung / Câu hỏi / Cài đặt (3 tab). `lesson_plan_head` chỉ thấy khoá mình được gán vào đội chuyên môn (khoá tự tạo được tự gán) và đủ thao tác workspace trên các khoá đó. `teacher`, `accountant_*`, `customer_care`, `training` bị chặn. Admin dùng `/admin/courses`."
           : isStaffClassesRoute
-          ? "Route `/staff/classes` mở danh sách cho `staff.assistant`, `staff.accountant_income`, `staff.accountant_expense`, và `staff.training` (UI giống admin nhưng backend chỉ trả các lớp được gán quản lý); riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
+          ? "Route `/staff/classes` mở danh sách cho `staff.accountant_income`, `staff.accountant_expense`, và `staff.training` (UI giống admin nhưng backend chỉ trả các lớp được gán quản lý); riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
           : isStaffDeductionsRoute
-            ? "Route `/staff/system-settings` (và bookmark cũ `/staff/deductions`) chỉ mở cho `staff.assistant` như mirror admin. Tab Khấu trừ giữ nguyên chức năng cũ; các staff role khác vẫn bị chặn."
+            ? "Route `/staff/system-settings` (và bookmark cũ `/staff/deductions`) chỉ mở cho Admin (#267). Mọi staff role, kể cả Trợ lí, đều bị chặn."
             : isStaffStudentsRoute
               ? "Route `/staff/students` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant_income`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
               : isStaffCostsRoute
-                ? "Route `/staff/costs` hiện mở cho `staff.assistant` và `staff.accountant_expense`. Kế toán chi dùng admin-like cost workspace trong staff shell, bao gồm tạo mới, chỉnh sửa, cập nhật trạng thái và xóa chi phí."
+                ? "Route `/staff/costs` hiện mở cho Admin và `staff.accountant_expense`. Kế toán chi dùng admin-like cost workspace trong staff shell, bao gồm tạo mới, chỉnh sửa, cập nhật trạng thái và xóa chi phí."
                 : isAssistantStaffsRoute
-                  ? "Route `/staff/staffs` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant_expense` trong staff shell."
+                  ? "Route `/staff/staffs` hiện mở danh sách/chi tiết cho Admin và `staff.accountant_expense` trong staff shell."
                   : isAssistantAdminLikeRoute
-                    ? "Nhóm route này mirror lại các module quản trị trong staff shell. Nó chỉ mở cho `roleType=staff` có role `assistant`; các staff role khác tiếp tục dùng self-service hoặc workspace chuyên biệt của riêng mình."
+                    ? "Nhóm route này mirror lại các module quản trị trong staff shell và chỉ mở cho Admin (#267). Trợ lí chỉ dùng Học sinh (kèm ví) và Soạn thông báo; các staff role khác dùng self-service hoặc workspace chuyên biệt của riêng mình."
                     : isCustomerCareSelfRoute
                       ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `customer_care`. Dữ liệu luôn khóa vào đúng hồ sơ đang đăng nhập."
                       : isAssistantSelfRoute
@@ -176,9 +176,9 @@ export default function StaffAccessGate({
                               : isSaleSelfRoute
                               ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `sale`. Mỗi khoản trợ cấp gắn một học sinh và có ghi chú; sửa/xoá được khi chưa thanh toán."
                               : isLessonPlanLegacyRoute
-                                ? "Các route legacy `/staff/lesson-plan-tasks*` đã được gộp vào `/staff/lesson-plans`. Workspace mới mở cho `admin`, `staff.assistant`, `staff.lesson_plan_head`, `staff.lesson_plan`, và `staff.accountant_expense`, nhưng mỗi role chỉ thấy đúng các tab và route detail được backend cho phép."
+                                ? "Các route legacy `/staff/lesson-plan-tasks*` đã được gộp vào `/staff/lesson-plans`. Workspace mới mở cho `admin`, `staff.lesson_plan_head`, `staff.lesson_plan`, và `staff.accountant_expense`, nhưng mỗi role chỉ thấy đúng các tab và route detail được backend cho phép."
                                 : isStaffLessonPlansTaskDetailRoute
-                                  ? "Route `/staff/lesson-plans/tasks/[taskId]` mở cho `lesson_plan`, `lesson_plan_head`, `admin`, `staff.assistant`, và `staff.accountant_expense`; kế toán chi chỉ xem output và chỉnh trạng thái thanh toán."
+                                  ? "Route `/staff/lesson-plans/tasks/[taskId]` mở cho `lesson_plan`, `lesson_plan_head`, `admin`, và `staff.accountant_expense`; kế toán chi chỉ xem output và chỉnh trạng thái thanh toán."
                                   : isLessonPlanManageDetailsRoute ||
                                       isStaffLessonPlansHomeRoute
                                     ? "Workspace `/staff/lesson-plans` là entrypoint chung cho lesson module trong staff shell. `lesson_plan_head` thấy 3 tab `Tổng quan / Công việc / Giáo án học sinh giỏi`; `lesson_plan` chỉ thấy `Tổng quan / Công việc` và dữ liệu cá nhân; `accountant_expense` chỉ thấy tab `Công việc` với toàn bộ lesson output."

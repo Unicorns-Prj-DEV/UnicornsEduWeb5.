@@ -62,7 +62,7 @@ describe('ClassCoverService', () => {
       expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
     });
 
-    it.each([StaffRole.admin, StaffRole.assistant])(
+    it.each([StaffRole.admin])(
       'allows staff role %s for every class without ownership',
       async (role) => {
         asStaff([role]);
@@ -95,6 +95,8 @@ describe('ClassCoverService', () => {
       [StaffRole.training],
       [StaffRole.customer_care],
       [StaffRole.accountant_income],
+      // #267: Trợ lí không còn quản lý lớp.
+      [StaffRole.assistant],
     ])('rejects %s staff who do not own the class', async (role) => {
       asStaff([role], false);
       await expect(

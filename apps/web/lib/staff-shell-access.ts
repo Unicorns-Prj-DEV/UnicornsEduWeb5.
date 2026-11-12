@@ -391,14 +391,13 @@ export function resolveStaffShellRouteAccess(
           ? false
                     : flags.isStaffCalendarRoute
             ? hasStaffWorkspaceAccess &&
-              (isAdmin || isAssistantStaff || isTeacher || isTraining)
+              (isAdmin || isTeacher || isTraining)
           : flags.isStaffTutorsRoute
             ? hasStaffWorkspaceAccess && isStaffOrAdmin && isTraining
           : flags.isStaffSurveysRoute
             ? hasStaffWorkspaceAccess &&
               isStaffOrAdmin &&
               (isAdmin ||
-                isAssistantStaff ||
                 lessonWorkspace.isLessonPlan ||
                 lessonWorkspace.isLessonPlanHead)
           : flags.isStaffCoursesRoute
@@ -406,15 +405,14 @@ export function resolveStaffShellRouteAccess(
               isStaffOrAdmin &&
               (lessonWorkspace.isLessonPlan || lessonWorkspace.isLessonPlanHead)
           : flags.isStaffClassesRoute
-            ? isAssistantStaff ||
-              (hasStaffWorkspaceAccess &&
+            ? (hasStaffWorkspaceAccess &&
                 isStaffOrAdmin &&
                 (isAccountantIncome || isAccountantExpense || isTraining)) ||
               (flags.isStaffClassDetailRoute &&
                 hasStaffWorkspaceAccess &&
                 (isAdmin || isTeacher || isCustomerCare || isTraining))
             : flags.isStaffDeductionsRoute
-              ? isAssistantStaff
+              ? false
               : flags.isStaffStudentsRoute
                 ? isAssistantStaff ||
                   (hasStaffWorkspaceAccess &&
@@ -424,8 +422,7 @@ export function resolveStaffShellRouteAccess(
                     hasStaffWorkspaceAccess &&
                     isCustomerCare)
                 : flags.isStaffCostsRoute
-                  ? isAssistantStaff ||
-                    (hasStaffWorkspaceAccess &&
+                  ? (hasStaffWorkspaceAccess &&
                       isStaffOrAdmin &&
                       isAccountantExpense)
                   : flags.isStaffLessonPlansHomeRoute
@@ -434,12 +431,11 @@ export function resolveStaffShellRouteAccess(
                       (lessonWorkspace.canAccessWorkspace ||
                         isAccountantExpense)
                     : flags.isAssistantStaffsRoute
-                      ? isAssistantStaff ||
-                        (hasStaffWorkspaceAccess &&
+                      ? (hasStaffWorkspaceAccess &&
                           isStaffOrAdmin &&
                           isAccountantExpense)
                       : flags.isAssistantAdminLikeRoute
-                        ? isAssistantStaff
+                        ? false
                         : flags.isCustomerCareSelfRoute
                           ? flags.isCustomerCareAdminRoute
                             ? isAssistantStaff ||
@@ -459,37 +455,31 @@ export function resolveStaffShellRouteAccess(
                               ? hasStaffWorkspaceAccess &&
                                 isStaffOrAdmin &&
                                 (isAccountant ||
-                                  isAssistantStaff ||
                                   isAccountantExpense)
                               : flags.isCommunicationSelfRoute
                                 ? hasStaffWorkspaceAccess &&
                                   isStaffOrAdmin &&
                                   (isCommunication ||
-                                    isAssistantStaff ||
                                     isAccountantExpense)
                                 : flags.isTechnicalSelfRoute
                                   ? hasStaffWorkspaceAccess &&
                                     isStaffOrAdmin &&
                                     (isTechnical ||
-                                      isAssistantStaff ||
                                       isAccountantExpense)
                                   : flags.isTrainingSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
                                       (isTrainingRole ||
-                                        isAssistantStaff ||
                                         isAccountantExpense)
                                   : flags.isTrainingHeadSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
                                       (isTrainingHead ||
-                                        isAssistantStaff ||
                                         isAccountantExpense)
                                     : flags.isSaleSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
                                       (isSale ||
-                                        isAssistantStaff ||
                                         isAccountantExpense)
                                     : flags.isLessonPlanLegacyRoute
                                       ? hasStaffWorkspaceAccess &&
@@ -509,10 +499,8 @@ export function resolveStaffShellRouteAccess(
                                             ? hasStaffWorkspaceAccess &&
                                               isStaffOrAdmin &&
                                               (flags.isLessonPlanAdminDetailRoute
-                                                ? isAssistantStaff ||
-                                                  isAccountantExpense
-                                                : isLessonPlanner ||
-                                                  isAssistantStaff)
+                                                ? isAccountantExpense
+                                                : isLessonPlanner)
                                             : false;
 
   const redirectHref = isAllowed

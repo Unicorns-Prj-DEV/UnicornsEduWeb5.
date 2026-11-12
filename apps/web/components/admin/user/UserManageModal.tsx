@@ -550,7 +550,8 @@ export default function UserManageModal({
       </div>
 
       <SetUserPasswordDialog
-        user={user}
+        userId={user.id}
+        displayName={displayName || user.email}
         open={passwordDialogOpen}
         onClose={() => setPasswordDialogOpen(false)}
       />

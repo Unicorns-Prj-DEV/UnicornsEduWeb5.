@@ -329,9 +329,9 @@ export default function CustomerCareDetailPanels({
     staleTime: 60_000,
   });
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  // #267: thanh toán hoa hồng CSKH là trả lương → Trợ lí không còn quyền.
   const canEditCommissionPaymentStatus =
     fullProfile?.roleType === "admin" ||
-    hasSaleCsHeadAccess(staffRoles) ||
     staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
     staffRoles.includes("admin");

@@ -1,8 +1,4 @@
 import {
-  SALE_CS_HEAD_ROLE,
-  hasSaleCsHeadAccess,
-} from 'src/common/sale-cs-head-access';
-import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -26,7 +22,6 @@ export type StaffCalendarAccessMode = 'admin' | 'teacher' | 'training';
 
 const ELEVATED_CLASS_ACCESS_ROLES = [
   StaffRole.admin,
-  SALE_CS_HEAD_ROLE,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
 ] as const;
@@ -78,7 +73,7 @@ export class StaffOperationsAccessService {
       !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
-        'Màn /staff hiện chỉ mở cho teacher, Đào Tạo, trợ lí, kế toán, hoặc staff admin.',
+        'Màn /staff hiện chỉ mở cho teacher, Đào Tạo, kế toán, hoặc staff admin.',
       );
     }
 
@@ -134,7 +129,7 @@ export class StaffOperationsAccessService {
       !this.hasElevatedClassAccess(staff.roles)
     ) {
       throw new ForbiddenException(
-        'Màn chi tiết lớp chỉ mở cho teacher, CSKH, Đào Tạo, trợ lí, kế toán, hoặc staff admin.',
+        'Màn chi tiết lớp chỉ mở cho teacher, CSKH, Đào Tạo, kế toán, hoặc staff admin.',
       );
     }
 
@@ -143,7 +138,7 @@ export class StaffOperationsAccessService {
 
   /**
    * Quyền chỉnh gia sư / lương gia sư của lớp từ staff workspace.
-   * Admin (user hoặc staff role) và trợ lí: toàn quyền. Ban Đào Tạo: chỉ lớp
+   * Admin (user hoặc staff role): toàn quyền (#267: Trợ lí không còn quyền này). Ban Đào Tạo: chỉ lớp
    * có `training_manager_staff_id` là chính mình, và không được đụng dòng của
    * chính mình (`lockedTeacherId`).
    */
@@ -158,10 +153,7 @@ export class StaffOperationsAccessService {
 
     const staff = await this.resolveStaffActor(userId);
 
-    if (
-      staff.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(staff.roles)
-    ) {
+    if (staff.roles.includes(StaffRole.admin)) {
       return { lockedTeacherId: null };
     }
 
@@ -177,7 +169,7 @@ export class StaffOperationsAccessService {
     }
 
     throw new ForbiddenException(
-      'Chỉ quản lý lớp (Đào Tạo), trợ lí hoặc admin mới được chỉnh gia sư của lớp này.',
+      'Chỉ quản lý lớp (Đào Tạo) hoặc Admin mới được chỉnh gia sư của lớp này.',
     );
   }
 

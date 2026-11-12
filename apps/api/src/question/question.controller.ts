@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -50,7 +49,6 @@ export class QuestionController {
   // explanation) nên không mở cho học sinh; học sinh làm bài qua luồng attempt.
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.teacher,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
@@ -72,7 +70,6 @@ export class QuestionController {
   // explanation) nên không mở cho học sinh; học sinh làm bài qua luồng attempt.
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.teacher,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
@@ -88,7 +85,6 @@ export class QuestionController {
   @Post()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.teacher,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
@@ -111,7 +107,6 @@ export class QuestionController {
   @Post('bulk')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.teacher,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
@@ -134,7 +129,6 @@ export class QuestionController {
   @Patch(':id')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.teacher,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
@@ -160,7 +154,6 @@ export class QuestionController {
   @Delete(':id')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )

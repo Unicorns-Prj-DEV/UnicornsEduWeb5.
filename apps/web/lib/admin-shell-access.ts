@@ -45,6 +45,15 @@ export const ACCOUNTANT_EXPENSE_VISIBLE_HREFS = new Set([
   "/admin/lesson-plans",
 ]);
 
+/**
+ * #267: trang quản trị mặc định đóng. Trợ lí (TP Sale & CSKH) chỉ còn Học sinh
+ * (gồm ví học sinh) và Thông báo; mọi trang khác chỉ Admin.
+ */
+export const ASSISTANT_VISIBLE_HREFS = new Set([
+  "/admin/students",
+  "/admin/notification",
+]);
+
 export const ACCOUNTANT_VISIBLE_HREFS = new Set([
   ...ACCOUNTANT_INCOME_VISIBLE_HREFS,
   ...ACCOUNTANT_EXPENSE_VISIBLE_HREFS,
@@ -65,6 +74,11 @@ export function getAccountantVisibleAdminHrefs(
 
   return hrefs;
 }
+
+const ASSISTANT_ALLOWED_ROUTE_PATTERNS = [
+  /^\/admin\/students(?:\/[^/]+)?$/,
+  /^\/admin\/notification$/,
+] as const;
 
 const ACCOUNTANT_INCOME_ALLOWED_ROUTE_PATTERNS = [
   /^\/admin\/classes(?:\/[^/]+)?$/,
@@ -158,6 +172,12 @@ export function resolveAdminShellAccess(
   };
 }
 
+export function isAssistantAllowedAdminRoute(pathname: string): boolean {
+  return ASSISTANT_ALLOWED_ROUTE_PATTERNS.some((pattern) =>
+    pattern.test(pathname),
+  );
+}
+
 export function isAccountantAllowedAdminRoute(pathname: string): boolean {
   return ACCOUNTANT_ALLOWED_ROUTE_PATTERNS.some((pattern) =>
     pattern.test(pathname),
@@ -203,7 +223,7 @@ export function canAccessAdminShellRoute(
 
   return (
     access.isAdmin ||
-    access.isAssistant ||
+    (access.isAssistant && isAssistantAllowedAdminRoute(pathname)) ||
     (access.isAccountantIncome &&
       isAccountantIncomeAllowedAdminRoute(pathname)) ||
     (access.isAccountantExpense &&
@@ -213,7 +233,8 @@ export function canAccessAdminShellRoute(
 }
 
 export function canManageAdminExtraAllowance(access: AdminShellAccess): boolean {
-  return access.isAdmin || access.isAssistant || access.isAccountantExpense;
+  // #267: trợ cấp thêm chỉ Admin (và kế toán chi theo phạm vi riêng).
+  return access.isAdmin || access.isAccountantExpense;
 }
 
 export function resolveStudentAdminCapabilities(
@@ -237,7 +258,8 @@ export function resolveStudentAdminCapabilities(
     canDirectlyAdjustWallet: access.isAdmin,
     canDirectlyWithdrawWallet: access.isAdmin || access.isAssistant,
     canRequestDirectTopUp: access.isAssistant || isCustomerCareStaff,
-    canEditStudentClassTuition: canManageStudent || access.isAccountantIncome,
+    // #267: học phí theo lớp thuộc quản lý lớp → chỉ Admin / kế toán thu.
+    canEditStudentClassTuition: access.isAdmin || access.isAccountantIncome,
     canDeleteStudent: access.isAdmin || access.isAssistant,
   };
 }
@@ -250,8 +272,9 @@ export function resolveUserAdminCapabilities(
   const isStaffRoute = routeBase === "/staff";
 
   return {
-    canManageUsers: access.isAdmin || access.isAssistant,
-    canDeleteUser: access.isAdmin || access.isAssistant,
+    // #267: quản lý tài khoản chỉ Admin.
+    canManageUsers: access.isAdmin,
+    canDeleteUser: access.isAdmin,
     hideAdminRoleOptions:
       isStaffRoute && access.isAssistant && !access.isAdmin,
   };

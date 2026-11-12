@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { UserInfoDto } from "@/dtos/Auth.dto";
 import {
+  ASSISTANT_VISIBLE_HREFS,
   canAccessAdminShellRoute,
+  canManageAdminExtraAllowance,
   getAdminShellEntryHref,
   resolveAdminShellAccess,
   resolveAdminShellFallbackHref,
+  resolveStudentAdminCapabilities,
+  resolveUserAdminCapabilities,
 } from "./admin-shell-access";
 
 function staffProfile(staffRoles: string[]): UserInfoDto {
@@ -62,5 +66,103 @@ describe("Dashboard / Báo cáo tháng / Thống kê học sinh chỉ Admin (#26
     const access = resolveAdminShellAccess(staffProfile(["accountant_income"]));
     expect(canAccessAdminShellRoute(access, "/admin/classes")).toBe(true);
     expect(canAccessAdminShellRoute(access, "/admin/students")).toBe(true);
+  });
+});
+
+describe("Trang quản trị mặc định đóng (#267)", () => {
+  const ASSISTANT_ALLOWED_ROUTES = [
+    "/admin/students",
+    "/admin/students/student-1",
+    "/admin/notification",
+  ];
+  const ASSISTANT_DENIED_ROUTES = [
+    "/admin/users",
+    "/admin/users/user-1",
+    "/admin/staffs",
+    "/admin/staffs/staff-1",
+    "/admin/classes",
+    "/admin/classes/class-1",
+    "/admin/costs",
+    "/admin/extra-allowances",
+    "/admin/system-settings",
+    "/admin/deductions",
+    "/admin/notes-subject",
+    "/admin/courses",
+    "/admin/courses/course-1",
+    "/admin/lesson-plans",
+    "/admin/calendar",
+    "/admin/history",
+    "/admin/wallet-direct-topup-requests",
+    "/admin/some-future-page",
+  ];
+
+  it("Trợ lí chỉ vào được Học sinh và Thông báo", () => {
+    const access = resolveAdminShellAccess(staffProfile(["assistant"]));
+    for (const route of ASSISTANT_ALLOWED_ROUTES) {
+      expect(canAccessAdminShellRoute(access, route), route).toBe(true);
+    }
+    for (const route of ASSISTANT_DENIED_ROUTES) {
+      expect(canAccessAdminShellRoute(access, route), route).toBe(false);
+    }
+  });
+
+  it("Admin vẫn vào được mọi trang", () => {
+    const access = resolveAdminShellAccess(staffProfile(["admin"]));
+    for (const route of [
+      ...ASSISTANT_ALLOWED_ROUTES,
+      ...ASSISTANT_DENIED_ROUTES,
+    ]) {
+      expect(canAccessAdminShellRoute(access, route), route).toBe(true);
+    }
+  });
+
+  it("menu Trợ lí chỉ còn Học sinh và Thông báo", () => {
+    expect([...ASSISTANT_VISIBLE_HREFS].sort()).toEqual([
+      "/admin/notification",
+      "/admin/students",
+    ]);
+  });
+
+  it("Trợ lí không còn quản lý tài khoản / trợ cấp thêm / học phí lớp", () => {
+    const assistantProfile = staffProfile(["assistant"]);
+    const assistantUsers = resolveUserAdminCapabilities(assistantProfile);
+    expect(assistantUsers.canManageUsers).toBe(false);
+    expect(assistantUsers.canDeleteUser).toBe(false);
+    expect(
+      canManageAdminExtraAllowance(resolveAdminShellAccess(assistantProfile)),
+    ).toBe(false);
+    expect(
+      resolveStudentAdminCapabilities(assistantProfile)
+        .canEditStudentClassTuition,
+    ).toBe(false);
+
+    const adminProfile = staffProfile(["admin"]);
+    const adminUsers = resolveUserAdminCapabilities(adminProfile);
+    expect(adminUsers.canManageUsers).toBe(true);
+    expect(adminUsers.canDeleteUser).toBe(true);
+    expect(
+      canManageAdminExtraAllowance(resolveAdminShellAccess(adminProfile)),
+    ).toBe(true);
+    expect(
+      resolveStudentAdminCapabilities(adminProfile).canEditStudentClassTuition,
+    ).toBe(true);
+  });
+
+  it("Trợ lí giữ thao tác học sinh và ví (trừ nạp thẳng)", () => {
+    const caps = resolveStudentAdminCapabilities(staffProfile(["assistant"]));
+    expect(caps.canDeleteStudent).toBe(true);
+    expect(caps.canDirectlyWithdrawWallet).toBe(true);
+    expect(caps.canRequestDirectTopUp).toBe(true);
+    expect(caps.canDirectlyAdjustWallet).toBe(false);
+  });
+
+  it("Kế toán vẫn giữ phạm vi cũ", () => {
+    const income = resolveAdminShellAccess(staffProfile(["accountant_income"]));
+    expect(canAccessAdminShellRoute(income, "/admin/classes")).toBe(true);
+    const expense = resolveAdminShellAccess(
+      staffProfile(["accountant_expense"]),
+    );
+    expect(canAccessAdminShellRoute(expense, "/admin/costs")).toBe(true);
+    expect(canManageAdminExtraAllowance(expense)).toBe(true);
   });
 });

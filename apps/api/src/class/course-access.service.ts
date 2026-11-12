@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   ForbiddenException,
   Injectable,
@@ -15,11 +14,11 @@ export interface CourseActor {
   isAdminUser: boolean;
 }
 
-/** Các staff role được coi là cấp quản lý nội dung khoá (như admin). */
-const COURSE_MANAGER_STAFF_ROLES = [
-  StaffRole.admin,
-  SALE_CS_HEAD_ROLE,
-] as const;
+/**
+ * Các staff role được coi là cấp quản lý nội dung khoá (như admin).
+ * #267: Trợ lí không còn quản lý khoá học / ngân hàng câu hỏi.
+ */
+const COURSE_MANAGER_STAFF_ROLES = [StaffRole.admin] as const;
 
 /** Role thuộc đội giáo án: chỉ thấy khoá được gán qua `CourseLessonPlanMember`. */
 const LESSON_PLAN_TEAM_STAFF_ROLES = [

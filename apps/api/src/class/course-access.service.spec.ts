@@ -57,9 +57,15 @@ describe('CourseAccessService', () => {
   });
 
   describe('isManager', () => {
-    it.each(['admin', 'assistant'])('returns true for %s', (role) => {
-      const actor = { roles: [role], isAdminUser: false } as never;
+    it('returns true for staff admin', () => {
+      const actor = { roles: ['admin'], isAdminUser: false } as never;
       expect(service.isManager(actor)).toBe(true);
+    });
+
+    // #267: Trợ lí không còn quản lý khoá học / ngân hàng câu hỏi.
+    it('returns false for assistant', () => {
+      const actor = { roles: ['assistant'], isAdminUser: false } as never;
+      expect(service.isManager(actor)).toBe(false);
     });
 
     it('returns true for admin users', () => {
@@ -78,7 +84,7 @@ describe('CourseAccessService', () => {
   });
 
   describe('resolveListableCourseIds', () => {
-    it.each(['admin', 'assistant'])(
+    it.each(['admin'])(
       'returns null (all) for manager role %s',
       async (role) => {
         const actor = { roles: [role], isAdminUser: false } as never;
@@ -126,7 +132,7 @@ describe('CourseAccessService', () => {
     it('returns null when a lesson-plan team role is combined with a manager role', async () => {
       const actor = {
         staffId: 'UNISTAFF-head',
-        roles: ['lesson_plan_head', 'assistant'],
+        roles: ['lesson_plan_head', 'admin'],
         isAdminUser: false,
       } as never;
       await expect(service.resolveListableCourseIds(actor)).resolves.toBeNull();
@@ -205,7 +211,7 @@ describe('CourseAccessService', () => {
   describe('resolveViewableCourseIds', () => {
     it('returns null (all) for managers', async () => {
       prisma.staffInfo.findUnique.mockResolvedValue(null);
-      const actor = { roles: ['assistant'], isAdminUser: false } as never;
+      const actor = { roles: ['admin'], isAdminUser: false } as never;
       await expect(service.resolveViewableCourseIds(actor)).resolves.toBeNull();
     });
 
@@ -260,7 +266,7 @@ describe('CourseAccessService', () => {
   describe('canViewCourse / canManageCourse', () => {
     it('grants managers access to any course', async () => {
       const actor = {
-        roles: ['assistant'],
+        roles: ['admin'],
         isAdminUser: false,
       } as never;
       await expect(service.canViewCourse(actor, 'course-x')).resolves.toBe(

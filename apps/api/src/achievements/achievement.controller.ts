@@ -55,7 +55,6 @@ const imageUploadInterceptor = achievementImageUploadInterceptor;
 @ApiCookieAuth('access_token')
 @Controller('staff/:staffId/achievements')
 @Roles(UserRole.admin)
-@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
 export class StaffAchievementController {
   constructor(private readonly achievementService: AchievementService) {}
 
@@ -70,7 +69,7 @@ export class StaffAchievementController {
   @Get()
   // Viewing must match whoever can view the staff profile itself
   // (GET staff/:id allows assistant + accountant_expense on admin routes).
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({ summary: 'List staff achievements' })
   @ApiParam({ name: 'staffId', description: 'Staff id (UNISTAFF-…)' })
   @ApiResponse({

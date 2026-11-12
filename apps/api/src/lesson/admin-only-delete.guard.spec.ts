@@ -51,7 +51,7 @@ describe('AdminOnlyDeleteGuard', () => {
     ).resolves.toBe(true);
   });
 
-  it('rejects linked staff without admin or assistant delete role', async () => {
+  it('rejects linked staff without admin delete role', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       roles: [StaffRole.lesson_plan_head],
     });
@@ -67,8 +67,26 @@ describe('AdminOnlyDeleteGuard', () => {
       ),
     ).rejects.toThrow(
       new ForbiddenException(
-        'Chỉ admin hoặc trợ lí mới có quyền xóa trong admin workspace.',
+        'Chỉ Admin mới có quyền xóa trong admin workspace.',
       ),
     );
+  });
+
+  // #267: Trợ lí không còn quyền xoá trong admin workspace.
+  it('rejects assistant staff', async () => {
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({
+      roles: [StaffRole.assistant],
+    });
+
+    await expect(
+      guard.canActivate(
+        createContext({
+          id: 'assistant',
+          email: 'assistant@example.com',
+          accountHandle: 'assistant',
+          roleType: UserRole.staff,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

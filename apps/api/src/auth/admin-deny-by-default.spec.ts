@@ -1,0 +1,409 @@
+jest.mock('src/calendar/calendar.service', () => ({
+  CalendarService: class CalendarServiceMock {},
+}));
+
+import 'reflect-metadata';
+import * as fs from 'fs';
+import * as path from 'path';
+import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+
+import { StaffRole, UserRole } from 'generated/enums';
+import { ROLES_KEY } from './decorators/roles.decorator';
+import { RolesGuard } from './guards/roles.guard';
+import { ActionHistoryController } from '../action-history/action-history.controller';
+import { BonusController } from '../bonus/bonus.controller';
+import { CalendarAdminController } from '../calendar/calendar-admin.controller';
+import { ClassController } from '../class/class.controller';
+import { CourseController } from '../class/course.controller';
+import { CostController } from '../cost/cost.controller';
+import { DeductionSettingsController } from '../deduction-settings/deduction-settings.controller';
+import { DeviceController } from '../device/device.controller';
+import { ExtraAllowanceController } from '../extra-allowance/extra-allowance.controller';
+import { FixedSalarySettingsController } from '../fixed-salary-settings/fixed-salary-settings.controller';
+import { NotificationController } from '../notification/notification.controller';
+import { QuestionController } from '../question/question.controller';
+import { RegulationController } from '../regulation/regulation.controller';
+import { SessionController } from '../session/session.controller';
+import { StaffController } from '../staff/staff.controller';
+import { StudentController } from '../student/student.controller';
+import { UserController } from '../user/user.controller';
+
+/**
+ * #267: Trang quản trị mặc định đóng. Chạy RolesGuard thật trên metadata thật
+ * của controller: Trợ lí (StaffRole.assistant) chỉ còn Học sinh (kể cả ví) và
+ * Thông báo; mọi route admin khác chỉ Admin.
+ */
+
+type ControllerClass = { name: string; prototype: object };
+type AdminTier = 'full' | 'assistant' | null;
+
+const guard = new RolesGuard(
+  new Reflector(),
+  { getStaffRoles: jest.fn() } as never,
+  { resolveForUserId: jest.fn() } as never,
+);
+
+function contextFor(
+  controller: ControllerClass,
+  methodName: string,
+  roleType: UserRole,
+  staffRoles: StaffRole[],
+  adminTier: AdminTier,
+): ExecutionContext {
+  const handler = (controller.prototype as Record<string, unknown>)[methodName];
+  if (typeof handler !== 'function') {
+    throw new Error(`Route not found: ${controller.name}.${methodName}`);
+  }
+  const request = {
+    user: {
+      id: 'user-1',
+      email: 'user-1@example.com',
+      accountHandle: 'user-1',
+      roleType,
+    },
+    resolvedAuthAccess: {
+      effectiveRoleTypes: [roleType],
+      staffRoles,
+      access: { admin: { canAccess: adminTier !== null, tier: adminTier } },
+    },
+  };
+  return {
+    getHandler: () => handler,
+    getClass: () => controller,
+    switchToHttp: () => ({ getRequest: () => request }),
+  } as unknown as ExecutionContext;
+}
+
+const asAssistant = (controller: ControllerClass, methodName: string) =>
+  guard.canActivate(
+    contextFor(
+      controller,
+      methodName,
+      UserRole.staff,
+      [StaffRole.assistant],
+      'assistant',
+    ),
+  );
+
+const asAdmin = (controller: ControllerClass, methodName: string) =>
+  guard.canActivate(
+    contextFor(controller, methodName, UserRole.admin, [], 'full'),
+  );
+
+function routeNames(controller: ControllerClass): string[] {
+  return Object.getOwnPropertyNames(controller.prototype).filter((name) => {
+    if (name === 'constructor') return false;
+    const handler = (controller.prototype as Record<string, unknown>)[name];
+    return (
+      typeof handler === 'function' &&
+      Reflect.getMetadata('method', handler) !== undefined
+    );
+  });
+}
+
+/** Route admin-only theo @Roles (có admin, không có staff). */
+function isAdminOnlyRoute(
+  controller: ControllerClass,
+  methodName: string,
+): boolean {
+  const handler = (controller.prototype as Record<string, unknown>)[
+    methodName
+  ] as object;
+  const roles = (Reflect.getMetadata(ROLES_KEY, handler) ??
+    Reflect.getMetadata(ROLES_KEY, controller)) as UserRole[] | undefined;
+  return (
+    !!roles && roles.includes(UserRole.admin) && !roles.includes(UserRole.staff)
+  );
+}
+
+/** Route admin-only của controller, trừ các route được liệt kê. */
+function adminOnlyRoutes(
+  controller: ControllerClass,
+  exclude: string[] = [],
+): string[] {
+  return routeNames(controller).filter(
+    (name) => !exclude.includes(name) && isAdminOnlyRoute(controller, name),
+  );
+}
+
+/**
+ * Toàn bộ route admin-only mà Trợ lí còn vào được sau #267. Thêm route vào
+ * đây phải đi kèm quyết định nghiệp vụ (ADR 2026-11-12-admin-deny-by-default).
+ */
+const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
+  // Học sinh: thêm/sửa/xoá, avatar, lịch thi, trạng thái, ghi danh lớp, ví.
+  'StudentController.createStudent',
+  'StudentController.createStudentSePayTopUpOrder',
+  'StudentController.createStudentWalletDirectTopUpRequest',
+  'StudentController.deleteStudent',
+  'StudentController.deleteStudentAvatar',
+  'StudentController.getStudentById',
+  'StudentController.getStudentExamSchedules',
+  'StudentController.getStudentSePayStaticQr',
+  'StudentController.getStudentWalletHistory',
+  'StudentController.getStudents',
+  'StudentController.searchAssignableUsers',
+  'StudentController.updateStudent',
+  'StudentController.updateStudentAccountBalance',
+  'StudentController.updateStudentById',
+  'StudentController.updateStudentClasses',
+  'StudentController.updateStudentExamSchedules',
+  'StudentController.updateStudentStatus',
+  'StudentController.uploadStudentAvatar',
+  // Thành tích / thư viện ảnh học sinh (một phần form "Sửa học sinh").
+  'StudentAchievementController.create',
+  'StudentAchievementController.deleteImage',
+  'StudentAchievementController.list',
+  'StudentAchievementController.remove',
+  'StudentAchievementController.reorder',
+  'StudentAchievementController.update',
+  'StudentAchievementController.uploadImage',
+  'StudentGalleryController.create',
+  'StudentGalleryController.deleteImage',
+  'StudentGalleryController.list',
+  'StudentGalleryController.remove',
+  'StudentGalleryController.reorder',
+  'StudentGalleryController.update',
+  'StudentGalleryController.uploadImage',
+  // Tạo tài khoản học sinh, đặt mật khẩu (service giới hạn đích là học sinh).
+  'UserController.createStudentUser',
+  'UserController.setUserPassword',
+  // Đăng xuất thiết bị học sinh.
+  'DeviceController.forceLogout',
+  'DeviceController.getStudentDevices',
+  // Chọn lớp / CSKH khi ghi danh học sinh (chỉ đọc).
+  'ClassController.getClasses',
+  'StaffController.searchCustomerCareStaffOptions',
+  // Gửi thông báo.
+  'NotificationController.createNotificationDraft',
+  'NotificationController.deleteNotification',
+  'NotificationController.getAdminNotifications',
+  'NotificationController.getNotificationRecipientOptions',
+  'NotificationController.pushNotification',
+  'NotificationController.updateNotificationDraft',
+].sort();
+
+function loadAllControllers(): ControllerClass[] {
+  const root = path.join(__dirname, '..');
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.controller.ts')) files.push(full);
+    }
+  };
+  walk(root);
+
+  const controllers = new Set<ControllerClass>();
+  for (const file of files.sort()) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require(file) as Record<string, unknown>;
+    for (const value of Object.values(mod)) {
+      if (
+        typeof value === 'function' &&
+        Reflect.getMetadata('path', value) !== undefined
+      ) {
+        controllers.add(value as unknown as ControllerClass);
+      }
+    }
+  }
+  return [...controllers];
+}
+
+describe('Admin routes deny-by-default (#267)', () => {
+  describe('toàn bộ route admin-only', () => {
+    const controllers = loadAllControllers();
+
+    it('Trợ lí chỉ vào được đúng danh sách cho phép', async () => {
+      const allowed: string[] = [];
+      let adminOnlyRouteCount = 0;
+
+      for (const controller of controllers) {
+        for (const methodName of routeNames(controller)) {
+          if (!isAdminOnlyRoute(controller, methodName)) continue;
+          adminOnlyRouteCount += 1;
+          const ok = await asAssistant(controller, methodName).catch(
+            (error: unknown) => {
+              expect(error).toBeInstanceOf(ForbiddenException);
+              return false;
+            },
+          );
+          if (ok) allowed.push(`${controller.name}.${methodName}`);
+        }
+      }
+
+      expect(adminOnlyRouteCount).toBeGreaterThan(200);
+      expect(allowed.sort()).toEqual(ASSISTANT_ADMIN_ROUTE_ALLOWLIST);
+    });
+
+    it('Admin vẫn vào được mọi route admin-only', async () => {
+      for (const controller of controllers) {
+        for (const methodName of routeNames(controller)) {
+          if (!isAdminOnlyRoute(controller, methodName)) continue;
+          await expect(asAdmin(controller, methodName)).resolves.toBe(true);
+        }
+      }
+    });
+  });
+
+  describe('nhóm Trợ lí giữ lại', () => {
+    it.each([
+      [StudentController, 'createStudent'],
+      [StudentController, 'updateStudentById'],
+      [StudentController, 'deleteStudent'],
+      [StudentController, 'uploadStudentAvatar'],
+      [StudentController, 'updateStudentExamSchedules'],
+      [StudentController, 'updateStudentStatus'],
+      [UserController, 'createStudentUser'],
+      [UserController, 'setUserPassword'],
+      [DeviceController, 'forceLogout'],
+      [StudentController, 'updateStudentAccountBalance'],
+      [StudentController, 'createStudentWalletDirectTopUpRequest'],
+      [StudentController, 'createStudentSePayTopUpOrder'],
+      [StudentController, 'getStudentSePayStaticQr'],
+      [NotificationController, 'createNotificationDraft'],
+      [NotificationController, 'pushNotification'],
+    ] as [ControllerClass, string][])(
+      'cho Trợ lí vào %p.%s',
+      async (controller, methodName) => {
+        await expect(asAssistant(controller, methodName)).resolves.toBe(true);
+      },
+    );
+  });
+
+  describe('nhóm trả về chỉ Admin', () => {
+    const revoked: [string, ControllerClass, string[]][] = [
+      ['tài khoản', UserController, ['createUser', 'updateUser', 'deleteUser']],
+      [
+        'nhân sự',
+        StaffController,
+        adminOnlyRoutes(StaffController, ['searchCustomerCareStaffOptions']),
+      ],
+      [
+        'lớp',
+        ClassController,
+        adminOnlyRoutes(ClassController, ['getClasses']),
+      ],
+      ['chi phí', CostController, adminOnlyRoutes(CostController)],
+      ['thưởng', BonusController, adminOnlyRoutes(BonusController)],
+      [
+        'trợ cấp thêm',
+        ExtraAllowanceController,
+        adminOnlyRoutes(ExtraAllowanceController),
+      ],
+      [
+        'khấu trừ / thuế',
+        DeductionSettingsController,
+        adminOnlyRoutes(DeductionSettingsController),
+      ],
+      [
+        'lương cứng',
+        FixedSalarySettingsController,
+        adminOnlyRoutes(FixedSalarySettingsController),
+      ],
+      [
+        'quy định',
+        RegulationController,
+        ['createRegulation', 'updateRegulation', 'deleteRegulation'],
+      ],
+      ['khoá học', CourseController, ['create', 'update', 'remove']],
+      [
+        'ngân hàng câu hỏi',
+        QuestionController,
+        routeNames(QuestionController).filter((name) =>
+          isAdminOnlyRoute(QuestionController, name),
+        ),
+      ],
+      ['xoá buổi', SessionController, ['deleteSession']],
+      [
+        'lịch tổng',
+        CalendarAdminController,
+        adminOnlyRoutes(CalendarAdminController),
+      ],
+      [
+        'lịch sử thao tác',
+        ActionHistoryController,
+        adminOnlyRoutes(ActionHistoryController),
+      ],
+      [
+        'duyệt hàng đợi nạp',
+        StudentController,
+        [
+          'listStudentWalletDirectTopUpRequests',
+          'getStudentWalletDirectTopUpRequest',
+          'approveStudentWalletDirectTopUpRequestFromQueue',
+        ],
+      ],
+    ];
+
+    describe.each(revoked)('%s', (_group, controller, methodNames) => {
+      it('có route để kiểm tra', () => {
+        expect(methodNames.length).toBeGreaterThan(0);
+      });
+
+      it.each(methodNames)('từ chối Trợ lí ở %s', async (methodName) => {
+        await expect(
+          asAssistant(controller, methodName),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+
+      it.each(methodNames)('cho Admin vào %s', async (methodName) => {
+        await expect(asAdmin(controller, methodName)).resolves.toBe(true);
+      });
+    });
+  });
+
+  describe('nạp thẳng số dương vào ví học sinh', () => {
+    const studentService = { updateStudentAccountBalance: jest.fn() };
+    const controller = new StudentController(studentService as never);
+    const staffUser = {
+      id: 'assistant-user',
+      email: 'assistant@example.com',
+      accountHandle: 'assistant',
+      roleType: UserRole.staff,
+    };
+    const adminUser = { ...staffUser, id: 'admin', roleType: UserRole.admin };
+    const authFor = (tier: AdminTier) =>
+      ({
+        effectiveRoleTypes: [UserRole.staff],
+        staffRoles: tier === 'assistant' ? [StaffRole.assistant] : [],
+        access: { admin: { canAccess: tier !== null, tier } },
+      }) as never;
+
+    beforeEach(() => {
+      studentService.updateStudentAccountBalance.mockReset();
+      studentService.updateStudentAccountBalance.mockResolvedValue({});
+    });
+
+    it('từ chối Trợ lí nạp số dương', async () => {
+      await expect(
+        controller.updateStudentAccountBalance(
+          staffUser as never,
+          authFor('assistant'),
+          { studentId: 's1', amount: 100_000 } as never,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(studentService.updateStudentAccountBalance).not.toHaveBeenCalled();
+    });
+
+    it('cho Trợ lí rút (số âm)', async () => {
+      await controller.updateStudentAccountBalance(
+        staffUser as never,
+        authFor('assistant'),
+        { studentId: 's1', amount: -50_000 } as never,
+      );
+      expect(studentService.updateStudentAccountBalance).toHaveBeenCalled();
+    });
+
+    it('cho Admin nạp số dương', async () => {
+      await controller.updateStudentAccountBalance(
+        adminUser as never,
+        authFor('full'),
+        { studentId: 's1', amount: 100_000 } as never,
+      );
+      expect(studentService.updateStudentAccountBalance).toHaveBeenCalled();
+    });
+  });
+});

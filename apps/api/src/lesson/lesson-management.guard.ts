@@ -1,4 +1,3 @@
-import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   CanActivate,
   ExecutionContext,
@@ -49,11 +48,10 @@ export class LessonManagementGuard implements CanActivate {
 
     if (
       !staff.roles.includes(StaffRole.admin) &&
-      !hasSaleCsHeadAccess(staff.roles) &&
       !staff.roles.includes(StaffRole.lesson_plan_head)
     ) {
       throw new ForbiddenException(
-        'Màn quản lý giáo án chỉ mở cho admin, trợ lí, hoặc staff có role lesson_plan_head.',
+        'Màn quản lý giáo án chỉ mở cho Admin hoặc staff có role lesson_plan_head.',
       );
     }
 

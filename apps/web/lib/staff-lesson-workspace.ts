@@ -55,7 +55,8 @@ export function resolveStaffLessonWorkspace(
     isStaff && staffRoles.includes("accountant_expense");
   const isAccountant = isAccountantExpense;
 
-  const workspacePolicy: StaffLessonWorkspacePolicy | null = isAdmin || isAssistant
+  // #267: Trợ lí không còn quyền quản lý giáo án (backend lesson-management.guard).
+  const workspacePolicy: StaffLessonWorkspacePolicy | null = isAdmin
     ? "admin"
     : isLessonPlanHead
       ? "lesson_plan_head"
@@ -65,7 +66,7 @@ export function resolveStaffLessonWorkspace(
           ? "accountant"
           : null;
   const workAccessMode: StaffLessonEndpointAccessMode | null =
-    isAdmin || isAssistant || isLessonPlanHead
+    isAdmin || isLessonPlanHead
       ? "manage"
       : isAccountant
         ? "account"
@@ -76,7 +77,7 @@ export function resolveStaffLessonWorkspace(
     StaffLessonEndpointAccessMode,
     "account"
   > | null =
-    isAdmin || isAssistant || isLessonPlanHead
+    isAdmin || isLessonPlanHead
       ? "manage"
       : isLessonPlan
         ? "participant"

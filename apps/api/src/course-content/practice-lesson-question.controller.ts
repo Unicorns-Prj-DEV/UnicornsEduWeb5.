@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -44,7 +43,6 @@ export class PracticeLessonQuestionController {
   @Get()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -67,7 +65,6 @@ export class PracticeLessonQuestionController {
   @Post()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -93,7 +90,6 @@ export class PracticeLessonQuestionController {
   @Post('sets')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -126,7 +122,6 @@ export class PracticeLessonQuestionController {
   @Delete('sets/:sharedMaterialId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -152,7 +147,6 @@ export class PracticeLessonQuestionController {
   @Patch(':linkId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -179,7 +173,6 @@ export class PracticeLessonQuestionController {
   @Delete(':linkId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -204,7 +197,6 @@ export class PracticeLessonQuestionController {
   @Post('reorder')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -229,7 +221,6 @@ export class PracticeLessonQuestionController {
   @Get('summary')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,
@@ -246,7 +237,6 @@ export class PracticeLessonQuestionController {
 
   @Get('is-assigned')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({ summary: 'Kiểm tra chuyên đề đã được giao cho lớp nào chưa' })
   @ApiParam({ name: 'lessonId', description: 'ID tiết thực hành' })
   @ApiResponse({ status: 200, description: 'Đã giao hay chưa.' })

@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -38,7 +37,7 @@ import { CostService } from './cost.service';
 @Controller('cost')
 @ApiTags('cost')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
+@AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
 @Roles(UserRole.admin)
 export class CostController {
   constructor(private readonly costService: CostService) {}
@@ -122,7 +121,7 @@ export class CostController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Create cost',
     description: 'Create a new cost record.',
@@ -198,7 +197,7 @@ export class CostController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Delete cost',
     description: 'Delete a cost record by id.',

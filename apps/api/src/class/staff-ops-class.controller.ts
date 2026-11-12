@@ -1,8 +1,4 @@
 import {
-  SALE_CS_HEAD_ROLE,
-  hasSaleCsHeadAccess,
-} from 'src/common/sale-cs-head-access';
-import {
   ForbiddenException,
   Body,
   Controller,
@@ -60,7 +56,6 @@ import { ClassSurveyService } from './class-survey.service';
 
 const ELEVATED_CLASS_ACCESS_ROLES: readonly StaffRole[] = [
   StaffRole.admin,
-  SALE_CS_HEAD_ROLE,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
 ];
@@ -99,10 +94,7 @@ export class StaffOpsClassController {
       user.roleType,
     );
 
-    if (
-      actor.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(actor.roles)
-    ) {
+    if (actor.roles.includes(StaffRole.admin)) {
       return undefined;
     }
 
@@ -127,7 +119,7 @@ export class StaffOpsClassController {
     }
 
     throw new ForbiddenException(
-      'Chỉ admin, trợ lí hoặc teacher phụ trách buổi bù mới được quản lý buổi bù trong staff workspace.',
+      'Chỉ Admin hoặc teacher phụ trách buổi bù mới được quản lý buổi bù trong staff workspace.',
     );
   }
 

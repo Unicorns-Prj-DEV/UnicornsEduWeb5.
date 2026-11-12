@@ -1,4 +1,3 @@
-import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   CanActivate,
   ExecutionContext,
@@ -27,16 +26,14 @@ export class AdminOnlyDeleteGuard implements CanActivate {
         select: { roles: true },
       });
 
-      if (
-        staff?.roles.includes(StaffRole.admin) ||
-        hasSaleCsHeadAccess(staff?.roles)
-      ) {
+      // #267: xoá trong admin workspace chỉ Admin (Trợ lí không còn quyền này).
+      if (staff?.roles.includes(StaffRole.admin)) {
         return true;
       }
     }
 
     throw new ForbiddenException(
-      'Chỉ admin hoặc trợ lí mới có quyền xóa trong admin workspace.',
+      'Chỉ Admin mới có quyền xóa trong admin workspace.',
     );
   }
 }

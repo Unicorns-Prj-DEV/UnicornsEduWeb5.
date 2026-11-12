@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -53,7 +52,6 @@ const audioUploadInterceptor = FileInterceptor('file', {
 @Controller('audio-assets')
 @Roles(UserRole.admin)
 @AllowStaffRolesOnAdminRoutes(
-  SALE_CS_HEAD_ROLE,
   StaffRole.teacher,
   StaffRole.lesson_plan,
   StaffRole.lesson_plan_head,

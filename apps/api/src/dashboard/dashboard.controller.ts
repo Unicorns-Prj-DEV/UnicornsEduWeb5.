@@ -8,7 +8,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from 'generated/enums';
-import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import {
@@ -59,9 +58,8 @@ import { StudentDemographicsExportPdfService } from './student-demographics-expo
 @ApiCookieAuth('access_token')
 // #269: Dashboard, Báo cáo tháng, Thống kê học sinh chỉ Admin (users.role_type
 // admin hoặc staff role admin). Mọi staff role khác — kể cả Trưởng phòng Sale &
-// CSKH (Trợ lí cũ) và Kế toán thu — bị 403. Danh sách staff role rỗng tường minh
-// để không phụ thuộc mặc định của AllowAssistantOnAdminRoutes.
-@AllowAssistantOnAdminRoutes(false)
+// CSKH (Trợ lí cũ) và Kế toán thu — bị 403. Route admin từ chối mặc định (#267);
+// danh sách staff role rỗng tường minh để ghi rõ ý định.
 @AllowStaffRolesOnAdminRoutes()
 @Roles(UserRole.admin)
 @ApiResponse({

@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import {
   ApiBody,
@@ -26,7 +25,7 @@ export class ProtectedVideoController {
 
   @Get('status')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.teacher)
   @ApiOperation({ summary: 'Trạng thái Đồng bộ video của một link YouTube' })
   @ApiQuery({ name: 'url', description: 'Link YouTube đã lưu ở tiết/buổi' })
   @ApiResponse({
@@ -40,7 +39,7 @@ export class ProtectedVideoController {
 
   @Post('retry')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.teacher)
   @ApiOperation({ summary: 'Gửi lại link YouTube sang UNIOJ (Thử lại)' })
   @ApiBody({
     schema: {

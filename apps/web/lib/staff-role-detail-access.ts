@@ -1,4 +1,3 @@
-import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 
 export function canViewCrossStaffRoleDetail(
@@ -18,5 +17,6 @@ export function canViewCrossStaffRoleDetail(
   }
 
   const roles = profile.staffInfo?.roles ?? [];
-  return hasSaleCsHeadAccess(roles) || roles.includes("accountant_expense");
+  // #267: Trợ lí không còn xem trợ cấp của nhân sự khác.
+  return roles.includes("accountant_expense");
 }

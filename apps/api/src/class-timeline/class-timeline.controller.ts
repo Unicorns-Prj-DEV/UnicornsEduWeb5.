@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Controller,
   Get,
@@ -35,7 +34,6 @@ export class ClassTimelineController {
   @Get()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    SALE_CS_HEAD_ROLE,
     StaffRole.teacher,
     StaffRole.customer_care,
     ...TRAINING_ACCESS_ROLES,

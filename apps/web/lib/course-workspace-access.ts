@@ -43,23 +43,24 @@ export function resolveCourseWorkspaceCapabilities(
   routeBase: CourseWorkspaceRouteBase,
 ): CourseWorkspaceCapabilities {
   const access = resolveAdminShellAccess(profile);
-  const isAdminOrAssistant = access.isAdmin || access.isAssistant;
+  // #267: khoá học / ngân hàng câu hỏi chỉ Admin; Trợ lí không còn vào.
+  const isFullAdmin = access.isAdmin;
   const isLessonPlanHead = access.isLessonPlanHead;
   const isLessonPlanMember = access.staffRoles.includes("lesson_plan");
 
   const profileCanEnter =
-    isAdminOrAssistant || isLessonPlanHead || isLessonPlanMember;
+    isFullAdmin || isLessonPlanHead || isLessonPlanMember;
   // Trưởng ban Chuyên môn mutate được khoá, nhưng danh sách đã bị BE lọc về khoá được gán.
-  const profileCanMutateCourses = isAdminOrAssistant || isLessonPlanHead;
+  const profileCanMutateCourses = isFullAdmin || isLessonPlanHead;
   // Trưởng ban Chuyên môn chỉ thấy khoá được gán vào đội giáo án (BE lọc), như lesson_plan.
-  const profileCanViewAllCourses = isAdminOrAssistant;
+  const profileCanViewAllCourses = isFullAdmin;
   const profileCanUseAcademicTabs =
-    isAdminOrAssistant || isLessonPlanHead || isLessonPlanMember;
-  const profileCanMutateTeam = isAdminOrAssistant || isLessonPlanHead;
+    isFullAdmin || isLessonPlanHead || isLessonPlanMember;
+  const profileCanMutateTeam = isFullAdmin || isLessonPlanHead;
 
-  // `/admin` is admin/assistant only. `/staff` never turns a false profile flag true.
+  // `/admin` is admin only. `/staff` never turns a false profile flag true.
   const allowedOnThisShell =
-    routeBase === "/admin" ? isAdminOrAssistant : profileCanEnter;
+    routeBase === "/admin" ? isFullAdmin : profileCanEnter;
 
   const canEnterWorkspace = andShell(profileCanEnter, allowedOnThisShell);
   const canViewContentTab = andShell(
@@ -85,7 +86,7 @@ export function resolveCourseWorkspaceCapabilities(
     canEnterWorkspace,
     canViewAllCourses: andShell(profileCanViewAllCourses, allowedOnThisShell),
     canMutateCourses: andShell(profileCanMutateCourses, allowedOnThisShell),
-    canChangeCourseSaleMode: andShell(isAdminOrAssistant, allowedOnThisShell),
+    canChangeCourseSaleMode: andShell(isFullAdmin, allowedOnThisShell),
     canViewContentTab,
     canMutateContent: canViewContentTab,
     canViewQuestionTab,
