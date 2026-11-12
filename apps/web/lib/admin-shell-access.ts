@@ -83,7 +83,7 @@ const ASSISTANT_ALLOWED_ROUTE_PATTERNS = [
 const ACCOUNTANT_INCOME_ALLOWED_ROUTE_PATTERNS = [
   /^\/admin\/classes(?:\/[^/]+)?$/,
   /^\/admin\/students(?:\/[^/]+)?$/,
-  /^\/admin\/accountant_detail$/,
+  // #270: Kế toán thu không xem khoản chi nhân sự → bỏ trang trợ cấp kế toán.
 ] as const;
 
 const ACCOUNTANT_EXPENSE_ALLOWED_ROUTE_PATTERNS = [

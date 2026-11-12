@@ -450,15 +450,34 @@ export interface StaffDashboardUnpaidStaffItem {
   totalUnpaid: number;
 }
 
+/** Trường tổng hợp khoản chi nhân sự trong summary dashboard (#270). */
+export type StaffDashboardPayrollSummaryField =
+  | "monthlyExpense"
+  | "monthlyProfit"
+  | "pendingPayrollTotal"
+  | "pendingPayrollBreakdown"
+  | "unpaidStaffCount";
+
+/** #270: các trường payroll vắng khi người xem chỉ có Kế toán thu. */
+export type StaffDashboardFinancialSummary = Omit<
+  AdminDashboardSummary,
+  StaffDashboardPayrollSummaryField
+> &
+  Partial<Pick<AdminDashboardSummary, StaffDashboardPayrollSummaryField>>;
+
 export interface StaffDashboardFinancialOverview {
   period: AdminDashboardPeriod;
-  summary: AdminDashboardSummary;
+  summary: StaffDashboardFinancialSummary;
+  /** #270: chỉ còn `revenue` + `operatingCost` khi ẩn khoản chi nhân sự. */
   breakdown: AdminDashboardBreakdownItem[];
 }
 
 export interface StaffDashboardAccountantSection {
-  unpaidStaff: StaffDashboardUnpaidStaffItem[];
+  /** #270: vắng khi người xem không được thấy khoản chi nhân sự. */
+  unpaidStaff?: StaffDashboardUnpaidStaffItem[];
   financialOverview: StaffDashboardFinancialOverview;
+  /** #270: `false` → Kế toán thu, đã bỏ mọi khoản chi nhân sự. Vắng → coi như `true`. */
+  staffPayoutsVisible?: boolean;
 }
 
 export interface StaffDashboardExpenseSummary {

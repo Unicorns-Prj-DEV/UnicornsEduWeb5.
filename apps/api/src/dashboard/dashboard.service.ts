@@ -86,6 +86,8 @@ import {
 } from '../dtos/dashboard.dto';
 import { DashboardCacheService } from '../cache/dashboard-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { hasAnyStaffRole } from '../common/staff-role-policy';
+import { redactAccountantSectionStaffPayouts } from './accountant-section-redaction.util';
 import { getUserFullNameFromParts } from '../common/user-name.util';
 import {
   aggregateStudentDemographics,
@@ -4100,10 +4102,13 @@ export class DashboardService {
     };
   }
 
-  private async getAccountantSection(range: {
-    month: string;
-    year: string;
-  }): Promise<StaffDashboardAccountantSectionDto> {
+  private async getAccountantSection(
+    range: {
+      month: string;
+      year: string;
+    },
+    options: { canViewStaffPayouts: boolean },
+  ): Promise<StaffDashboardAccountantSectionDto> {
     const builtRange = buildDashboardRange(range.month, range.year);
     const dashboardMonthPeriod = {
       monthStart: builtRange.monthStart,
@@ -4142,10 +4147,14 @@ export class DashboardService {
       }),
     );
 
-    return {
+    const section: StaffDashboardAccountantSectionDto = {
       unpaidStaff,
       financialOverview,
+      staffPayoutsVisible: true,
     };
+    return options.canViewStaffPayouts
+      ? section
+      : redactAccountantSectionStaffPayouts(section);
   }
 
   private async getExpenseMonthlySummary(period: {
@@ -4631,10 +4640,20 @@ export class DashboardService {
               })
             : Promise.resolve(undefined),
           normalizedRoles.includes(StaffRole.accountant_income)
-            ? this.getAccountantSection({
-                month: range.month,
-                year: range.year,
-              })
+            ? this.getAccountantSection(
+                {
+                  month: range.month,
+                  year: range.year,
+                },
+                {
+                  // #270: Kế toán thu không thấy khoản chi nhân sự; kiêm Kế toán
+                  // chi / Admin thì hợp quyền → thấy đủ.
+                  canViewStaffPayouts: hasAnyStaffRole(normalizedRoles, [
+                    StaffRole.admin,
+                    StaffRole.accountant_expense,
+                  ]),
+                },
+              )
             : Promise.resolve(undefined),
           normalizedRoles.includes(StaffRole.accountant_expense)
             ? this.getAccountantExpenseSection({

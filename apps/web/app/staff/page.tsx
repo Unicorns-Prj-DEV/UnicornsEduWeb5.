@@ -1697,35 +1697,46 @@ function AccountantSection({
 }: {
   section: StaffDashboardAccountantSection;
 }) {
+  const { summary } = section.financialOverview;
+  // #270: Kế toán thu không thấy khoản chi nhân sự — backend đã bỏ các trường này.
+  const staffPayoutsVisible = section.staffPayoutsVisible !== false;
   const financialRows = [
     {
       label: "Tổng nạp tháng",
-      value: section.financialOverview.summary.monthlyTopupTotal,
+      value: summary.monthlyTopupTotal,
       tone: "primary" as const,
     },
     {
       label: "Học phí đã học",
-      value: section.financialOverview.summary.totalLearnedTuition,
+      value: summary.totalLearnedTuition,
       tone: "success" as const,
     },
     {
       label: "Chưa thu",
-      value: section.financialOverview.summary.pendingCollectionTotal,
+      value: summary.pendingCollectionTotal,
       tone: "warning" as const,
     },
-    {
-      label: "Chờ thanh toán",
-      value: section.financialOverview.summary.pendingPayrollTotal,
-      tone: "danger" as const,
-    },
-    {
-      label: "Lợi nhuận tháng",
-      value: section.financialOverview.summary.monthlyProfit,
-      tone:
-        section.financialOverview.summary.monthlyProfit >= 0
-          ? ("success" as const)
-          : ("danger" as const),
-    },
+    ...(staffPayoutsVisible && summary.pendingPayrollTotal != null
+      ? [
+          {
+            label: "Chờ thanh toán",
+            value: summary.pendingPayrollTotal,
+            tone: "danger" as const,
+          },
+        ]
+      : []),
+    ...(staffPayoutsVisible && summary.monthlyProfit != null
+      ? [
+          {
+            label: "Lợi nhuận tháng",
+            value: summary.monthlyProfit,
+            tone:
+              summary.monthlyProfit >= 0
+                ? ("success" as const)
+                : ("danger" as const),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -1773,9 +1784,11 @@ function AccountantSection({
           </div>
         </SurfaceCard>
 
-        <SurfaceCard eyebrow="Thanh toán" title="Pending theo nhân sự">
-          <UnpaidStaffList items={section.unpaidStaff} />
-        </SurfaceCard>
+        {staffPayoutsVisible && section.unpaidStaff ? (
+          <SurfaceCard eyebrow="Thanh toán" title="Pending theo nhân sự">
+            <UnpaidStaffList items={section.unpaidStaff} />
+          </SurfaceCard>
+        ) : null}
       </div>
     </section>
   );

@@ -3,6 +3,19 @@ import type { StaffRoleFixedSalaryOverrideItem } from "@/dtos/fixed-salary-setti
 export type StaffStatus = "active" | "inactive";
 export type StaffGender = "male" | "female";
 
+/**
+ * #270: nhóm trường nhạy cảm người xem được thấy. Backend bỏ hẳn key của nhóm
+ * không được thấy — UI dựa vào cờ này để ẩn section thay vì hiện ô trống.
+ * - `personal`: CCCD, email, SĐT, địa chỉ, ngày sinh, giới tính, dân tộc.
+ * - `bank`: số tài khoản + QR.
+ * - `income`: trợ cấp từng lớp, thống kê tháng, khoản chưa thanh toán.
+ */
+export interface StaffSensitiveView {
+    personal: boolean;
+    bank: boolean;
+    income: boolean;
+}
+
 export interface StaffListMeta {
     total: number;
     page: number;
@@ -34,7 +47,9 @@ export interface StaffListItem {
     monthlyStats?: Array<{ totalUnpaidAll?: number | null }>;
     /** Số thành tích của nhân sự (`GET /staff`). */
     achievementCount?: number;
+    /** #270: vắng khi người xem không được xem thu nhập. */
     unpaidAmountTotal?: number | null;
+    sensitiveView?: StaffSensitiveView;
 }
 
 export interface CustomerCareStaffOption {
@@ -71,7 +86,8 @@ export interface StaffDetail {
     id: string;
     /** Derived from linked User during rollout. Read nested user name fields as canonical when present. */
     fullName: string;
-    cccdNumber: string | null;
+    /** #270: các trường cá nhân/ngân hàng/thu nhập vắng theo `sensitiveView`. */
+    cccdNumber?: string | null;
     cccdIssuedDate?: string | null;
     cccdIssuedPlace?: string | null;
     ethnicity?: string | null;
@@ -92,7 +108,8 @@ export interface StaffDetail {
     updatedAt?: string;
     user?: {
         id: string;
-        email: string;
+        /** #270: vắng khi người xem không được xem thông tin cá nhân. */
+        email?: string;
         phone?: string | null;
         accountHandle?: string | null;
         province?: string | null;
@@ -109,6 +126,8 @@ export interface StaffDetail {
     classAllowance?: StaffClassAllowanceItem[];
     customerCareManagedByStaffId?: string | null;
     customerCareManagedBy?: { id: string; fullName: string } | null;
+    /** #270: vắng (response cũ / luồng tự xem) → coi như xem đủ. */
+    sensitiveView?: StaffSensitiveView;
 }
 
 export interface UpdateStaffPayload {

@@ -119,18 +119,25 @@ export async function getCustomerCareCommissions(
     );
     return { data, summary };
   }
+  // #270: backend ẩn số tiền → giữ `null` để UI hiện «—», không ép về 0.
+  const amountsVisible = payload?.amountsVisible !== false;
   return {
-    data: (payload?.data ?? []).map((item) => ({
-      ...item,
-      monthCommission: item.monthCommission ?? item.totalCommission ?? 0,
-      pendingCommission: item.pendingCommission ?? 0,
-      paidCommission: item.paidCommission ?? 0,
-    })),
+    data: (payload?.data ?? []).map((item) =>
+      amountsVisible
+        ? {
+            ...item,
+            monthCommission: item.monthCommission ?? item.totalCommission ?? 0,
+            pendingCommission: item.pendingCommission ?? 0,
+            paidCommission: item.paidCommission ?? 0,
+          }
+        : item,
+    ),
     summary: payload?.summary ?? {
       studentCount: 0,
-      totalPending: 0,
-      totalMonthCommission: 0,
+      totalPending: amountsVisible ? 0 : null,
+      totalMonthCommission: amountsVisible ? 0 : null,
     },
+    amountsVisible,
   };
 }
 

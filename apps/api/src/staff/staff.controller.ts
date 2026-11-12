@@ -81,6 +81,8 @@ export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
   @Get('assignable-users')
+  // #270: trả email người dùng → chỉ Admin (tạo hồ sơ nhân sự cũng chỉ Admin).
+  @AllowStaffRolesOnAdminRoutes()
   @ApiOperation({
     summary: 'Search users by email for tutor assignment',
     description:
@@ -196,7 +198,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'List staff',
     description:
-      'Get all staff records. Each row carries `achievementCount` (number of staff achievements) for the «Xem thành tích (n)» button.',
+      'Get all staff records. Each row carries `achievementCount` (number of staff achievements) for the «Xem thành tích (n)» button. #270: fields are redacted per viewer (`sensitiveView`): personal info (CCCD, phone, email, address, birth date, gender, ethnicity) only for Admin/self; bank + QR also for accountant_expense; income (`unpaidAmountTotal`) only Admin/accountant_expense/self — hidden fields are absent from the row.',
   })
   @ApiQuery({
     name: 'page',
@@ -271,7 +273,9 @@ export class StaffController {
     status: 200,
     description: 'Paginated staff list with data and meta.',
   })
+  @ApiResponse({ status: 403, description: 'Not allowed.' })
   async getStaff(
+    @CurrentUser() user: JwtPayload,
     @Query() query: PaginationQueryDto,
     @Query('search') search?: string,
     @Query('status') status?: string,
@@ -282,17 +286,20 @@ export class StaffController {
     @Query('highSchool') highSchool?: string,
     @Query('role') role?: string,
   ) {
-    return this.staffService.getStaff({
-      ...query,
-      search,
-      status,
-      classId,
-      className,
-      province,
-      university,
-      highSchool,
-      role,
-    });
+    return this.staffService.getStaff(
+      {
+        ...query,
+        search,
+        status,
+        classId,
+        className,
+        province,
+        university,
+        highSchool,
+        role,
+      },
+      { userId: user.id, roleType: user.roleType },
+    );
   }
 
   @Get('landing-tutors/count')
@@ -743,13 +750,21 @@ export class StaffController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get staff by id',
-    description: 'Get a single staff record by id.',
+    description:
+      'Get a single staff record by id. #270: response carries `sensitiveView` { personal, bank, income }; fields the viewer may not see are absent — personal info (cccd*, ethnicity, gender, currentAddress, birthDate, user.email, user.phone) only Admin/self; bankAccount + bankQrLink also accountant_expense; income (classAllowance, monthlyStats) Admin/accountant_expense/self.',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiResponse({ status: 200, description: 'Staff found.' })
+  @ApiResponse({ status: 403, description: 'Not allowed.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
-  async getStaffById(@Param('id', new ParseStaffIdPipe()) id: string) {
-    return this.staffService.getStaffById(id);
+  async getStaffById(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStaffIdPipe()) id: string,
+  ) {
+    return this.staffService.getStaffById(id, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
   }
 
   @Post()
@@ -938,6 +953,8 @@ export class StaffController {
   @ApiResponse({ status: 400, description: 'Staff has no linked user.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
+  // #270: trả hồ sơ đầy đủ → chỉ Admin (không kế thừa staff role cấp class).
+  @AllowStaffRolesOnAdminRoutes()
   async deleteStaffAvatar(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStaffIdPipe()) id: string,

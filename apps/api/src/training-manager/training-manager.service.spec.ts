@@ -32,6 +32,7 @@ describe('TrainingManagerService', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    user: { findUnique: jest.fn() },
     $transaction: jest.fn(),
   };
   const mockActionHistory = {
@@ -135,6 +136,81 @@ describe('TrainingManagerService', () => {
           monthKey,
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('quyền xem trợ cấp quản lý lớp (#270)', () => {
+    const staffId = 'staff-training-1';
+    const classId = 'class-1';
+
+    function mockViewer(viewerStaffId: string, roles: StaffRole[]) {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: { id: viewerStaffId, roles },
+      });
+      mockPrisma.class.findUnique.mockResolvedValue({
+        id: classId,
+        trainingManagerStaffId: staffId,
+      });
+      mockPrisma.session.findMany.mockResolvedValue([]);
+    }
+
+    it.each([
+      ['Kế toán thu', [StaffRole.accountant_income]],
+      ['Trưởng ban Đào tạo', [StaffRole.training_head]],
+      ['Trưởng phòng Sale & CSKH', [StaffRole.sale_customer_care_head]],
+    ])('chặn %s xem trợ cấp của người khác', async (_label, roles) => {
+      mockViewer('viewer-staff', roles);
+
+      await expect(
+        service.getSessionAllowancesByClass(
+          'viewer-user',
+          UserRole.staff,
+          staffId,
+          classId,
+          '2026-07',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.session.findMany).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['Kế toán chi', 'viewer-staff', [StaffRole.accountant_expense]],
+      [
+        'Kế toán thu kiêm Kế toán chi',
+        'viewer-staff',
+        [StaffRole.accountant_income, StaffRole.accountant_expense],
+      ],
+      ['chính người quản lý', staffId, [StaffRole.training]],
+    ])('cho %s xem trợ cấp', async (_label, viewerStaffId, roles) => {
+      mockViewer(viewerStaffId, roles);
+
+      await expect(
+        service.getSessionAllowancesByClass(
+          'viewer-user',
+          UserRole.staff,
+          staffId,
+          classId,
+          '2026-07',
+        ),
+      ).resolves.toEqual([]);
+    });
+
+    it('báo thiếu hồ sơ khi staff chưa có staff_info', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: null,
+      });
+
+      await expect(
+        service.getSessionAllowancesByClass(
+          'viewer-user',
+          UserRole.staff,
+          staffId,
+          classId,
+          '2026-07',
+        ),
+      ).rejects.toThrow('Staff profile required');
     });
   });
 

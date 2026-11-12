@@ -1086,7 +1086,13 @@ export class UserProfileController {
         attendance: {
           where: { studentId },
         },
-        teacher: { include: { user: true } },
+        // Học sinh chỉ cần tên gia sư — không trả CCCD/ngân hàng/email (#270).
+        teacher: {
+          select: {
+            id: true,
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
       },
       orderBy: { date: 'desc' },
     });

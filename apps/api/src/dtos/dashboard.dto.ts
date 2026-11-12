@@ -1032,15 +1032,37 @@ export interface StaffDashboardUnpaidStaffItemDto {
   totalUnpaid: number;
 }
 
+/** Trường tổng hợp khoản chi nhân sự trong summary dashboard (#270). */
+export type StaffDashboardPayrollSummaryField =
+  | 'monthlyExpense'
+  | 'monthlyProfit'
+  | 'pendingPayrollTotal'
+  | 'pendingPayrollBreakdown'
+  | 'unpaidStaffCount';
+
+/**
+ * #270: Kế toán thu không thấy khoản chi nhân sự → các trường payroll vắng khỏi
+ * summary khi người xem chỉ có Kế toán thu (không kèm Kế toán chi / Admin).
+ */
+export type StaffDashboardFinancialSummaryDto = Omit<
+  AdminDashboardSummaryDto,
+  StaffDashboardPayrollSummaryField
+> &
+  Partial<Pick<AdminDashboardSummaryDto, StaffDashboardPayrollSummaryField>>;
+
 export interface StaffDashboardFinancialOverviewDto {
   period: AdminDashboardPeriodDto;
-  summary: AdminDashboardSummaryDto;
+  summary: StaffDashboardFinancialSummaryDto;
+  /** #270: chỉ còn `revenue` + `operatingCost` khi ẩn khoản chi nhân sự. */
   breakdown: AdminDashboardBreakdownItemDto[];
 }
 
 export interface StaffDashboardAccountantSectionDto {
-  unpaidStaff: StaffDashboardUnpaidStaffItemDto[];
+  /** #270: vắng khi người xem không được thấy khoản chi nhân sự (chỉ Kế toán thu). */
+  unpaidStaff?: StaffDashboardUnpaidStaffItemDto[];
   financialOverview: StaffDashboardFinancialOverviewDto;
+  /** #270: `false` → đã bỏ mọi khoản chi nhân sự khỏi section. */
+  staffPayoutsVisible: boolean;
 }
 
 export interface StaffDashboardExpenseSummaryDto {
@@ -1214,8 +1236,7 @@ export interface AdminMonthlyReportDto {
 
 export class GetStudentDemographicsQueryDto {
   @ApiPropertyOptional({
-    description:
-      'Lọc trạng thái học sinh: all (mặc định) | active | inactive.',
+    description: 'Lọc trạng thái học sinh: all (mặc định) | active | inactive.',
     enum: ['all', 'active', 'inactive'],
   })
   @IsOptional()
@@ -1232,7 +1253,9 @@ export class GetStudentDemographicsQueryDto {
   month?: string;
 
   @ApiPropertyOptional({ description: 'Năm YYYY.', example: '2026' })
-  @ValidateIf((o: GetStudentDemographicsQueryDto) => o.month != null || o.year != null)
+  @ValidateIf(
+    (o: GetStudentDemographicsQueryDto) => o.month != null || o.year != null,
+  )
   @Matches(/^\d{4}$/, { message: 'year must use YYYY format.' })
   year?: string;
 }

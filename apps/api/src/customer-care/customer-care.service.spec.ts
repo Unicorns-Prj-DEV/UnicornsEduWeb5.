@@ -313,6 +313,112 @@ describe('CustomerCareService', () => {
         totalPending: 5000,
         totalMonthCommission: 12000,
       },
+      amountsVisible: true,
+    });
+  });
+
+  describe('commission amounts visibility (#270)', () => {
+    const commissionRow = {
+      studentId: 'student-1',
+      fullName: 'Nguyen An',
+      monthCommission: '12000',
+      pendingCommission: '5000',
+      paidCommission: '7000',
+      totalCommission: 0,
+    };
+
+    function mockViewer(staffId: string, roles: StaffRole[]) {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({ id: staffId, roles });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: { id: staffId, roles },
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
+      mockPrisma.$queryRaw.mockResolvedValue([commissionRow]);
+    }
+
+    afterEach(() => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+    });
+
+    it.each([
+      ['Trưởng phòng Sale & CSKH', [StaffRole.sale_customer_care_head]],
+      ['Kế toán thu', [StaffRole.accountant_income]],
+      [
+        'Sale head kiêm Kế toán thu',
+        [StaffRole.sale_customer_care_head, StaffRole.accountant_income],
+      ],
+    ])('hides commission amounts from %s', async (_label, roles) => {
+      mockViewer('viewer-staff', roles);
+
+      const result = await service.getCommissionsByStaffId(
+        'viewer-user',
+        UserRole.staff,
+        'staff-1',
+        { month: '2026-05' },
+      );
+
+      expect(result).toEqual({
+        data: [
+          {
+            studentId: 'student-1',
+            fullName: 'Nguyen An',
+            totalCommission: null,
+            monthCommission: null,
+            pendingCommission: null,
+            paidCommission: null,
+          },
+        ],
+        summary: {
+          studentCount: 1,
+          totalPending: null,
+          totalMonthCommission: null,
+        },
+        amountsVisible: false,
+      });
+    });
+
+    it.each([
+      ['Kế toán chi', 'viewer-staff', [StaffRole.accountant_expense]],
+      [
+        'Sale head kiêm Kế toán chi',
+        'viewer-staff',
+        [StaffRole.sale_customer_care_head, StaffRole.accountant_expense],
+      ],
+      ['chính CSKH đó', 'staff-1', [StaffRole.customer_care]],
+    ])('shows commission amounts to %s', async (_label, staffId, roles) => {
+      mockViewer(staffId, roles);
+
+      const result = await service.getCommissionsByStaffId(
+        'viewer-user',
+        UserRole.staff,
+        'staff-1',
+        { month: '2026-05' },
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          amountsVisible: true,
+          summary: {
+            studentCount: 1,
+            totalPending: 5000,
+            totalMonthCommission: 12000,
+          },
+        }),
+      );
+    });
+
+    it('rejects Kế toán chi on the student list screen (not income)', async () => {
+      mockViewer('viewer-staff', [StaffRole.accountant_expense]);
+
+      await expect(
+        service.getStudentsByStaffId(
+          'viewer-user',
+          UserRole.staff,
+          'staff-1',
+          {},
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -354,10 +460,34 @@ describe('CustomerCareService', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('still allows bulk payment updates for accountant_income staff (#267)', async () => {
+  it('rejects bulk payment updates for accountant_income staff (#270)', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'accountant-staff',
       roles: [StaffRole.accountant_income],
+    });
+    mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
+    mockPrisma.attendance.findMany.mockResolvedValue([
+      { id: 'attendance-1', customerCarePaymentStatus: PaymentStatus.pending },
+    ]);
+    mockPrisma.attendance.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      service.bulkUpdateCommissionPaymentStatus(
+        'accountant-user',
+        UserRole.staff,
+        'staff-1',
+        ['attendance-1'],
+        PaymentStatus.paid,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(mockPrisma.attendance.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('allows bulk payment updates for accountant_expense staff (#270)', async () => {
+    mockPrisma.staffInfo.findFirst.mockResolvedValue({
+      id: 'accountant-staff',
+      roles: [StaffRole.accountant_expense],
     });
     mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
     mockPrisma.attendance.findMany.mockResolvedValue([

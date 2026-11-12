@@ -305,6 +305,78 @@ describe('AssistantCommissionService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  describe('head commission visibility (#270)', () => {
+    it.each([
+      ['Trưởng phòng khác', [StaffRole.sale_customer_care_head]],
+      ['Kế toán thu', [StaffRole.accountant_income]],
+      [
+        'Trưởng phòng khác kiêm Kế toán thu',
+        [StaffRole.sale_customer_care_head, StaffRole.accountant_income],
+      ],
+    ])('chặn %s xem hoa hồng của trưởng phòng', async (_label, roles) => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'viewer-staff',
+        roles,
+      });
+
+      await expect(
+        service.getManagedCustomerCare(
+          'viewer-user',
+          UserRole.staff,
+          'assistant-1',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it.each([
+      [
+        'chính trưởng phòng',
+        'assistant-1',
+        [StaffRole.sale_customer_care_head],
+      ],
+      ['Kế toán chi', 'viewer-staff', [StaffRole.accountant_expense]],
+      [
+        'Kế toán thu kiêm Kế toán chi',
+        'viewer-staff',
+        [StaffRole.accountant_income, StaffRole.accountant_expense],
+      ],
+    ])(
+      'cho %s xem hoa hồng của trưởng phòng',
+      async (_label, staffId, roles) => {
+        mockPrisma.staffInfo.findFirst.mockResolvedValue({
+          id: staffId,
+          roles,
+        });
+
+        await expect(
+          service.getManagedCustomerCare(
+            'viewer-user',
+            UserRole.staff,
+            'assistant-1',
+          ),
+        ).resolves.toBeDefined();
+      },
+    );
+
+    it('chặn Kế toán thu cập nhật trạng thái thanh toán', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({
+        id: 'income-staff',
+        roles: [StaffRole.accountant_income],
+      });
+
+      await expect(
+        service.bulkUpdatePaymentStatus(
+          'income-user',
+          UserRole.staff,
+          'assistant-1',
+          ['attendance-1'],
+          PaymentStatus.paid,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.attendance.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   it('bulk updates assistant share payment status to paid with tax snapshot', async () => {
     mockPrisma.attendance.findMany.mockResolvedValue([
       {

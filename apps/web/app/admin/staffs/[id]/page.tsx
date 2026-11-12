@@ -1870,6 +1870,9 @@ export default function AdminStaffDetailPage({
           allowAchievementEdit={
             (isAdmin || isAssistant) && !viewingOwnStaffRecord
           }
+          // #270: backend đã bỏ trường người xem không được thấy; ẩn luôn ô trống.
+          showPersonalInfo={staff.sensitiveView?.personal ?? true}
+          showBankInfo={staff.sensitiveView?.bank ?? true}
         />
 
         <section

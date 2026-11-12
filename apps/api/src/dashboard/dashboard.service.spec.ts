@@ -176,6 +176,37 @@ describe('DashboardService staff training dashboard', () => {
     );
   });
 
+  it('hides staff payouts from accountant_income-only dashboard (#270)', async () => {
+    const dashboard = await service.getStaffDashboard({
+      staffId: 'income-accountant-1',
+      staffRoles: [StaffRole.accountant_income],
+      query: { month: '05', year: '2026' },
+    });
+
+    expect(dashboard.accountant?.staffPayoutsVisible).toBe(false);
+    expect(dashboard.accountant).not.toHaveProperty('unpaidStaff');
+    expect(dashboard.accountant?.financialOverview.summary).not.toHaveProperty(
+      'pendingPayrollTotal',
+    );
+    expect(
+      dashboard.accountant?.financialOverview.breakdown.map((item) => item.key),
+    ).toEqual(expect.not.arrayContaining(['teacherCost', 'fixedSalaryCost']));
+  });
+
+  it('shows staff payouts when accountant_income also holds accountant_expense (#270)', async () => {
+    const dashboard = await service.getStaffDashboard({
+      staffId: 'both-accountant-1',
+      staffRoles: [StaffRole.accountant_income, StaffRole.accountant_expense],
+      query: { month: '05', year: '2026' },
+    });
+
+    expect(dashboard.accountant?.staffPayoutsVisible).toBe(true);
+    expect(dashboard.accountant?.unpaidStaff).toEqual(expect.any(Array));
+    expect(dashboard.accountant?.financialOverview.summary).toHaveProperty(
+      'pendingPayrollTotal',
+    );
+  });
+
   it('returns paginated expiring action alerts with meta total', async () => {
     prisma.$queryRaw.mockResolvedValueOnce([
       {

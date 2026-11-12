@@ -34,7 +34,11 @@ import {
 } from 'src/payroll/assistant-share.util';
 import { resolveTaxDeductionRate } from 'src/payroll/deduction-rates';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
+import {
+  assertActorNotEditingOwnCompensation,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
+import { computeStaffSensitiveView } from 'src/common/staff-sensitive-view';
 
 const DEFAULT_DAYS = 30;
 const RECENT_TOP_UP_DAYS = 21;
@@ -60,6 +64,20 @@ type CustomerCareCommissionAggregateRow = {
   paidCommission: unknown;
   monthCommission?: unknown;
 };
+
+/** #270: bỏ số tiền hoa hồng (thu nhập cá nhân) khi người xem không được thấy. */
+function redactCommissionAmounts(
+  row: CustomerCareCommissionDto,
+): CustomerCareCommissionDto {
+  return {
+    studentId: row.studentId,
+    fullName: row.fullName,
+    totalCommission: null,
+    pendingCommission: null,
+    paidCommission: null,
+    ...(row.monthCommission !== undefined ? { monthCommission: null } : {}),
+  };
+}
 
 function parseMonthRange(monthKey: string): {
   start: Date;
@@ -126,6 +144,13 @@ export class CustomerCareService {
     userId: string,
     roleType: UserRole,
     requestedStaffId: string,
+    options: {
+      /**
+       * #270: màn hoa hồng (khoản chi nhân sự) mở thêm cho Kế toán chi — người
+       * được xem thu nhập cá nhân. Màn học sinh/nạp ví không mở.
+       */
+      allowIncomeViewers?: boolean;
+    } = {},
   ) {
     if (roleType === UserRole.admin) {
       return requestedStaffId;
@@ -148,6 +173,13 @@ export class CustomerCareService {
     if (
       hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant_income)
+    ) {
+      return requestedStaffId;
+    }
+
+    if (
+      options.allowIncomeViewers &&
+      staff.roles.includes(StaffRole.accountant_expense)
     ) {
       return requestedStaffId;
     }
@@ -185,9 +217,9 @@ export class CustomerCareService {
     }
 
     // #267: thanh toán hoa hồng CSKH là việc trả lương → Trợ lí không còn quyền.
+    // #270: Kế toán thu không xử lý khoản chi nhân sự.
     return (
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
     );
   }
@@ -602,8 +634,57 @@ export class CustomerCareService {
       userId,
       roleType,
       staffId,
+      { allowIncomeViewers: true },
     );
+    const canViewAmounts = await this.canViewCommissionAmounts(
+      userId,
+      roleType,
+      accessibleStaffId,
+    );
+    const result = await this.loadCommissionsByStaffId(
+      accessibleStaffId,
+      query,
+    );
+    if (canViewAmounts) {
+      return Array.isArray(result)
+        ? result
+        : { ...result, amountsVisible: true };
+    }
+    if (Array.isArray(result)) {
+      return result.map(redactCommissionAmounts);
+    }
+    return {
+      data: result.data.map(redactCommissionAmounts),
+      summary: {
+        studentCount: result.summary.studentCount,
+        totalPending: null,
+        totalMonthCommission: null,
+      },
+      amountsVisible: false,
+    };
+  }
 
+  /**
+   * #270: tiền hoa hồng là thu nhập cá nhân → chỉ Admin, Kế toán chi và chính
+   * CSKH đó thấy số tiền. Trưởng phòng Sale & CSKH, Kế toán thu vẫn mở màn
+   * nhưng số tiền là `null` (vẫn thấy % hoa hồng, trạng thái thanh toán).
+   */
+  private async canViewCommissionAmounts(
+    userId: string,
+    roleType: UserRole,
+    staffId: string,
+  ): Promise<boolean> {
+    const actor = await resolveStaffPolicyActor(this.prisma, {
+      userId,
+      roleType,
+    });
+    return computeStaffSensitiveView(actor, staffId).income;
+  }
+
+  private async loadCommissionsByStaffId(
+    accessibleStaffId: string,
+    query: CustomerCareCommissionListQueryDto,
+  ): Promise<CustomerCareCommissionListDto | CustomerCareCommissionDto[]> {
     const staff = await this.prisma.staffInfo.findUnique({
       where: { id: accessibleStaffId },
       select: { id: true },
@@ -803,7 +884,7 @@ export class CustomerCareService {
     const summary = data.reduce(
       (acc, row) => ({
         studentCount: acc.studentCount + 1,
-        totalPending: acc.totalPending + row.pendingCommission,
+        totalPending: acc.totalPending + (row.pendingCommission ?? 0),
         totalMonthCommission:
           acc.totalMonthCommission + (row.monthCommission ?? 0),
       }),
@@ -829,6 +910,12 @@ export class CustomerCareService {
       userId,
       roleType,
       staffId,
+      { allowIncomeViewers: true },
+    );
+    const canViewAmounts = await this.canViewCommissionAmounts(
+      userId,
+      roleType,
+      accessibleStaffId,
     );
 
     const staff = await this.prisma.staffInfo.findUnique({
@@ -957,7 +1044,7 @@ export class CustomerCareService {
         className: attendance.session.class?.name ?? null,
         tuitionFee: tuition,
         customerCareCoef: coef,
-        commission,
+        commission: canViewAmounts ? commission : null,
         paymentStatus:
           attendance.customerCarePaymentStatus ?? PaymentStatus.pending,
       };
@@ -990,6 +1077,7 @@ export class CustomerCareService {
       userId,
       roleType,
       staffId,
+      { allowIncomeViewers: true },
     );
 
     const uniqueAttendanceIds = Array.from(

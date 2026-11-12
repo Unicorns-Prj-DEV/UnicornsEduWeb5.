@@ -1805,6 +1805,14 @@ export default function CustomerCareDetailPanels({
               {`Không có hoa hồng trong ${commissionMonthLabel}.`}
             </div>
           )}
+          {commissionList?.amountsVisible === false && (
+            // #270: hoa hồng là thu nhập cá nhân — chỉ Admin, Kế toán chi, chính CSKH thấy số tiền.
+            <p className="text-xs text-text-muted">
+              Số tiền hoa hồng là thu nhập cá nhân, chỉ Admin, Kế toán chi và
+              chính nhân sự CSKH được xem. Bạn vẫn xem được danh sách và trạng
+              thái thanh toán.
+            </p>
+          )}
           {!commissionsLoading && !commissionsError && commissions.length > 0 && (
             <div className="space-y-2">
               <div

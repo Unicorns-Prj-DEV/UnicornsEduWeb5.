@@ -151,3 +151,36 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
     },
   );
 });
+
+describe('Staff sensitive routes (#270)', () => {
+  it.each(['searchAssignableUsers', 'deleteStaffAvatar'])(
+    'keeps StaffController.%s admin-only (trả email / sửa hồ sơ)',
+    (methodName) => {
+      expect(getAllowedStaffRoles(StaffController, methodName)).toEqual([]);
+    },
+  );
+
+  it.each(['getStaff', 'getStaffById'])(
+    'StaffController.%s chỉ mở thêm cho Kế toán chi (service redact theo người xem)',
+    (methodName) => {
+      expect(getAllowedStaffRoles(StaffController, methodName)).toEqual([
+        StaffRole.accountant_expense,
+      ]);
+    },
+  );
+
+  it('StaffController.getStaffById chuyển người xem từ JWT xuống service', async () => {
+    const staffService = { getStaffById: jest.fn().mockResolvedValue({}) };
+    const controller = new StaffController(staffService as never);
+
+    await controller.getStaffById(
+      { id: 'user-1', roleType: 'staff' } as never,
+      'staff-1',
+    );
+
+    expect(staffService.getStaffById).toHaveBeenCalledWith('staff-1', {
+      userId: 'user-1',
+      roleType: 'staff',
+    });
+  });
+});

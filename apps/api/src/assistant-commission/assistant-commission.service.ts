@@ -30,6 +30,7 @@ import {
   commissionTuitionBasisVnd,
 } from 'src/payroll/assistant-share.util';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { computeStaffSensitiveView } from 'src/common/staff-sensitive-view';
 import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 
 const DEFAULT_PAGE = 1;
@@ -171,11 +172,16 @@ export class AssistantCommissionService {
       );
     }
 
-    const canAccess =
-      staff.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(staff.roles) ||
-      staff.roles.includes(StaffRole.accountant_income) ||
-      staff.roles.includes(StaffRole.accountant_expense);
+    // #270: hoa hồng trưởng phòng là thu nhập cá nhân → Admin, Kế toán chi và
+    // chính Trưởng phòng đó. Trưởng phòng khác và Kế toán thu không xem.
+    const canAccess = computeStaffSensitiveView(
+      {
+        isAdmin: staff.roles.includes(StaffRole.admin),
+        staffId: staff.id,
+        roles: staff.roles,
+      },
+      requestedAssistantStaffId,
+    ).income;
 
     if (!canAccess) {
       throw new ForbiddenException(
@@ -200,10 +206,10 @@ export class AssistantCommissionService {
       return false;
     }
 
+    // #270: Kế toán thu không xử lý khoản chi nhân sự.
     return (
       staff.roles.includes(StaffRole.admin) ||
       hasSaleCsHeadAccess(staff.roles) ||
-      staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
     );
   }

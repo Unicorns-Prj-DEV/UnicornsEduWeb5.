@@ -3108,6 +3108,179 @@ describe('StaffService', () => {
     });
   });
 
+  describe('sensitive staff fields (#270)', () => {
+    function mockStaffDetail() {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-1',
+        status: 'active',
+        roles: [StaffRole.teacher],
+        cccdNumber: '001200000001',
+        birthDate: new Date('2000-01-01'),
+        currentAddress: '1 Phố Huế',
+        gender: 'male',
+        bankAccount: '0123456789',
+        bankQrLink: 'https://qr.example/1',
+        university: 'ĐHBK',
+        user: {
+          first_name: 'A',
+          last_name: 'Teacher',
+          accountHandle: 'teacher-a',
+          email: 'teacher@example.com',
+          phone: '0901234567',
+          province: 'Hanoi',
+          avatarPath: null,
+        },
+        classTeachers: [],
+        monthlyStats: [],
+        customerCareManagedBy: null,
+      });
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
+    }
+
+    function mockViewer(staffId: string, roles: StaffRole[]) {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: { id: staffId, roles },
+      });
+    }
+
+    it('Admin thấy đủ CCCD, liên hệ, ngân hàng, thu nhập', async () => {
+      mockStaffDetail();
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.admin,
+        staffInfo: null,
+      });
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'admin-user',
+        roleType: UserRole.admin,
+      });
+
+      expect(result).toMatchObject({
+        cccdNumber: '001200000001',
+        bankAccount: '0123456789',
+        sensitiveView: { personal: true, bank: true, income: true },
+      });
+      expect(result).toHaveProperty('monthlyStats');
+      expect(result.user).toMatchObject({
+        email: 'teacher@example.com',
+        phone: '0901234567',
+      });
+    });
+
+    it('Kế toán chi thấy ngân hàng + thu nhập, không thấy thông tin cá nhân', async () => {
+      mockStaffDetail();
+      mockViewer('accountant-staff', [StaffRole.accountant_expense]);
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'accountant-user',
+        roleType: UserRole.staff,
+      });
+
+      expect(result).toMatchObject({
+        bankAccount: '0123456789',
+        bankQrLink: 'https://qr.example/1',
+        university: 'ĐHBK',
+        sensitiveView: { personal: false, bank: true, income: true },
+      });
+      expect(result).toHaveProperty('monthlyStats');
+      for (const key of [
+        'cccdNumber',
+        'birthDate',
+        'currentAddress',
+        'gender',
+      ]) {
+        expect(result).not.toHaveProperty(key);
+      }
+      expect(result.user).not.toHaveProperty('email');
+      expect(result.user).not.toHaveProperty('phone');
+    });
+
+    it('nhân sự khác (Kế toán thu) không thấy thông tin cá nhân, ngân hàng, thu nhập', async () => {
+      mockStaffDetail();
+      mockViewer('income-staff', [StaffRole.accountant_income]);
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'income-user',
+        roleType: UserRole.staff,
+      });
+
+      expect(result.sensitiveView).toEqual({
+        personal: false,
+        bank: false,
+        income: false,
+      });
+      for (const key of [
+        'cccdNumber',
+        'bankAccount',
+        'bankQrLink',
+        'monthlyStats',
+        'classAllowance',
+      ]) {
+        expect(result).not.toHaveProperty(key);
+      }
+    });
+
+    it('chính chủ thấy đủ hồ sơ của mình', async () => {
+      mockStaffDetail();
+      mockViewer('staff-1', [StaffRole.teacher]);
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'teacher-user',
+        roleType: UserRole.staff,
+      });
+
+      expect(result).toMatchObject({
+        cccdNumber: '001200000001',
+        bankAccount: '0123456789',
+        sensitiveView: { personal: true, bank: true, income: true },
+      });
+    });
+
+    it('danh sách nhân sự bỏ unpaidAmountTotal và email với người không được xem', async () => {
+      mockPrisma.staffInfo.count.mockResolvedValue(1);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([
+        {
+          id: 'staff-1',
+          status: 'active',
+          roles: [StaffRole.teacher],
+          cccdNumber: '001200000001',
+          bankAccount: '0123456789',
+          user: {
+            first_name: 'A',
+            last_name: 'Teacher',
+            email: 'teacher@example.com',
+            phone: '0901234567',
+            province: 'Hanoi',
+            avatarPath: null,
+          },
+          classTeachers: [],
+          _count: { achievements: 0 },
+        },
+      ]);
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { staffId: 'staff-1', totalUnpaid: 345000 },
+      ]);
+      mockViewer('income-staff', [StaffRole.accountant_income]);
+
+      const result = await service.getStaff(
+        { page: 1, limit: 20 },
+        { userId: 'income-user', roleType: UserRole.staff },
+      );
+      const [row] = result.data as unknown as Record<string, unknown>[];
+
+      expect(row).not.toHaveProperty('unpaidAmountTotal');
+      expect(row).not.toHaveProperty('cccdNumber');
+      expect(row).not.toHaveProperty('bankAccount');
+      expect(row.user).not.toHaveProperty('email');
+      expect(row.sensitiveView).toEqual({
+        personal: false,
+        bank: false,
+        income: false,
+      });
+    });
+  });
+
   it('lets expense accountants update class operating deduction rates', async () => {
     mockPrisma.classTeacher.findUnique.mockResolvedValue({
       id: 'assignment-1',

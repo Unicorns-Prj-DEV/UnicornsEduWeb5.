@@ -165,4 +165,26 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     expect(canAccessAdminShellRoute(expense, "/admin/costs")).toBe(true);
     expect(canManageAdminExtraAllowance(expense)).toBe(true);
   });
+
+  it("Kế toán thu không vào trang trợ cấp kế toán / hồ sơ nhân sự (#270)", () => {
+    const income = resolveAdminShellAccess(staffProfile(["accountant_income"]));
+    expect(canAccessAdminShellRoute(income, "/admin/accountant_detail")).toBe(
+      false,
+    );
+    expect(canAccessAdminShellRoute(income, "/admin/staffs")).toBe(false);
+    expect(canAccessAdminShellRoute(income, "/admin/staffs/staff-1")).toBe(
+      false,
+    );
+  });
+
+  it("Kế toán thu kiêm Kế toán chi nhận hợp quyền (#270)", () => {
+    const both = resolveAdminShellAccess(
+      staffProfile(["accountant_income", "accountant_expense"]),
+    );
+    expect(canAccessAdminShellRoute(both, "/admin/accountant_detail")).toBe(
+      true,
+    );
+    expect(canAccessAdminShellRoute(both, "/admin/students")).toBe(true);
+    expect(canAccessAdminShellRoute(both, "/admin/staffs/staff-1")).toBe(true);
+  });
 });

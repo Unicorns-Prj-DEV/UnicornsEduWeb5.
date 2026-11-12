@@ -74,6 +74,11 @@ import {
   assertStaffRoleChangeAllowed,
   resolveStaffPolicyActor,
 } from 'src/common/staff-role-policy';
+import {
+  computeStaffSensitiveView,
+  redactStaffRecordForView,
+  resolveStaffSensitiveView,
+} from 'src/common/staff-sensitive-view';
 import { buildNameSearchWhere } from './staff-name-search';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
 import {
@@ -157,6 +162,12 @@ function parseCommaSeparatedIds(raw?: string): string[] {
     ),
   ];
 }
+
+/** Người xem hồ sơ nhân sự (từ JWT) — dùng cho redact trường nhạy cảm (#270). */
+type StaffSensitiveViewer = {
+  userId?: string | null;
+  roleType?: string | null;
+};
 
 const STAFF_NAME_USER_SELECT = {
   first_name: true,
@@ -1298,6 +1309,8 @@ export class StaffService {
       highSchool?: string;
       role?: string;
     },
+    /** #270: người xem — quyết định trường nhạy cảm nào được trả về. */
+    viewer?: StaffSensitiveViewer,
   ) {
     const parsedPage = Number(query.page);
     const parsedLimit = Number(query.limit);
@@ -1437,14 +1450,18 @@ export class StaffService {
     const staffIds = data.map((staff) => staff.id);
     const unpaidTotalsByStaffId =
       await this.getUnpaidTotalsByStaffIds(staffIds);
+    const policyActor = await resolveStaffPolicyActor(this.prisma, viewer);
 
     const rows = await Promise.all(
       data.map(async ({ _count, ...staff }) => {
-        return {
-          ...(await this.attachStaffUserDisplayFields(staff)),
-          achievementCount: _count.achievements,
-          unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
-        };
+        return redactStaffRecordForView(
+          {
+            ...(await this.attachStaffUserDisplayFields(staff)),
+            achievementCount: _count.achievements,
+            unpaidAmountTotal: unpaidTotalsByStaffId.get(staff.id) ?? 0,
+          },
+          computeStaffSensitiveView(policyActor, staff.id),
+        );
       }),
     );
 
@@ -5441,7 +5458,12 @@ export class StaffService {
     };
   }
 
-  async getStaffById(id: string) {
+  /**
+   * Hồ sơ nhân sự. `viewer` vắng (luồng nội bộ / route chỉ Admin) → đủ trường;
+   * có `viewer` → bỏ trường nhạy cảm theo `resolveStaffSensitiveView` (#270).
+   */
+  async getStaffById(id: string, viewer?: StaffSensitiveViewer) {
+    const view = await resolveStaffSensitiveView(this.prisma, viewer, id);
     const tx = await this.prisma.$transaction(async (tx) => {
       const staff = await tx.staffInfo.findUnique({
         where: {
@@ -5544,7 +5566,7 @@ export class StaffService {
       };
     });
 
-    return tx;
+    return redactStaffRecordForView(tx, view);
   }
 
   async getStaffRevenueShare(staffId: string, month: string, year: string) {
@@ -5682,7 +5704,7 @@ export class StaffService {
       }
     });
 
-    return this.getStaffById(staffId);
+    return this.getStaffById(staffId, actor.auditActor);
   }
 
   private async applyInactiveStaffOperationalSideEffects(

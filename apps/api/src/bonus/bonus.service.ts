@@ -5,6 +5,17 @@ import {
 } from '../action-history/action-history.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
+
+/**
+ * Bonus trả kèm staff tối thiểu — không lộ CCCD/ngân hàng/thông tin cá nhân
+ * cho người chỉ có quyền xem thưởng (#270).
+ */
+const BONUS_STAFF_SELECT = {
+  id: true,
+  status: true,
+  roles: true,
+  userId: true,
+} as const;
 import { PaginationQueryDto } from '../dtos/pagination.dto';
 import { CreateBonusDto, UpdateBonusDto } from '../dtos/bonus.dto';
 
@@ -18,7 +29,7 @@ export class BonusService {
   private getBonusSnapshot(id: string) {
     return this.prisma.bonus.findUnique({
       where: { id },
-      include: { staff: true },
+      include: { staff: { select: BONUS_STAFF_SELECT } },
     });
   }
 
@@ -63,7 +74,7 @@ export class BonusService {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        staff: true,
+        staff: { select: BONUS_STAFF_SELECT },
       },
     });
 
@@ -80,7 +91,7 @@ export class BonusService {
   async getBonusById(id: string) {
     const bonus = await this.prisma.bonus.findUnique({
       where: { id },
-      include: { staff: true },
+      include: { staff: { select: BONUS_STAFF_SELECT } },
     });
 
     if (!bonus) {
@@ -135,7 +146,7 @@ export class BonusService {
       if (auditActor) {
         const afterValue = await tx.bonus.findUnique({
           where: { id: createdBonus.id },
-          include: { staff: true },
+          include: { staff: { select: BONUS_STAFF_SELECT } },
         });
         await this.actionHistoryService.recordCreate(tx, {
           actor: auditActor,
@@ -189,7 +200,7 @@ export class BonusService {
       if (auditActor) {
         const afterValue = await tx.bonus.findUnique({
           where: { id: data.id },
-          include: { staff: true },
+          include: { staff: { select: BONUS_STAFF_SELECT } },
         });
         await this.actionHistoryService.recordUpdate(tx, {
           actor: auditActor,

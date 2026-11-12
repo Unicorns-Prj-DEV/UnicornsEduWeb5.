@@ -56,25 +56,31 @@ export interface CustomerCareCommissionListQueryDto {
   days?: number;
 }
 
+/**
+ * Số tiền hoa hồng là thu nhập cá nhân (#270): `null` khi người xem không phải
+ * Admin, Kế toán chi hay chính CSKH đó (vd. Trưởng phòng Sale & CSKH, Kế toán thu).
+ */
 export interface CustomerCareCommissionDto {
   studentId: string;
   fullName: string;
   /** @deprecated Use monthCommission when month query is provided. */
-  totalCommission: number;
-  pendingCommission: number;
-  paidCommission: number;
-  monthCommission?: number;
+  totalCommission: number | null;
+  pendingCommission: number | null;
+  paidCommission: number | null;
+  monthCommission?: number | null;
 }
 
 export interface CustomerCareCommissionSummaryDto {
   studentCount: number;
-  totalPending: number;
-  totalMonthCommission: number;
+  totalPending: number | null;
+  totalMonthCommission: number | null;
 }
 
 export interface CustomerCareCommissionListDto {
   data: CustomerCareCommissionDto[];
   summary: CustomerCareCommissionSummaryDto;
+  /** #270: `false` → mọi số tiền hoa hồng trong response là `null`. */
+  amountsVisible?: boolean;
 }
 
 export interface CustomerCareSessionCommissionDto {
@@ -84,7 +90,8 @@ export interface CustomerCareSessionCommissionDto {
   className: string | null;
   tuitionFee: number;
   customerCareCoef: number;
-  commission: number;
+  /** #270: `null` khi người xem không được thấy thu nhập cá nhân của CSKH này. */
+  commission: number | null;
   paymentStatus: PaymentStatus;
 }
 

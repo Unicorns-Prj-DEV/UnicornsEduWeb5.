@@ -34,7 +34,11 @@ import {
   computeTrainingManagerSessionSnapshot,
   normalizeTrainingManagerRatePercent,
 } from './training-manager.utils';
-import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
+import {
+  assertActorNotEditingOwnCompensation,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
+import { computeStaffSensitiveView } from 'src/common/staff-sensitive-view';
 
 function parseMonthRange(monthKey: string): {
   start: Date;
@@ -286,24 +290,17 @@ export class TrainingManagerService {
       return staffId;
     }
 
-    const actor = await this.prisma.staffInfo.findFirst({
-      where: { userId },
-      select: { id: true, roles: true },
+    const actor = await resolveStaffPolicyActor(this.prisma, {
+      userId,
+      roleType,
     });
-    if (!actor) {
+    if (!actor.isAdmin && !actor.staffId) {
       throw new ForbiddenException('Staff profile required');
     }
 
-    if (actor.id === staffId) {
-      return staffId;
-    }
-
-    const canViewOthers =
-      actor.roles.includes(StaffRole.admin) ||
-      actor.roles.includes(StaffRole.accountant_income) ||
-      actor.roles.includes(StaffRole.accountant_expense);
-
-    if (!canViewOthers) {
+    // #270: trợ cấp quản lý lớp là thu nhập cá nhân → Admin, Kế toán chi,
+    // chính người đó. Kế toán thu không còn xem.
+    if (!computeStaffSensitiveView(actor, staffId).income) {
       throw new ForbiddenException('Không có quyền xem hồ sơ nhân sự này.');
     }
 
@@ -620,9 +617,9 @@ export class TrainingManagerService {
         where: { userId },
         select: { roles: true },
       });
+      // #270: Kế toán thu không xử lý khoản chi nhân sự.
       const canEdit =
         actor?.roles.includes(StaffRole.admin) ||
-        actor?.roles.includes(StaffRole.accountant_income) ||
         actor?.roles.includes(StaffRole.accountant_expense);
       if (!canEdit) {
         throw new ForbiddenException(
