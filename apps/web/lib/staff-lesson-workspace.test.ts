@@ -22,7 +22,7 @@ function fullStaffProfile(roles: string[]): FullProfileDto {
 
 describe("giáo án / trợ cấp nhân sự khác chỉ Admin (#267)", () => {
   it("Trợ lí không còn vào workspace giáo án", () => {
-    const access = resolveStaffLessonWorkspace(staffProfile(["assistant"]));
+    const access = resolveStaffLessonWorkspace(staffProfile(["sale_customer_care_head"]));
     expect(access.canAccessWorkspace).toBe(false);
     expect(access.workAccessMode).toBeNull();
     expect(access.createOutputAccessMode).toBeNull();
@@ -40,7 +40,7 @@ describe("giáo án / trợ cấp nhân sự khác chỉ Admin (#267)", () => {
 
   it("Trợ lí không xem trợ cấp của nhân sự khác; Kế toán chi vẫn xem", () => {
     expect(
-      canViewCrossStaffRoleDetail(fullStaffProfile(["assistant"]), "S2"),
+      canViewCrossStaffRoleDetail(fullStaffProfile(["sale_customer_care_head"]), "S2"),
     ).toBe(false);
     expect(
       canViewCrossStaffRoleDetail(fullStaffProfile(["accountant_expense"]), "S2"),

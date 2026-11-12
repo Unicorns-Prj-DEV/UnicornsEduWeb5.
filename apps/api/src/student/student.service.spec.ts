@@ -561,7 +561,7 @@ describe('StudentService', () => {
     sePayService.isWalletTopUpConfigured.mockReturnValue(true);
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
     mockPrisma.studentInfo.findUnique
       .mockResolvedValueOnce({
@@ -625,7 +625,7 @@ describe('StudentService', () => {
       createdByUserId: 'staff-user-1',
       createdByUserEmail: 'assistant@example.com',
       createdByRoleType: UserRole.staff,
-      createdByStaffRoles: [StaffRole.assistant],
+      createdByStaffRoles: [StaffRole.sale_customer_care_head],
       createdAt: new Date('2026-05-11T09:15:00.000Z'),
       updatedAt: new Date('2026-05-11T09:15:00.000Z'),
     });
@@ -667,7 +667,7 @@ describe('StudentService', () => {
     );
     expect(orderCreateArg?.data.createdByRoleType).toBe(UserRole.staff);
     expect(orderCreateArg?.data.createdByStaffRoles).toEqual([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
   });
 
@@ -841,7 +841,7 @@ describe('StudentService', () => {
     configService.get.mockReturnValue(undefined);
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -873,7 +873,7 @@ describe('StudentService', () => {
     );
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
     mockPrisma.studentInfo.findUnique.mockResolvedValue({
       id: 'student-1',
@@ -893,7 +893,7 @@ describe('StudentService', () => {
       requestedByUserId: 'staff-user-1',
       requestedByUserEmail: 'assistant@example.com',
       requestedByRoleType: UserRole.staff,
-      requestedByStaffRoles: [StaffRole.assistant],
+      requestedByStaffRoles: [StaffRole.sale_customer_care_head],
       createdAt: new Date('2026-05-16T03:00:00.000Z'),
       updatedAt: new Date('2026-05-16T03:00:00.000Z'),
       student: {
@@ -932,7 +932,7 @@ describe('StudentService', () => {
       .mockImplementation();
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
     mockPrisma.studentInfo.findUnique.mockResolvedValue({
       id: 'student-1',
@@ -952,7 +952,7 @@ describe('StudentService', () => {
       requestedByUserId: 'staff-user-1',
       requestedByUserEmail: 'assistant@example.com',
       requestedByRoleType: UserRole.staff,
-      requestedByStaffRoles: [StaffRole.assistant],
+      requestedByStaffRoles: [StaffRole.sale_customer_care_head],
       createdAt: new Date('2026-05-16T03:00:00.000Z'),
       updatedAt: new Date('2026-05-16T03:00:00.000Z'),
       student: {
@@ -1587,7 +1587,7 @@ describe('StudentService', () => {
 
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -1667,7 +1667,7 @@ describe('StudentService', () => {
 
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -2061,7 +2061,7 @@ describe('StudentService', () => {
     it('lets an assistant transfer the student to another customer care staff', async () => {
       mockPrisma.staffInfo.findUnique.mockResolvedValue({
         id: 'staff-assistant-1',
-        roles: [StaffRole.assistant],
+        roles: [StaffRole.sale_customer_care_head],
       });
 
       await expect(

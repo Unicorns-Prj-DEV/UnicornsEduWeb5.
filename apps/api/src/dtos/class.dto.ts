@@ -715,7 +715,7 @@ export class ClassCoverImageDto {
 
   @ApiProperty({
     description:
-      'Người gọi có được upload/thay/gỡ ảnh bìa lớp này không (admin, trợ lí, Gia sư đứng lớp, Quản lý lớp).',
+      'Người gọi có được upload/thay/gỡ ảnh bìa lớp này không (admin, Gia sư đứng lớp, Quản lý lớp).',
   })
   canManage: boolean;
 }

@@ -49,7 +49,7 @@ const STATUS_OPTIONS: Array<{ value: UserStatus; label: string }> = [
 const STAFF_ROLES: StaffRole[] = [
   "admin",
   "teacher",
-  "assistant",
+  "sale_customer_care_head",
   "lesson_plan",
   "lesson_plan_head",
   "accountant_income",

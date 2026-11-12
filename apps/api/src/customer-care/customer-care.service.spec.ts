@@ -338,7 +338,7 @@ describe('CustomerCareService', () => {
   it('rejects bulk payment updates for assistant staff (#267)', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'assistant-staff',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(

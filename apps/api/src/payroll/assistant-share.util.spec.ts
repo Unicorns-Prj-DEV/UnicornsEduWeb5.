@@ -30,13 +30,13 @@ describe('assistant-share.util', () => {
   it('detects self-managed attendance snapshot', () => {
     expect(
       isSelfManagedAssistantShareAttendance({
-        assistantManagerStaffId: 'x',
+        saleCsHeadStaffId: 'x',
         customerCareStaffId: 'x',
       }),
     ).toBe(true);
     expect(
       isSelfManagedAssistantShareAttendance({
-        assistantManagerStaffId: 'x',
+        saleCsHeadStaffId: 'x',
         customerCareStaffId: 'y',
       }),
     ).toBe(false);

@@ -596,11 +596,11 @@ export class SessionCreateService {
                 transactionId: studentTransactionAttendanceId.get(
                   attendanceItem.studentId,
                 ),
-                assistantManagerStaffId: assistantId,
-                assistantPaymentStatus: assistantId
+                saleCsHeadStaffId: assistantId,
+                saleCsHeadPaymentStatus: assistantId
                   ? PaymentStatus.pending
                   : null,
-                assistantTaxDeductionRatePercent: assistantId
+                saleCsHeadTaxDeductionRatePercent: assistantId
                   ? await getTaxRate(assistantId, SALE_CS_HEAD_ROLE)
                   : 0,
               };

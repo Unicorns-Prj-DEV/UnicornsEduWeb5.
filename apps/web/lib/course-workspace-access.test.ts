@@ -7,7 +7,7 @@ import {
 
 function staffProfile(roles: string[], extra?: Partial<UserInfoDto>): UserInfoDto {
   const isHead = roles.includes("lesson_plan_head");
-  const isAssistant = roles.includes("assistant");
+  const isAssistant = roles.includes("sale_customer_care_head");
   const isAdmin = roles.includes("admin");
   return {
     id: "staff-1",
@@ -23,7 +23,7 @@ function staffProfile(roles: string[], extra?: Partial<UserInfoDto>): UserInfoDt
         tier: isAdmin
           ? "full"
           : isAssistant
-            ? "assistant"
+            ? "sale_customer_care_head"
             : isHead
               ? "lesson_plan_head"
               : null,
@@ -130,7 +130,7 @@ describe("resolveCourseWorkspaceTab", () => {
 describe("khoá học chỉ Admin (#267)", () => {
   it("không cho Trợ lí vào workspace khoá học ở /admin", () => {
     const caps = resolveCourseWorkspaceCapabilities(
-      staffProfile(["assistant"]),
+      staffProfile(["sale_customer_care_head"]),
       "/admin",
     );
     expect(caps.canEnterWorkspace).toBe(false);

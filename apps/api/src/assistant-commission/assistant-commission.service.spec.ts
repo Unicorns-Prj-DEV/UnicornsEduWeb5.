@@ -55,11 +55,11 @@ describe('AssistantCommissionService', () => {
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
     mockPrisma.attendance.findMany.mockResolvedValue([]);
     mockPrisma.attendance.updateMany.mockResolvedValue({ count: 0 });
@@ -221,7 +221,7 @@ describe('AssistantCommissionService', () => {
         id: 'attendance-1',
         tuitionFee: 1_000_000,
         status: AttendanceStatus.present,
-        assistantPaymentStatus: PaymentStatus.pending,
+        saleCsHeadPaymentStatus: PaymentStatus.pending,
         session: {
           id: 'session-1',
           date: new Date('2026-05-01T00:00:00.000Z'),
@@ -309,7 +309,7 @@ describe('AssistantCommissionService', () => {
     mockPrisma.attendance.findMany.mockResolvedValue([
       {
         id: 'attendance-1',
-        assistantPaymentStatus: PaymentStatus.pending,
+        saleCsHeadPaymentStatus: PaymentStatus.pending,
       },
     ]);
     mockPrisma.attendance.updateMany.mockResolvedValue({ count: 1 });
@@ -325,8 +325,8 @@ describe('AssistantCommissionService', () => {
     expect(mockPrisma.attendance.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['attendance-1'] } },
       data: {
-        assistantPaymentStatus: PaymentStatus.paid,
-        assistantTaxDeductionRatePercent: 10,
+        saleCsHeadPaymentStatus: PaymentStatus.paid,
+        saleCsHeadTaxDeductionRatePercent: 10,
       },
     });
     expect(result).toEqual({
@@ -340,7 +340,7 @@ describe('AssistantCommissionService', () => {
     mockPrisma.attendance.findMany.mockResolvedValue([
       {
         id: 'attendance-1',
-        assistantPaymentStatus: PaymentStatus.paid,
+        saleCsHeadPaymentStatus: PaymentStatus.paid,
       },
     ]);
     mockPrisma.attendance.updateMany.mockResolvedValue({ count: 1 });
@@ -356,8 +356,8 @@ describe('AssistantCommissionService', () => {
     expect(mockPrisma.attendance.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['attendance-1'] } },
       data: {
-        assistantPaymentStatus: PaymentStatus.pending,
-        assistantTaxDeductionRatePercent: 0,
+        saleCsHeadPaymentStatus: PaymentStatus.pending,
+        saleCsHeadTaxDeductionRatePercent: 0,
       },
     });
   });

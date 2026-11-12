@@ -987,7 +987,7 @@ export class AuthService {
 
     if (!actorIsFullAdmin && target.roleType !== UserRole.student) {
       throw new ForbiddenException(
-        'Trợ lí chỉ được đặt mật khẩu cho tài khoản học sinh.',
+        'Trưởng phòng Sale & CSKH chỉ được đặt mật khẩu cho tài khoản học sinh.',
       );
     }
 

@@ -96,7 +96,7 @@ describe('ClassCoverService', () => {
       [StaffRole.customer_care],
       [StaffRole.accountant_income],
       // #267: Trợ lí không còn quản lý lớp.
-      [StaffRole.assistant],
+      [StaffRole.sale_customer_care_head],
     ])('rejects %s staff who do not own the class', async (role) => {
       asStaff([role], false);
       await expect(

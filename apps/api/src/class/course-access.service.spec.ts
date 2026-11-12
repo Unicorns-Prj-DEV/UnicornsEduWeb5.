@@ -64,7 +64,10 @@ describe('CourseAccessService', () => {
 
     // #267: Trợ lí không còn quản lý khoá học / ngân hàng câu hỏi.
     it('returns false for assistant', () => {
-      const actor = { roles: ['assistant'], isAdminUser: false } as never;
+      const actor = {
+        roles: ['sale_customer_care_head'],
+        isAdminUser: false,
+      } as never;
       expect(service.isManager(actor)).toBe(false);
     });
 

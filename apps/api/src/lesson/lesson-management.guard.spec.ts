@@ -111,7 +111,7 @@ describe('LessonManagementGuard', () => {
   it('rejects assistant staff', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'staff-info-2',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -119,7 +119,7 @@ describe('LessonManagementGuard', () => {
         createContext({
           id: 'staff-2',
           email: 'assistant@example.com',
-          accountHandle: 'assistant',
+          accountHandle: 'sale_customer_care_head',
           roleType: UserRole.staff,
         }),
       ),

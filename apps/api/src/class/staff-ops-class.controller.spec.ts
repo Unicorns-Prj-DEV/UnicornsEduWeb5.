@@ -88,7 +88,7 @@ describe('StaffOpsClassController makeup management', () => {
   it('rejects assistant updating a makeup event', async () => {
     staffOperationsAccess.resolveClassViewerActor.mockResolvedValueOnce({
       id: 'assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -96,7 +96,7 @@ describe('StaffOpsClassController makeup management', () => {
         user({
           id: 'assistant-user',
           email: 'assistant@example.com',
-          accountHandle: 'assistant',
+          accountHandle: 'sale_customer_care_head',
         }),
         'class-1',
         'makeup-1',

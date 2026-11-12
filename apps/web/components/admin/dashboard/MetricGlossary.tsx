@@ -82,8 +82,8 @@ export const EXPENSE_METRIC_GLOSSARY: MetricGlossaryItem[] = [
     definition: "Lương cứng đã chốt cho tháng đó. Tháng chưa chốt thì khoản này bằng 0.",
   },
   {
-    term: "Trợ lí",
-    definition: "Tiền hỗ trợ trả cho trợ lí lớp trong tháng.",
+    term: "Hoa hồng trưởng phòng",
+    definition: "Hoa hồng 3% học phí trả cho Trưởng phòng Sale & CSKH trên nhóm CSKH mình quản lí trong tháng.",
   },
   {
     term: "QL lớp",

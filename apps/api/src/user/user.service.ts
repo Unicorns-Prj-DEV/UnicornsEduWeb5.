@@ -537,7 +537,7 @@ export class UserService {
       await this.resolveCreatorCustomerCareStaff(auditActor);
     if (creatorCustomerCareStaff && classIds.length > 0) {
       throw new ForbiddenException(
-        'CSKH không được xếp lớp khi tạo học sinh. Nhờ admin/trợ lí xếp lớp sau.',
+        'CSKH không được xếp lớp khi tạo học sinh. Nhờ admin/Trưởng phòng Sale & CSKH xếp lớp sau.',
       );
     }
     if (classIds.length > 0) {

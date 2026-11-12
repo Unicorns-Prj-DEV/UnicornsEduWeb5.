@@ -21,7 +21,12 @@ type TestResolvedAuthAccess = {
   access: {
     admin: {
       canAccess: boolean;
-      tier: 'full' | 'assistant' | 'accountant' | 'lesson_plan_head' | null;
+      tier:
+        | 'full'
+        | 'sale_customer_care_head'
+        | 'accountant'
+        | 'lesson_plan_head'
+        | null;
     };
   };
 };
@@ -101,7 +106,7 @@ describe('RolesGuard', () => {
   // tường minh thì chỉ Admin vào được, kể cả Trợ lí.
   it('rejects assistant on admin routes by default (deny-by-default)', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
 
     await expect(
@@ -110,7 +115,7 @@ describe('RolesGuard', () => {
           {
             id: 'staff-1',
             email: 'assistant@example.com',
-            accountHandle: 'assistant',
+            accountHandle: 'sale_customer_care_head',
             roleType: UserRole.staff,
           },
           {
@@ -125,7 +130,7 @@ describe('RolesGuard', () => {
 
   it('allows assistant on admin routes when the route lists the assistant role', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
 
     await expect(
@@ -139,7 +144,7 @@ describe('RolesGuard', () => {
           },
           {
             requiredRoles: [UserRole.admin],
-            allowStaffRolesOnAdminRoutes: [StaffRole.assistant],
+            allowStaffRolesOnAdminRoutes: [StaffRole.sale_customer_care_head],
           },
         ),
       ),
@@ -241,7 +246,7 @@ describe('RolesGuard', () => {
 
   it('rejects assistant when explicit admin-route staff roles omit assistant', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
 
     await expect(
@@ -250,7 +255,7 @@ describe('RolesGuard', () => {
           {
             id: 'staff-allowed-roles-assistant',
             email: 'assistant@example.com',
-            accountHandle: 'assistant',
+            accountHandle: 'sale_customer_care_head',
             roleType: UserRole.staff,
           },
           {
@@ -266,7 +271,7 @@ describe('RolesGuard', () => {
 
   it('rejects assistant and accountant when explicit admin-route staff roles are empty', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
 
     await expect(
@@ -275,7 +280,7 @@ describe('RolesGuard', () => {
           {
             id: 'staff-roster-assistant',
             email: 'assistant@example.com',
-            accountHandle: 'assistant',
+            accountHandle: 'sale_customer_care_head',
             roleType: UserRole.staff,
           },
           {
@@ -359,7 +364,7 @@ describe('RolesGuard', () => {
     ).resolves.toBe(true);
 
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
 
     await expect(
@@ -368,7 +373,7 @@ describe('RolesGuard', () => {
           {
             id: 'staff-5',
             email: 'assistant@example.com',
-            accountHandle: 'assistant',
+            accountHandle: 'sale_customer_care_head',
             roleType: UserRole.staff,
           },
           {

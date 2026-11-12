@@ -206,11 +206,11 @@ export class CourseService {
     });
   }
 
-  /** Bán một lần đụng tới học phí: chỉ admin/trợ lí, không cho trưởng ban Chuyên môn. */
+  /** Bán một lần đụng tới học phí: chỉ admin, không cho trưởng ban Chuyên môn. */
   private assertCanChangeSaleMode(actor: CourseActor) {
     if (!this.courseAccess.isManager(actor)) {
       throw new ForbiddenException(
-        'Chỉ admin hoặc trợ lí được đổi cài đặt bán một lần của khoá.',
+        'Chỉ admin được đổi cài đặt bán một lần của khoá.',
       );
     }
   }

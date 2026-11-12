@@ -196,7 +196,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     },
     {
       href: "/staff/assistant-detail",
-      label: "Trợ lí",
+      label: "Hoa hồng trưởng phòng",
       icon: <IconOperations />,
       isActive: (pathname) => pathname.startsWith("/staff/assistant-detail"),
       isVisible: ({ isAssistant }) => isAssistant,

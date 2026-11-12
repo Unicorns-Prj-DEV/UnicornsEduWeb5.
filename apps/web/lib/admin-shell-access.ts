@@ -156,7 +156,7 @@ export function resolveAdminShellAccess(
       profile?.roleType === "admin" ||
       (isStaff && hasStaffProfile && staffRoles.includes("admin")),
     isAssistant:
-      adminTier === "assistant" ||
+      adminTier === "sale_customer_care_head" ||
       (isStaff && hasStaffProfile && hasSaleCsHeadAccess(staffRoles)),
     isAccountant,
     isAccountantIncome,

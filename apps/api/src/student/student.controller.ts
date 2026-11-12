@@ -142,7 +142,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'List students',
     description:
-      'Get all students. Admin, assistant, and income accountant only.',
+      'Get all students. Admin, sale_customer_care_head, and income accountant only.',
   })
   @ApiResponse({
     status: 200,
@@ -248,7 +248,7 @@ export class StudentController {
   @ApiResponse({
     status: 403,
     description:
-      'Trợ lí chỉ được gửi số âm (rút tiền). Nạp thẳng số dương chỉ Admin (#267).',
+      'Trưởng phòng Sale & CSKH chỉ được gửi số âm (rút tiền). Nạp thẳng số dương chỉ Admin (#267).',
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
@@ -263,7 +263,7 @@ export class StudentController {
       user.roleType === UserRole.admin || auth?.access.admin.tier === 'full';
     if (!isFullAdmin && data.amount > 0) {
       throw new ForbiddenException(
-        'Chỉ Admin được nạp thẳng tiền vào ví học sinh. Trợ lí hãy tạo yêu cầu nạp hoặc dùng QR.',
+        'Chỉ Admin được nạp thẳng tiền vào ví học sinh. Trưởng phòng Sale & CSKH hãy tạo yêu cầu nạp hoặc dùng QR.',
       );
     }
 
@@ -523,7 +523,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'Create a direct wallet top-up request for admin approval',
     description:
-      'Create a pending direct top-up request and send an approval email to ADMIN_EMAIL. Admin, assistant, and assigned customer care staff only.',
+      'Create a pending direct top-up request and send an approval email to ADMIN_EMAIL. Admin, sale_customer_care_head, and assigned customer care staff only.',
   })
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiBody({ type: CreateStudentWalletDirectTopUpRequestDto })
@@ -555,7 +555,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'Create SePay top-up order for a student',
     description:
-      'Create a SePay QR top-up order for a specific student. Admin, assistant, and assigned customer care staff only.',
+      'Create a SePay QR top-up order for a specific student. Admin, sale_customer_care_head, and assigned customer care staff only.',
   })
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiBody({ type: CreateStudentSePayTopUpOrderDto })
@@ -668,7 +668,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'Update student operational status',
     description:
-      'Status transition for admin, assistant, and assigned customer care. Marking inactive closes active class memberships; reactivating does not restore old class memberships.',
+      'Status transition for admin, sale_customer_care_head, and assigned customer care. Marking inactive closes active class memberships; reactivating does not restore old class memberships.',
   })
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiBody({

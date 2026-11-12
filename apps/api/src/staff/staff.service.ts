@@ -1,5 +1,6 @@
 import {
   SALE_CS_HEAD_ROLE,
+  SALE_CS_HEAD_ROLE_LABEL,
   hasSaleCsHeadAccess,
 } from 'src/common/sale-cs-head-access';
 import {
@@ -175,7 +176,7 @@ type StaffNameUserWithAvatar = StaffNameUser & {
 const STAFF_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   teacher: 'Giáo viên',
-  assistant: 'Trợ lí',
+  [SALE_CS_HEAD_ROLE]: SALE_CS_HEAD_ROLE_LABEL,
   lesson_plan: LESSON_PLAN_ROLE_LABEL,
   lesson_plan_head: LESSON_PLAN_HEAD_ROLE_LABEL,
   accountant_income: 'Kế toán thu',
@@ -994,7 +995,7 @@ export class StaffService {
         })
       ) {
         throw new BadRequestException(
-          'Trợ lí quản lí không được là chính nhân sự CSKH này.',
+          'Trưởng phòng quản lí không được là chính nhân sự CSKH này.',
         );
       }
       return managedBy;
@@ -1019,7 +1020,7 @@ export class StaffService {
   ): Prisma.AttendanceWhereInput {
     return {
       ...extra,
-      assistantManagerStaffId: staffId,
+      saleCsHeadStaffId: staffId,
       NOT: {
         customerCareStaffId: staffId,
       },
@@ -2298,15 +2299,15 @@ export class StaffService {
           in: ['present', 'excused'],
         },
         OR: [
-          { assistantPaymentStatus: PaymentStatus.pending },
-          { assistantPaymentStatus: null },
+          { saleCsHeadPaymentStatus: PaymentStatus.pending },
+          { saleCsHeadPaymentStatus: null },
         ],
       }),
       select: {
         id: true,
         tuitionFee: true,
         payrollBasisTuitionFee: true,
-        assistantPaymentStatus: true,
+        saleCsHeadPaymentStatus: true,
         student: {
           select: {
             fullName: true,
@@ -2339,11 +2340,11 @@ export class StaffService {
         id: row.id,
         role: SALE_CS_HEAD_ROLE,
         sourceType: 'assistant_share',
-        sourceLabel: 'Phần chia trợ lí 3%',
+        sourceLabel: 'Hoa hồng trưởng phòng 3%',
         label: row.student.fullName?.trim() || 'Học sinh chưa đặt tên',
         secondaryLabel: row.session.class?.name?.trim() || 'Lớp chưa đặt tên',
         date: row.session.date.toISOString(),
-        currentStatus: row.assistantPaymentStatus ?? PaymentStatus.pending,
+        currentStatus: row.saleCsHeadPaymentStatus ?? PaymentStatus.pending,
         grossAmount,
         operatingAmount: 0,
       };
@@ -2714,15 +2715,15 @@ export class StaffService {
           },
         },
         OR: [
-          { assistantPaymentStatus: PaymentStatus.pending },
-          { assistantPaymentStatus: null },
+          { saleCsHeadPaymentStatus: PaymentStatus.pending },
+          { saleCsHeadPaymentStatus: null },
         ],
       }),
       select: {
         id: true,
         tuitionFee: true,
         payrollBasisTuitionFee: true,
-        assistantPaymentStatus: true,
+        saleCsHeadPaymentStatus: true,
         student: {
           select: {
             fullName: true,
@@ -2755,11 +2756,11 @@ export class StaffService {
         id: row.id,
         role: SALE_CS_HEAD_ROLE,
         sourceType: 'assistant_share',
-        sourceLabel: 'Phần chia trợ lí 3%',
+        sourceLabel: 'Hoa hồng trưởng phòng 3%',
         label: row.student.fullName?.trim() || 'Học sinh chưa đặt tên',
         secondaryLabel: row.session.class?.name?.trim() || 'Lớp chưa đặt tên',
         date: row.session.date.toISOString(),
-        currentStatus: row.assistantPaymentStatus ?? PaymentStatus.pending,
+        currentStatus: row.saleCsHeadPaymentStatus ?? PaymentStatus.pending,
         grossAmount,
         operatingAmount: 0,
       };
@@ -3631,8 +3632,8 @@ export class StaffService {
         customerCareCoef: true,
         customerCarePaymentStatus: true,
         customerCareTaxDeductionRatePercent: true,
-        assistantPaymentStatus: true,
-        assistantTaxDeductionRatePercent: true,
+        saleCsHeadPaymentStatus: true,
+        saleCsHeadTaxDeductionRatePercent: true,
         student: {
           select: {
             id: true,
@@ -4072,8 +4073,8 @@ export class StaffService {
           : 'Thanh toán hoa hồng CSKH đã chọn',
       assistant_share:
         auditScope === 'all'
-          ? 'Thanh toán toàn bộ phần chia trợ lí'
-          : 'Thanh toán phần chia trợ lí đã chọn',
+          ? 'Thanh toán toàn bộ hoa hồng trưởng phòng'
+          : 'Thanh toán hoa hồng trưởng phòng đã chọn',
       training_manager:
         auditScope === 'all'
           ? 'Thanh toán toàn bộ trợ cấp quản lý lớp'
@@ -4181,13 +4182,13 @@ export class StaffService {
           },
         },
         data: {
-          assistantTaxDeductionRatePercent: assistantTaxRatePercent,
-          assistantPaymentStatus: PaymentStatus.paid,
+          saleCsHeadTaxDeductionRatePercent: assistantTaxRatePercent,
+          saleCsHeadPaymentStatus: PaymentStatus.paid,
         },
       });
       sourceResults.push({
         sourceType: 'assistant_share',
-        sourceLabel: 'Phần chia trợ lí 3%',
+        sourceLabel: 'Hoa hồng trưởng phòng 3%',
         updatedCount: updateResult.count,
       });
     }
@@ -6038,12 +6039,12 @@ export class StaffService {
           });
           if (!manager) {
             throw new BadRequestException(
-              'Trợ lí được chỉ định không tồn tại.',
+              'Trưởng phòng Sale & CSKH được chỉ định không tồn tại.',
             );
           }
           if (!hasSaleCsHeadAccess(manager.roles)) {
             throw new BadRequestException(
-              'Nhân sự được chỉ định phải có role trợ lí.',
+              'Nhân sự được chỉ định phải có role Trưởng phòng Sale & CSKH.',
             );
           }
           if (manager.status !== StaffStatus.active) {
@@ -6314,7 +6315,7 @@ export class StaffService {
             });
             if (!manager || !hasSaleCsHeadAccess(manager.roles)) {
               throw new BadRequestException(
-                'Nhân sự được chỉ định phải có role trợ lí.',
+                'Nhân sự được chỉ định phải có role Trưởng phòng Sale & CSKH.',
               );
             }
             if (manager.status !== StaffStatus.active) {

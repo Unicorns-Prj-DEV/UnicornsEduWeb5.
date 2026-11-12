@@ -52,7 +52,7 @@ export class UserController {
   @Get()
   @ApiOperation({
     summary: 'List users',
-    description: 'Get all users. Full admin and assistant read-only.',
+    description: 'Get all users. Admin only.',
   })
   @ApiResponse({ status: 200, description: 'List of users.' })
   @ApiQuery({
@@ -89,7 +89,7 @@ export class UserController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get user by ID',
-    description: 'Get a user by ID. Full admin and assistant read-only.',
+    description: 'Get a user by ID. Admin only.',
   })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User found.' })
@@ -107,7 +107,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Create user',
     description:
-      'Create a new user. Admin and assistant can assign roleType/staffRoles immediately.',
+      'Create a new user. Admin only; can assign roleType/staffRoles immediately.',
   })
   @ApiBody({
     type: AdminCreateUserDto,
@@ -145,7 +145,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Create student user with profile and classes',
     description:
-      'Create pending user, assign student role, upsert student profile, and assign classes in a single admin flow. Customer care staff (without admin/assistant role) cannot assign classes and become the student customer care owner with their default profit percent.',
+      'Create pending user, assign student role, upsert student profile, and assign classes in a single admin flow. Customer care staff (without admin/sale_customer_care_head role) cannot assign classes and become the student customer care owner with their default profit percent.',
   })
   @ApiBody({
     type: AdminCreateStudentUserDto,
@@ -164,7 +164,7 @@ export class UserController {
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden. Admin, assistant or customer care only; customer care cannot assign classes.',
+      'Forbidden. Admin, sale_customer_care_head or customer care only; customer care cannot assign classes.',
   })
   @ApiResponse({ status: 404, description: 'One or more classes not found.' })
   async createStudentUser(
@@ -216,7 +216,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Set user password',
     description:
-      'Admin/assistant sets a new password for a user without the old one. Revokes all devices and refresh token of the target user. Assistants (#267) may only set passwords of student accounts.',
+      'Admin/sale_customer_care_head sets a new password for a user without the old one. Revokes all devices and refresh token of the target user. Sale & CSKH heads (#267, #268) may only set passwords of student accounts.',
   })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiBody({ type: AdminSetUserPasswordDto })
@@ -226,7 +226,7 @@ export class UserController {
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden. Non-admin staff, or assistant targeting a non-student account.',
+      'Forbidden. Non-admin staff, or sale_customer_care_head targeting a non-student account.',
   })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async setUserPassword(
@@ -245,7 +245,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Delete user',
     description:
-      'Soft-delete user account: unlinks staff_info/student_info (sets user_id null, keeps profiles), nulls other user FKs via DB constraints, then removes the user row. Admin/assistant only.',
+      'Soft-delete user account: unlinks staff_info/student_info (sets user_id null, keeps profiles), nulls other user FKs via DB constraints, then removes the user row. Admin only.',
   })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User deleted.' })

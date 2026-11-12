@@ -143,7 +143,7 @@ export class TrainingManagerController {
     description: 'Session allowance recomputed with the new rate.',
   })
   @ApiResponse({ status: 400, description: 'Invalid rate or session paid.' })
-  @ApiResponse({ status: 403, description: 'Only admin or assistant.' })
+  @ApiResponse({ status: 403, description: 'Only admin.' })
   async updateSessionRatePercent(
     @CurrentUser() user: JwtPayload,
     @Param('staffId', new ParseStaffIdPipe()) staffId: string,

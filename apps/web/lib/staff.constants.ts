@@ -11,7 +11,7 @@ export const LESSON_PLAN_HEAD_ROLE_LABEL = "Trưởng ban Chuyên môn";
 export const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   teacher: "Giáo viên",
-  assistant: "Trợ lí",
+  sale_customer_care_head: "Trưởng phòng Sale & CSKH",
   lesson_plan: LESSON_PLAN_ROLE_LABEL,
   lesson_plan_head: LESSON_PLAN_HEAD_ROLE_LABEL,
   accountant_income: "Kế toán thu",

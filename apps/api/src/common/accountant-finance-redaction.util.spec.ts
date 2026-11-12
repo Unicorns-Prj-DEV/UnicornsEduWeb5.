@@ -33,7 +33,9 @@ describe('resolveAccountantFinanceView', () => {
   it('keeps admin and assistant on full finance view', () => {
     expect(resolveAccountantFinanceView(UserRole.admin, [])).toBe('full');
     expect(
-      resolveAccountantFinanceView(UserRole.staff, [StaffRole.assistant]),
+      resolveAccountantFinanceView(UserRole.staff, [
+        StaffRole.sale_customer_care_head,
+      ]),
     ).toBe('full');
   });
 });

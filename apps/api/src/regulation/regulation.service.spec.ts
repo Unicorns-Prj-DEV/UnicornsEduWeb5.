@@ -68,14 +68,14 @@ describe('RegulationService', () => {
   // nhóm của mình như staff thường.
   it('filters regulations to the assistant audience for assistant staff', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
     mockPrisma.regulation.findMany.mockResolvedValue([]);
 
     await service.getRegulations({
       id: 'user-assistant',
       email: 'assistant@example.com',
-      accountHandle: 'assistant',
+      accountHandle: 'sale_customer_care_head',
       roleType: UserRole.staff,
     });
 
@@ -84,7 +84,7 @@ describe('RegulationService', () => {
     };
     expect(call.where).toBeDefined();
     expect(JSON.stringify(call.where)).toContain(
-      RegulationAudience.staff_assistant,
+      RegulationAudience.staff_sale_customer_care_head,
     );
   });
 
@@ -262,7 +262,7 @@ describe('RegulationService', () => {
       {
         id: 'assistant-user',
         email: 'assistant@example.com',
-        accountHandle: 'assistant',
+        accountHandle: 'sale_customer_care_head',
         roleType: UserRole.staff,
       },
       {
@@ -332,7 +332,7 @@ describe('RegulationService', () => {
       {
         id: 'assistant-user',
         email: 'assistant@example.com',
-        accountHandle: 'assistant',
+        accountHandle: 'sale_customer_care_head',
         roleType: UserRole.staff,
       },
       actor,

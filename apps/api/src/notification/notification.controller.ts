@@ -61,7 +61,7 @@ export class NotificationController {
   @ApiOperation({
     summary: 'List notifications for admin management',
     description:
-      "Return the caller's own drafts and published notifications. Only admin (users.role_type admin or staff role admin) additionally sees every published notification (moderation); every other staff role, including the Sale & CSKH head (former assistant), only sees their own (#269). Each item carries `canEdit` / `canDelete` for the caller.",
+      "Return the caller's own drafts and published notifications. Only admin (users.role_type admin or staff role admin) additionally sees every published notification (moderation); every other staff role, including the Sale & CSKH head (`sale_customer_care_head`), only sees their own (#269). Each item carries `canEdit` / `canDelete` for the caller.",
   })
   @ApiQuery({
     name: 'status',

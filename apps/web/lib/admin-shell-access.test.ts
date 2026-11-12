@@ -30,10 +30,10 @@ const ADMIN_ONLY_REPORT_ROUTES = [
 
 describe("Dashboard / Báo cáo tháng / Thống kê học sinh chỉ Admin (#269)", () => {
   it.each([
-    ["Trợ lí / TP Sale & CSKH", ["assistant"]],
+    ["Trợ lí / TP Sale & CSKH", ["sale_customer_care_head"]],
     ["Kế toán thu", ["accountant_income"]],
     ["Kế toán chi", ["accountant_expense"]],
-    ["Trợ lí kiêm Kế toán thu", ["assistant", "accountant_income"]],
+    ["Trợ lí kiêm Kế toán thu", ["sale_customer_care_head", "accountant_income"]],
   ])("từ chối %s", (_label, roles) => {
     const access = resolveAdminShellAccess(staffProfile(roles));
     for (const route of ADMIN_ONLY_REPORT_ROUTES) {
@@ -54,7 +54,7 @@ describe("Dashboard / Báo cáo tháng / Thống kê học sinh chỉ Admin (#26
   });
 
   it("Trợ lí không bị đưa về dashboard admin", () => {
-    const profile = staffProfile(["assistant"]);
+    const profile = staffProfile(["sale_customer_care_head"]);
     const access = resolveAdminShellAccess(profile);
     expect(getAdminShellEntryHref(profile)).toBe("/admin/students");
     expect(resolveAdminShellFallbackHref(access, "/admin/dashboard")).toBe(
@@ -97,7 +97,7 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
   ];
 
   it("Trợ lí chỉ vào được Học sinh và Thông báo", () => {
-    const access = resolveAdminShellAccess(staffProfile(["assistant"]));
+    const access = resolveAdminShellAccess(staffProfile(["sale_customer_care_head"]));
     for (const route of ASSISTANT_ALLOWED_ROUTES) {
       expect(canAccessAdminShellRoute(access, route), route).toBe(true);
     }
@@ -124,7 +124,7 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
   });
 
   it("Trợ lí không còn quản lý tài khoản / trợ cấp thêm / học phí lớp", () => {
-    const assistantProfile = staffProfile(["assistant"]);
+    const assistantProfile = staffProfile(["sale_customer_care_head"]);
     const assistantUsers = resolveUserAdminCapabilities(assistantProfile);
     expect(assistantUsers.canManageUsers).toBe(false);
     expect(assistantUsers.canDeleteUser).toBe(false);
@@ -149,7 +149,7 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
   });
 
   it("Trợ lí giữ thao tác học sinh và ví (trừ nạp thẳng)", () => {
-    const caps = resolveStudentAdminCapabilities(staffProfile(["assistant"]));
+    const caps = resolveStudentAdminCapabilities(staffProfile(["sale_customer_care_head"]));
     expect(caps.canDeleteStudent).toBe(true);
     expect(caps.canDirectlyWithdrawWallet).toBe(true);
     expect(caps.canRequestDirectTopUp).toBe(true);

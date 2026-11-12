@@ -161,7 +161,7 @@ export class ClassCoverService {
   ) {
     if (!(await this.canManage(userId, roleType, classId))) {
       throw new ForbiddenException(
-        'Chỉ admin, trợ lí, Gia sư đứng lớp hoặc Quản lý lớp mới được đổi ảnh bìa lớp này.',
+        'Chỉ admin, Gia sư đứng lớp hoặc Quản lý lớp mới được đổi ảnh bìa lớp này.',
       );
     }
   }

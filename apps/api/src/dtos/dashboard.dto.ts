@@ -992,7 +992,7 @@ export class GetStaffDashboardStudentChangesQueryDto {
 
   @ApiProperty({
     description:
-      'Phạm vi CSKH: own (chỉ học sinh do bản thân phụ trách) hoặc managed (bản thân + CSKH được quản lí, dùng cho trợ lí).',
+      'Phạm vi CSKH: own (chỉ học sinh do bản thân phụ trách) hoặc managed (bản thân + CSKH được quản lí, dùng cho Trưởng phòng Sale & CSKH).',
     enum: STAFF_DASHBOARD_STUDENT_CHANGE_SCOPES,
     example: 'own',
   })

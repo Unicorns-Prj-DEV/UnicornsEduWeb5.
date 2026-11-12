@@ -818,7 +818,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Force logout student',
     description:
-      'Removes every active device of a student. Admin and staff assistant may target any student; staff customer_care only students they are assigned to; other staff roles get 403.',
+      'Removes every active device of a student. Admin and staff sale_customer_care_head (Trưởng phòng Sale & CSKH) may target any student; staff customer_care only students they are assigned to; other staff roles get 403.',
   })
   @ApiParam({ name: 'id', description: 'Student user ID' })
   @ApiResponse({ status: 200, description: 'Student force-logged out.' })

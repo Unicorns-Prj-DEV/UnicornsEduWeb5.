@@ -165,7 +165,7 @@ export default function CourseFormPopup({
             </label>
             {!canChangeSaleMode ? (
               <p className="text-xs text-text-muted">
-                Chỉ admin hoặc trợ lí được đổi cài đặt này.
+                Chỉ admin được đổi cài đặt này.
               </p>
             ) : isEdit && isOneTime !== (course?.isOneTime ?? false) ? (
               <Alert variant="warning">

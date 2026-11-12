@@ -31,7 +31,7 @@ const LESSON_PLAN_TEAM_STAFF_ROLES = [
  * (cây Chuyên đề/Tiết học, Ngân hàng câu hỏi, tiết thực hành cấp khoá...).
  *
  * Quy tắc:
- * - Admin đầy đủ, Trợ lí (`assistant`) quản lý được nội dung của MỌI khoá (manager).
+ * - Chỉ Admin quản lý được nội dung của MỌI khoá (manager); Trưởng phòng Sale & CSKH thì không (#267).
  * - `lesson_plan` và Trưởng ban Chuyên môn (`lesson_plan_head`) chỉ thấy/sửa khoá mình được
  *   gán vào đội giáo án (qua `CourseLessonPlanMember`). Trưởng ban Chuyên môn không có quyền
  *   mặc định vào mọi khoá; quyền riêng của trưởng (tạo khoá, gán đội) cũng chỉ trên
@@ -77,7 +77,7 @@ export class CourseAccessService {
    * Khác `resolveViewableCourseIds`: hàm kia trả lời "ai được quản lý nội dung"
    * và trả mảng rỗng cho teacher / training / kế toán / CSKH. Hàm này trả `null`
    * (mọi khoá) cho mọi role, **trừ** đội giáo án thuần — có role `lesson_plan` /
-   * `lesson_plan_head` mà không kèm role quản lý (`admin` / `assistant`).
+   * `lesson_plan_head` mà không kèm role quản lý (`admin`).
    * Tên khoá không nhạy cảm; chặn sửa nội dung là việc của gate route + guard.
    *
    * Trả `null` = mọi khoá. Trả mảng (kể cả rỗng) = chỉ các id đó.
@@ -152,7 +152,7 @@ export class CourseAccessService {
     }
     const label = courseName ? `của khoá "${courseName}"` : 'của khoá này';
     throw new ForbiddenException(
-      `Bạn không có quyền sửa nội dung ${label}. Chỉ admin, trợ lí, hoặc thành viên đội chuyên môn của khoá (kể cả trưởng ban Chuyên môn) mới được sửa.`,
+      `Bạn không có quyền sửa nội dung ${label}. Chỉ admin hoặc thành viên đội chuyên môn của khoá (kể cả trưởng ban Chuyên môn) mới được sửa.`,
     );
   }
 

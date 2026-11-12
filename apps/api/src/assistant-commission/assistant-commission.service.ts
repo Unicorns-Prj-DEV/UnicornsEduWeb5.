@@ -160,7 +160,7 @@ export class AssistantCommissionService {
 
     if (roleType !== UserRole.staff) {
       throw new ForbiddenException(
-        'Chỉ admin hoặc staff được phép xem dữ liệu hoa hồng trợ lí.',
+        'Chỉ admin hoặc staff được phép xem dữ liệu hoa hồng trưởng phòng.',
       );
     }
 
@@ -179,7 +179,7 @@ export class AssistantCommissionService {
 
     if (!canAccess) {
       throw new ForbiddenException(
-        'Tài khoản hiện tại không có quyền xem hoa hồng trợ lí.',
+        'Tài khoản hiện tại không có quyền xem hoa hồng trưởng phòng.',
       );
     }
 
@@ -598,15 +598,15 @@ export class AssistantCommissionService {
 
     const attendances = await this.prisma.attendance.findMany({
       where: {
-        assistantManagerStaffId: accessibleAssistantStaffId,
+        saleCsHeadStaffId: accessibleAssistantStaffId,
         customerCareStaffId,
         studentId,
         status: { in: CHARGEABLE_ATTENDANCE_STATUSES },
         ...(scope === 'pending'
           ? {
               OR: [
-                { assistantPaymentStatus: PaymentStatus.pending },
-                { assistantPaymentStatus: null },
+                { saleCsHeadPaymentStatus: PaymentStatus.pending },
+                { saleCsHeadPaymentStatus: null },
               ],
             }
           : {}),
@@ -626,7 +626,7 @@ export class AssistantCommissionService {
         tuitionFee: true,
         payrollBasisTuitionFee: true,
         status: true,
-        assistantPaymentStatus: true,
+        saleCsHeadPaymentStatus: true,
         session: {
           select: {
             id: true,
@@ -668,7 +668,7 @@ export class AssistantCommissionService {
         shareAmount,
         attendanceStatus: attendance.status,
         paymentStatus:
-          attendance.assistantPaymentStatus ?? PaymentStatus.pending,
+          attendance.saleCsHeadPaymentStatus ?? PaymentStatus.pending,
         customerCareStaffName: customerCareStaff.fullName,
       };
     });
@@ -684,7 +684,7 @@ export class AssistantCommissionService {
     const canUpdate = await this.canUpdatePaymentStatus(userId, roleType);
     if (!canUpdate) {
       throw new ForbiddenException(
-        'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán hoa hồng trợ lí.',
+        'Tài khoản hiện tại không có quyền cập nhật trạng thái thanh toán hoa hồng trưởng phòng.',
       );
     }
     await assertActorNotEditingOwnCompensation(
@@ -729,12 +729,12 @@ export class AssistantCommissionService {
       const existingAttendances = await tx.attendance.findMany({
         where: {
           id: { in: uniqueAttendanceIds },
-          assistantManagerStaffId: accessibleAssistantStaffId,
+          saleCsHeadStaffId: accessibleAssistantStaffId,
           status: { in: CHARGEABLE_ATTENDANCE_STATUSES },
         },
         select: {
           id: true,
-          assistantPaymentStatus: true,
+          saleCsHeadPaymentStatus: true,
         },
       });
 
@@ -756,7 +756,7 @@ export class AssistantCommissionService {
       const changedAttendanceIds = existingAttendances
         .filter(
           (attendance) =>
-            (attendance.assistantPaymentStatus ?? PaymentStatus.pending) !==
+            (attendance.saleCsHeadPaymentStatus ?? PaymentStatus.pending) !==
             paymentStatus,
         )
         .map((attendance) => attendance.id);
@@ -783,8 +783,8 @@ export class AssistantCommissionService {
             id: { in: changedAttendanceIds },
           },
           data: {
-            assistantPaymentStatus: PaymentStatus.paid,
-            assistantTaxDeductionRatePercent: taxRatePercent,
+            saleCsHeadPaymentStatus: PaymentStatus.paid,
+            saleCsHeadTaxDeductionRatePercent: taxRatePercent,
           },
         });
         updatedCount = updateResult.count;
@@ -794,8 +794,8 @@ export class AssistantCommissionService {
             id: { in: changedAttendanceIds },
           },
           data: {
-            assistantPaymentStatus: PaymentStatus.pending,
-            assistantTaxDeductionRatePercent: 0,
+            saleCsHeadPaymentStatus: PaymentStatus.pending,
+            saleCsHeadTaxDeductionRatePercent: 0,
           },
         });
         updatedCount = updateResult.count;

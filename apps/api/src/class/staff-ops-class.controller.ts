@@ -327,7 +327,7 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'Update teacher pay of a class (training manager)',
     description:
-      'Quản lý lớp (Ban Đào Tạo), trợ lí hoặc admin chỉnh trợ cấp/hs, trần trợ cấp, scale mặc định của lớp và trợ cấp/scale/% vận hành của gia sư đã có trong lớp. ' +
+      'Quản lý lớp (Ban Đào Tạo) hoặc admin chỉnh trợ cấp/hs, trần trợ cấp, scale mặc định của lớp và trợ cấp/scale/% vận hành của gia sư đã có trong lớp. ' +
       'Không nhận học phí hay thông tin lớp khác. Quản lý lớp không được sửa dòng của chính mình (403). ' +
       'Chỉ áp dụng cho buổi tạo sau khi lưu.',
   })

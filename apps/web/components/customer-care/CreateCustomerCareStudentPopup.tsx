@@ -159,7 +159,7 @@ export default function CreateCustomerCareStudentPopup({ onClose }: Props) {
           </h2>
           <p className="mt-1 text-sm text-text-secondary">
             Bạn sẽ là Người chăm sóc của học sinh này, áp % mặc định trên hồ sơ CSKH. Xếp lớp do
-            admin/trợ lí làm sau.
+            admin/Trưởng phòng Sale & CSKH làm sau.
           </p>
         </div>
         <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">

@@ -75,15 +75,15 @@ describe('AdminOnlyDeleteGuard', () => {
   // #267: Trợ lí không còn quyền xoá trong admin workspace.
   it('rejects assistant staff', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
       guard.canActivate(
         createContext({
-          id: 'assistant',
+          id: 'sale_customer_care_head',
           email: 'assistant@example.com',
-          accountHandle: 'assistant',
+          accountHandle: 'sale_customer_care_head',
           roleType: UserRole.staff,
         }),
       ),

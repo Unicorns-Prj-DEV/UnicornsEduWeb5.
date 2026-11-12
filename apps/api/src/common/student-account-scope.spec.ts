@@ -32,7 +32,7 @@ describe('assertCanManageStudentAccount', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it.each([StaffRole.admin, StaffRole.assistant])(
+  it.each([StaffRole.admin, StaffRole.sale_customer_care_head])(
     'allows staff %s on any student',
     async (role) => {
       db.staffInfo.findUnique.mockResolvedValueOnce({ id: 's', roles: [role] });

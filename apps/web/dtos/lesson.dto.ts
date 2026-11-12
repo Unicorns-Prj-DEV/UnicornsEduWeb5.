@@ -18,7 +18,7 @@ export type LessonStaffStatus = "active" | "inactive";
 export type LessonStaffRole =
   | "admin"
   | "teacher"
-  | "assistant"
+  | "sale_customer_care_head"
   | "lesson_plan"
   | "lesson_plan_head"
   | "accountant_income"

@@ -21,7 +21,7 @@ import { STAFF_DATA_CONSENT_VERSION } from './constants';
 export type AuthWorkspace = 'admin' | 'staff' | 'student';
 export type AdminAccessTier =
   | 'full'
-  | 'assistant'
+  | 'sale_customer_care_head'
   | 'accountant'
   | 'lesson_plan_head'
   | null;
@@ -157,7 +157,7 @@ function resolveAdminTier(
   }
 
   if (hasSaleCsHeadAccess(staffRoles)) {
-    return 'assistant';
+    return 'sale_customer_care_head';
   }
 
   if (

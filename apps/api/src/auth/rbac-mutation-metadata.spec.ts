@@ -55,13 +55,13 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
 
   it('allows assistant to set passwords (service limits target to students)', () => {
     expect(getAllowedStaffRoles(UserController, 'setUserPassword')).toEqual([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
   });
 
   it('allows assistant and customer care on UserController.createStudentUser', () => {
     expect(getAllowedStaffRoles(UserController, 'createStudentUser')).toEqual([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
       StaffRole.customer_care,
     ]);
   });
@@ -89,7 +89,7 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
       'getStudentWalletHistory',
     ]) {
       expect(getAllowedStaffRoles(StudentController, methodName)).toEqual([
-        StaffRole.assistant,
+        StaffRole.sale_customer_care_head,
         StaffRole.customer_care,
       ]);
     }
@@ -98,9 +98,9 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
   it('allows assistant on student delete and wallet adjustment routes', () => {
     expect(
       getAllowedStaffRoles(StudentController, 'updateStudentAccountBalance'),
-    ).toEqual([StaffRole.assistant]);
+    ).toEqual([StaffRole.sale_customer_care_head]);
     expect(getAllowedStaffRoles(StudentController, 'deleteStudent')).toEqual([
-      StaffRole.assistant,
+      StaffRole.sale_customer_care_head,
     ]);
   });
 

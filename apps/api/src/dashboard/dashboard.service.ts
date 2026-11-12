@@ -720,7 +720,7 @@ export function buildPersonnelCostBreakdown(
     },
     {
       key: 'assistant-cost',
-      label: 'Trợ lí',
+      label: 'Hoa hồng trưởng phòng',
       value: row.assistantAmount,
       sign: 1,
     },
@@ -835,7 +835,11 @@ export function buildStaffPendingPayrollSources(
       label: 'Lương cứng',
       value: row.fixedSalaryAmount,
     },
-    { key: 'pending-assistant', label: 'Trợ lí', value: row.assistantAmount },
+    {
+      key: 'pending-assistant',
+      label: 'Hoa hồng trưởng phòng',
+      value: row.assistantAmount,
+    },
     {
       key: 'pending-training-manager',
       label: 'QL lớp',
@@ -874,7 +878,9 @@ function buildStaffUnpaidSourceLabel(row: StaffUnpaidAlertSqlRow) {
     normalizeMoneyAmount(row.lessonAmount) > 0 ? 'giáo án' : null,
     normalizeMoneyAmount(row.extraAllowanceAmount) > 0 ? 'trợ cấp' : null,
     normalizeMoneyAmount(row.fixedSalaryAmount) > 0 ? 'lương cứng' : null,
-    normalizeMoneyAmount(row.assistantAmount) > 0 ? 'trợ lí' : null,
+    normalizeMoneyAmount(row.assistantAmount) > 0
+      ? 'hoa hồng trưởng phòng'
+      : null,
     normalizeMoneyAmount(row.trainingManagerAmount) > 0 ? 'QL lớp' : null,
     normalizeMoneyAmount(row.lessonPlanHeadAmount) > 0 ? 'hoa hồng TGA' : null,
   ].filter((value): value is string => value != null);
@@ -4406,7 +4412,7 @@ export class DashboardService {
         },
         {
           key: 'assistantCost',
-          label: 'Trợ lí',
+          label: 'Hoa hồng trưởng phòng',
           amount: normalizeMoneyAmount(summaryRow?.assistantCost),
         },
         {
@@ -4803,7 +4809,7 @@ export class DashboardService {
               },
               {
                 key: 'assistantCost',
-                label: 'Trợ cấp trợ lí',
+                label: 'Hoa hồng trưởng phòng',
                 kind: 'expense',
                 amount: rangeTotals.assistantCost,
               },
@@ -5009,7 +5015,7 @@ export class DashboardService {
             },
             {
               key: 'assistantCost',
-              label: 'Trợ cấp trợ lí',
+              label: 'Hoa hồng trưởng phòng',
               kind: 'expense',
               amount: selectedMonthTrend.assistantCost,
             },
@@ -5674,9 +5680,9 @@ export class DashboardService {
                 },
                 {
                   key: 'pending-assistant',
-                  label: 'Trợ cấp trợ lí chưa thanh toán',
+                  label: 'Hoa hồng trưởng phòng chưa thanh toán',
                   amount: totalAssistantAmount,
-                  note: 'Trợ cấp trợ lí quản lí CSKH ở trạng thái chưa chi trả.',
+                  note: 'Hoa hồng trưởng phòng (Trưởng phòng Sale & CSKH quản lí CSKH) ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
                 {
@@ -5808,9 +5814,9 @@ export class DashboardService {
                   },
                   {
                     key: 'assistant-cost',
-                    label: 'Trợ cấp trợ lí',
+                    label: 'Hoa hồng trưởng phòng',
                     amount: selectedMonthTrend.assistantCost,
-                    note: 'Trợ cấp trợ lí quản lí CSKH theo quan hệ trợ lí–học sinh.',
+                    note: 'Hoa hồng trưởng phòng trên nhóm CSKH do Trưởng phòng Sale & CSKH quản lí.',
                     tone: 'negative',
                   },
                   {

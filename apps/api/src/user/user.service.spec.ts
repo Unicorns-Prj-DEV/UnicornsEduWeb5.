@@ -258,7 +258,7 @@ describe('UserService', () => {
     it('does not auto-assign customer care when an assistant creates a student', async () => {
       mockPrisma.staffInfo.findUnique.mockResolvedValue({
         id: 'staff-assistant-1',
-        roles: [StaffRole.assistant, StaffRole.customer_care],
+        roles: [StaffRole.sale_customer_care_head, StaffRole.customer_care],
         customerCareDefaultProfitPercent: 0.15,
       });
 

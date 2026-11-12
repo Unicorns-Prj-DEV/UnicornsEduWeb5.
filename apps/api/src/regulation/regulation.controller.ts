@@ -40,7 +40,7 @@ export class RegulationController {
   @ApiOperation({
     summary: 'List regulations for the current actor',
     description:
-      'Admin and assistant receive the full list. Other staff only receive regulations matching their role tags.',
+      'Admin receives the full list. Other staff (including sale_customer_care_head) only receive regulations matching their role tags.',
   })
   @ApiResponse({
     status: 200,

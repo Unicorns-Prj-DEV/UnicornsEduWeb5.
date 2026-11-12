@@ -10,9 +10,9 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 
 ## CRUD khoá (`CourseController`)
 
-> #267 (ADR `docs/adr/2026-11-12-admin-deny-by-default.md`): Trợ lí (`assistant`) không còn quản lý khoá học, nội dung khoá, ngân hàng câu hỏi hay nội dung lớp — mọi route admin dưới đây chỉ Admin + role được liệt kê tường minh. Cột `assistant` giữ lại để thấy rõ thay đổi.
+> #267 (ADR `docs/adr/2026-11-12-admin-deny-by-default.md`): Trưởng phòng Sale & CSKH (`sale_customer_care_head`) không còn quản lý khoá học, nội dung khoá, ngân hàng câu hỏi hay nội dung lớp — mọi route admin dưới đây chỉ Admin + role được liệt kê tường minh. Cột `sale_customer_care_head` giữ lại để thấy rõ thay đổi.
 
-| Endpoint | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` |
+| Endpoint | admin | `sale_customer_care_head` | `lesson_plan_head` | `lesson_plan` | `teacher` |
 | --- | --- | --- | --- | --- | --- |
 | `GET /courses` | ✅ (class-level `admin` + `staff`) | ✅ chỉ đọc danh sách (`@Roles` có `staff`) | ✅ chỉ khoá được gán | ✅ chỉ khoá được gán | ✅ |
 | `GET /courses/:id` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | ❌ |
@@ -24,7 +24,7 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 | `PUT /courses/:id/lesson-plan-members` | ✅ | ❌ (#267) | ✅ khoá được gán | ❌ | ❌ |
 | `GET /courses/lesson-plan-staff` | ✅ | ❌ (#267) | ✅ | ❌ | ❌ |
 
-`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng ban Chuyên môn sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng ban Chuyên môn) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng ban Chuyên môn **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng ban Chuyên môn không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng ban Chuyên môn tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/trợ lí hoặc trưởng ban Chuyên môn khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
+`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng ban Chuyên môn sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng ban Chuyên môn) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng ban Chuyên môn **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng ban Chuyên môn không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng ban Chuyên môn tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/Trưởng phòng Sale & CSKH hoặc trưởng ban Chuyên môn khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
 
 **Bán một lần (`is_one_time`):** `POST`/`PATCH /courses` nhận `is_one_time?: boolean`. Đổi giá trị (hoặc tạo với `true`) chỉ Admin (#267); trưởng ban Chuyên môn → `403`. Bật trả `400` nếu lớp nào của khoá đã có điểm danh present/excused mang học phí > 0, hoặc còn lớp có Tổng gói null/≤ 0. Tắt luôn được. Mọi lớp của khoá đổi `pricing_mode` theo (`one_time` / `per_session`) trong cùng transaction, không tính lại buổi nào. Response khoá có `isOneTime`. Chi tiết: `docs/Database Schema.md` mục 4.4.0-cat và ADR `docs/adr/2026-10-04-one-time-course-setting.md`.
 
@@ -49,7 +49,7 @@ Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi g�
 | Actor | Kết quả list |
 | --- | --- |
 | Đội chuyên môn thuần (`lesson_plan` và/hoặc `lesson_plan_head`, không kèm `admin`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
-| `admin`, `assistant` (chỉ danh sách), `training`, `accountant_income`, `accountant_expense`, `teacher`, `customer_care` | Tất cả khoá (không đổi so với trước) |
+| `admin`, `sale_customer_care_head` (chỉ danh sách), `training`, `accountant_income`, `accountant_expense`, `teacher`, `customer_care` | Tất cả khoá (không đổi so với trước) |
 | User đã auth nhưng không có staff profile, và không phải `lesson_plan` thuần | Tất cả khoá; không crash |
 
 `resolveListableCourseIds` trả `null` = mọi khoá, trả mảng = chỉ các id đó. **Không** dùng `resolveViewableCourseIds` cho endpoint này: hàm kia là phạm vi *quản lý nội dung* và sẽ trả mảng rỗng cho training/giáo viên/kế toán (dropdown khoá trống khi tạo lớp).
@@ -58,7 +58,7 @@ Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi g�
 
 Controller: `apps/api/src/course-content/` — `course-module.controller.ts`, `course-lesson.controller.ts`, `lesson-quiz.controller.ts`. Module Nest: `CourseContentModule` (không đụng `apps/api/src/lesson/` — đó là giáo án nhân sự).
 
-| Endpoint nhóm | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` (decorator) |
+| Endpoint nhóm | admin | `sale_customer_care_head` | `lesson_plan_head` | `lesson_plan` | `teacher` (decorator) |
 | --- | --- | --- | --- | --- | --- |
 | Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội chuyên môn |
 | Tiết học: `GET/POST/PATCH/DELETE /course/:courseId/modules/:moduleId/lessons` + `POST .../reorder` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
@@ -75,7 +75,7 @@ Tạo tiết ở khoá **không** tự thêm vào lớp nào (ADR `docs/adr/2026
 
 ## Chuyên đề của lớp (`/class/:classId/modules`)
 
-Controller: `class-course-module.controller.ts` (`ClassCourseModuleService`). Quyền: admin + staff `teacher` (Trợ lí bỏ từ #267) (cùng `validateStaffClassAccess` với nội dung lớp).
+Controller: `class-course-module.controller.ts` (`ClassCourseModuleService`). Quyền: admin + staff `teacher` (Trưởng phòng Sale & CSKH bỏ từ #267) (cùng `validateStaffClassAccess` với nội dung lớp).
 
 | Method | Path | Body | Kết quả |
 | --- | --- | --- | --- |

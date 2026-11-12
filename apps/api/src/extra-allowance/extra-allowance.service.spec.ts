@@ -75,7 +75,10 @@ describe('ExtraAllowanceService', () => {
     beforeEach(() => {
       mockPrisma.user.findUnique.mockResolvedValueOnce({
         roleType: UserRole.staff,
-        staffInfo: { id: 'staff-1', roles: [StaffRole.assistant] },
+        staffInfo: {
+          id: 'staff-1',
+          roles: [StaffRole.sale_customer_care_head],
+        },
       });
     });
 
@@ -87,7 +90,7 @@ describe('ExtraAllowanceService', () => {
             month: '2026-04',
             amount: 200000,
             status: PaymentStatus.paid,
-            roleType: StaffRole.assistant,
+            roleType: StaffRole.sale_customer_care_head,
           },
           selfActor,
         ),
@@ -134,7 +137,7 @@ describe('ExtraAllowanceService', () => {
       status: PaymentStatus.pending,
       note: 'Admin tạo trợ cấp',
       month: '2026-04',
-      roleType: StaffRole.assistant,
+      roleType: StaffRole.sale_customer_care_head,
       taxDeductionRatePercent: 7.5,
     });
     mockPrisma.extraAllowance.findUnique.mockResolvedValue({
@@ -144,12 +147,12 @@ describe('ExtraAllowanceService', () => {
       status: PaymentStatus.pending,
       note: 'Admin tạo trợ cấp',
       month: '2026-04',
-      roleType: StaffRole.assistant,
+      roleType: StaffRole.sale_customer_care_head,
       taxDeductionRatePercent: 7.5,
       staff: {
         id: 'staff-1',
         fullName: 'Assistant A',
-        roles: [StaffRole.assistant],
+        roles: [StaffRole.sale_customer_care_head],
         status: 'active',
       },
     });
@@ -161,7 +164,7 @@ describe('ExtraAllowanceService', () => {
         amount: 200000,
         status: PaymentStatus.pending,
         note: 'Admin tạo trợ cấp',
-        roleType: StaffRole.assistant,
+        roleType: StaffRole.sale_customer_care_head,
       },
       {
         userId: 'admin-1',
@@ -177,7 +180,7 @@ describe('ExtraAllowanceService', () => {
         amount: 200000,
         status: PaymentStatus.pending,
         note: 'Admin tạo trợ cấp',
-        roleType: StaffRole.assistant,
+        roleType: StaffRole.sale_customer_care_head,
         studentId: null,
         taxDeductionRatePercent: 7.5,
       },
@@ -189,7 +192,7 @@ describe('ExtraAllowanceService', () => {
       status: PaymentStatus.pending,
       note: 'Admin tạo trợ cấp',
       month: '2026-04',
-      roleType: StaffRole.assistant,
+      roleType: StaffRole.sale_customer_care_head,
       taxDeductionRatePercent: 7.5,
     });
   });
@@ -206,7 +209,7 @@ describe('ExtraAllowanceService', () => {
         month: '2026-04',
         amount: 200000,
         status: PaymentStatus.pending,
-        roleType: StaffRole.assistant,
+        roleType: StaffRole.sale_customer_care_head,
       }),
     ).rejects.toThrow('Nhân sự đang ở trạng thái ngừng hoạt động.');
 
@@ -583,7 +586,7 @@ describe('ExtraAllowanceService', () => {
   it('rejects self updates when current staff lacks communication role', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -873,7 +876,7 @@ describe('ExtraAllowanceService', () => {
     it('rejects deleting a non self-managed allowance', async () => {
       mockPrisma.extraAllowance.findUnique.mockResolvedValue({
         ...ownAllowance,
-        roleType: StaffRole.assistant,
+        roleType: StaffRole.sale_customer_care_head,
       });
 
       await expect(

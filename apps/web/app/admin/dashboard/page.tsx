@@ -171,13 +171,13 @@ function AssistantDashboardRedirect({
           <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] lg:items-end">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/80">
-                Assistant Workspace
+                Trưởng phòng Sale & CSKH
               </p>
               <h1 className="mt-3 max-w-2xl text-2xl font-semibold tracking-[-0.03em] text-text-primary sm:text-3xl">
                 Đang mở hồ sơ nhân sự thay cho dashboard tổng hợp.
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
-                Trợ lí dùng chung toàn bộ admin workspace, nhưng route dashboard sẽ tự chuyển sang
+                Dashboard tổng hợp chỉ dành cho Admin, nên route dashboard sẽ tự chuyển sang
                 trang chi tiết nhân sự của chính bạn để tránh hiển thị dashboard tổng hợp của admin.
               </p>
             </div>

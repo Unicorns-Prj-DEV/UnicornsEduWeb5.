@@ -48,7 +48,7 @@ describe('DashboardController — chỉ Admin (#269)', () => {
     methodName: string,
     roleType: UserRole,
     staffRoles: StaffRole[],
-    adminTier: 'full' | 'assistant' | 'accountant' | null,
+    adminTier: 'full' | 'sale_customer_care_head' | 'accountant' | null,
   ): ExecutionContext {
     const handler = (
       DashboardController.prototype as unknown as Record<string, unknown>
@@ -100,13 +100,17 @@ describe('DashboardController — chỉ Admin (#269)', () => {
     });
 
     it.each([
-      ['Trợ lí / TP Sale & CSKH', [StaffRole.assistant], 'assistant'],
+      [
+        'Trợ lí / TP Sale & CSKH',
+        [StaffRole.sale_customer_care_head],
+        'sale_customer_care_head',
+      ],
       ['Kế toán thu', [StaffRole.accountant_income], 'accountant'],
       ['Kế toán chi', [StaffRole.accountant_expense], 'accountant'],
       [
         'Trợ lí kiêm Kế toán thu',
-        [StaffRole.assistant, StaffRole.accountant_income],
-        'assistant',
+        [StaffRole.sale_customer_care_head, StaffRole.accountant_income],
+        'sale_customer_care_head',
       ],
       ['CSKH', [StaffRole.customer_care], null],
       ['Gia sư', [StaffRole.teacher], null],

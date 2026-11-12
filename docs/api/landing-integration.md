@@ -129,7 +129,7 @@ Accept: application/json
 | `id` | string | `staff_info.id` | Stable id (`UNISTAFF-…`); stored as CMS `sourceId` |
 | `name` | string | Linked `users` name | Resolved via `getPreferredUserFullName` |
 | `status` | `active` \| `inactive` | `staff_info.status` | Included for CMS labels; endpoint does **not** filter by status |
-| `roles` | `StaffRole[]` | `staff_info.roles` | All roles of the staff row (e.g. `teacher`, `assistant`, `sale`). Endpoint does **not** filter by role (CMS admin still links any staff); the landing site shows only `active` + `teacher` (gia sư). |
+| `roles` | `StaffRole[]` | `staff_info.roles` | All roles of the staff row (e.g. `teacher`, `sale_customer_care_head`, `sale`). Endpoint does **not** filter by role (CMS admin still links any staff); the landing site shows only `active` + `teacher` (gia sư). |
 | `avatarUrl` | string \| null | public twin | Public URL from bucket `avatars-public` (watermarked). `null` if no twin. |
 | `avatarPath` | string \| null | `users.avatar_watermarked_path` | Stable path; CMS may store as `eduweb5://avatars-public/{path}` |
 | `university` | string \| null | `staff_info.university` | |

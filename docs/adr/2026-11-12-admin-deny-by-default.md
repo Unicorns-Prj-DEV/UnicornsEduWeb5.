@@ -1,5 +1,7 @@
 # ADR: Trang quản trị mặc định đóng; Trợ lí chỉ còn Học sinh, ví và Thông báo
 
+> **Ghi chú đổi tên (#268):** role `assistant` (Trợ lí) nay là `sale_customer_care_head` — **Trưởng phòng Sale & CSKH**; `RegulationAudience.staff_assistant` → `staff_sale_customer_care_head`. Đổi tên tại chỗ bằng `ALTER TYPE … RENAME VALUE`, quyền không đổi. Nội dung bên dưới giữ nguyên tên cũ như bối cảnh lúc ra quyết định.
+
 - **Status:** Accepted (#267)
 - **Thay thế:** `docs/adr/2026-06-02-explicit-admin-mirror-rbac.md`
 

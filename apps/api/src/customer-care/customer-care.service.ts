@@ -154,7 +154,7 @@ export class CustomerCareService {
 
     if (!staff.roles.includes(StaffRole.customer_care)) {
       throw new ForbiddenException(
-        'Màn CSKH chỉ mở cho admin, trợ lí, kế toán, hoặc staff có role customer_care.',
+        'Màn CSKH chỉ mở cho admin, Trưởng phòng Sale & CSKH, kế toán, hoặc staff có role customer_care.',
       );
     }
 

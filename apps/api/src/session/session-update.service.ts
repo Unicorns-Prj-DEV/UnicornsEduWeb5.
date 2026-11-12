@@ -533,8 +533,8 @@ export class SessionUpdateService {
                 customerCareCoef: true,
                 customerCareStaffId: true,
                 customerCarePaymentStatus: true,
-                assistantManagerStaffId: true,
-                assistantPaymentStatus: true,
+                saleCsHeadStaffId: true,
+                saleCsHeadPaymentStatus: true,
                 transactionId: true,
                 transaction: {
                   select: {
@@ -1252,7 +1252,7 @@ export class SessionUpdateService {
                         null)
                       : null,
                   })
-                : (existingAttendance?.assistantManagerStaffId ?? null);
+                : (existingAttendance?.saleCsHeadStaffId ?? null);
 
               return {
                 studentId: attendanceItem.studentId,
@@ -1264,14 +1264,14 @@ export class SessionUpdateService {
                       ?.profitPercent ?? null)
                   : (existingAttendance?.customerCareCoef ?? null),
                 customerCareStaffId: resolvedCareStaffId,
-                assistantManagerStaffId: resolvedAssistantId,
+                saleCsHeadStaffId: resolvedAssistantId,
                 existingAttendanceId: existingAttendance?.id ?? null,
                 existingTransactionId:
                   existingAttendance?.transactionId ?? null,
                 existingCustomerCarePaymentStatus:
                   existingAttendance?.customerCarePaymentStatus ?? null,
                 existingAssistantPaymentStatus:
-                  existingAttendance?.assistantPaymentStatus ?? null,
+                  existingAttendance?.saleCsHeadPaymentStatus ?? null,
               };
             })
           : [];
@@ -1649,14 +1649,13 @@ export class SessionUpdateService {
                   tuitionFee: attendanceItem.tuitionFee,
                   trialCatchUpFee: null,
                   transactionId,
-                  assistantManagerStaffId:
-                    attendanceItem.assistantManagerStaffId,
-                  assistantPaymentStatus: attendanceItem.assistantManagerStaffId
+                  saleCsHeadStaffId: attendanceItem.saleCsHeadStaffId,
+                  saleCsHeadPaymentStatus: attendanceItem.saleCsHeadStaffId
                     ? PaymentStatus.pending
                     : null,
-                  assistantTaxDeductionRatePercent:
+                  saleCsHeadTaxDeductionRatePercent:
                     await resolveAssistantTaxRate(
-                      attendanceItem.assistantManagerStaffId,
+                      attendanceItem.saleCsHeadStaffId,
                     ),
                 },
                 update: {
@@ -1681,18 +1680,18 @@ export class SessionUpdateService {
                   tuitionFee: attendanceItem.tuitionFee,
                   trialCatchUpFee: null,
                   transactionId,
-                  assistantManagerStaffId: shouldRefreshAttendanceAssignments
-                    ? attendanceItem.assistantManagerStaffId
+                  saleCsHeadStaffId: shouldRefreshAttendanceAssignments
+                    ? attendanceItem.saleCsHeadStaffId
                     : undefined,
-                  assistantPaymentStatus: shouldRefreshAttendanceAssignments
-                    ? attendanceItem.assistantManagerStaffId
+                  saleCsHeadPaymentStatus: shouldRefreshAttendanceAssignments
+                    ? attendanceItem.saleCsHeadStaffId
                       ? (attendanceItem.existingAssistantPaymentStatus ??
                         PaymentStatus.pending)
                       : null
                     : undefined,
-                  assistantTaxDeductionRatePercent:
+                  saleCsHeadTaxDeductionRatePercent:
                     await resolveAssistantTaxRate(
-                      attendanceItem.assistantManagerStaffId,
+                      attendanceItem.saleCsHeadStaffId,
                     ),
                 },
               });

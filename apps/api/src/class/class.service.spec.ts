@@ -970,7 +970,7 @@ describe('ClassService', () => {
     it('applies teacher assignment scope to assistant who is also a teacher', async () => {
       mockStaffOperationsAccess.resolveActor.mockResolvedValue({
         id: 'staff-1',
-        roles: [StaffRole.teacher, StaffRole.assistant],
+        roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
       });
       jest
         .spyOn(service, 'updateClassSchedule')

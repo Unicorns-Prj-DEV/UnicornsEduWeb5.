@@ -277,7 +277,7 @@ describe('SessionCreateService', () => {
   it('lets an assistant mark Dạy thử (coefficient 0) via staff-ops', async () => {
     accessService.resolveActor.mockResolvedValue({
       id: 'assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
     accessService.resolveSingleTeacherForClass.mockResolvedValue('teacher-1');
     const createSessionSpy = jest

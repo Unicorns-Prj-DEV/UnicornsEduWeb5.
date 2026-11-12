@@ -11,13 +11,13 @@ export function isSelfManagedCustomerCareStaff(params: {
 }
 
 export function isSelfManagedAssistantShareAttendance(params: {
-  assistantManagerStaffId: string | null | undefined;
+  saleCsHeadStaffId: string | null | undefined;
   customerCareStaffId: string | null | undefined;
 }): boolean {
   return (
-    params.assistantManagerStaffId != null &&
+    params.saleCsHeadStaffId != null &&
     params.customerCareStaffId != null &&
-    params.assistantManagerStaffId === params.customerCareStaffId
+    params.saleCsHeadStaffId === params.customerCareStaffId
   );
 }
 

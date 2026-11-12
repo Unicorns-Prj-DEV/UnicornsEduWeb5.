@@ -376,7 +376,7 @@ export default function ManagedClassTeachersPopup({
                       </div>
                       {isSelf ? (
                         <p className="mt-2 text-xs text-text-muted">
-                          Không tự chỉnh lương của chính mình. Nhờ admin hoặc trợ lí nếu cần đổi.
+                          Không tự chỉnh lương của chính mình. Nhờ admin nếu cần đổi.
                         </p>
                       ) : (
                         <div className="mt-2 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3">

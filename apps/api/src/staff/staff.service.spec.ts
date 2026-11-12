@@ -567,7 +567,7 @@ describe('StaffService', () => {
     };
     const updatedStaff = {
       ...existingStaff,
-      roles: [StaffRole.teacher, StaffRole.assistant],
+      roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
     };
 
     mockPrisma.staffInfo.findUnique
@@ -586,10 +586,10 @@ describe('StaffService', () => {
     await service.updateStaffWithFixedSalaryOverrides(
       'staff-1',
       {
-        roles: [StaffRole.teacher, StaffRole.assistant],
+        roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
         roleFixedSalaryOverrides: [
           {
-            roleType: StaffRole.assistant,
+            roleType: StaffRole.sale_customer_care_head,
             amount: 0,
             operatingRatePercent: null,
           },
@@ -605,10 +605,10 @@ describe('StaffService', () => {
     expect(
       fixedSalarySettingsService.assertStaffOverrideItems,
     ).toHaveBeenCalledWith(
-      [StaffRole.teacher, StaffRole.assistant],
+      [StaffRole.teacher, StaffRole.sale_customer_care_head],
       [
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           amount: 0,
           operatingRatePercent: null,
         },
@@ -617,7 +617,7 @@ describe('StaffService', () => {
     expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          roles: [StaffRole.teacher, StaffRole.assistant],
+          roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
         }),
       }),
     );
@@ -627,7 +627,7 @@ describe('StaffService', () => {
       mockPrisma,
       expect.objectContaining({
         staffId: 'staff-1',
-        nextRoles: [StaffRole.teacher, StaffRole.assistant],
+        nextRoles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
       }),
     );
     const updateOrder = mockPrisma.staffInfo.update.mock.invocationCallOrder[0];
@@ -641,7 +641,7 @@ describe('StaffService', () => {
     const existingStaff = {
       id: 'staff-1',
       userId: 'user-1',
-      roles: [StaffRole.teacher, StaffRole.assistant],
+      roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
       status: 'active',
       customerCareManagedByStaffId: null,
       user: { id: 'user-1' },
@@ -708,10 +708,10 @@ describe('StaffService', () => {
 
     await expect(
       service.updateStaffWithFixedSalaryOverrides('staff-1', {
-        roles: [StaffRole.teacher, StaffRole.assistant],
+        roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
         roleFixedSalaryOverrides: [
           {
-            roleType: StaffRole.assistant,
+            roleType: StaffRole.sale_customer_care_head,
             operatingRatePercent: 120,
           },
         ],
@@ -919,7 +919,7 @@ describe('StaffService', () => {
   it('aggregates extra allowances for assistant and communication into other-role summaries', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant, StaffRole.communication],
+      roles: [StaffRole.sale_customer_care_head, StaffRole.communication],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -929,13 +929,13 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.findMany
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.paid,
           amount: 25000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.pending,
           amount: 10000,
           taxDeductionRatePercent: 0,
@@ -949,13 +949,13 @@ describe('StaffService', () => {
       ])
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.paid,
           amount: 25000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.pending,
           amount: 10000,
           taxDeductionRatePercent: 0,
@@ -1005,7 +1005,7 @@ describe('StaffService', () => {
       ]);
 
     mockOtherRoleUnpaidByRole([
-      [StaffRole.assistant, 13000],
+      [StaffRole.sale_customer_care_head, 13000],
       [StaffRole.communication, 15000],
     ]);
 
@@ -1023,8 +1023,8 @@ describe('StaffService', () => {
     expect(result.yearIncomeTotal).toBe(64000);
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.assistant,
-        label: 'Trợ lí',
+        role: StaffRole.sale_customer_care_head,
+        label: 'Trưởng phòng Sale & CSKH',
         total: 44000,
         paid: 31000,
         unpaid: 13000,
@@ -1370,7 +1370,7 @@ describe('StaffService', () => {
   it('includes assistant 3% tuition share in income summary for assistant role', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
       classTeachers: [],
     });
     mockPrisma.bonus.findMany
@@ -1411,7 +1411,7 @@ describe('StaffService', () => {
         },
       ]);
 
-    mockOtherRoleUnpaidByRole([[StaffRole.assistant, 6000]]);
+    mockOtherRoleUnpaidByRole([[StaffRole.sale_customer_care_head, 6000]]);
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -1427,8 +1427,8 @@ describe('StaffService', () => {
     expect(result.yearIncomeTotal).toBe(48000);
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.assistant,
-        label: 'Trợ lí',
+        role: StaffRole.sale_customer_care_head,
+        label: 'Trưởng phòng Sale & CSKH',
         total: 15000,
         paid: 9000,
         unpaid: 6000,
@@ -2479,7 +2479,7 @@ describe('StaffService', () => {
           },
           {
             id: 'allowance-1',
-            role: StaffRole.assistant,
+            role: StaffRole.sale_customer_care_head,
             sourceType: 'extra_allowance',
             sourceLabel: 'Trợ cấp thêm',
             label: 'Phụ cấp trợ lí',
@@ -3173,7 +3173,7 @@ describe('StaffService', () => {
         university: 'HCMUS',
         specialization: 'Computer Science',
         status: 'active',
-        roles: ['teacher', 'assistant'],
+        roles: ['teacher', 'sale_customer_care_head'],
         achievements: [
           {
             id: 'ach-1',
@@ -3205,7 +3205,7 @@ describe('StaffService', () => {
           id: 'teacher-1',
           name: 'Van A Nguyen',
           status: 'active',
-          roles: ['teacher', 'assistant'],
+          roles: ['teacher', 'sale_customer_care_head'],
           avatarUrl: 'public:avatars-public:users/user-1/avatar.jpg',
           avatarPath: 'users/user-1/avatar.jpg',
           university: 'HCMUS',
@@ -3311,10 +3311,10 @@ describe('StaffService', () => {
         records: [
           {
             id: 'fs-1',
-            role: StaffRole.assistant,
+            role: StaffRole.sale_customer_care_head,
             sourceType: 'fixed_salary',
             sourceLabel: 'Lương cứng',
-            label: 'Lương cứng Trợ lí',
+            label: 'Lương cứng Trưởng phòng Sale & CSKH',
             secondaryLabel: '2026-09',
             date: null,
             currentStatus: PaymentStatus.pending,
@@ -3414,7 +3414,7 @@ describe('StaffService', () => {
   it('keeps fixed salary as a separate income-summary line per role', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -3424,7 +3424,7 @@ describe('StaffService', () => {
       {
         id: 'fs-1',
         staffId: 'staff-1',
-        roleType: StaffRole.assistant,
+        roleType: StaffRole.sale_customer_care_head,
         month: '2026-03',
         status: PaymentStatus.pending,
         note: null,
@@ -3436,7 +3436,7 @@ describe('StaffService', () => {
         netAmount: 900_000,
       },
     ]);
-    mockOtherRoleUnpaidByRole([[StaffRole.assistant, 0]]);
+    mockOtherRoleUnpaidByRole([[StaffRole.sale_customer_care_head, 0]]);
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -3445,8 +3445,8 @@ describe('StaffService', () => {
 
     expect(result.fixedSalaryRoleSummaries).toEqual([
       expect.objectContaining({
-        role: StaffRole.assistant,
-        label: 'Lương cứng · Trợ lí',
+        role: StaffRole.sale_customer_care_head,
+        label: 'Lương cứng · Trưởng phòng Sale & CSKH',
         total: 900000,
         unpaid: 900000,
         paid: 0,

@@ -57,7 +57,7 @@ const EMPTY_ALLOWANCES: ExtraAllowanceListItem[] = [];
 
 type SupportedRoleType = Extract<
   ExtraAllowanceRoleType,
-  | "assistant"
+  | "sale_customer_care_head"
   | "communication"
   | "technical"
   | "training"
@@ -78,7 +78,7 @@ type RoleTheme = {
 };
 
 const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
-  assistant: {
+  sale_customer_care_head: {
     listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-warning/12",
     listGlowBottomClassName: "bg-primary/10",

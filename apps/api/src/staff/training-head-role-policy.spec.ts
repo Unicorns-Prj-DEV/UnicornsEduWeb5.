@@ -56,18 +56,19 @@ describe('planTrainingHeadRoleChange', () => {
     ).toThrow(ForbiddenException);
   });
 
-  it.each([StaffRole.admin, StaffRole.assistant, StaffRole.training_head])(
-    '403 khi target có role %s',
-    (role) => {
-      expect(() =>
-        planTrainingHeadRoleChange({
-          ...base,
-          targetRoles: [role, StaffRole.teacher],
-          requestedRoles: [StaffRole.teacher],
-        }),
-      ).toThrow(ForbiddenException);
-    },
-  );
+  it.each([
+    StaffRole.admin,
+    StaffRole.sale_customer_care_head,
+    StaffRole.training_head,
+  ])('403 khi target có role %s', (role) => {
+    expect(() =>
+      planTrainingHeadRoleChange({
+        ...base,
+        targetRoles: [role, StaffRole.teacher],
+        requestedRoles: [StaffRole.teacher],
+      }),
+    ).toThrow(ForbiddenException);
+  });
 
   it('403 khi tự chỉnh chính mình', () => {
     expect(() =>

@@ -1,5 +1,7 @@
 # ADR: Hợp quyền role nhân sự + hai luật cứng chỉ Admin được miễn
 
+> **Ghi chú đổi tên (#268):** role `assistant` (Trợ lí) nay là `sale_customer_care_head` — **Trưởng phòng Sale & CSKH**; `RegulationAudience.staff_assistant` → `staff_sale_customer_care_head`. Đổi tên tại chỗ bằng `ALTER TYPE … RENAME VALUE`, quyền không đổi. Nội dung bên dưới giữ nguyên tên cũ như bối cảnh lúc ra quyết định.
+
 ## Context
 
 Biên bản họp 12/11/2026 (`docs/meetings/2026-11-12-bien-ban.md`) chốt mô hình role theo công ty: một người có thể kiêm nhiều role (vd Trưởng phòng Sale & CSKH kiêm gia sư). Trước ticket #265:

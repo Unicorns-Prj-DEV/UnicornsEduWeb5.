@@ -31,12 +31,12 @@ import { UserController } from '../user/user.controller';
 
 /**
  * #267: Trang quản trị mặc định đóng. Chạy RolesGuard thật trên metadata thật
- * của controller: Trợ lí (StaffRole.assistant) chỉ còn Học sinh (kể cả ví) và
+ * của controller: Trợ lí (StaffRole.sale_customer_care_head) chỉ còn Học sinh (kể cả ví) và
  * Thông báo; mọi route admin khác chỉ Admin.
  */
 
 type ControllerClass = { name: string; prototype: object };
-type AdminTier = 'full' | 'assistant' | null;
+type AdminTier = 'full' | 'sale_customer_care_head' | null;
 
 const guard = new RolesGuard(
   new Reflector(),
@@ -81,8 +81,8 @@ const asAssistant = (controller: ControllerClass, methodName: string) =>
       controller,
       methodName,
       UserRole.staff,
-      [StaffRole.assistant],
-      'assistant',
+      [StaffRole.sale_customer_care_head],
+      'sale_customer_care_head',
     ),
   );
 
@@ -361,14 +361,17 @@ describe('Admin routes deny-by-default (#267)', () => {
     const staffUser = {
       id: 'assistant-user',
       email: 'assistant@example.com',
-      accountHandle: 'assistant',
+      accountHandle: 'sale_customer_care_head',
       roleType: UserRole.staff,
     };
     const adminUser = { ...staffUser, id: 'admin', roleType: UserRole.admin };
     const authFor = (tier: AdminTier) =>
       ({
         effectiveRoleTypes: [UserRole.staff],
-        staffRoles: tier === 'assistant' ? [StaffRole.assistant] : [],
+        staffRoles:
+          tier === 'sale_customer_care_head'
+            ? [StaffRole.sale_customer_care_head]
+            : [],
         access: { admin: { canAccess: tier !== null, tier } },
       }) as never;
 
@@ -381,7 +384,7 @@ describe('Admin routes deny-by-default (#267)', () => {
       await expect(
         controller.updateStudentAccountBalance(
           staffUser as never,
-          authFor('assistant'),
+          authFor('sale_customer_care_head'),
           { studentId: 's1', amount: 100_000 } as never,
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
@@ -391,7 +394,7 @@ describe('Admin routes deny-by-default (#267)', () => {
     it('cho Trợ lí rút (số âm)', async () => {
       await controller.updateStudentAccountBalance(
         staffUser as never,
-        authFor('assistant'),
+        authFor('sale_customer_care_head'),
         { studentId: 's1', amount: -50_000 } as never,
       );
       expect(studentService.updateStudentAccountBalance).toHaveBeenCalled();

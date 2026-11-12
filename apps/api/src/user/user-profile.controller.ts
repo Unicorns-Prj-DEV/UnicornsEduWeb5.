@@ -518,7 +518,7 @@ export class UserProfileController {
     required: false,
     type: String,
     description: 'Filter by staff role type.',
-    example: 'assistant',
+    example: 'sale_customer_care_head',
   })
   @ApiQuery({
     name: 'status',

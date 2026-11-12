@@ -504,7 +504,7 @@ describe('DashboardService CSKH dashboard clarity', () => {
 
     const dashboard = await service.getStaffDashboard({
       staffId: 'assistant-1',
-      staffRoles: [StaffRole.assistant, StaffRole.customer_care],
+      staffRoles: [StaffRole.sale_customer_care_head, StaffRole.customer_care],
       query: { month: '05', year: '2026' },
     });
 
@@ -1257,7 +1257,7 @@ describe('buildStaffPendingPayrollSources', () => {
       [
         `Buổi dạy ${(300_000).toLocaleString('vi-VN')}đ`,
         `Lương cứng ${(5_000_000).toLocaleString('vi-VN')}đ`,
-        `Trợ lí ${(100_000).toLocaleString('vi-VN')}đ`,
+        `Hoa hồng trưởng phòng ${(100_000).toLocaleString('vi-VN')}đ`,
         `QL lớp ${(50_000).toLocaleString('vi-VN')}đ`,
         `Hoa hồng TGA ${(88_451).toLocaleString('vi-VN')}đ`,
       ].join(' • '),

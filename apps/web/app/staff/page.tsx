@@ -1235,7 +1235,7 @@ function AssistantActionAlertsList({
     return (
       <EmptyState
         title="Không có cảnh báo mở"
-        description="Hiện chưa có mục nào cần trợ lí xử lý thêm."
+        description="Hiện chưa có mục nào cần Trưởng phòng Sale & CSKH xử lý thêm."
       />
     );
   }
@@ -1333,7 +1333,7 @@ function AssistantSection({
 
   return (
     <section className="space-y-2">
-      <SectionTitle staffRole="assistant" />
+      <SectionTitle staffRole="sale_customer_care_head" />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <SurfaceCard eyebrow="Hành động" title="Cảnh báo">
           <AssistantActionAlertsList alerts={section.actionAlerts} />
@@ -1625,7 +1625,7 @@ function UnpaidStaffList({
         ? `Lương cứng ${formatCurrency(item.fixedSalaryAmount ?? 0)}`
         : null,
       (item.assistantAmount ?? 0) > 0
-        ? `Trợ lí ${formatCurrency(item.assistantAmount ?? 0)}`
+        ? `Hoa hồng trưởng phòng ${formatCurrency(item.assistantAmount ?? 0)}`
         : null,
     ].filter((value): value is string => value != null);
     const staffDetailHref = `/staff/staffs/${encodeURIComponent(item.staffId)}`;

@@ -76,7 +76,7 @@ export default function StaffAccessGate({
               : isAssistantStaffsRoute
                 ? "Staff Directory Locked"
                 : isAssistantAdminLikeRoute
-                  ? "Assistant Workspace Locked"
+                  ? "Admin Workspace Locked"
                   : isCustomerCareSelfRoute
                     ? "Customer Care Locked"
                     : isAssistantSelfRoute ||
@@ -120,7 +120,7 @@ export default function StaffAccessGate({
                     : isCustomerCareSelfRoute
                       ? "Tài khoản này không dùng được màn CSKH cá nhân."
                       : isAssistantSelfRoute
-                        ? "Tài khoản này không dùng được màn trợ cấp trợ lí cá nhân."
+                        ? "Tài khoản này không dùng được màn hoa hồng trưởng phòng cá nhân."
                         : isAccountantSelfRoute
                           ? "Tài khoản này không dùng được màn trợ cấp kế toán cá nhân."
                           : isCommunicationSelfRoute
@@ -140,7 +140,7 @@ export default function StaffAccessGate({
                                       ? "Tài khoản này không dùng được màn lesson output cá nhân."
                                       : "Tài khoản này không dùng được màn vận hành lớp học.";
   const lockedDescription = isStaffNotificationManageRoute
-    ? "Route `/staff/notification/manage` mở cho admin, trợ lí, Ban Chuyên môn, Trưởng ban Chuyên môn, kế toán thu, kế toán chi, truyền thông, kỹ thuật, đào tạo và sale. Gia sư và CSKH chỉ nhận thông báo qua `/staff/notification`."
+    ? "Route `/staff/notification/manage` mở cho admin, Trưởng phòng Sale & CSKH, Ban Chuyên môn, Trưởng ban Chuyên môn, kế toán thu, kế toán chi, truyền thông, kỹ thuật, đào tạo và sale. Gia sư và CSKH chỉ nhận thông báo qua `/staff/notification`."
     : isRootStaffProfileRoute || isNotesSubjectRoute
       ? "Route `/staff` hiện là hồ sơ của chính nhân sự đang đăng nhập. Nó chỉ mở khi tài khoản có liên kết staff record hợp lệ."
       : isStaffNotificationRoute
@@ -154,19 +154,19 @@ export default function StaffAccessGate({
           : isStaffClassesRoute
           ? "Route `/staff/classes` mở danh sách cho `staff.accountant_income`, `staff.accountant_expense`, và `staff.training` (UI giống admin nhưng backend chỉ trả các lớp được gán quản lý); riêng `staff.teacher`, `admin`, và `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/classes/[id]`. Với customer care, backend tiếp tục khóa theo các lớp có ít nhất một học sinh đang do chính staff đó phụ trách."
           : isStaffDeductionsRoute
-            ? "Route `/staff/system-settings` (và bookmark cũ `/staff/deductions`) chỉ mở cho Admin (#267). Mọi staff role, kể cả Trợ lí, đều bị chặn."
+            ? "Route `/staff/system-settings` (và bookmark cũ `/staff/deductions`) chỉ mở cho Admin (#267). Mọi staff role, kể cả Trưởng phòng Sale & CSKH, đều bị chặn."
             : isStaffStudentsRoute
-              ? "Route `/staff/students` hiện mở danh sách/chi tiết cho `staff.assistant` và `staff.accountant_income`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
+              ? "Route `/staff/students` hiện mở danh sách/chi tiết cho `staff.sale_customer_care_head` và `staff.accountant_income`; riêng `staff.customer_care` chỉ mở trực tiếp trang chi tiết `/staff/students/[id]` và backend sẽ khóa học sinh vào đúng hồ sơ CSKH hiện tại."
               : isStaffCostsRoute
                 ? "Route `/staff/costs` hiện mở cho Admin và `staff.accountant_expense`. Kế toán chi dùng admin-like cost workspace trong staff shell, bao gồm tạo mới, chỉnh sửa, cập nhật trạng thái và xóa chi phí."
                 : isAssistantStaffsRoute
                   ? "Route `/staff/staffs` hiện mở danh sách/chi tiết cho Admin và `staff.accountant_expense` trong staff shell."
                   : isAssistantAdminLikeRoute
-                    ? "Nhóm route này mirror lại các module quản trị trong staff shell và chỉ mở cho Admin (#267). Trợ lí chỉ dùng Học sinh (kèm ví) và Soạn thông báo; các staff role khác dùng self-service hoặc workspace chuyên biệt của riêng mình."
+                    ? "Nhóm route này mirror lại các module quản trị trong staff shell và chỉ mở cho Admin (#267). Trưởng phòng Sale & CSKH chỉ dùng Học sinh (kèm ví) và Soạn thông báo; các staff role khác dùng self-service hoặc workspace chuyên biệt của riêng mình."
                     : isCustomerCareSelfRoute
                       ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `customer_care`. Dữ liệu luôn khóa vào đúng hồ sơ đang đăng nhập."
                       : isAssistantSelfRoute
-                        ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `assistant`. Nó chỉ hiển thị trợ cấp của chính bạn và không cho phép chỉnh sửa."
+                        ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `sale_customer_care_head`. Nó chỉ hiển thị hoa hồng trưởng phòng của chính bạn và không cho phép chỉnh sửa."
                         : isAccountantSelfRoute
                           ? "Màn này chỉ mở khi hồ sơ nhân sự hiện tại có role `accountant_income` hoặc `accountant_expense`. Nó chỉ hiển thị trợ cấp của chính bạn và không cho phép chỉnh sửa."
                           : isCommunicationSelfRoute

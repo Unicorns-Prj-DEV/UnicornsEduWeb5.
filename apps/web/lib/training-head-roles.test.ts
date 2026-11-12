@@ -38,7 +38,7 @@ describe("canTrainingHeadEditRoles", () => {
     ).toBe(false);
   });
 
-  it.each(["admin", "assistant", "training_head"])(
+  it.each(["admin", "sale_customer_care_head", "training_head"])(
     "false khi target có role %s",
     (role) => {
       expect(

@@ -69,7 +69,7 @@ Staff/admin vẫn nhận link gốc (xem trước bằng YouTube).
 
 ## Endpoints staff
 
-Role `admin` + staff `assistant`, `teacher`.
+Role `admin` + staff `sale_customer_care_head`, `teacher`.
 
 ### `GET /protected-videos/status?url=<link YouTube>`
 

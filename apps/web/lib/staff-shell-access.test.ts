@@ -59,10 +59,10 @@ describe("Báo cáo tháng / Thống kê học sinh chỉ Admin (#269)", () => {
   const REPORT_ROUTES = ["/staff/monthly-report", "/staff/student-statistics"];
 
   it.each([
-    ["Trợ lí / TP Sale & CSKH", ["assistant"]],
+    ["Trợ lí / TP Sale & CSKH", ["sale_customer_care_head"]],
     ["Kế toán thu", ["accountant_income"]],
     ["Kế toán chi", ["accountant_expense"]],
-    ["Trợ lí kiêm Kế toán thu", ["assistant", "accountant_income"]],
+    ["Trợ lí kiêm Kế toán thu", ["sale_customer_care_head", "accountant_income"]],
     ["CSKH", ["customer_care"]],
   ])("từ chối %s", (_label, roles) => {
     const profile = staffProfile(roles);
@@ -118,7 +118,7 @@ describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#26
   ];
 
   it("cho Trợ lí vào Học sinh, Thông báo và trang cá nhân", () => {
-    const profile = staffProfile(["assistant"]);
+    const profile = staffProfile(["sale_customer_care_head"]);
     for (const route of ASSISTANT_ALLOWED_ROUTES) {
       expect(
         resolveStaffShellRouteAccess(profile, route).isAllowed,
@@ -128,7 +128,7 @@ describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#26
   });
 
   it("từ chối Trợ lí ở mọi màn quản trị khác", () => {
-    const profile = staffProfile(["assistant"]);
+    const profile = staffProfile(["sale_customer_care_head"]);
     for (const route of ASSISTANT_DENIED_ROUTES) {
       expect(
         resolveStaffShellRouteAccess(profile, route).isAllowed,
@@ -158,7 +158,7 @@ describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#26
   });
 
   it("Trợ lí kiêm role khác giữ quyền của role đó", () => {
-    const profile = staffProfile(["assistant", "accountant_income"]);
+    const profile = staffProfile(["sale_customer_care_head", "accountant_income"]);
     expect(
       resolveStaffShellRouteAccess(profile, "/staff/classes").isAllowed,
     ).toBe(true);

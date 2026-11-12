@@ -42,7 +42,7 @@ export function planTrainingHeadRoleChange(params: {
     )
   ) {
     throw new ForbiddenException(
-      'Không được chỉnh role của admin, trợ lí hoặc Trưởng ban Đào tạo.',
+      'Không được chỉnh role của admin, Trưởng phòng Sale & CSKH hoặc Trưởng ban Đào tạo.',
     );
   }
   const outOfScope = params.requestedRoles.filter(

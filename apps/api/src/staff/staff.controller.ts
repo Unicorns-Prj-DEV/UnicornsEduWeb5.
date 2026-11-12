@@ -138,9 +138,9 @@ export class StaffController {
 
   @Get('assistant-options')
   @ApiOperation({
-    summary: 'Search assistant staff options',
+    summary: 'Search Sale & CSKH head staff options',
     description:
-      'Return staff options eligible for assistant manager assignment, filtered by full name.',
+      'Return staff with role sale_customer_care_head (Trưởng phòng Sale & CSKH) eligible to manage a CSKH staff, filtered by full name. Several heads may exist.',
   })
   @ApiQuery({
     name: 'search',
@@ -158,7 +158,7 @@ export class StaffController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Matching assistant staff options.',
+    description: 'Matching Sale & CSKH head staff options.',
   })
   async searchAssistantStaffOptions(@Query() query: SearchStaffOptionsDto) {
     return this.staffService.searchAssistantStaff(query);

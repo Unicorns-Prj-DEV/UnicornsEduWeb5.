@@ -3,7 +3,7 @@ export type RegulationAudience =
   | "student"
   | "staff_admin"
   | "staff_teacher"
-  | "staff_assistant"
+  | "staff_sale_customer_care_head"
   | "staff_lesson_plan"
   | "staff_lesson_plan_head"
   | "staff_accountant_income"

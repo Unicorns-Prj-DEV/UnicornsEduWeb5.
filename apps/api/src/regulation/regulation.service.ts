@@ -21,7 +21,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 const STAFF_ROLE_AUDIENCE_MAP: Record<StaffRole, RegulationAudience> = {
   admin: RegulationAudience.staff_admin,
   teacher: RegulationAudience.staff_teacher,
-  assistant: RegulationAudience.staff_assistant,
+  sale_customer_care_head: RegulationAudience.staff_sale_customer_care_head,
   lesson_plan: RegulationAudience.staff_lesson_plan,
   lesson_plan_head: RegulationAudience.staff_lesson_plan_head,
   accountant_income: RegulationAudience.staff_accountant_income,

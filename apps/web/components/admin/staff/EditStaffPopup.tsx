@@ -72,7 +72,7 @@ const STATUS_OPTIONS: { value: StaffDetail["status"]; label: string; hint: strin
 const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "teacher", label: "Giáo viên" },
-  { value: "assistant", label: "Trợ lí" },
+  { value: "sale_customer_care_head", label: "Trưởng phòng Sale & CSKH" },
   { value: "lesson_plan", label: LESSON_PLAN_ROLE_LABEL },
   { value: "lesson_plan_head", label: LESSON_PLAN_HEAD_ROLE_LABEL },
   { value: "accountant_income", label: "Kế toán thu" },
@@ -811,7 +811,7 @@ export default function EditStaffPopup({
                           opt.value === "customer_care" &&
                           showManagedByField ? (
                             <label className="mt-2 flex flex-col gap-1 text-sm text-text-secondary">
-                              <span>Trợ lí quản lí (3% học phí)</span>
+                              <span>Trưởng phòng Sale & CSKH quản lí (hoa hồng trưởng phòng 3% học phí)</span>
                               <UpgradedSelect
                                 name="staff-customer-care-managed-by"
                                 value={managedByStaffId ?? ""}
@@ -825,11 +825,11 @@ export default function EditStaffPopup({
                                     label: assistant.fullName,
                                   })),
                                 ]}
-                                ariaLabel="Trợ lí quản lí CSKH"
+                                ariaLabel="Trưởng phòng Sale & CSKH quản lí CSKH"
                                 buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2.5 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                               />
                               <span className="text-xs leading-snug text-text-muted">
-                                Trợ lí được chọn sẽ nhận 3% học phí đã học từ học sinh
+                                Trưởng phòng được chọn sẽ nhận 3% học phí đã học từ học sinh
                                 do CSKH này phụ trách.
                               </span>
                             </label>

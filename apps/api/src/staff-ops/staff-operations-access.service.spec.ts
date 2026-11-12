@@ -128,7 +128,7 @@ describe('StaffOperationsAccessService', () => {
   it('rejects assistant-only staff for class staff operations', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -178,7 +178,7 @@ describe('StaffOperationsAccessService', () => {
   it('rejects non-teacher non-training staff from calendar access', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'assistant-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
     });
 
     await expect(
@@ -289,7 +289,7 @@ describe('StaffOperationsAccessService', () => {
     it('rejects assistant staff', async () => {
       mockPrisma.staffInfo.findFirst.mockResolvedValue({
         id: 'staff-assistant',
-        roles: [StaffRole.assistant],
+        roles: [StaffRole.sale_customer_care_head],
       });
 
       await expect(
