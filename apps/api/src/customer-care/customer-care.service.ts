@@ -147,7 +147,6 @@ export class CustomerCareService {
 
     if (
       hasSaleCsHeadAccess(staff.roles) ||
-      staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income)
     ) {
       return requestedStaffId;
@@ -188,7 +187,6 @@ export class CustomerCareService {
     return (
       staff.roles.includes(StaffRole.admin) ||
       hasSaleCsHeadAccess(staff.roles) ||
-      staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
     );

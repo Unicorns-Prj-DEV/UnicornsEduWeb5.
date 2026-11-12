@@ -15,10 +15,7 @@ export function resolveAccountantFinanceView(
     return 'full';
   }
 
-  const hasIncomeRole = hasAnyStaffRole(staffRoles, [
-    StaffRole.accountant,
-    StaffRole.accountant_income,
-  ]);
+  const hasIncomeRole = staffRoles.includes(StaffRole.accountant_income);
   const hasExpenseRole = staffRoles.includes(StaffRole.accountant_expense);
 
   if (hasIncomeRole && !hasExpenseRole) {

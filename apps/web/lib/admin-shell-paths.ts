@@ -32,7 +32,6 @@ export function buildStaffRoleDetailHref(
     }
 
     if (
-      role === "accountant" ||
       role === "accountant_income" ||
       role === "accountant_expense"
     ) {
@@ -75,7 +74,6 @@ export function buildStaffRoleDetailHref(
   }
 
   if (
-    role === "accountant" ||
     role === "accountant_income" ||
     role === "accountant_expense"
   ) {

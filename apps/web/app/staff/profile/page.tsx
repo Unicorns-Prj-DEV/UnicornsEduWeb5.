@@ -261,7 +261,6 @@ function getOtherRoleDetailHref(role: string) {
   }
 
   if (
-    role === "accountant" ||
     role === "accountant_income" ||
     role === "accountant_expense"
   ) {
@@ -358,14 +357,12 @@ export default function StaffSelfDetailPage() {
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
       ((profile.staffInfo?.roles ?? []).includes("teacher") ||
-        (profile.staffInfo?.roles ?? []).includes("accountant") ||
         (profile.staffInfo?.roles ?? []).includes("accountant_income") ||
         (profile.staffInfo?.roles ?? []).includes("accountant_expense")));
   const canViewBeforeDeduction =
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
-      ((profile.staffInfo?.roles ?? []).includes("accountant") ||
-        (profile.staffInfo?.roles ?? []).includes("accountant_expense")));
+      (profile.staffInfo?.roles ?? []).includes("accountant_expense"));
 
   const {
     data: staff,

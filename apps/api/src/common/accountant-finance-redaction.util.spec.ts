@@ -8,12 +8,6 @@ import {
 } from './accountant-finance-redaction.util';
 
 describe('resolveAccountantFinanceView', () => {
-  it('treats legacy accountant as income finance view', () => {
-    expect(
-      resolveAccountantFinanceView(UserRole.staff, [StaffRole.accountant]),
-    ).toBe('income');
-  });
-
   it('resolves split accountant roles independently', () => {
     expect(
       resolveAccountantFinanceView(UserRole.staff, [

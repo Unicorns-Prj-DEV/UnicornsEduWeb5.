@@ -63,7 +63,6 @@ type SupportedRoleType = Extract<
   | "training"
   | "training_head"
   | "sale"
-  | "accountant"
   | "accountant_income"
   | "accountant_expense"
 >;
@@ -145,18 +144,6 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
     activeCardClassName:
       "border-success/35 bg-success/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-success)_40%,transparent)]",
     activeRowClassName: "border-success/15 bg-success/5 hover:bg-success/8",
-    popupGlowClassName: "bg-success/10",
-  },
-  accountant: {
-    listGradientClassName: "bg-bg-surface",
-    listGlowTopClassName: "bg-success/12",
-    listGlowBottomClassName: "bg-info/10",
-    selectionBadgeClassName:
-      "border-success/15 bg-success/8 text-success",
-    activeCardClassName:
-      "border-success/35 bg-success/5 shadow-[0_20px_36px_-26px_color-mix(in_srgb,var(--ue-success)_40%,transparent)]",
-    activeRowClassName:
-      "border-success/15 bg-success/5 hover:bg-success/8",
     popupGlowClassName: "bg-success/10",
   },
   accountant_income: {

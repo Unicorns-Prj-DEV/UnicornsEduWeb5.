@@ -504,7 +504,7 @@ describe('LessonService', () => {
   it('allows overview for staff who has both lesson planner and accountant roles', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-mixed-role',
-      roles: ['lesson_plan', 'accountant'],
+      roles: ['lesson_plan', 'accountant_expense'],
     });
     mockPrisma.lessonResource.count.mockResolvedValue(1);
     mockPrisma.lessonTask.count
@@ -544,7 +544,7 @@ describe('LessonService', () => {
       {
         id: 'staff-mixed-role',
         fullName: 'Mixed Planner',
-        roles: ['lesson_plan', 'accountant'],
+        roles: ['lesson_plan', 'accountant_expense'],
         status: 'active',
       },
     ]);
@@ -554,7 +554,7 @@ describe('LessonService', () => {
         staff: {
           id: 'staff-mixed-role',
           fullName: 'Mixed Planner',
-          roles: ['lesson_plan', 'accountant'],
+          roles: ['lesson_plan', 'accountant_expense'],
           status: 'active',
         },
       },
@@ -566,7 +566,7 @@ describe('LessonService', () => {
         staff: {
           id: 'staff-mixed-role',
           fullName: 'Mixed Planner',
-          roles: ['lesson_plan', 'accountant'],
+          roles: ['lesson_plan', 'accountant_expense'],
           status: 'active',
         },
       },

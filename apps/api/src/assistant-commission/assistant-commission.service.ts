@@ -174,7 +174,6 @@ export class AssistantCommissionService {
     const canAccess =
       staff.roles.includes(StaffRole.admin) ||
       hasSaleCsHeadAccess(staff.roles) ||
-      staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense);
 
@@ -204,7 +203,6 @@ export class AssistantCommissionService {
     return (
       staff.roles.includes(StaffRole.admin) ||
       hasSaleCsHeadAccess(staff.roles) ||
-      staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
     );

@@ -72,7 +72,6 @@ import {
 @ApiCookieAuth('access_token')
 @AllowStaffRolesOnAdminRoutes(
   SALE_CS_HEAD_ROLE,
-  StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
 )

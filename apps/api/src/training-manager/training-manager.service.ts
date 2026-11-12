@@ -302,8 +302,7 @@ export class TrainingManagerService {
     const canViewOthers =
       hasSaleCsHeadAccess(actor.roles) ||
       actor.roles.includes(StaffRole.accountant_income) ||
-      actor.roles.includes(StaffRole.accountant_expense) ||
-      actor.roles.includes(StaffRole.accountant);
+      actor.roles.includes(StaffRole.accountant_expense);
 
     if (!canViewOthers) {
       throw new ForbiddenException('Không có quyền xem hồ sơ nhân sự này.');
@@ -627,8 +626,7 @@ export class TrainingManagerService {
       const canEdit =
         hasSaleCsHeadAccess(actor?.roles) ||
         actor?.roles.includes(StaffRole.accountant_income) ||
-        actor?.roles.includes(StaffRole.accountant_expense) ||
-        actor?.roles.includes(StaffRole.accountant);
+        actor?.roles.includes(StaffRole.accountant_expense);
       if (!canEdit) {
         throw new ForbiddenException(
           'Không có quyền cập nhật trạng thái thanh toán quản lý lớp.',

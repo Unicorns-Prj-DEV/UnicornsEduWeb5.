@@ -178,7 +178,6 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   assistant: 'Trợ lí',
   lesson_plan: LESSON_PLAN_ROLE_LABEL,
   lesson_plan_head: LESSON_PLAN_HEAD_ROLE_LABEL,
-  accountant: 'Kế toán',
   accountant_income: 'Kế toán thu',
   accountant_expense: 'Kế toán chi',
   communication: 'Truyền thông',
@@ -191,7 +190,6 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
 
 const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
   SALE_CS_HEAD_ROLE,
-  StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
   StaffRole.communication,
@@ -2954,7 +2952,6 @@ export class StaffService {
       StaffRole.lesson_plan_head,
       StaffRole.lesson_plan,
       SALE_CS_HEAD_ROLE,
-      StaffRole.accountant,
       StaffRole.accountant_income,
       StaffRole.accountant_expense,
       StaffRole.communication,

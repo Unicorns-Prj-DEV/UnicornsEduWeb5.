@@ -38,8 +38,8 @@ describe('staff-role-policy', () => {
     it('đúng khi có ít nhất một role trùng', () => {
       expect(
         hasAnyStaffRole(
-          [StaffRole.teacher, StaffRole.accountant],
-          [StaffRole.accountant],
+          [StaffRole.teacher, StaffRole.accountant_income],
+          [StaffRole.accountant_income],
         ),
       ).toBe(true);
       expect(hasAnyStaffRole([StaffRole.teacher], [StaffRole.admin])).toBe(
@@ -139,7 +139,7 @@ describe('staff-role-policy', () => {
         assertStaffRoleChangeAllowed(saleHead, {
           targetStaffId: 'S-HEAD',
           previousRoles: [SALE_CS_HEAD_ROLE],
-          nextRoles: [SALE_CS_HEAD_ROLE, StaffRole.accountant],
+          nextRoles: [SALE_CS_HEAD_ROLE, StaffRole.accountant_income],
         }),
       ).toThrow('Không thể tự thêm role cho chính mình.');
     });

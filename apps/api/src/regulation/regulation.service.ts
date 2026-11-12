@@ -25,7 +25,6 @@ const STAFF_ROLE_AUDIENCE_MAP: Record<StaffRole, RegulationAudience> = {
   assistant: RegulationAudience.staff_assistant,
   lesson_plan: RegulationAudience.staff_lesson_plan,
   lesson_plan_head: RegulationAudience.staff_lesson_plan_head,
-  accountant: RegulationAudience.staff_accountant,
   accountant_income: RegulationAudience.staff_accountant_income,
   accountant_expense: RegulationAudience.staff_accountant_expense,
   communication: RegulationAudience.staff_communication,

@@ -6,7 +6,6 @@ export type NotificationTargetStaffRole =
   | "teacher"
   | "lesson_plan"
   | "lesson_plan_head"
-  | "accountant"
   | "accountant_income"
   | "accountant_expense"
   | "communication"

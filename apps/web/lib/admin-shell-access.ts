@@ -126,8 +126,7 @@ export function resolveAdminShellAccess(
   const isAccountantIncome =
     isStaff &&
     hasStaffProfile &&
-    (staffRoles.includes("accountant") ||
-      staffRoles.includes("accountant_income"));
+    staffRoles.includes("accountant_income");
   const isAccountantExpense =
     isStaff && hasStaffProfile && staffRoles.includes("accountant_expense");
   const isAccountant =

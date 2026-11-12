@@ -189,7 +189,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 ### 4.2 `staff_info`
 
 - **PK format:** `UNISTAFF-[0-9a-f]{10}` — ví dụ `UNISTAFF-1a2b3c4d5e`. Đây là **mã định danh hệ thống** ngắn cho nhân sự; migration `20260523110000_short_system_entity_ids` dùng `pgcrypto.gen_random_bytes(5)` để sinh ID mới cho dữ liệu hiện có, không cắt từ UUID cũ. Không còn dùng `@default(uuid())` trong Prisma cho PK này.
-- Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `accountant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, `training_head`, `assistant`, `sale`), `status`
+- Thông tin nhân sự: hồ sơ cá nhân, CCCD, ngân hàng, `roles` (`StaffRole[]` dạng Postgres enum array: `admin`, `teacher`, `lesson_plan`, `lesson_plan_head`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, `training_head`, `assistant`, `sale`), `status`
 - `status` là trạng thái vận hành hồ sơ nhân sự: `active` = **Hoạt động**, `inactive` = **Ngừng hoạt động**. Chỉ staff `active` được resolve staff/admin-through-staff workspace và được chọn cho phân công mới (gia sư lớp, trợ lí quản lí CSKH, giáo án, trợ cấp thêm). Staff `inactive` vẫn giữ trong lịch sử, payroll và các bản ghi đã phát sinh.
 - Khi hồ sơ nhân sự chuyển sang `inactive`, backend dừng các assignment vận hành đang mở: phân công gia sư-lớp hiện tại chuyển sang `inactive`, slot lịch cố định và buổi bù tương lai của nhân sự đó được dọn khỏi vận hành, liên kết CSKH đang chăm sóc bị gỡ. `users.status` không đổi.
 - Index: unique B-tree `staff_info_user_id_key` trên `user_id` kèm **`INCLUDE ("id", "roles")`** (covering) để tối ưu các đọc theo `user_id` (auth/session, roles guard). Trong Prisma: `@@unique([userId], map: "staff_info_user_id_key")` trên model `StaffInfo` (phần `INCLUDE` chỉ có trong migration SQL, Prisma chưa có DSL tương ứng).
@@ -975,7 +975,7 @@ ADR: `docs/adr/2026-10-18-protected-video-via-unioj-sync.md`. Một dòng mỗi 
 
 - `UserRole`: `admin | staff | student | guest`
 - `UserStatus`: `active | inactive | pending`
-- `StaffRole`: `admin | teacher | assistant | sale | lesson_plan | lesson_plan_head | accountant | accountant_income | accountant_expense | communication | technical | customer_care | training | training_head` — `training_head` (Trưởng ban đào tạo, migration `20261111090000_training_head_role`) là role độc lập, không kéo theo `training`; mọi check quyền Ban Đào Tạo đi qua `hasTrainingAccess` (ADR `docs/adr/2026-11-11-training-head-independent-role.md`)
+- `StaffRole`: `admin | teacher | assistant | sale | lesson_plan | lesson_plan_head | accountant_income | accountant_expense | communication | technical | customer_care | training | training_head` — `training_head` (Trưởng ban đào tạo, migration `20261111090000_training_head_role`) là role độc lập, không kéo theo `training`; mọi check quyền Ban Đào Tạo đi qua `hasTrainingAccess` (ADR `docs/adr/2026-11-11-training-head-independent-role.md`). Role Kế toán chung `accountant` đã bị xoá (#266, migration `20261112090000_remove_accountant_staff_role`): migration dò mọi cột `StaffRole` / `StaffRole[]` và `RAISE EXCEPTION` (liệt kê bảng.cột + số dòng) nếu còn dữ liệu dùng giá trị này, không tự xoá dữ liệu; sạch thì đổi type theo kiểu rename → tạo type mới → `ALTER COLUMN ... USING ::text` → drop type cũ.
   - `sale` (migration `20261023120000_sale_role_allowance`): nhân sự Sale, ăn lương cứng, tự ghi **Trợ cấp sale** trên `extra_allowances`.
   - `accountant` là legacy value; migration `20260529100000_split_accountant_roles` thêm enum mới, rồi `20260529100001_migrate_accountant_role_data` chuyển dữ liệu hiện hữu sang `accountant_income`.
 - `StaffStatus`: `active | inactive`
@@ -1019,7 +1019,7 @@ ADR: `docs/adr/2026-10-18-protected-video-via-unioj-sync.md`. Một dòng mỗi 
 
 ### Regulation
 
-- `RegulationAudience`:
+- `RegulationAudience` (`staff_accountant` đã bị xoá cùng role Kế toán chung — #266, migration `20261112090000_remove_accountant_staff_role`, cùng cơ chế chặn nếu còn quy định gửi tới đối tượng này):
   - `all`
   - `student`
   - `staff_admin`
@@ -1027,7 +1027,6 @@ ADR: `docs/adr/2026-10-18-protected-video-via-unioj-sync.md`. Một dòng mỗi 
   - `staff_assistant`
   - `staff_lesson_plan`
   - `staff_lesson_plan_head`
-  - `staff_accountant`
   - `staff_accountant_income`
   - `staff_accountant_expense`
   - `staff_communication`

@@ -21,7 +21,6 @@ export type LessonStaffRole =
   | "assistant"
   | "lesson_plan"
   | "lesson_plan_head"
-  | "accountant"
   | "accountant_income"
   | "accountant_expense"
   | "communication"

@@ -27,7 +27,6 @@ export type StaffCalendarAccessMode = 'admin' | 'teacher' | 'training';
 const ELEVATED_CLASS_ACCESS_ROLES = [
   StaffRole.admin,
   SALE_CS_HEAD_ROLE,
-  StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
 ] as const;

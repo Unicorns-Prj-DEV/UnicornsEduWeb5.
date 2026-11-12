@@ -144,46 +144,49 @@ describe('AuthAccessService', () => {
     },
   );
 
-  it('uses staff as the login landing workspace for non-admin staff roles', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      ...currentConsent,
-      staffInfo: {
-        ...completeStaffInfo,
-        id: 'staff-2',
-      },
-      studentInfo: null,
-    });
-    authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.accountant,
-    ]);
+  it.each([StaffRole.accountant_income, StaffRole.accountant_expense])(
+    'uses staff as the login landing workspace and keeps accountant tier for %s',
+    async (accountantRole) => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...currentConsent,
+        staffInfo: {
+          ...completeStaffInfo,
+          id: 'staff-2',
+        },
+        studentInfo: null,
+      });
+      authIdentityCacheService.getStaffRoles.mockResolvedValue([
+        accountantRole,
+      ]);
 
-    await expect(
-      service.resolveForIdentity({
-        id: 'user-2',
-        email: 'accountant@example.com',
-        accountHandle: 'accountant',
-        roleType: UserRole.staff,
-        status: 'active',
-        emailVerified: true,
-        avatarPath: 'users/user-2/avatar',
-        requiresPasswordSetup: false,
-      }),
-    ).resolves.toMatchObject({
-      effectiveRoleTypes: [UserRole.staff],
-      staffRoles: [StaffRole.accountant],
-      hasStaffProfile: true,
-      hasStudentProfile: false,
-      staffProfileComplete: true,
-      availableWorkspaces: ['admin', 'staff'],
-      defaultWorkspace: 'staff',
-      preferredRedirect: '/staff',
-      access: {
-        admin: { canAccess: true, tier: 'accountant' },
-        staff: { canAccess: true, profileComplete: true },
-        student: { canAccess: false },
-      },
-    });
-  });
+      await expect(
+        service.resolveForIdentity({
+          id: 'user-2',
+          email: 'accountant@example.com',
+          accountHandle: 'accountant',
+          roleType: UserRole.staff,
+          status: 'active',
+          emailVerified: true,
+          avatarPath: 'users/user-2/avatar',
+          requiresPasswordSetup: false,
+        }),
+      ).resolves.toMatchObject({
+        effectiveRoleTypes: [UserRole.staff],
+        staffRoles: [accountantRole],
+        hasStaffProfile: true,
+        hasStudentProfile: false,
+        staffProfileComplete: true,
+        availableWorkspaces: ['admin', 'staff'],
+        defaultWorkspace: 'staff',
+        preferredRedirect: '/staff',
+        access: {
+          admin: { canAccess: true, tier: 'accountant' },
+          staff: { canAccess: true, profileComplete: true },
+          student: { canAccess: false },
+        },
+      });
+    },
+  );
 
   it('lets primary admin access staff workspace without a staff profile', async () => {
     prisma.user.findUnique.mockResolvedValue({

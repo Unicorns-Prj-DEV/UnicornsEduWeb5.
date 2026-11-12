@@ -480,7 +480,6 @@ export default function TrainingManagerClassesTabPanel({
     hasSaleCsHeadAccess(staffRoles) ||
     staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
-    staffRoles.includes("accountant") ||
     staffRoles.includes("admin");
   // Khớp quyền BE `assertCanEditTrainingManager`: chỉ admin hoặc trợ lí.
   const canEditRate =

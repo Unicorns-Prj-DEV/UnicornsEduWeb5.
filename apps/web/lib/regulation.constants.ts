@@ -9,7 +9,6 @@ export const REGULATION_AUDIENCE_LABELS: Record<RegulationAudience, string> = {
   staff_assistant: ROLE_LABELS.assistant,
   staff_lesson_plan: ROLE_LABELS.lesson_plan,
   staff_lesson_plan_head: ROLE_LABELS.lesson_plan_head,
-  staff_accountant: ROLE_LABELS.accountant,
   staff_accountant_income: ROLE_LABELS.accountant_income,
   staff_accountant_expense: ROLE_LABELS.accountant_expense,
   staff_communication: ROLE_LABELS.communication,

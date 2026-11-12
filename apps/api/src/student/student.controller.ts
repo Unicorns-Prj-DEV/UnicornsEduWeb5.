@@ -143,7 +143,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'List students',
     description:
-      'Get all students. Admin, assistant, legacy accountant, and income accountant only.',
+      'Get all students. Admin, assistant, and income accountant only.',
   })
   @ApiResponse({
     status: 200,
@@ -151,7 +151,6 @@ export class StudentController {
   })
   @AllowStaffRolesOnAdminRoutes(
     SALE_CS_HEAD_ROLE,
-    StaffRole.accountant,
     StaffRole.accountant_income,
   )
   @ApiQuery({
@@ -742,7 +741,6 @@ export class StudentController {
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @AllowStaffRolesOnAdminRoutes(
     SALE_CS_HEAD_ROLE,
-    StaffRole.accountant,
     StaffRole.accountant_income,
     StaffRole.customer_care,
   )
@@ -829,7 +827,6 @@ export class StudentController {
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @AllowStaffRolesOnAdminRoutes(
     SALE_CS_HEAD_ROLE,
-    StaffRole.accountant,
     StaffRole.accountant_income,
     StaffRole.customer_care,
   )

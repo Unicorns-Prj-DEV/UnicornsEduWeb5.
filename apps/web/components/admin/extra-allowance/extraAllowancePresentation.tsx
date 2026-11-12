@@ -89,12 +89,6 @@ export const EXTRA_ALLOWANCE_ROLE_META = {
     pillClassName:
       `border border-info/25 bg-info/12 text-info ${insetSurfaceShadow}`,
   },
-  accountant: {
-    label: ROLE_LABELS.accountant,
-    badgeClassName: "bg-success/12 text-success ring-1 ring-success/20",
-    pillClassName:
-      `border border-success/20 bg-success/10 text-success ${insetSurfaceShadow}`,
-  },
   accountant_income: {
     label: ROLE_LABELS.accountant_income,
     badgeClassName: "bg-success/12 text-success ring-1 ring-success/20",

@@ -99,14 +99,14 @@ describe('StaffOperationsAccessService', () => {
   it('resolves linked staff actors even when primary role is student', async () => {
     mockPrisma.staffInfo.findFirst.mockResolvedValue({
       id: 'staff-student-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.accountant_income],
     });
 
     await expect(
       service.resolveActor('student-accountant-user', UserRole.student),
     ).resolves.toEqual({
       id: 'staff-student-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.accountant_income],
     });
   });
 

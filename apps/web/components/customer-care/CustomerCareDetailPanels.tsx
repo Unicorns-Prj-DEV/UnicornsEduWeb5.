@@ -334,7 +334,6 @@ export default function CustomerCareDetailPanels({
     hasSaleCsHeadAccess(staffRoles) ||
     staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
-    staffRoles.includes("accountant") ||
     staffRoles.includes("admin");
   const canEditProfitPercent =
     fullProfile?.roleType === "admin" ||

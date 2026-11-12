@@ -828,7 +828,7 @@ describe('FixedSalarySettingsService', () => {
     await expect(
       service.upsertStaffAmountOverride({
         staffId: 'staff-an',
-        roleType: StaffRole.accountant,
+        roleType: StaffRole.accountant_income,
         amount: 1,
       }),
     ).rejects.toThrow(BadRequestException);

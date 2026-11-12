@@ -222,7 +222,7 @@ describe('RolesGuard', () => {
 
   it('allows accountant when the route explicitly permits accountant', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.accountant,
+      StaffRole.accountant_income,
     ]);
 
     await expect(
@@ -236,7 +236,7 @@ describe('RolesGuard', () => {
           },
           {
             requiredRoles: [UserRole.admin],
-            allowStaffRolesOnAdminRoutes: [StaffRole.accountant],
+            allowStaffRolesOnAdminRoutes: [StaffRole.accountant_income],
           },
         ),
       ),
@@ -259,7 +259,7 @@ describe('RolesGuard', () => {
           },
           {
             requiredRoles: [UserRole.admin],
-            allowStaffRolesOnAdminRoutes: [StaffRole.accountant],
+            allowStaffRolesOnAdminRoutes: [StaffRole.accountant_income],
           },
         ),
       ),
@@ -293,7 +293,7 @@ describe('RolesGuard', () => {
     );
 
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.accountant,
+      StaffRole.accountant_income,
     ]);
 
     await expect(
@@ -318,7 +318,7 @@ describe('RolesGuard', () => {
 
   it('rejects accountant on admin routes without explicit accountant access', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.accountant,
+      StaffRole.accountant_income,
     ]);
 
     await expect(
@@ -342,7 +342,7 @@ describe('RolesGuard', () => {
 
   it('allows accountant and rejects assistant when assistant fallback is disabled', async () => {
     authIdentityCacheService.getStaffRoles.mockResolvedValue([
-      StaffRole.accountant,
+      StaffRole.accountant_income,
     ]);
 
     await expect(
@@ -357,7 +357,7 @@ describe('RolesGuard', () => {
           {
             requiredRoles: [UserRole.admin],
             allowAssistantOnAdminRoutes: false,
-            allowStaffRolesOnAdminRoutes: [StaffRole.accountant],
+            allowStaffRolesOnAdminRoutes: [StaffRole.accountant_income],
           },
         ),
       ),
@@ -379,7 +379,7 @@ describe('RolesGuard', () => {
           {
             requiredRoles: [UserRole.admin],
             allowAssistantOnAdminRoutes: false,
-            allowStaffRolesOnAdminRoutes: [StaffRole.accountant],
+            allowStaffRolesOnAdminRoutes: [StaffRole.accountant_income],
           },
         ),
       ),

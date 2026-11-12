@@ -387,7 +387,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Get staff income summary',
     description:
-      'Backend-authoritative net-first totals for staff detail. incomeStatsTotalNet is the top-card "Tổng nhận" monthly NET (monthlyIncomeTotals.total), while yearIncomeTotal remains the selected-year net rollup and totalReceivedNet keeps the current paid-year + unpaid-snapshot contract. Teacher allowance uses operating + tax on post-operating base; bonuses use tax only (no operating), at the current effective rate for the first matching staff role in priority order: teacher, customer_care, lesson_plan_head, lesson_plan, assistant, accountant, communication, technical. Gross/tax breakdown fields include bonus gross and bonus tax.',
+      'Backend-authoritative net-first totals for staff detail. incomeStatsTotalNet is the top-card "Tổng nhận" monthly NET (monthlyIncomeTotals.total), while yearIncomeTotal remains the selected-year net rollup and totalReceivedNet keeps the current paid-year + unpaid-snapshot contract. Teacher allowance uses operating + tax on post-operating base; bonuses use tax only (no operating), at the current effective rate for the first matching staff role in priority order: teacher, customer_care, lesson_plan_head, lesson_plan, assistant, accountant_income, accountant_expense, communication, technical. Gross/tax breakdown fields include bonus gross and bonus tax.',
   })
   @ApiParam({ name: 'id', description: 'Staff id' })
   @ApiQuery({

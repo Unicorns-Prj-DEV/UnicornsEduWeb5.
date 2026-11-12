@@ -21,7 +21,6 @@ const PUBLISHER_STAFF_ROLES = [
   StaffRole.assistant,
   StaffRole.lesson_plan,
   StaffRole.lesson_plan_head,
-  StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
   StaffRole.communication,

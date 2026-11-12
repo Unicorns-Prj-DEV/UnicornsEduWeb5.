@@ -4624,7 +4624,6 @@ export class DashboardService {
                 monthEnd: range.monthEnd,
               })
             : Promise.resolve(undefined),
-          normalizedRoles.includes(StaffRole.accountant) ||
           normalizedRoles.includes(StaffRole.accountant_income)
             ? this.getAccountantSection({
                 month: range.month,

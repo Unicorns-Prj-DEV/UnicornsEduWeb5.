@@ -165,7 +165,7 @@ describe('TrainingTutorService', () => {
     });
 
     it.each([
-      ['operational-only staff', [StaffRole.accountant], StaffStatus.active],
+      ['operational-only staff', [StaffRole.accountant_income], StaffStatus.active],
       ['teacher only', [StaffRole.teacher], StaffStatus.active],
       ['inactive training staff', [StaffRole.training], StaffStatus.inactive],
     ])('rejects %s', async (_label, roles, status) => {

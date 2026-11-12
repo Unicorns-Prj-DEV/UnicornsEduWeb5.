@@ -56,7 +56,6 @@ type SupportedRoleType = Extract<
   | "training"
   | "training_head"
   | "sale"
-  | "accountant"
   | "accountant_income"
   | "accountant_expense"
 >;
@@ -97,11 +96,6 @@ const ROLE_THEMES: Record<SupportedRoleType, RoleTheme> = {
     listGradientClassName: "bg-bg-surface",
     listGlowTopClassName: "bg-success/12",
     listGlowBottomClassName: "bg-warning/10",
-  },
-  accountant: {
-    listGradientClassName: "bg-bg-surface",
-    listGlowTopClassName: "bg-success/12",
-    listGlowBottomClassName: "bg-info/10",
   },
   accountant_income: {
     listGradientClassName: "bg-bg-surface",

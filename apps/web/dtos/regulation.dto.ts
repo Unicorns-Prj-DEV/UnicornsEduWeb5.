@@ -6,7 +6,6 @@ export type RegulationAudience =
   | "staff_assistant"
   | "staff_lesson_plan"
   | "staff_lesson_plan_head"
-  | "staff_accountant"
   | "staff_accountant_income"
   | "staff_accountant_expense"
   | "staff_communication"

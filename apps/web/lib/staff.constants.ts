@@ -14,7 +14,6 @@ export const ROLE_LABELS: Record<string, string> = {
   assistant: "Trợ lí",
   lesson_plan: LESSON_PLAN_ROLE_LABEL,
   lesson_plan_head: LESSON_PLAN_HEAD_ROLE_LABEL,
-  accountant: "Kế toán",
   accountant_income: "Kế toán thu",
   accountant_expense: "Kế toán chi",
   communication: "Truyền thông",

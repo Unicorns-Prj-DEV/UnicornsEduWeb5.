@@ -828,7 +828,6 @@ export class StudentService {
 
     if (
       hasSaleCsHeadAccess(staff.roles) ||
-      staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income)
     ) {
       return;

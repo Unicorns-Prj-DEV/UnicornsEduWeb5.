@@ -304,7 +304,6 @@ export class ClassService {
     return (
       roles.includes(StaffRole.admin) ||
       hasSaleCsHeadAccess(roles) ||
-      roles.includes(StaffRole.accountant) ||
       roles.includes(StaffRole.accountant_income) ||
       roles.includes(StaffRole.accountant_expense)
     );

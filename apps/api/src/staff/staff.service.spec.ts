@@ -1119,10 +1119,10 @@ describe('StaffService', () => {
     ]);
   });
 
-  it('aggregates extra allowances for accountant into other-role summaries', async () => {
+  it('aggregates extra allowances for income accountant into other-role summaries', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.accountant_income],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -1132,13 +1132,13 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.findMany
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 7000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.pending,
           amount: 3000,
           taxDeductionRatePercent: 0,
@@ -1146,26 +1146,26 @@ describe('StaffService', () => {
       ])
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 7000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.pending,
           amount: 3000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 2000,
           taxDeductionRatePercent: 0,
         },
       ]);
 
-    mockOtherRoleUnpaidByRole([[StaffRole.accountant, 3000]]);
+    mockOtherRoleUnpaidByRole([[StaffRole.accountant_income, 3000]]);
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -1181,8 +1181,8 @@ describe('StaffService', () => {
     expect(result.yearIncomeTotal).toBe(12000);
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.accountant,
-        label: 'Kế toán',
+        role: StaffRole.accountant_income,
+        label: 'Kế toán thu',
         total: 10000,
         paid: 7000,
         unpaid: 3000,
@@ -1193,7 +1193,7 @@ describe('StaffService', () => {
   it('calculates tax on aggregated extra-allowance source totals instead of per item', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.accountant_income],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -1203,13 +1203,13 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.findMany
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
@@ -1217,13 +1217,13 @@ describe('StaffService', () => {
       ])
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
@@ -1244,8 +1244,8 @@ describe('StaffService', () => {
     });
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.accountant,
-        label: 'Kế toán',
+        role: StaffRole.accountant_income,
+        label: 'Kế toán thu',
         total: 9,
         paid: 9,
         unpaid: 0,

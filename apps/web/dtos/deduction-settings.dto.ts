@@ -1,7 +1,6 @@
 export type StaffRoleType =
   | "teacher"
   | "assistant"
-  | "accountant"
   | "accountant_income"
   | "accountant_expense"
   | "customer_care"

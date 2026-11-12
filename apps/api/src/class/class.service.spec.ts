@@ -407,7 +407,7 @@ describe('ClassService', () => {
     it('uses accountant access instead of teacher scope for multi-role staff', async () => {
       mockStaffOperationsAccess.resolveActor.mockResolvedValue({
         id: 'staff-1',
-        roles: [StaffRole.teacher, StaffRole.lesson_plan, StaffRole.accountant],
+        roles: [StaffRole.teacher, StaffRole.lesson_plan, StaffRole.accountant_income],
       });
       const getClassesSpy = jest
         .spyOn(service, 'getClasses')
@@ -536,7 +536,7 @@ describe('ClassService', () => {
     it('allows elevated staff even when they also have teacher role', async () => {
       mockStaffOperationsAccess.resolveActor.mockResolvedValue({
         id: 'staff-1',
-        roles: [StaffRole.teacher, StaffRole.accountant],
+        roles: [StaffRole.teacher, StaffRole.accountant_income],
       });
       const createClassSpy = jest
         .spyOn(service, 'createClass')

@@ -39,7 +39,6 @@ export class ClassTimelineController {
     StaffRole.teacher,
     StaffRole.customer_care,
     ...TRAINING_ACCESS_ROLES,
-    StaffRole.accountant,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )

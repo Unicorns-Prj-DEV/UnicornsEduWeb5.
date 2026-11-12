@@ -59,11 +59,10 @@ export class StudentGalleryController {
 
   @Get()
   // Viewing must match whoever can view the student profile itself
-  // (GET student/:id also allows accountant + accountant_income on admin routes).
+  // (GET student/:id also allows accountant_income on admin routes).
   @AllowStaffRolesOnAdminRoutes(
     SALE_CS_HEAD_ROLE,
     StaffRole.customer_care,
-    StaffRole.accountant,
     StaffRole.accountant_income,
   )
   @ApiOperation({ summary: 'List student gallery items' })

@@ -1011,7 +1011,7 @@ describe('StudentService', () => {
         requestedByUserId: 'staff-user-1',
         requestedByUserEmail: 'accountant@example.com',
         requestedByRoleType: UserRole.staff,
-        requestedByStaffRoles: [StaffRole.accountant],
+        requestedByStaffRoles: [StaffRole.accountant_income],
         createdAt: new Date('2026-05-16T02:00:00.000Z'),
         updatedAt: new Date('2026-05-16T02:00:00.000Z'),
         student: {
@@ -1076,7 +1076,7 @@ describe('StudentService', () => {
         requestedByUserId: 'staff-user-1',
         requestedByUserEmail: 'accountant@example.com',
         requestedByRoleType: UserRole.staff,
-        requestedByStaffRoles: [StaffRole.accountant],
+        requestedByStaffRoles: [StaffRole.accountant_income],
         createdAt: new Date('2026-05-01T03:00:00.000Z'),
         updatedAt: new Date('2026-05-01T03:00:00.000Z'),
         student: {
@@ -1139,7 +1139,7 @@ describe('StudentService', () => {
       requestedByUserId: 'staff-user-1',
       requestedByUserEmail: 'accountant@example.com',
       requestedByRoleType: UserRole.staff,
-      requestedByStaffRoles: [StaffRole.accountant],
+      requestedByStaffRoles: [StaffRole.accountant_income],
       createdAt: new Date('2026-05-16T02:00:00.000Z'),
       updatedAt: new Date('2026-05-16T02:00:00.000Z'),
       student: {
