@@ -1,6 +1,7 @@
 import {
   ApiProperty,
   ApiPropertyOptional,
+  OmitType,
   PartialType,
   PickType,
 } from '@nestjs/swagger';
@@ -251,6 +252,15 @@ export class CreateClassDto {
   @IsArray()
   @IsStudentId({ each: true })
   student_ids?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Quản lý lớp (staff id) giao ngay khi tạo lớp (#274). Phải là nhân sự Đào Tạo hoặc gia sư đang hoạt động; gia sư chưa thuộc Ban Đào Tạo được cấp thêm role `training`. % trợ cấp quản lý lớp không nhận ở đây (chỉ Admin sửa qua PATCH /class/:id/training-manager).',
+    example: 'UNISTAFF-c3d4e5f6a7',
+  })
+  @IsOptional()
+  @IsStaffId()
+  training_manager_staff_id?: string;
 }
 
 /**
@@ -678,7 +688,10 @@ export class UpdateClassStudentsDto {
   students: StudentClassCreateDto[];
 }
 
-export class UpdateClassDto extends PartialType(CreateClassDto) {
+// #274: Quản lý lớp chỉ nhận khi tạo lớp; sửa sau dùng PATCH /class/:id/training-manager.
+export class UpdateClassDto extends PartialType(
+  OmitType(CreateClassDto, ['training_manager_staff_id'] as const),
+) {
   @ApiProperty({
     description: 'Class id',
     example: 'UNICL-b2c3d4e5f6',

@@ -245,10 +245,15 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'Create class with minimal metadata',
     description:
-      'Create a new class for staff operations. Only minimal class metadata is accepted.',
+      'Create a new class for staff operations. Only minimal class metadata is accepted. #274: chỉ Admin và Trưởng ban Đào tạo (Trưởng phòng Sale & CSKH dùng POST /class); lịch học (schedule) và trạng thái khác running chỉ Admin.',
   })
   @ApiBody({ type: CreateStaffOpsClassDto })
   @ApiResponse({ status: 201, description: 'Class created.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Role không được tạo lớp, hoặc role trưởng gửi lịch học / trạng thái kết thúc (#274).',
+  })
   async createClass(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateStaffOpsClassDto,

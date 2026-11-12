@@ -184,6 +184,10 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   'ClassController.updateClassTuition',
   // #273: thêm/bớt học sinh trong lớp (Admin + Trưởng phòng).
   'ClassController.updateClassStudents',
+  // #274: tạo lớp (thông tin lớp + học phí + học sinh) và sửa Thông tin lớp
+  // (chỉ tên, khoá học, sĩ số — service giới hạn trường).
+  'ClassController.createClass',
+  'ClassController.updateClassBasicInfo',
   // Gửi thông báo.
   'NotificationController.createNotificationDraft',
   'NotificationController.deleteNotification',
@@ -231,7 +235,32 @@ const SALE_CS_HEAD_CLASS_ROUTES = [
   'updateClassStudentTuition',
   // #273: thêm/bớt học sinh trong lớp.
   'updateClassStudents',
+  // #274: tạo lớp + sửa Thông tin lớp (trường giới hạn ở service).
+  'createClass',
+  'updateClassBasicInfo',
 ] as const;
+
+/**
+ * #274: route admin-only Trưởng ban Đào tạo vào được — xem lớp (bỏ học phí),
+ * tạo lớp, sửa Thông tin lớp, tra nhân sự để chọn gia sư.
+ */
+const TRAINING_HEAD_ADMIN_ROUTE_ALLOWLIST = [
+  'ClassController.createClass',
+  'ClassController.getClassById',
+  'ClassController.getClasses',
+  'ClassController.getStudentsByClassId',
+  'ClassController.listMakeupEventsByClassId',
+  'ClassController.updateClassBasicInfo',
+  'StaffController.searchStaffOptions',
+  // Có từ trước #274 (không đổi ở ticket này).
+  'ClassTimelineController.list',
+  'NotificationController.createNotificationDraft',
+  'NotificationController.deleteNotification',
+  'NotificationController.getAdminNotifications',
+  'NotificationController.getNotificationRecipientOptions',
+  'NotificationController.pushNotification',
+  'NotificationController.updateNotificationDraft',
+].sort();
 
 const asStaff = (
   controller: ControllerClass,
@@ -400,7 +429,6 @@ describe('Admin routes deny-by-default (#267)', () => {
 
     it.each([
       'updateClass',
-      'updateClassBasicInfo',
       'updateClassPricingMode',
       'updateClassTeacherCompensation',
     ])('từ chối Trưởng phòng sửa %s', async (methodName) => {
@@ -502,6 +530,102 @@ describe('Admin routes deny-by-default (#267)', () => {
         },
       );
     });
+  });
+
+  describe('#274 tạo lớp / sửa lớp theo role', () => {
+    const trainingHead = [StaffRole.training_head];
+    const bothHeads = [
+      StaffRole.training_head,
+      StaffRole.sale_customer_care_head,
+    ];
+
+    it('Trưởng ban Đào tạo chỉ vào được đúng danh sách cho phép', async () => {
+      const allowed: string[] = [];
+      for (const controller of loadAllControllers()) {
+        for (const methodName of routeNames(controller)) {
+          if (!isAdminOnlyRoute(controller, methodName)) continue;
+          const ok = await asStaff(controller, methodName, trainingHead).catch(
+            (error: unknown) => {
+              expect(error).toBeInstanceOf(ForbiddenException);
+              return false;
+            },
+          );
+          if (ok) allowed.push(`${controller.name}.${methodName}`);
+        }
+      }
+      expect(allowed.sort()).toEqual(TRAINING_HEAD_ADMIN_ROUTE_ALLOWLIST);
+    });
+
+    it.each(['createClass', 'updateClassBasicInfo'])(
+      'Admin, Trưởng ban Đào tạo, Trưởng phòng, kiêm hai role vào được %s',
+      async (methodName) => {
+        await expect(asAdmin(ClassController, methodName)).resolves.toBe(true);
+        await expect(asAssistant(ClassController, methodName)).resolves.toBe(
+          true,
+        );
+        await expect(
+          asStaff(ClassController, methodName, trainingHead),
+        ).resolves.toBe(true);
+        await expect(
+          asStaff(ClassController, methodName, bothHeads),
+        ).resolves.toBe(true);
+      },
+    );
+
+    const otherRoles: [string, StaffRole[]][] = [
+      ['Quản lý lớp / Đào tạo', [StaffRole.training]],
+      ['Kế toán thu', [StaffRole.accountant_income]],
+      ['Kế toán chi', [StaffRole.accountant_expense]],
+      ['CSKH', [StaffRole.customer_care]],
+      ['Gia sư', [StaffRole.teacher]],
+    ];
+    describe.each(otherRoles)('%s', (_label, staffRoles) => {
+      it.each(['createClass', 'updateClassBasicInfo'])(
+        'bị 403 ở ClassController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(ClassController, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
+
+    // Kết thúc / xoá lớp (và các đường đổi trạng thái khác): chỉ Admin.
+    const adminOnlyClassLifecycle = [
+      'endClass',
+      'deleteClass',
+      'updateClass',
+      'updateClassPricingMode',
+      'updateClassSchedule',
+      'stopClassTeacher',
+    ];
+    const nonAdminRoles: [string, StaffRole[]][] = [
+      ['Trưởng ban Đào tạo', trainingHead],
+      ['Trưởng phòng', [StaffRole.sale_customer_care_head]],
+      ['kiêm hai role trưởng', bothHeads],
+      [
+        'Kế toán thu + chi',
+        [StaffRole.accountant_income, StaffRole.accountant_expense],
+      ],
+      ['Quản lý lớp / Đào tạo', [StaffRole.training]],
+    ];
+    describe.each(nonAdminRoles)('%s', (_label, staffRoles) => {
+      it.each(adminOnlyClassLifecycle)(
+        'bị 403 ở ClassController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(ClassController, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
+
+    it.each(adminOnlyClassLifecycle)(
+      'Admin vào được ClassController.%s',
+      async (methodName) => {
+        await expect(asAdmin(ClassController, methodName)).resolves.toBe(true);
+      },
+    );
   });
 
   describe('nạp thẳng số dương vào ví học sinh', () => {

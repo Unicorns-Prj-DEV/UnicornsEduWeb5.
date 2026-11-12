@@ -259,6 +259,24 @@ describe('#272 resolveAdminClassFinanceView (route admin của lớp)', () => {
     [UserRole.staff, [head, StaffRole.accountant_expense], 'full'],
     [UserRole.staff, [StaffRole.accountant_income], 'income'],
     [UserRole.staff, [StaffRole.accountant_expense], 'expense'],
+    [
+      UserRole.staff,
+      [StaffRole.accountant_income, StaffRole.accountant_expense],
+      'full',
+    ],
+    // #274: Trưởng ban Đào tạo thấy lương gia sư, không thấy học phí.
+    [UserRole.staff, [StaffRole.training_head], 'expense'],
+    [UserRole.staff, [StaffRole.training_head, head], 'full'],
+    [
+      UserRole.staff,
+      [StaffRole.training_head, StaffRole.accountant_income],
+      'full',
+    ],
+    [
+      UserRole.staff,
+      [StaffRole.training_head, StaffRole.accountant_expense],
+      'expense',
+    ],
   ])('%s %j → %s', (roleType, staffRoles, expected) => {
     expect(resolveAdminClassFinanceView(roleType, staffRoles)).toBe(expected);
   });

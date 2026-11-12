@@ -222,6 +222,8 @@ export interface CreateClassPayload {
     /** Teachers with optional custom allowance. Takes precedence over teacher_ids when both sent. */
     teachers?: ClassTeacherPayload[];
     student_ids?: string[];
+    /** #274: Quản lý lớp giao ngay khi tạo lớp (Admin / Trưởng ban Đào tạo). */
+    training_manager_staff_id?: string;
 }
 
 export interface UpdateClassPayload {

@@ -75,6 +75,7 @@ describe('ClassService', () => {
     staffInfo: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     studentInfo: {
       findMany: jest.fn(),
@@ -140,6 +141,7 @@ describe('ClassService', () => {
   };
   const mockActionHistoryService = {
     recordUpdate: jest.fn(),
+    recordCreate: jest.fn(),
   };
   const mockCalendarService = {
     syncScheduleWithCalendar: jest.fn().mockResolvedValue(undefined),
@@ -671,6 +673,244 @@ describe('ClassService', () => {
         ],
         sessionTuitionTotal: 250000,
       });
+    });
+  });
+
+  describe('#274 tạo lớp theo role', () => {
+    const staffUserWith = (roles: StaffRole[]) => ({
+      roleType: UserRole.staff,
+      staffInfo: { id: 'UNISTAFF-self000001', roles },
+    });
+    const headActor = {
+      userId: 'user-head',
+      userEmail: 'head@example.com',
+      roleType: UserRole.staff,
+    };
+    const classRow = {
+      id: 'class-1',
+      name: 'Math 10A',
+      courseId: 'basic-category-id',
+      status: ClassStatus.running,
+      maxStudents: 12,
+      allowancePerSessionPerStudent: null,
+      maxAllowancePerSession: null,
+      scaleAmount: null,
+      schedule: [],
+      studentTuitionPerSession: null,
+      tuitionPackageTotal: null,
+      tuitionPackageSession: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+
+    beforeEach(() => {
+      mockTx.course.findUnique.mockResolvedValue({
+        id: 'basic-category-id',
+        defaultDurationDays: null,
+      });
+      mockTx.class.create.mockResolvedValue(classRow);
+      mockTx.class.findUnique.mockResolvedValue(classRow);
+      mockTx.studentClass.findMany.mockResolvedValue([]);
+    });
+
+    it('Trưởng ban Đào tạo tạo lớp kèm Quản lý lớp: ghi trainingManagerStaffId và cấp role training cho gia sư', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.training_head]),
+      );
+      mockTx.staffInfo.findUnique.mockResolvedValueOnce({
+        id: 'UNISTAFF-manager0001',
+        roles: [StaffRole.teacher],
+        status: 'active',
+      });
+
+      await service.createClass(
+        {
+          name: 'Math 10A',
+          course_id: 'basic-category-id',
+          max_students: 12,
+          training_manager_staff_id: 'UNISTAFF-manager0001',
+        },
+        headActor,
+      );
+
+      expect(mockTx.class.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            trainingManagerStaffId: 'UNISTAFF-manager0001',
+          }),
+        }),
+      );
+      expect(mockTx.staffInfo.update).toHaveBeenCalledWith({
+        where: { id: 'UNISTAFF-manager0001' },
+        data: { roles: { push: StaffRole.training } },
+        select: { id: true },
+      });
+    });
+
+    it('Quản lý lớp không phải Đào Tạo/gia sư đang hoạt động → 400', async () => {
+      mockTx.staffInfo.findUnique.mockResolvedValueOnce({
+        id: 'UNISTAFF-manager0001',
+        roles: [StaffRole.customer_care],
+        status: 'active',
+      });
+
+      await expect(
+        service.createClass({
+          name: 'Math 10A',
+          course_id: 'basic-category-id',
+          training_manager_staff_id: 'UNISTAFF-manager0001',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockTx.class.create).not.toHaveBeenCalled();
+    });
+
+    it('Trưởng ban Đào tạo gửi học phí → 403, không tạo lớp', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.training_head]),
+      );
+
+      await expect(
+        service.createClass(
+          {
+            name: 'Math 10A',
+            course_id: 'basic-category-id',
+            student_tuition_per_session: 200000,
+          },
+          headActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('Trưởng phòng gửi gia sư → 403, không tạo lớp', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.sale_customer_care_head]),
+      );
+
+      await expect(
+        service.createClass(
+          {
+            name: 'Math 10A',
+            course_id: 'basic-category-id',
+            teacher_ids: ['UNISTAFF-other00001'],
+          },
+          headActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('Trưởng phòng tạo lớp kèm học phí được', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.sale_customer_care_head]),
+      );
+
+      await expect(
+        service.createClass(
+          {
+            name: 'Math 10A',
+            course_id: 'basic-category-id',
+            student_tuition_per_session: 200000,
+          },
+          headActor,
+        ),
+      ).resolves.toMatchObject({ id: 'class-1' });
+    });
+
+    it('staff-ops: Đào Tạo (không phải trưởng) tạo lớp → 403', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.training],
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.training]),
+      );
+
+      await expect(
+        service.createClassForStaff(
+          'user-head',
+          UserRole.staff,
+          {
+            name: 'Math 10A',
+            course_id: 'basic-category-id',
+            status: ClassStatus.running,
+          } as never,
+          headActor,
+        ),
+      ).rejects.toThrow(
+        'Chỉ Admin, Trưởng ban Đào tạo hoặc Trưởng phòng Sale & CSKH được tạo lớp.',
+      );
+    });
+
+    it.each([
+      [
+        'lịch học',
+        { schedule: [{ dayOfWeek: 1, from: '18:00', to: '19:30' }] },
+      ],
+      ['trạng thái kết thúc', { status: ClassStatus.ended }],
+    ])('staff-ops: Trưởng ban Đào tạo gửi %s → 403', async (_label, extra) => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'staff-1',
+        roles: [StaffRole.training_head],
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.training_head]),
+      );
+
+      await expect(
+        service.createClassForStaff(
+          'user-head',
+          UserRole.staff,
+          {
+            name: 'Math 10A',
+            course_id: 'basic-category-id',
+            ...extra,
+          } as never,
+          headActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('#274 sửa Thông tin lớp theo role', () => {
+    const headActor = { userId: 'user-head', roleType: UserRole.staff };
+    const staffUserWith = (roles: StaffRole[]) => ({
+      roleType: UserRole.staff,
+      staffInfo: { id: 'UNISTAFF-self000001', roles },
+    });
+
+    it.each([
+      ['Trưởng ban Đào tạo', [StaffRole.training_head]],
+      ['Trưởng phòng', [StaffRole.sale_customer_care_head]],
+    ])('%s sửa tên, khoá học, sĩ số được', async (_label, roles) => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(staffUserWith(roles));
+
+      await service.updateClassBasicInfo(
+        'class-1',
+        { name: 'Lớp mới', max_students: 20 },
+        headActor,
+      );
+
+      expect(mockTx.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: { name: 'Lớp mới', maxStudents: 20 },
+      });
+    });
+
+    it.each([
+      ['kết thúc lớp (status ended)', { status: ClassStatus.ended }],
+      ['lương gia sư', { allowance_per_session_per_student: 90000 }],
+      ['không cần điểm danh', { no_attendance: true }],
+    ])('Trưởng phòng gửi %s → 403', async (_label, dto) => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.sale_customer_care_head]),
+      );
+
+      await expect(
+        service.updateClassBasicInfo('class-1', dto, headActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockTx.class.update).not.toHaveBeenCalled();
     });
   });
 

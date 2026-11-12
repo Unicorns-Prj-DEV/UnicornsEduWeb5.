@@ -2,6 +2,7 @@
 
 import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
+import { TRAINING_HEAD_ROLE } from "@/lib/class-write-access";
 import { useQuery } from "@tanstack/react-query";
 import AdminClassesPage from "@/app/admin/classes/page";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,6 +57,7 @@ export default function StaffClassesPage() {
       <AdminClassesPage
         classListFetcher={staffOpsApi.getClasses}
         forceReadOnlyList
+        allowCreateClass={staffRoles.includes(TRAINING_HEAD_ROLE)}
         pageSubtitle="Danh sách các lớp bạn đang được gán quản lý."
       />
     );

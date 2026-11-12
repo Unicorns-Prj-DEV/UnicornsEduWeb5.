@@ -46,6 +46,14 @@ import {
   assertNotEditingOwnCompensation,
   resolveStaffPolicyActor,
 } from 'src/common/staff-role-policy';
+import {
+  grantTrainingRoleForManager,
+  resolveTrainingManagerAssignment,
+} from 'src/training-manager/training-manager-assignment';
+import {
+  assertCreateClassAllowed,
+  assertUpdateClassBasicInfoAllowed,
+} from './class-write-field-policy';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
@@ -1328,6 +1336,8 @@ export class ClassService {
       throw new ForbiddenException('Giáo viên không được phép tạo lớp học.');
     }
 
+    // #274: createClass áp chính sách role — chỉ Admin + hai role trưởng, và
+    // lịch học (schedule) chỉ Admin được gửi.
     return this.createClass(
       {
         name: dto.name,
@@ -1407,6 +1417,13 @@ export class ClassService {
   }
 
   async createClass(data: CreateClassDto, auditActor?: ActionHistoryActor) {
+    // #274: Admin mọi trường; Trưởng ban Đào tạo / Trưởng phòng Sale & CSKH chỉ
+    // các trường thuộc quyền (gửi ngoài quyền → 403). Áp cho cả POST /class
+    // lẫn POST /staff-ops/classes.
+    assertCreateClassAllowed(
+      await resolveStaffPolicyActor(this.prisma, auditActor),
+      data,
+    );
     return this.withEntityIdRetry(() => this.createClassOnce(data, auditActor));
   }
 
@@ -1570,9 +1587,17 @@ export class ClassService {
         tuitionPackageTotal: data.tuition_package_total,
       });
 
+      // #274: giao Quản lý lớp ngay khi tạo (cùng kiểm tra với
+      // PATCH /class/:id/training-manager); % trợ cấp quản lý vẫn chỉ Admin.
+      const trainingManagerStaffId = data.training_manager_staff_id ?? null;
+      const trainingManagerAssignment = trainingManagerStaffId
+        ? await resolveTrainingManagerAssignment(tx, trainingManagerStaffId)
+        : null;
+
       const createdClass = await tx.class.create({
         data: {
           id: generateClassId(),
+          ...(trainingManagerStaffId ? { trainingManagerStaffId } : {}),
           name: data.name,
           courseId: resolved.courseId,
           status: data.status,
@@ -1592,6 +1617,11 @@ export class ClassService {
           ...perBlockFields,
         },
       });
+
+      await grantTrainingRoleForManager(
+        tx,
+        trainingManagerAssignment?.grantTrainingRoleToStaffId ?? null,
+      );
 
       if (hasSchedule) {
         const scheduleEntries = data.schedule as unknown as ScheduleSlotDto[];
@@ -1982,6 +2012,11 @@ export class ClassService {
     dto: UpdateClassBasicInfoDto,
     auditActor?: ActionHistoryActor,
   ) {
+    // #274: role trưởng chỉ sửa tên, khoá học, sĩ số; còn lại chỉ Admin.
+    assertUpdateClassBasicInfoAllowed(
+      await resolveStaffPolicyActor(this.prisma, auditActor),
+      dto,
+    );
     // #272: Thông tin lớp không ghi học phí — kể cả khi payload lọt qua
     // ValidationPipe (gọi nội bộ); học phí đi PATCH /class/:id/tuition.
     const infoOnly: Record<string, unknown> = { ...dto };

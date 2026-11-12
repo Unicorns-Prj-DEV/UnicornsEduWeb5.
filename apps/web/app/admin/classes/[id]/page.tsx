@@ -68,6 +68,7 @@ import {
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { resolveClassWriteAccess } from "@/lib/class-write-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { toastWarnings } from "@/lib/mutation-feedback";
@@ -185,6 +186,8 @@ export default function AdminClassDetailPage() {
     teacherName: string;
   } | null>(null);
   const [stopTeachingReason, setStopTeachingReason] = useState("");
+  const [endClassConfirmOpen, setEndClassConfirmOpen] = useState(false);
+  const [endClassReason, setEndClassReason] = useState("");
   const [stopLearningPendingStudentId, setStopLearningPendingStudentId] = useState<string | null>(null);
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
@@ -219,8 +222,16 @@ export default function AdminClassDetailPage() {
   const showStudentBalanceColumn = isAdmin || isSaleCsHead || isAccountant;
   /** Lương gia sư: Admin + Kế toán chi. Trưởng phòng không thấy (#272). */
   const showTeacherCompensation = isAdmin || adminAccess.isAccountantExpense;
-  /** Thông tin lớp (PATCH /class/:id/basic-info): chỉ Admin. */
-  const canEditClassInfo = isAdmin;
+  /**
+   * Thông tin lớp (PATCH /class/:id/basic-info): Admin mọi trường; Trưởng
+   * phòng chỉ tên, khoá học, sĩ số (#274).
+   */
+  const classWriteAccess = resolveClassWriteAccess({
+    isAdmin,
+    staffRoles: adminAccess.staffRoles,
+    staffId: adminAccess.staffId,
+  });
+  const canEditClassInfo = isAdmin || isSaleCsHead;
   /** Học phí lớp (PATCH /class/:id/tuition): Admin + Trưởng phòng. */
   const canEditClassTuition = isAdmin || isSaleCsHead;
   const canEditTeacherRoster = isAdmin;
@@ -641,13 +652,13 @@ export default function AdminClassDetailPage() {
   }
 
   const handleEndClass = () => {
-    const confirmed = window.confirm(
-      buildEndClassConfirmMessage(classDetail?.endClassEligibility?.unpaidSessionCount),
-    );
-    if (!confirmed) return;
+    setEndClassReason("");
+    setEndClassConfirmOpen(true);
+  };
 
-    const reason = window.prompt("Lý do (không bắt buộc)") ?? undefined;
-    endClassMutation.mutate(reason);
+  const handleConfirmEndClass = () => {
+    setEndClassConfirmOpen(false);
+    endClassMutation.mutate(endClassReason.trim() || undefined);
   };
   const handleStopTeaching = (teacherId: string) => {
     const teacherName =
@@ -708,6 +719,39 @@ export default function AdminClassDetailPage() {
         </div>
       </ConfirmDialog>
 
+      {canManageClassStatus ? (
+        <ConfirmDialog
+          open={endClassConfirmOpen}
+          onOpenChange={setEndClassConfirmOpen}
+          title="Kết thúc lớp?"
+          description={
+            <span className="whitespace-pre-line">
+              {buildEndClassConfirmMessage(classDetail.endClassEligibility?.unpaidSessionCount)}
+            </span>
+          }
+          confirmLabel="Kết thúc lớp"
+          variant="destructive"
+          onConfirm={handleConfirmEndClass}
+          confirmPending={endClassMutation.isPending}
+        >
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="end-class-reason"
+              className="text-xs font-medium text-text-secondary"
+            >
+              Lý do (không bắt buộc)
+            </label>
+            <textarea
+              id="end-class-reason"
+              value={endClassReason}
+              onChange={(event) => setEndClassReason(event.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
+            />
+          </div>
+        </ConfirmDialog>
+      ) : null}
+
       <ClassDetailHero
         classId={id}
         title={classDetail.name?.trim() || "Lớp học"}
@@ -761,6 +805,7 @@ export default function AdminClassDetailPage() {
           open={basicInfoPopupOpen}
           onClose={() => setBasicInfoPopupOpen(false)}
           classDetail={classDetail}
+          access={classWriteAccess}
         />
       ) : null}
       {canEditClassTuition ? (

@@ -32,10 +32,15 @@ export function resolveAccountantFinanceView(
 /**
  * #272: góc nhìn tài chính trên **route admin của lớp** (`/class/*`).
  *
- * Khác `resolveAccountantFinanceView` ở chỗ Trưởng phòng Sale & CSKH thấy
- * **Học phí lớp** nhưng **không** thấy lương gia sư (trợ cấp mỗi học sinh,
- * scale, % vận hành, % trợ cấp quản lý lớp) — giống góc nhìn Kế toán thu
- * (`income`). Hợp quyền: kiêm Kế toán chi thì thấy cả hai (`full`).
+ * Khác `resolveAccountantFinanceView` ở chỗ role trưởng chỉ thấy phần tài
+ * chính thuộc mảng mình:
+ * - Trưởng phòng Sale & CSKH thấy **Học phí lớp** nhưng **không** thấy lương
+ *   gia sư (trợ cấp mỗi học sinh, scale, % vận hành, % trợ cấp quản lý lớp) —
+ *   giống góc nhìn Kế toán thu (`income`).
+ * - #274: Trưởng ban Đào tạo thấy lương gia sư nhưng **không** thấy học phí —
+ *   giống góc nhìn Kế toán chi (`expense`).
+ * - Hợp quyền: thấy được cả học phí (TP Sale & CSKH / Kế toán thu) lẫn lương
+ *   (TB Đào tạo / Kế toán chi) → `full`.
  *
  * Chỉ dùng ở route admin của lớp; góc nhìn gia sư / quản lý lớp ở staff-ops
  * giữ `resolveAccountantFinanceView` để người kiêm Trưởng phòng vẫn thấy lương
@@ -45,15 +50,26 @@ export function resolveAdminClassFinanceView(
   roleType: UserRole,
   staffRoles: readonly StaffRole[],
 ): AccountantFinanceView {
-  if (
-    roleType === UserRole.admin ||
-    staffRoles.includes(StaffRole.admin) ||
-    !staffRoles.includes(SALE_CS_HEAD_ROLE)
-  ) {
-    return resolveAccountantFinanceView(roleType, staffRoles);
+  if (roleType === UserRole.admin || staffRoles.includes(StaffRole.admin)) {
+    return 'full';
   }
 
-  return staffRoles.includes(StaffRole.accountant_expense) ? 'full' : 'income';
+  const seesTuition = hasAnyStaffRole(staffRoles, [
+    SALE_CS_HEAD_ROLE,
+    StaffRole.accountant_income,
+  ]);
+  const seesTeacherPay = hasAnyStaffRole(staffRoles, [
+    StaffRole.training_head,
+    StaffRole.accountant_expense,
+  ]);
+
+  if (seesTuition && !seesTeacherPay) {
+    return 'income';
+  }
+  if (seesTeacherPay && !seesTuition) {
+    return 'expense';
+  }
+  return 'full';
 }
 
 function omitFields<T extends Record<string, unknown>>(

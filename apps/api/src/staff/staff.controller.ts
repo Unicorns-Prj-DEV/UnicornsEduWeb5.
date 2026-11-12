@@ -170,7 +170,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Search staff options',
     description:
-      'Return lightweight staff options for admin selection controls.',
+      'Return lightweight staff options (id, fullName, status, roles — không có email/thông tin cá nhân) for admin selection controls. #274: Trưởng ban Đào tạo dùng để chọn gia sư khi tạo lớp.',
   })
   @ApiQuery({
     name: 'search',
@@ -190,6 +190,12 @@ export class StaffController {
     status: 200,
     description: 'Matching lightweight staff options.',
   })
+  @ApiResponse({ status: 403, description: 'Role không được tra nhân sự.' })
+  // #274: Trưởng ban Đào tạo chọn gia sư khi tạo lớp (giữ Kế toán chi cấp class).
+  @AllowStaffRolesOnAdminRoutes(
+    StaffRole.accountant_expense,
+    StaffRole.training_head,
+  )
   async searchStaffOptions(@Query() query: SearchStaffOptionsDto) {
     return this.staffService.searchStaffOptions(query);
   }

@@ -17,6 +17,7 @@ import {
   ClassStudentCaretakerCell,
   ClassStudentWalletBalance,
   ClassSurveyPanel,
+  EditClassBasicInfoPopup,
   EditClassSchedulePopup,
   MakeupScheduleCard,
   MissedTeachingAlertsCard,
@@ -64,6 +65,7 @@ import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import * as surveysApi from "@/lib/apis/surveys.api";
 import { trainingTutorKeys } from "@/lib/apis/training-tutor.api";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
+import { resolveClassWriteAccess, TRAINING_HEAD_ROLE } from "@/lib/class-write-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { toastWarnings } from "@/lib/mutation-feedback";
@@ -347,6 +349,7 @@ export default function StaffClassDetailPage() {
 
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue);
   const [schedulePopupOpen, setSchedulePopupOpen] = useState(false);
+  const [basicInfoPopupOpen, setBasicInfoPopupOpen] = useState(false);
   const [addSessionPopupOpen, setAddSessionPopupOpen] = useState(false);
   const [pastMakeupPopupOpen, setPastMakeupPopupOpen] = useState(false);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
@@ -398,6 +401,14 @@ export default function StaffClassDetailPage() {
     (isAdmin || isTeacher || isCustomerCare || isTraining);
   const actorStaffId = profile?.staffInfo?.id ?? "";
   const adminAccess = resolveAdminShellAccess(profile);
+  /** #274: Trưởng ban Đào tạo sửa tên, khoá học, sĩ số (PATCH basic-info). */
+  const classWriteAccess = resolveClassWriteAccess({
+    isAdmin,
+    staffRoles: profile?.staffInfo?.roles,
+    staffId: actorStaffId || null,
+  });
+  const canEditClassInfo =
+    !isAdmin && (profile?.staffInfo?.roles ?? []).includes(TRAINING_HEAD_ROLE);
   const resolveCaretakerHref = useCallback(
     (student: ClassStudent) =>
       resolveClassStudentCaretakerHref({
@@ -827,7 +838,32 @@ export default function StaffClassDetailPage() {
             </span>
           </>
         }
+        actions={
+          canEditClassInfo ? (
+            <button
+              type="button"
+              onClick={() => setBasicInfoPopupOpen(true)}
+              className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+              aria-label="Chỉnh sửa thông tin lớp"
+              title="Chỉnh sửa thông tin lớp"
+            >
+              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          ) : undefined
+        }
       />
+
+      {canEditClassInfo ? (
+        <EditClassBasicInfoPopup
+          open={basicInfoPopupOpen}
+          onClose={() => setBasicInfoPopupOpen(false)}
+          classDetail={classDetail}
+          access={classWriteAccess}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: classDetailQueryKey })}
+        />
+      ) : null}
 
       <EditClassSchedulePopup
         open={schedulePopupOpen}
