@@ -1212,6 +1212,43 @@ export interface AdminMonthlyReportDto {
   droppedStudents: MonthlyReportDroppedStudentDto[];
 }
 
+export class GetStudentDemographicsQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Lọc trạng thái học sinh: all (mặc định) | active | inactive.',
+    enum: ['all', 'active', 'inactive'],
+  })
+  @IsOptional()
+  @IsIn(['all', 'active', 'inactive'])
+  status?: 'all' | 'active' | 'inactive';
+
+  @ApiPropertyOptional({
+    description:
+      'Tháng 01-12 (bắt buộc kèm `year`). Có tháng → kỳ = tháng đó; chỉ `year` → kỳ = cả năm; bỏ trống cả hai → toàn thời gian.',
+    example: '09',
+  })
+  @IsOptional()
+  @Matches(/^(0[1-9]|1[0-2])$/, { message: 'month must use 01-12 format.' })
+  month?: string;
+
+  @ApiPropertyOptional({ description: 'Năm YYYY.', example: '2026' })
+  @ValidateIf((o: GetStudentDemographicsQueryDto) => o.month != null || o.year != null)
+  @Matches(/^\d{4}$/, { message: 'year must use YYYY format.' })
+  year?: string;
+}
+
+/** Kỳ thống kê học sinh: toàn thời gian, theo tháng hoặc theo năm. */
+export interface StudentDemographicsPeriodDto {
+  type: 'all' | 'month' | 'year';
+  /** `YYYY-MM` (month) | `YYYY` (year) | null (all). */
+  key: string | null;
+  label: string;
+  /** Ngày đầu kỳ `YYYY-MM-DD` (inclusive), null khi toàn thời gian. */
+  from: string | null;
+  /** Ngày sau cuối kỳ `YYYY-MM-DD` (exclusive), null khi toàn thời gian. */
+  toExclusive: string | null;
+}
+
 export interface StudentDemographicsCategoryItemDto {
   courseId: string | null;
   courseName: string;
@@ -1267,6 +1304,8 @@ export interface StudentDemographicsSummaryDto {
   /** Doanh thu TB / học sinh có doanh thu > 0. */
   averageRevenue: number;
   revenueStudentsCount: number;
+  /** Tổng lợi nhuận các khoá (học phí − gia sư − QL lớp − CSKH), toàn bộ học sinh, toàn thời gian. */
+  totalProfit: number;
   topProvince: string | null;
   topBirthYear: number | null;
   topCategory: string | null;
@@ -1326,6 +1365,21 @@ export interface StudentDemographicsCourseBreakdownDto {
   /** Doanh thu khoá / số học sinh của khoá có doanh thu > 0. */
   averageRevenue: number;
   revenueShare: number;
+  /** Học phí đã học của khoá trên toàn bộ học sinh (không theo bộ lọc trạng thái) — gốc tính lợi nhuận. */
+  profitRevenue: number;
+  /** Trợ cấp gia sư (sau khấu trừ vận hành, trước thuế). */
+  teacherCost: number;
+  /** Trợ cấp quản lý lớp (`sessions.training_manager_allowance_amount`). */
+  trainingManagerCost: number;
+  /** Hoa hồng CSKH (học phí cơ sở × `customer_care_coef`). */
+  customerCareCost: number;
+  totalCost: number;
+  /** profitRevenue − teacherCost − trainingManagerCost − customerCareCost. */
+  profit: number;
+  /** % lợi nhuận / học phí của khoá. */
+  profitMargin: number;
+  /** % lợi nhuận khoá / tổng lợi nhuận. */
+  profitShare: number;
   averageAge: number | null;
   minBirthYear: number | null;
   maxBirthYear: number | null;
@@ -1366,6 +1420,8 @@ export interface StudentDemographicsDataQualityDto {
 }
 
 export interface AdminDashboardStudentDemographicsDto {
+  /** Kỳ đang xem; có kỳ thì số liệu chỉ tính học sinh có buổi học trong kỳ. */
+  period: StudentDemographicsPeriodDto;
   summary: StudentDemographicsSummaryDto;
   categories: Array<{
     courseId: string | null;

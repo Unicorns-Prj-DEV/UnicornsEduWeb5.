@@ -158,6 +158,275 @@ function renderHorizontalBars(params: {
     </svg>`;
 }
 
+/** Bảng màu categorical (khớp `--ue-viz-1..8` light của web) — gán theo tên khoá, không theo hạng. */
+const CATEGORICAL_COLORS = [
+  '#2A78D6',
+  '#EB6834',
+  '#1BAF7A',
+  '#EDA100',
+  '#E87BA4',
+  '#008300',
+  '#4A3AA7',
+  '#E34948',
+];
+const OTHER_COLOR = '#94a3b8';
+const COST_SLICE_COLORS = {
+  teacher: '#EB6834',
+  trainingManager: '#EDA100',
+  customerCare: '#4A3AA7',
+  profit: '#1BAF7A',
+};
+
+interface DonutRow {
+  label: string;
+  value: number;
+  color: string;
+  /** Cột phải legend (vd "23,4%" hoặc "Lỗ"). */
+  share: string;
+}
+
+function truncateLabel(label: string, max: number): string {
+  return label.length > max ? `${label.slice(0, max - 1)}…` : label;
+}
+
+function donutArcPath(
+  cx: number,
+  cy: number,
+  rOuter: number,
+  rInner: number,
+  start: number,
+  end: number,
+): string {
+  const point = (r: number, a: number) =>
+    `${(cx + r * Math.sin(a)).toFixed(2)} ${(cy - r * Math.cos(a)).toFixed(2)}`;
+  const large = end - start > Math.PI ? 1 : 0;
+  return [
+    `M ${point(rOuter, start)}`,
+    `A ${rOuter} ${rOuter} 0 ${large} 1 ${point(rOuter, end)}`,
+    `L ${point(rInner, end)}`,
+    `A ${rInner} ${rInner} 0 ${large} 0 ${point(rInner, start)}`,
+    'Z',
+  ].join(' ');
+}
+
+/**
+ * Donut tỷ trọng + legend bên phải (tên, tiền rút gọn, %). Lát giá trị ≤ 0 không vẽ
+ * nhưng vẫn nằm trong legend (vd khoá lỗ).
+ */
+function renderDonut(params: {
+  title: string;
+  formula: string;
+  rows: DonutRow[];
+  centerLabel: string;
+  centerValue: string;
+  footnote?: string;
+}): string {
+  const { title, formula, rows, centerLabel, centerValue, footnote } = params;
+  const width = 360;
+  const legendTop = 52;
+  const rowHeight = 15;
+  const maxRows = 10;
+  const shown = rows.slice(0, maxRows);
+  const hidden = rows.length - shown.length;
+  const legendBottom =
+    legendTop + (shown.length + (hidden > 0 ? 1 : 0)) * rowHeight;
+  const height = Math.max(196, legendBottom + (footnote ? 22 : 10));
+  const cx = 82;
+  const cy = 52 + 66;
+  const rOuter = 64;
+  const rInner = 42;
+
+  const positive = rows.filter((r) => r.value > 0);
+  const total = positive.reduce((sum, r) => sum + r.value, 0);
+  let arcs = '';
+  if (total <= 0) {
+    arcs = `<circle cx="${cx}" cy="${cy}" r="${(rOuter + rInner) / 2}" fill="none" stroke="${GRID}" stroke-width="${rOuter - rInner}" />`;
+  } else if (positive.length === 1) {
+    arcs = `<circle cx="${cx}" cy="${cy}" r="${(rOuter + rInner) / 2}" fill="none" stroke="${positive[0].color}" stroke-width="${rOuter - rInner}" />`;
+  } else {
+    let angle = 0;
+    arcs = positive
+      .map((r) => {
+        const sweep = (r.value / total) * Math.PI * 2;
+        const path = donutArcPath(cx, cy, rOuter, rInner, angle, angle + sweep);
+        angle += sweep;
+        // Viền trắng 1.5px = khe giữa các lát.
+        return `<path d="${path}" fill="${r.color}" stroke="#ffffff" stroke-width="1.5" />`;
+      })
+      .join('');
+  }
+
+  const legendX = 170;
+  const legend = shown
+    .map((r, i) => {
+      const y = legendTop + i * rowHeight;
+      return `
+        <g>
+          <circle cx="${legendX + 4}" cy="${y - 3}" r="4" fill="${r.color}" />
+          <text x="${legendX + 13}" y="${y}" font-size="9" fill="${INK}">${escapeHtml(truncateLabel(r.label, 18))}</text>
+          <text x="${width - 58}" y="${y}" text-anchor="end" font-size="8.5" fill="${INK_SECONDARY}">${escapeHtml(formatCompactMoney(r.value))}</text>
+          <text x="${width - 12}" y="${y}" text-anchor="end" font-size="9" font-weight="700" fill="${INK}">${escapeHtml(r.share)}</text>
+        </g>`;
+    })
+    .join('');
+  const more =
+    hidden > 0
+      ? `<text x="${legendX + 13}" y="${legendTop + shown.length * rowHeight}" font-size="8.5" fill="${INK_MUTED}">+${hidden} khoá khác</text>`
+      : '';
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" width="100%" xmlns="http://www.w3.org/2000/svg">
+      <rect width="${width}" height="${height}" fill="#f9fafb" rx="6" />
+      <text x="14" y="20" font-size="11" font-weight="700" fill="#1f2937">${escapeHtml(title)}</text>
+      <text x="14" y="34" font-size="8.5" fill="${INK_MUTED}">${escapeHtml(formula)}</text>
+      ${arcs}
+      <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="8.5" fill="${INK_SECONDARY}">${escapeHtml(centerLabel)}</text>
+      <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-size="12" font-weight="800" fill="${INK}">${escapeHtml(centerValue)}</text>
+      ${legend}
+      ${more}
+      ${footnote ? `<text x="14" y="${height - 10}" font-size="8" fill="${INK_MUTED}">${escapeHtml(footnote)}</text>` : ''}
+    </svg>`;
+}
+
+/** Học phí (= 100%) tách thành Gia sư / QL lớp / CSKH / Lợi nhuận. */
+function buildMarginDonutRows(parts: {
+  tuition: number;
+  teacher: number;
+  manager: number;
+  care: number;
+  profit: number;
+}): DonutRow[] {
+  const pct = (v: number) =>
+    parts.tuition > 0 ? `${Math.round((v / parts.tuition) * 1000) / 10}%` : '—';
+  return [
+    { label: 'Gia sư', value: parts.teacher, color: COST_SLICE_COLORS.teacher },
+    {
+      label: 'QL lớp',
+      value: parts.manager,
+      color: COST_SLICE_COLORS.trainingManager,
+    },
+    { label: 'CSKH', value: parts.care, color: COST_SLICE_COLORS.customerCare },
+    {
+      label: 'Lợi nhuận',
+      value: parts.profit,
+      color: COST_SLICE_COLORS.profit,
+    },
+  ].map((r) => ({
+    ...r,
+    share: r.label === 'Lợi nhuận' && r.value < 0 ? 'Lỗ' : pct(r.value),
+  }));
+}
+
+/** Donut đầu PDF: tỷ trọng doanh thu, tỷ trọng lợi nhuận, biên LN chung, rồi biên LN từng khoá. */
+function renderCourseSharePies(
+  data: AdminDashboardStudentDemographicsDto,
+): string {
+  const courses = data.byCourse;
+  const sortedByName = [...courses].sort((a, b) =>
+    a.courseName.localeCompare(b.courseName, 'vi'),
+  );
+  const colorByKey = new Map(
+    sortedByName.map((c, i) => [c.key, CATEGORICAL_COLORS[i] ?? OTHER_COLOR]),
+  );
+  const colorOf = (c: StudentDemographicsCourseBreakdownDto) =>
+    colorByKey.get(c.key) ?? OTHER_COLOR;
+
+  const totalRevenue = courses.reduce((s, c) => s + c.totalRevenue, 0);
+  const revenueRows: DonutRow[] = courses
+    .filter((c) => c.totalRevenue > 0)
+    .sort((a, b) => b.totalRevenue - a.totalRevenue)
+    .map((c) => ({
+      label: c.courseName,
+      value: c.totalRevenue,
+      color: colorOf(c),
+      share: `${c.revenueShare}%`,
+    }));
+
+  const profitCourses = courses
+    .filter((c) => c.profit !== 0)
+    .sort((a, b) => b.profit - a.profit);
+  const profitRows: DonutRow[] = profitCourses.map((c) => ({
+    label: c.courseName,
+    value: c.profit,
+    color: colorOf(c),
+    share: c.profit < 0 ? 'Lỗ' : `${c.profitShare}%`,
+  }));
+  const hasLoss = profitCourses.some((c) => c.profit < 0);
+
+  const sum = (pick: (c: StudentDemographicsCourseBreakdownDto) => number) =>
+    courses.reduce((s, c) => s + pick(c), 0);
+  const tuition = sum((c) => c.profitRevenue);
+  const teacher = sum((c) => c.teacherCost);
+  const manager = sum((c) => c.trainingManagerCost);
+  const care = sum((c) => c.customerCareCost);
+  const profit = data.summary.totalProfit;
+  const pct = (v: number) =>
+    tuition > 0 ? `${Math.round((v / tuition) * 1000) / 10}%` : '0%';
+  const marginRows = buildMarginDonutRows({
+    tuition,
+    teacher,
+    manager,
+    care,
+    profit,
+  });
+  const perCourseSvgs = courses
+    .filter((c) => c.profitRevenue > 0 || c.totalCost > 0)
+    .sort((a, b) => b.profitRevenue - a.profitRevenue)
+    .map((c) =>
+      renderDonut({
+        title: `BIÊN LN · ${c.courseName.toUpperCase()}`,
+        formula: `LN khoá / học phí khoá (học phí ${formatCompactMoney(c.profitRevenue)} = 100%)`,
+        rows: buildMarginDonutRows({
+          tuition: c.profitRevenue,
+          teacher: c.teacherCost,
+          manager: c.trainingManagerCost,
+          care: c.customerCareCost,
+          profit: c.profit,
+        }),
+        centerLabel: 'Biên LN',
+        centerValue: c.profitRevenue > 0 ? `${c.profitMargin}%` : '—',
+      }),
+    );
+
+  const revenueSvg = renderDonut({
+    title: 'TỶ TRỌNG DOANH THU',
+    formula: 'Doanh thu khoá / tổng doanh thu tất cả khoá',
+    rows: revenueRows,
+    centerLabel: 'Tổng DT',
+    centerValue: formatCompactMoney(totalRevenue),
+  });
+  const profitSvg = renderDonut({
+    title: 'TỶ TRỌNG LỢI NHUẬN',
+    formula: 'Lợi nhuận khoá / tổng lợi nhuận tất cả khoá',
+    rows: profitRows,
+    centerLabel: 'Tổng LN',
+    centerValue: formatCompactMoney(profit),
+    footnote: hasLoss
+      ? 'Khoá lỗ không vẽ trên biểu đồ nhưng vẫn trừ vào tổng LN.'
+      : undefined,
+  });
+  const marginSvg = renderDonut({
+    title: 'BIÊN LỢI NHUẬN CHUNG',
+    formula: 'Tổng lợi nhuận / tổng học phí (học phí = 100%)',
+    rows: marginRows,
+    centerLabel: 'Biên LN chung',
+    centerValue: pct(profit),
+  });
+
+  return `
+  <div class="pies-row">
+    <div>${revenueSvg}</div>
+    <div>${profitSvg}</div>
+    <div>${marginSvg}</div>
+  </div>
+  ${
+    perCourseSvgs.length > 0
+      ? `<p class="section-desc" style="margin-top: 4px;"><strong>Biên lợi nhuận từng khoá</strong> = lợi nhuận khoá / doanh thu (học phí) của chính khoá đó.</p>
+  <div class="pies-row">${perCourseSvgs.map((svg) => `<div>${svg}</div>`).join('')}</div>`
+      : ''
+  }`;
+}
+
 function statusLabel(status: string | null): string {
   if (status === 'active') return 'Đang học';
   if (status === 'inactive') return 'Đã nghỉ';
@@ -359,7 +628,7 @@ export class StudentDemographicsExportPdfService {
           <div class="course-meta">${formatInt(course.studentCount)} HS (${course.percentage}% tổng) · ${formatInt(course.classCount)} lớp</div>
         </div>
         <div class="course-stats">
-          <div><span>Doanh thu</span><strong class="revenue-text">${formatCurrency(course.totalRevenue)}</strong><em>${course.revenueShare}% tổng DT · TB ${formatCurrency(course.averageRevenue)}/HS</em></div>
+          <div><span>Doanh thu</span><strong class="revenue-text">${formatCurrency(course.totalRevenue)}</strong><em>${course.revenueShare}% tổng DT · TB ${formatCurrency(course.averageRevenue)}/HS<br/>LN ${formatCurrency(course.profit)} · tỷ trọng LN ${course.profitShare}% · biên LN ${course.profitMargin}%</em></div>
           <div><span>Tuổi trung bình</span><strong>${course.averageAge != null ? `${course.averageAge} tuổi` : '—'}</strong><em>Tập trung: ${course.topBirthYear ?? '—'}${course.topBirthYear ? ` (${currentYear - course.topBirthYear}t)` : ''}</em></div>
           <div><span>Khoảng năm sinh</span><strong style="font-size: 11px;">${escapeHtml(ageRange)}</strong><em>Tổng nạp nhóm: ${formatCurrency(course.totalTopup)}</em></div>
         </div>
@@ -438,6 +707,15 @@ export class StudentDemographicsExportPdfService {
           ? 'Học sinh đã nghỉ (inactive)'
           : 'Toàn bộ học sinh hệ thống (cả đang học và đã nghỉ)';
 
+    const period = data.period;
+    const hasPeriod = period.type !== 'all';
+    const periodText = hasPeriod
+      ? `${period.label} (chỉ học sinh có buổi học trong kỳ; doanh thu, chi phí, tổng nạp phát sinh trong kỳ)`
+      : 'Toàn thời gian';
+    const timeWord = hasPeriod
+      ? `trong ${period.label.toLowerCase()}`
+      : 'toàn thời gian';
+
     const kpiStudentLabel =
       statusFilter === 'active'
         ? 'Học sinh đang học'
@@ -511,9 +789,31 @@ export class StudentDemographicsExportPdfService {
             <td class="num revenue-text font-bold">${formatInt(c.totalRevenue)}</td>
             <td class="num">${c.revenueShare}%</td>
             <td class="num revenue-text">${formatInt(c.averageRevenue)}</td>
+            <td class="num">${formatInt(c.totalCost)}</td>
+            <td class="num font-bold ${c.profit < 0 ? 'loss-text' : 'profit-text'}">${formatInt(c.profit)}</td>
+            <td class="num">${c.profitShare}%</td>
             <td class="num topup-text">${formatInt(c.totalTopup)}</td>
           </tr>`;
       })
+      .join('');
+
+    // Bảng chi tiết lợi nhuận theo khoá
+    const courseProfitRows = data.byCourse
+      .filter((c) => c.profitRevenue !== 0 || c.totalCost !== 0)
+      .map(
+        (c, idx) => `
+          <tr>
+            <td class="idx-col">${idx + 1}</td>
+            <td class="font-semibold">${escapeHtml(c.courseName)}</td>
+            <td class="num revenue-text">${formatInt(c.profitRevenue)}</td>
+            <td class="num">${formatInt(c.teacherCost)}</td>
+            <td class="num">${formatInt(c.trainingManagerCost)}</td>
+            <td class="num">${formatInt(c.customerCareCost)}</td>
+            <td class="num font-bold ${c.profit < 0 ? 'loss-text' : 'profit-text'}">${formatInt(c.profit)}</td>
+            <td class="num">${c.profitMargin}%</td>
+            <td class="num font-bold">${c.profitShare}%</td>
+          </tr>`,
+      )
       .join('');
 
     // Bảng phân cấp
@@ -630,6 +930,7 @@ export class StudentDemographicsExportPdfService {
     .kpi-sub { font-size: 9px; color: #64748b; margin-top: 3px; }
 
     .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; page-break-inside: avoid; }
+    .pies-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 6px; page-break-inside: avoid; }
     .empty-chart { padding: 24px; background: #f9fafb; border-radius: 6px; color: #6b7280; text-align: center; }
 
     .section-title { font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.04em; border-left: 4px solid #2563eb; padding-left: 8px; margin: 18px 0 6px; }
@@ -651,6 +952,8 @@ export class StudentDemographicsExportPdfService {
     td.zero-cell { color: #cbd5e1; }
     tr.footer-row td { background: #e2e8f0; color: #0f172a; border-top: 2px solid #94a3b8; }
     .revenue-text { color: #0f766e; }
+    .profit-text { color: #15803d; }
+    .loss-text { color: #b91c1c; }
     .topup-text { color: #15803d; }
     .font-bold { font-weight: 700; }
     .font-semibold { font-weight: 600; }
@@ -695,7 +998,7 @@ export class StudentDemographicsExportPdfService {
     <div>
       <h1 class="brand-title">UNICORNS EDUCATION · BÁO CÁO HỌC SINH</h1>
       <div class="report-subtitle">THỐNG KÊ HỌC SINH THEO KHU VỰC, ĐỘ TUỔI, KHOÁ HỌC & DOANH THU</div>
-      <div class="report-meta">Phạm vi: ${escapeHtml(scopeText)} · Xuất lúc: ${escapeHtml(generatedDateStr)}</div>
+      <div class="report-meta">Phạm vi: ${escapeHtml(scopeText)} · Kỳ: ${escapeHtml(periodText)} · Xuất lúc: ${escapeHtml(generatedDateStr)}</div>
     </div>
     <div class="brand-badge">
       <div class="brand-logo-text">🦄 UNICORNS EDU</div>
@@ -736,6 +1039,8 @@ export class StudentDemographicsExportPdfService {
     </div>
   </div>
 
+  ${renderCourseSharePies(data)}
+
   <div class="charts-row">
     <div>${topProvincesSvg}</div>
     <div>${birthYearsSvg}</div>
@@ -753,10 +1058,22 @@ export class StudentDemographicsExportPdfService {
       <tr>
         <th class="idx-col">STT</th><th>Khoá</th><th class="num">Số HS</th><th class="num">% HS</th><th class="num">Số lớp</th>
         <th class="num">Tuổi TB</th><th class="num">Năm sinh tập trung</th><th class="num">Khoảng năm sinh</th><th class="num">Thiếu năm sinh</th>
-        <th class="num revenue-text">Doanh thu (đ)</th><th class="num">% DT</th><th class="num revenue-text">DT TB/HS (đ)</th><th class="num topup-text">Tổng nạp (đ)</th>
+        <th class="num revenue-text">Doanh thu (đ)</th><th class="num">% DT</th><th class="num revenue-text">DT TB/HS (đ)</th>
+        <th class="num">Chi phí (đ)</th><th class="num profit-text">Lợi nhuận (đ)</th><th class="num">Tỷ trọng LN</th><th class="num topup-text">Tổng nạp (đ)</th>
       </tr>
     </thead>
     <tbody>${courseOverviewRows}</tbody>
+  </table>
+
+  <p class="section-desc" style="margin-top: 12px;"><strong>Lợi nhuận theo khoá</strong> = học phí − trợ cấp gia sư (sau khấu trừ vận hành) − trợ cấp quản lý lớp − hoa hồng CSKH, ${timeWord}, tính trên toàn bộ học sinh (không theo bộ lọc trạng thái). <strong>Tỷ trọng lợi nhuận</strong> = lợi nhuận khoá / tổng lợi nhuận tất cả khoá (${formatCurrency(data.summary.totalProfit)}). <strong>Biên lợi nhuận khoá</strong> = lợi nhuận khoá / doanh thu (học phí) của chính khoá đó.</p>
+  <table>
+    <thead>
+      <tr>
+        <th class="idx-col">STT</th><th>Khoá</th><th class="num revenue-text">Học phí (đ)</th><th class="num">Gia sư (đ)</th><th class="num">QL lớp (đ)</th><th class="num">CSKH (đ)</th>
+        <th class="num profit-text">Lợi nhuận (đ)</th><th class="num">Biên LN khoá<br/>(LN / DT khoá)</th><th class="num">Tỷ trọng LN<br/>(LN / tổng LN)</th>
+      </tr>
+    </thead>
+    <tbody>${courseProfitRows}</tbody>
   </table>
 
   <div class="section-title">2. Phân bố độ tuổi & doanh thu từng khoá</div>
@@ -804,8 +1121,8 @@ export class StudentDemographicsExportPdfService {
   ${reviewTable(unusualBirthYear)}
 
   <ul class="glossary">
-    <li><strong>Doanh thu</strong>: học phí đã học — tổng <em>attendance.tuition_fee</em> của các buổi có mặt / vắng có phép, toàn thời gian (cùng định nghĩa KPI Doanh thu trên dashboard), gán theo khoá của lớp có buổi học.</li>
-    <li><strong>Tổng nạp</strong>: tổng tiền nạp ví (<em>topup</em>) toàn thời gian của học sinh — là dòng tiền vào, khác doanh thu.</li>
+    <li><strong>Doanh thu</strong>: học phí đã học — tổng <em>attendance.tuition_fee</em> của các buổi có mặt / vắng có phép, ${timeWord} (cùng định nghĩa KPI Doanh thu trên dashboard), gán theo khoá của lớp có buổi học.</li>
+    <li><strong>Tổng nạp</strong>: tổng tiền nạp ví (<em>topup</em>) ${timeWord} của học sinh — là dòng tiền vào, khác doanh thu.</li>
     <li><strong>Khoá của học sinh</strong>: khoá của các lớp học sinh đang ghi danh; học sinh nhiều khoá được đếm ở mỗi khoá nên tổng các cột khoá có thể lớn hơn tổng HS.</li>
     <li><strong>Tuổi</strong> = năm ${currentYear} − năm sinh.</li>
   </ul>

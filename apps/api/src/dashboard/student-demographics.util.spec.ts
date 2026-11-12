@@ -2,6 +2,8 @@ import {
   aggregateStudentDemographics,
   formatBirthYearLabel,
   normalizeProvince,
+  resolveStudentDemographicsPeriod,
+  RawCourseFinanceRow,
   RawCourseRow,
   RawStudentDemographicsRow,
   RawStudentRevenueRow,
@@ -57,6 +59,47 @@ describe('student-demographics.util', () => {
       expect(formatBirthYearLabel(null)).toBe('Chưa cập nhật');
       expect(formatBirthYearLabel(1920, 2026)).toBe('Chưa cập nhật');
       expect(formatBirthYearLabel(2050, 2026)).toBe('Chưa cập nhật');
+    });
+  });
+
+  describe('resolveStudentDemographicsPeriod', () => {
+    it('returns all-time when no year', () => {
+      expect(resolveStudentDemographicsPeriod({})).toMatchObject({
+        type: 'all',
+        key: null,
+        from: null,
+        toExclusive: null,
+      });
+      // Tháng không có năm → vẫn toàn thời gian.
+      expect(resolveStudentDemographicsPeriod({ month: '05' }).type).toBe(
+        'all',
+      );
+    });
+
+    it('builds month range with exclusive end (rolls over December)', () => {
+      expect(
+        resolveStudentDemographicsPeriod({ month: '09', year: '2026' }),
+      ).toEqual({
+        type: 'month',
+        key: '2026-09',
+        label: 'Tháng 9/2026',
+        from: '2026-09-01',
+        toExclusive: '2026-10-01',
+      });
+      expect(
+        resolveStudentDemographicsPeriod({ month: '12', year: '2026' })
+          .toExclusive,
+      ).toBe('2027-01-01');
+    });
+
+    it('builds whole-year range when only year', () => {
+      expect(resolveStudentDemographicsPeriod({ year: '2025' })).toEqual({
+        type: 'year',
+        key: '2025',
+        label: 'Năm 2025',
+        from: '2025-01-01',
+        toExclusive: '2026-01-01',
+      });
     });
   });
 
@@ -371,6 +414,60 @@ describe('student-demographics.util', () => {
         ).toHaveLength(1);
         expect(result.summary.missingBirthYearCount).toBe(2);
         expect(result.summary.unusualBirthYearCount).toBe(1);
+      });
+
+      it('computes per-course profit = tuition − teacher − class manager − CSKH and share of total profit', () => {
+        const finance: RawCourseFinanceRow[] = [
+          {
+            courseId: 'course-basic',
+            revenue: 10000,
+            teacherCost: 4000,
+            trainingManagerCost: 500,
+            customerCareCost: 500,
+          },
+          {
+            courseId: 'course-vip',
+            revenue: '20000',
+            teacherCost: BigInt(8000),
+            trainingManagerCost: 1000,
+            customerCareCost: 1000,
+          },
+          // Lớp chưa gắn khoá vẫn được tính vào tổng lợi nhuận.
+          {
+            courseId: null,
+            revenue: 0,
+            teacherCost: 0,
+            trainingManagerCost: 0,
+            customerCareCost: 0,
+          },
+        ];
+        const withProfit = aggregateStudentDemographics(
+          rows,
+          courses,
+          2026,
+          'all',
+          revenue,
+          finance,
+        );
+        expect(withProfit.summary.totalProfit).toBe(15000);
+
+        const basic = withProfit.byCourse.find(
+          (c) => c.key === 'course-basic',
+        )!;
+        expect(basic.totalCost).toBe(5000);
+        expect(basic.profit).toBe(5000);
+        expect(basic.profitMargin).toBe(50);
+        expect(basic.profitShare).toBe(33.3);
+
+        const vip = withProfit.byCourse.find((c) => c.key === 'course-vip')!;
+        expect(vip.profit).toBe(10000);
+        expect(vip.profitShare).toBe(66.7);
+
+        // Khoá không có dữ liệu chi phí → 0, không lỗi.
+        const unassigned = withProfit.byCourse.find(
+          (c) => c.courseId == null && c.key === '__unassigned__',
+        );
+        if (unassigned) expect(unassigned.profit).toBe(0);
       });
     });
   });

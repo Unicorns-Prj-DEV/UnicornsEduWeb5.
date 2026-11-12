@@ -59,6 +59,13 @@ function CourseCard({
           sub={`${course.revenueShare}% tổng · TB ${formatVnDong(course.averageRevenue)}/HS`}
         />
         <StatTile
+          label="Lợi nhuận"
+          value={formatVnDong(course.profit)}
+          sub={`Chi phí ${formatVnDong(course.totalCost)}`}
+        />
+        <StatTile label="Tỷ trọng lợi nhuận" value={`${course.profitShare}%`} sub="LN khoá / tổng LN tất cả khoá" />
+        <StatTile label="Biên lợi nhuận khoá" value={`${course.profitMargin}%`} sub="LN khoá / doanh thu khoá" />
+        <StatTile
           label="Tuổi trung bình"
           value={course.averageAge != null ? `${course.averageAge} tuổi` : "—"}
           sub={
@@ -67,9 +74,7 @@ function CourseCard({
               : undefined
           }
         />
-        <div className="col-span-2 sm:col-span-1">
-          <StatTile label="Khoảng năm sinh" value={ageRange} sub={ageRangeSub} />
-        </div>
+        <StatTile label="Khoảng năm sinh" value={ageRange} sub={ageRangeSub} />
       </div>
 
       {isUnassigned ? null : (

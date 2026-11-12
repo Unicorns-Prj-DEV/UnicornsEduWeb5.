@@ -669,6 +669,8 @@ export interface StudentDemographicsSummary {
   /** Doanh thu TB / học sinh có doanh thu > 0. */
   averageRevenue: number;
   revenueStudentsCount: number;
+  /** Tổng lợi nhuận các khoá (học phí − gia sư − QL lớp − CSKH), toàn bộ học sinh, toàn thời gian. */
+  totalProfit: number;
   topProvince: string | null;
   topBirthYear: number | null;
   topCategory: string | null;
@@ -728,6 +730,21 @@ export interface StudentDemographicsCourseBreakdown {
   /** Doanh thu khoá / số học sinh của khoá có doanh thu > 0. */
   averageRevenue: number;
   revenueShare: number;
+  /** Học phí đã học của khoá trên toàn bộ học sinh (không theo bộ lọc trạng thái) — gốc tính lợi nhuận. */
+  profitRevenue: number;
+  /** Trợ cấp gia sư (sau khấu trừ vận hành, trước thuế). */
+  teacherCost: number;
+  /** Trợ cấp quản lý lớp. */
+  trainingManagerCost: number;
+  /** Hoa hồng CSKH. */
+  customerCareCost: number;
+  totalCost: number;
+  /** profitRevenue − teacherCost − trainingManagerCost − customerCareCost. */
+  profit: number;
+  /** % lợi nhuận / học phí của khoá. */
+  profitMargin: number;
+  /** % lợi nhuận khoá / tổng lợi nhuận. */
+  profitShare: number;
   averageAge: number | null;
   minBirthYear: number | null;
   maxBirthYear: number | null;
@@ -767,7 +784,29 @@ export interface StudentDemographicsDataQuality {
   normalAgeRange: { min: number; max: number };
 }
 
+export type StudentDemographicsStatus = "all" | "active" | "inactive";
+
+export type StudentDemographicsPeriodType = "all" | "month" | "year";
+
+/** Query `GET /dashboard/student-demographics`: month+year = tháng, chỉ year = năm, trống = toàn thời gian. */
+export interface StudentDemographicsQueryParams {
+  status?: StudentDemographicsStatus;
+  month?: string;
+  year?: string;
+}
+
+export interface StudentDemographicsPeriod {
+  type: StudentDemographicsPeriodType;
+  /** `YYYY-MM` | `YYYY` | null. */
+  key: string | null;
+  label: string;
+  from: string | null;
+  toExclusive: string | null;
+}
+
 export interface AdminDashboardStudentDemographics {
+  /** Kỳ đang xem; có kỳ thì chỉ tính học sinh có buổi học trong kỳ. */
+  period: StudentDemographicsPeriod;
   summary: StudentDemographicsSummary;
   categories: Array<{
     courseId: string | null;

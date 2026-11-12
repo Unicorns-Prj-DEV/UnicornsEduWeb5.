@@ -4,6 +4,7 @@ import type {
   StudentDemographicsBirthYearSummaryDto,
   StudentDemographicsCategoryItemDto,
   StudentDemographicsCourseBreakdownDto,
+  StudentDemographicsPeriodDto,
   StudentDemographicsProvinceGroupDto,
   StudentDemographicsStudentRowDto,
 } from '../dtos/dashboard.dto';
@@ -32,10 +33,60 @@ export interface RawStudentRevenueRow {
   attendanceCount?: number | bigint | string | null;
 }
 
+/** Học phí + chi phí (gia sư, QL lớp, CSKH) gom theo khoá của lớp, toàn thời gian. */
+export interface RawCourseFinanceRow {
+  courseId: string | null;
+  revenue: number | bigint | string | null;
+  teacherCost: number | bigint | string | null;
+  trainingManagerCost: number | bigint | string | null;
+  customerCareCost: number | bigint | string | null;
+}
+
 export interface RawCourseRow {
   id: string;
   name: string;
   sortOrder: number;
+}
+
+export const ALL_TIME_PERIOD: StudentDemographicsPeriodDto = {
+  type: 'all',
+  key: null,
+  label: 'Toàn thời gian',
+  from: null,
+  toExclusive: null,
+};
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * Kỳ thống kê từ query: có `month` + `year` → tháng; chỉ `year` → cả năm;
+ * không có gì → toàn thời gian. Ngày dạng `YYYY-MM-DD`, cuối kỳ exclusive.
+ */
+export function resolveStudentDemographicsPeriod(params: {
+  month?: string | null;
+  year?: string | null;
+}): StudentDemographicsPeriodDto {
+  const year = params.year ? Number(params.year) : NaN;
+  if (!Number.isInteger(year)) return ALL_TIME_PERIOD;
+  const month = params.month ? Number(params.month) : NaN;
+  if (Number.isInteger(month) && month >= 1 && month <= 12) {
+    const nextYear = month === 12 ? year + 1 : year;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    return {
+      type: 'month',
+      key: `${year}-${pad2(month)}`,
+      label: `Tháng ${month}/${year}`,
+      from: `${year}-${pad2(month)}-01`,
+      toExclusive: `${nextYear}-${pad2(nextMonth)}-01`,
+    };
+  }
+  return {
+    type: 'year',
+    key: String(year),
+    label: `Năm ${year}`,
+    from: `${year}-01-01`,
+    toExclusive: `${year + 1}-01-01`,
+  };
 }
 
 const PROVINCE_ALIAS_MAP: Record<string, string> = {
@@ -278,6 +329,8 @@ export function aggregateStudentDemographics(
   currentYear = new Date().getFullYear(),
   statusFilter?: 'all' | 'active' | 'inactive',
   revenueRows: RawStudentRevenueRow[] = [],
+  courseFinanceRows: RawCourseFinanceRow[] = [],
+  period: StudentDemographicsPeriodDto = ALL_TIME_PERIOD,
 ): AdminDashboardStudentDemographicsDto {
   const studentMap = new Map<string, StudentAgg>();
 
@@ -560,6 +613,41 @@ export function aggregateStudentDemographics(
     ...buildCells(birthYearGroups.get(by.birthYear) ?? []),
   }));
 
+  // Lợi nhuận khoá = học phí − gia sư − QL lớp − CSKH (toàn bộ học sinh).
+  const financeByKey = new Map<
+    string,
+    {
+      revenue: number;
+      teacherCost: number;
+      trainingManagerCost: number;
+      customerCareCost: number;
+    }
+  >();
+  for (const r of courseFinanceRows) {
+    const key = r.courseId ?? NO_COURSE_KEY;
+    const cur = financeByKey.get(key) || {
+      revenue: 0,
+      teacherCost: 0,
+      trainingManagerCost: 0,
+      customerCareCost: 0,
+    };
+    cur.revenue += toNumber(r.revenue);
+    cur.teacherCost += toNumber(r.teacherCost);
+    cur.trainingManagerCost += toNumber(r.trainingManagerCost);
+    cur.customerCareCost += toNumber(r.customerCareCost);
+    financeByKey.set(key, cur);
+  }
+  const profitOf = (f: {
+    revenue: number;
+    teacherCost: number;
+    trainingManagerCost: number;
+    customerCareCost: number;
+  }) => f.revenue - f.teacherCost - f.trainingManagerCost - f.customerCareCost;
+  const totalProfit = [...financeByKey.values()].reduce(
+    (sum, f) => sum + profitOf(f),
+    0,
+  );
+
   // Phân tích theo từng khoá: độ tuổi, khu vực, doanh thu.
   const totalRevenue = sumBy(allStudents, (s) => s.totalRevenue);
   const byCourse: StudentDemographicsCourseBreakdownDto[] =
@@ -603,6 +691,14 @@ export function aggregateStudentDemographics(
         provMap.set(s.province, (provMap.get(s.province) || 0) + 1);
       }
 
+      const finance = financeByKey.get(key) || {
+        revenue: 0,
+        teacherCost: 0,
+        trainingManagerCost: 0,
+        customerCareCost: 0,
+      };
+      const profit = profitOf(finance);
+
       return {
         key,
         courseId: cat.courseId === NO_COURSE_KEY ? null : cat.courseId,
@@ -615,6 +711,17 @@ export function aggregateStudentDemographics(
         averageRevenue:
           payingCount > 0 ? Math.round(courseRevenue / payingCount) : 0,
         revenueShare: percentOf(courseRevenue, totalRevenue),
+        profitRevenue: finance.revenue,
+        teacherCost: finance.teacherCost,
+        trainingManagerCost: finance.trainingManagerCost,
+        customerCareCost: finance.customerCareCost,
+        totalCost:
+          finance.teacherCost +
+          finance.trainingManagerCost +
+          finance.customerCareCost,
+        profit,
+        profitMargin: percentOf(profit, finance.revenue),
+        profitShare: percentOf(profit, totalProfit),
         averageAge: averageAge(members, currentYear),
         minBirthYear: validYears.length ? Math.min(...validYears) : null,
         maxBirthYear: validYears.length ? Math.max(...validYears) : null,
@@ -695,6 +802,7 @@ export function aggregateStudentDemographics(
   ).length;
 
   return {
+    period,
     summary: {
       statusFilter,
       totalActiveStudents,
@@ -713,6 +821,7 @@ export function aggregateStudentDemographics(
           ? Math.round(totalRevenue / revenueStudentsCount)
           : 0,
       revenueStudentsCount,
+      totalProfit,
       topProvince,
       topBirthYear,
       topCategory,
