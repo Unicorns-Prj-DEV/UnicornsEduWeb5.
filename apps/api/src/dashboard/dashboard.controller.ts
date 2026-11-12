@@ -1,4 +1,3 @@
-import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { Controller, Get, Query, Res, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import {
@@ -8,7 +7,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { StaffRole, UserRole } from 'generated/enums';
+import { UserRole } from 'generated/enums';
 import { AllowAssistantOnAdminRoutes } from 'src/auth/decorators/allow-assistant-on-admin.decorator';
 import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-roles-on-admin.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -58,9 +57,18 @@ import { StudentDemographicsExportPdfService } from './student-demographics-expo
 @Controller('dashboard')
 @ApiTags('dashboard')
 @ApiCookieAuth('access_token')
+// #269: Dashboard, Báo cáo tháng, Thống kê học sinh chỉ Admin (users.role_type
+// admin hoặc staff role admin). Mọi staff role khác — kể cả Trưởng phòng Sale &
+// CSKH (Trợ lí cũ) và Kế toán thu — bị 403. Danh sách staff role rỗng tường minh
+// để không phụ thuộc mặc định của AllowAssistantOnAdminRoutes.
 @AllowAssistantOnAdminRoutes(false)
-@AllowStaffRolesOnAdminRoutes(StaffRole.accountant_income)
+@AllowStaffRolesOnAdminRoutes()
 @Roles(UserRole.admin)
+@ApiResponse({
+  status: 403,
+  description:
+    'Chỉ Admin được xem dashboard, báo cáo tháng và thống kê học sinh (#269).',
+})
 export class DashboardController {
   constructor(
     private readonly dashboardService: DashboardService,
@@ -375,12 +383,10 @@ export class DashboardController {
   }
 
   @Get('monthly-report')
-  // Báo cáo tháng: admin + trợ lí xem; CSKH và kế toán thu không xem.
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Get the monthly operations report (Báo cáo tháng)',
     description:
-      'Return KPI, new-student matrix (customer source × course of first class, with early drops and total top-up from first top-up to month end), dropped students by drop-out reason group, per customer-care staff table and appendix lists for one month. New student = first qualifying wallet top-up in the month. Computed live, not snapshotted. Admin and assistant only.',
+      'Return KPI, new-student matrix (customer source × course of first class, with early drops and total top-up from first top-up to month end), dropped students by drop-out reason group, per customer-care staff table and appendix lists for one month. New student = first qualifying wallet top-up in the month. Computed live, not snapshotted. Admin only (#269).',
   })
   @ApiQuery({
     name: 'month',
@@ -397,7 +403,7 @@ export class DashboardController {
     example: '2026',
   })
   @ApiResponse({ status: 200, description: 'Monthly report payload.' })
-  @ApiResponse({ status: 403, description: 'Not admin or assistant.' })
+  @ApiResponse({ status: 403, description: 'Not admin (#269).' })
   async getAdminMonthlyReport(
     @Query() query: GetAdminMonthlyReportQueryDto,
   ): Promise<AdminMonthlyReportDto> {

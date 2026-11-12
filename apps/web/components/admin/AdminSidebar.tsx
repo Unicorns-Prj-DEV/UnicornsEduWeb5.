@@ -262,8 +262,9 @@ export default function AdminSidebar() {
     resolveAdminShellAccess(fullProfile);
   const { isAdmin, isAssistant, isAccountant, isLessonPlanHead, staffId } =
     adminShellAccess;
+  // #269: dashboard admin chỉ Admin; Trợ lí thấy mục «Dashboard» trỏ về trang cá nhân.
   const assistantDashboardHref =
-    isAssistant && staffId
+    isAssistant && !isAdmin && staffId
       ? `/admin/staffs/${encodeURIComponent(staffId)}`
       : "/admin/dashboard";
   const accountantVisibleHrefs = getAccountantVisibleAdminHrefs(adminShellAccess);
@@ -428,6 +429,7 @@ export default function AdminSidebar() {
                   : item.href;
               const isAssistantDashboardTarget =
                 isAssistant &&
+                !isAdmin &&
                 item.href === "/admin/dashboard" &&
                 Boolean(fullProfile?.staffInfo?.id);
               const isActive =

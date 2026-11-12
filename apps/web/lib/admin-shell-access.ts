@@ -67,7 +67,6 @@ export function getAccountantVisibleAdminHrefs(
 }
 
 const ACCOUNTANT_INCOME_ALLOWED_ROUTE_PATTERNS = [
-  /^\/admin\/dashboard$/,
   /^\/admin\/classes(?:\/[^/]+)?$/,
   /^\/admin\/students(?:\/[^/]+)?$/,
   /^\/admin\/accountant_detail$/,
@@ -104,6 +103,11 @@ export const LESSON_MANAGEMENT_ROUTE_PREFIXES = [
 export const STRICT_ADMIN_ROUTE_PREFIXES = [
   "/admin/wallet-direct-topup-requests",
   "/admin/surveys",
+  // #269: Dashboard (kể cả /admin/dashboard/statistics), Báo cáo tháng,
+  // Thống kê học sinh chỉ Admin.
+  "/admin/dashboard",
+  "/admin/monthly-report",
+  "/admin/student-statistics",
 ] as const;
 
 export function resolveAdminShellAccess(
@@ -179,6 +183,11 @@ export function isLessonManagementRoute(pathname: string): boolean {
 }
 
 export function isStrictAdminRoute(pathname: string): boolean {
+  // `/admin` render lại trang dashboard (#269: chỉ Admin).
+  if (pathname === "/admin" || pathname === "/admin/") {
+    return true;
+  }
+
   return STRICT_ADMIN_ROUTE_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix),
   );
@@ -256,8 +265,13 @@ export function resolveAdminShellFallbackHref(
     return "/admin/students";
   }
 
-  if (access.isAssistant) {
+  if (access.isAdmin) {
     return "/admin/dashboard";
+  }
+
+  // #269: Trợ lí không còn vào dashboard admin → đáp về trang Học sinh.
+  if (access.isAssistant) {
+    return "/admin/students";
   }
 
   if (access.isAccountantIncome) {
@@ -280,8 +294,13 @@ export function getAdminShellEntryHref(
 ): string | null {
   const access = resolveAdminShellAccess(profile);
 
-  if (access.isAdmin || access.isAssistant) {
+  if (access.isAdmin) {
     return "/admin/dashboard";
+  }
+
+  // #269: dashboard admin chỉ Admin.
+  if (access.isAssistant) {
+    return "/admin/students";
   }
 
   if (access.isAccountantIncome) {

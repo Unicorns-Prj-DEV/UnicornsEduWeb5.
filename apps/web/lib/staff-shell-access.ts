@@ -43,6 +43,8 @@ export type StaffShellRouteFlags = {
   isStaffLessonPlansTaskDetailRoute: boolean;
   isLessonPlanManageDetailsRoute: boolean;
   isAssistantAdminLikeRoute: boolean;
+  /** Báo cáo tháng, Thống kê học sinh — chỉ Admin (#269). */
+  isAdminOnlyReportRoute: boolean;
   isStaffCalendarRoute: boolean;
   isStaffSurveysRoute: boolean;
   isStaffCoursesRoute: boolean;
@@ -245,12 +247,11 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffStudentsListRoute = pathname === "/staff/students";
   const isStaffStudentDetailRoute = pathname.startsWith("/staff/students/");
   const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
-  const isAssistantMonthlyReportRoute = pathname.startsWith(
-    "/staff/monthly-report",
-  );
-  const isAssistantStudentStatisticsRoute = pathname.startsWith(
-    "/staff/student-statistics",
-  );
+  // #269: Báo cáo tháng, Thống kê học sinh chỉ Admin; Trợ lí / Kế toán thu
+  // và mọi staff role khác bị chặn.
+  const isAdminOnlyReportRoute =
+    pathname.startsWith("/staff/monthly-report") ||
+    pathname.startsWith("/staff/student-statistics");
   const isStaffNotificationRoute = pathname.startsWith("/staff/notification");
   const isStaffNotificationManageRoute = pathname.startsWith(
     "/staff/notification/manage",
@@ -298,9 +299,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isAssistantUsersRoute ||
     isAssistantStaffsRoute ||
     isStaffStudentsListRoute ||
-    isAssistantHistoryRoute ||
-    isAssistantMonthlyReportRoute ||
-    isAssistantStudentStatisticsRoute;
+    isAssistantHistoryRoute;
 
   return {
     isDashboardRoute,
@@ -337,6 +336,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffLessonPlansTaskDetailRoute,
     isLessonPlanManageDetailsRoute,
     isAssistantAdminLikeRoute,
+    isAdminOnlyReportRoute,
     isStaffCalendarRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
@@ -387,6 +387,8 @@ export function resolveStaffShellRouteAccess(
       ? hasStaffWorkspaceAccess && isStaffOrAdmin
       : hasStaffWorkspaceAccess && isStaffOrAdmin && isAdmin
         ? true
+        : flags.isAdminOnlyReportRoute
+          ? false
                     : flags.isStaffCalendarRoute
             ? hasStaffWorkspaceAccess &&
               (isAdmin || isAssistantStaff || isTeacher || isTraining)

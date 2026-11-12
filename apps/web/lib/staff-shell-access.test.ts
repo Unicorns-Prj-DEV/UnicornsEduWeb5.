@@ -54,3 +54,29 @@ describe("route thu nhập Đào Tạo / Trưởng ban đào tạo", () => {
     );
   });
 });
+
+describe("Báo cáo tháng / Thống kê học sinh chỉ Admin (#269)", () => {
+  const REPORT_ROUTES = ["/staff/monthly-report", "/staff/student-statistics"];
+
+  it.each([
+    ["Trợ lí / TP Sale & CSKH", ["assistant"]],
+    ["Kế toán thu", ["accountant_income"]],
+    ["Kế toán chi", ["accountant_expense"]],
+    ["Trợ lí kiêm Kế toán thu", ["assistant", "accountant_income"]],
+    ["CSKH", ["customer_care"]],
+  ])("từ chối %s", (_label, roles) => {
+    const profile = staffProfile(roles);
+    for (const route of REPORT_ROUTES) {
+      expect(resolveStaffShellRouteAccess(profile, route).isAllowed).toBe(
+        false,
+      );
+    }
+  });
+
+  it("cho phép staff có role admin", () => {
+    const profile = staffProfile(["admin"]);
+    for (const route of REPORT_ROUTES) {
+      expect(resolveStaffShellRouteAccess(profile, route).isAllowed).toBe(true);
+    }
+  });
+});
