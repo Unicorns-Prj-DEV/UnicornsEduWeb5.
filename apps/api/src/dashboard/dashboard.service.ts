@@ -50,6 +50,7 @@ import {
   type AdminDashboardTrendPointDto,
   type AdminDashboardYearlySummaryDto,
   type AdminDashboardStudentDemographicsDto,
+  type GetStudentDemographicsQueryDto,
   GetAdminDashboardQueryDto,
   GetAdminDashboardActionAlertsQueryDto,
   GetAdminDashboardFinancialDetailQueryDto,
@@ -90,6 +91,8 @@ import {
   type RawStudentDemographicsRow,
   type RawCourseRow,
   type RawStudentRevenueRow,
+  type RawCourseFinanceRow,
+  resolveStudentDemographicsPeriod,
 } from './student-demographics.util';
 import {
   SQL_TEACHER_SESSION_AFTER_OPERATING,
@@ -6772,12 +6775,36 @@ export class DashboardService {
    * Thống kê học sinh active theo khu vực tỉnh thành, năm sinh và Category của lớp đang học.
    */
   async getStudentDemographics(
-    status: 'all' | 'active' | 'inactive' = 'all',
+    query: GetStudentDemographicsQueryDto = {},
   ): Promise<AdminDashboardStudentDemographicsDto> {
-    // v2: payload thêm doanh thu, byCourse, students, dataQuality.
-    const cacheKey = buildCacheKey('student-demographics-v2', {
+    const status = query.status ?? 'all';
+    const period = resolveStudentDemographicsPeriod(query);
+    // v4: lọc theo kỳ (tháng / năm) + `period` trong payload.
+    const cacheKey = buildCacheKey('student-demographics-v4', {
       status,
+      period: period.key ?? 'all',
     });
+    const hasPeriod = period.from != null && period.toExclusive != null;
+    /** Điều kiện ngày buổi học trong kỳ (rỗng khi toàn thời gian). */
+    const sessionInPeriod = hasPeriod
+      ? Prisma.sql`AND sessions.date >= ${period.from}::date AND sessions.date < ${period.toExclusive}::date`
+      : Prisma.empty;
+    const topupInPeriod = hasPeriod
+      ? Prisma.sql`AND date >= ${period.from}::date AND date < ${period.toExclusive}::date`
+      : Prisma.empty;
+    // Toàn thời gian: khoá theo lớp đang ghi danh. Có kỳ: chỉ học sinh có buổi
+    // học (present/excused) trong kỳ, khoá theo lớp đã học trong kỳ.
+    const membershipJoin = hasPeriod
+      ? Prisma.sql`
+            INNER JOIN (
+              SELECT DISTINCT attendance.student_id, sessions.class_id
+              FROM attendance
+              INNER JOIN sessions ON sessions.id = attendance.session_id
+              WHERE attendance.status IN ('present', 'excused')
+                ${sessionInPeriod}
+            ) sc ON sc.student_id = si.id`
+      : Prisma.sql`
+            LEFT JOIN student_classes sc ON sc.student_id = si.id`;
 
     return this.dashboardCacheService.wrapJson({
       key: cacheKey,
@@ -6791,8 +6818,9 @@ export class DashboardService {
           statusCondition = Prisma.sql`WHERE si.status = 'inactive'`;
         }
 
-        const [studentRows, courseRows, revenueRows] = await Promise.all([
-          this.prisma.$queryRaw<RawStudentDemographicsRow[]>(Prisma.sql`
+        const [studentRows, courseRows, revenueRows, courseFinanceRows] =
+          await Promise.all([
+            this.prisma.$queryRaw<RawStudentDemographicsRow[]>(Prisma.sql`
             SELECT
               si.id AS "studentId",
               si.full_name AS "fullName",
@@ -6807,7 +6835,7 @@ export class DashboardService {
               co.sort_order AS "courseSortOrder",
               COALESCE(wt."totalTopup", 0) AS "totalTopup"
             FROM student_info si
-            LEFT JOIN student_classes sc ON sc.student_id = si.id
+            ${membershipJoin}
             LEFT JOIN classes c ON c.id = sc.class_id
             LEFT JOIN courses co ON co.id = c.course_id
             LEFT JOIN (
@@ -6816,12 +6844,13 @@ export class DashboardService {
                 COALESCE(SUM(amount), 0) AS "totalTopup"
               FROM wallet_transactions_history
               WHERE type::text = 'topup' AND amount > 0
+                ${topupInPeriod}
               GROUP BY student_id
             ) wt ON wt.student_id = si.id
             ${statusCondition}
             ORDER BY si.id ASC
           `),
-          this.prisma.$queryRaw<RawCourseRow[]>(Prisma.sql`
+            this.prisma.$queryRaw<RawCourseRow[]>(Prisma.sql`
             SELECT
               id,
               name,
@@ -6830,9 +6859,9 @@ export class DashboardService {
             WHERE is_active = true
             ORDER BY sort_order ASC, name ASC
           `),
-          // Doanh thu = học phí đã học (cùng định nghĩa KPI Doanh thu dashboard),
-          // toàn thời gian, gán theo khoá của lớp có buổi học.
-          this.prisma.$queryRaw<RawStudentRevenueRow[]>(Prisma.sql`
+            // Doanh thu = học phí đã học (cùng định nghĩa KPI Doanh thu dashboard),
+            // trong kỳ (hoặc toàn thời gian), gán theo khoá của lớp có buổi học.
+            this.prisma.$queryRaw<RawStudentRevenueRow[]>(Prisma.sql`
             SELECT
               attendance.student_id AS "studentId",
               classes.course_id AS "courseId",
@@ -6844,9 +6873,97 @@ export class DashboardService {
             INNER JOIN classes ON classes.id = sessions.class_id
             LEFT JOIN courses ON courses.id = classes.course_id
             WHERE attendance.status IN ('present', 'excused')
+              ${sessionInPeriod}
             GROUP BY attendance.student_id, classes.course_id, courses.name
           `),
-        ]);
+            // Lợi nhuận khoá = học phí − gia sư − QL lớp − CSKH (trong kỳ,
+            // toàn bộ học sinh; cùng công thức chi phí với KPI dashboard).
+            this.prisma.$queryRaw<RawCourseFinanceRow[]>(Prisma.sql`
+            WITH course_revenue AS (
+              SELECT
+                classes.course_id,
+                COALESCE(SUM(COALESCE(attendance.tuition_fee, 0)), 0) AS amount
+              FROM attendance
+              INNER JOIN sessions ON sessions.id = attendance.session_id
+              INNER JOIN classes ON classes.id = sessions.class_id
+              WHERE attendance.status IN ('present', 'excused')
+                ${sessionInPeriod}
+              GROUP BY classes.course_id
+            ),
+            session_allowances AS (
+              SELECT
+                classes.course_id,
+                ${SQL_TEACHER_SESSION_AFTER_OPERATING} AS teacher_allowance_total
+              FROM attendance
+              INNER JOIN sessions ON sessions.id = attendance.session_id
+              INNER JOIN classes ON classes.id = sessions.class_id
+              WHERE TRUE ${sessionInPeriod}
+              GROUP BY
+                sessions.id,
+                classes.course_id,
+                sessions.allowance_amount,
+                ${SQL_TEACHER_SESSION_CAP_GROUP_BY},
+                ${SQL_TEACHER_SESSION_OPERATING_GROUP_BY},
+                sessions.coefficient
+            ),
+            course_teacher_cost AS (
+              SELECT course_id, COALESCE(SUM(teacher_allowance_total), 0) AS amount
+              FROM session_allowances
+              GROUP BY course_id
+            ),
+            course_training_manager_cost AS (
+              SELECT
+                classes.course_id,
+                COALESCE(SUM(COALESCE(sessions.training_manager_allowance_amount, 0)), 0) AS amount
+              FROM sessions
+              INNER JOIN classes ON classes.id = sessions.class_id
+              WHERE TRUE ${sessionInPeriod}
+              GROUP BY classes.course_id
+            ),
+            course_customer_care_cost AS (
+              SELECT
+                classes.course_id,
+                COALESCE(
+                  SUM(
+                    ROUND(
+                      (
+                        ${ATTENDANCE_COMMISSION_TUITION_BASIS_SQL} *
+                        COALESCE(attendance.customer_care_coef, 0)
+                      )::numeric,
+                      0
+                    )
+                  ),
+                  0
+                ) AS amount
+              FROM attendance
+              INNER JOIN sessions ON sessions.id = attendance.session_id
+              INNER JOIN classes ON classes.id = sessions.class_id
+              WHERE TRUE ${sessionInPeriod}
+              GROUP BY classes.course_id
+            ),
+            course_keys AS (
+              SELECT course_id FROM course_revenue
+              UNION SELECT course_id FROM course_teacher_cost
+              UNION SELECT course_id FROM course_training_manager_cost
+              UNION SELECT course_id FROM course_customer_care_cost
+            )
+            SELECT
+              course_keys.course_id AS "courseId",
+              COALESCE(course_revenue.amount, 0) AS "revenue",
+              COALESCE(course_teacher_cost.amount, 0) AS "teacherCost",
+              COALESCE(course_training_manager_cost.amount, 0) AS "trainingManagerCost",
+              COALESCE(course_customer_care_cost.amount, 0) AS "customerCareCost"
+            FROM course_keys
+            LEFT JOIN course_revenue
+              ON course_revenue.course_id IS NOT DISTINCT FROM course_keys.course_id
+            LEFT JOIN course_teacher_cost
+              ON course_teacher_cost.course_id IS NOT DISTINCT FROM course_keys.course_id
+            LEFT JOIN course_training_manager_cost
+              ON course_training_manager_cost.course_id IS NOT DISTINCT FROM course_keys.course_id
+            LEFT JOIN course_customer_care_cost
+              ON course_customer_care_cost.course_id IS NOT DISTINCT FROM course_keys.course_id
+          `),
+          ]);
 
         return aggregateStudentDemographics(
           studentRows,
@@ -6854,6 +6971,8 @@ export class DashboardService {
           new Date().getFullYear(),
           status,
           revenueRows,
+          courseFinanceRows,
+          period,
         );
       },
     });

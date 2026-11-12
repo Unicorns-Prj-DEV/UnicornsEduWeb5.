@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -9,7 +11,7 @@ import {
 } from "@/lib/apis/dashboard.api";
 import { formatVnCurrency } from "@/lib/formatters";
 import { DashboardPanel } from "./overview/DashboardPanel";
-import { StudentDemographicsDialog } from "./StudentDemographicsDialog";
+import { buildAdminLikePath, resolveAdminLikeRouteBase } from "@/lib/admin-shell-paths";
 
 const PROVINCE_COLORS = [
   "bg-primary",
@@ -32,18 +34,18 @@ export function StudentDemographicsSection({
   dimmed?: boolean;
   className?: string;
 }) {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const pathname = usePathname();
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
 
   const demographicsQuery = useQuery({
     queryKey: ["dashboard", "admin", "student-demographics", status],
-    queryFn: () => getAdminStudentDemographics(status),
+    queryFn: () => getAdminStudentDemographics({ status }),
     staleTime: 30_000,
   });
 
   const exportPdfMutation = useMutation({
     mutationFn: (s: "all" | "active" | "inactive") =>
-      downloadAdminStudentDemographicsPdf(s),
+      downloadAdminStudentDemographicsPdf({ status: s }),
     onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị file PDF học sinh…") }),
     onSuccess: ({ blob, filename }, _vars, context) => {
       const url = URL.createObjectURL(blob);
@@ -64,6 +66,7 @@ export function StudentDemographicsSection({
 
   const data = demographicsQuery.data;
   const topProvinces = (data?.byProvince ?? []).slice(0, 4);
+  const detailHref = `${buildAdminLikePath(resolveAdminLikeRouteBase(pathname), "student-statistics")}${status === "all" ? "" : `?status=${status}`}`;
 
   return (
     <>
@@ -109,9 +112,8 @@ export function StudentDemographicsSection({
           <div className="flex flex-col gap-3.5">
             {/* Quick Tiles */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setDialogOpen(true)}
+              <Link
+                href={detailHref}
                 className="@container flex min-w-0 flex-col items-start gap-0.5 rounded-xl border border-border-default bg-bg-secondary/40 p-3 text-left transition hover:border-primary/30 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
                 <span className="text-xs text-text-secondary">Tỉnh/TP có học sinh</span>
@@ -121,11 +123,10 @@ export function StudentDemographicsSection({
                 <span className="text-[11px] text-primary truncate max-w-full">
                   Top 1: {data.summary.topProvince || "—"}
                 </span>
-              </button>
+              </Link>
 
-              <button
-                type="button"
-                onClick={() => setDialogOpen(true)}
+              <Link
+                href={detailHref}
                 className="@container flex min-w-0 flex-col items-start gap-0.5 rounded-xl border border-border-default bg-bg-secondary/40 p-3 text-left transition hover:border-primary/30 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
                 <span className="text-xs text-text-secondary">Năm sinh trọng điểm</span>
@@ -135,11 +136,10 @@ export function StudentDemographicsSection({
                 <span className="text-[11px] text-text-secondary">
                   {data.summary.topBirthYear ? `${new Date().getFullYear() - data.summary.topBirthYear} tuổi` : "Đang cập nhật"}
                 </span>
-              </button>
+              </Link>
 
-              <button
-                type="button"
-                onClick={() => setDialogOpen(true)}
+              <Link
+                href={detailHref}
                 className="@container col-span-2 sm:col-span-1 flex min-w-0 flex-col items-start gap-0.5 rounded-xl border border-border-default bg-bg-secondary/40 p-3 text-left transition hover:border-primary/30 hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
                 <span className="text-xs text-text-secondary">Doanh thu (học phí đã học)</span>
@@ -149,7 +149,7 @@ export function StudentDemographicsSection({
                 <span className="text-[11px] text-text-secondary truncate max-w-full">
                   Nạp ví: {formatVnCurrency(data.summary.totalTopup)}
                 </span>
-              </button>
+              </Link>
             </div>
 
             {/* Top Provinces mini distribution */}
@@ -190,13 +190,12 @@ export function StudentDemographicsSection({
 
             {/* Action Bar */}
             <div className="flex items-center gap-2 pt-0.5">
-              <button
-                type="button"
-                onClick={() => setDialogOpen(true)}
+              <Link
+                href={detailHref}
                 className="flex-1 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-center text-xs font-semibold text-text-primary shadow-xs transition hover:bg-bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
               >
-                Xem chi tiết theo khoá
-              </button>
+                Mở trang thống kê học sinh
+              </Link>
               <button
                 type="button"
                 onClick={() => exportPdfMutation.mutate(status)}
@@ -212,14 +211,6 @@ export function StudentDemographicsSection({
           </div>
         )}
       </DashboardPanel>
-
-      {/* Detail Dialog */}
-      {dialogOpen ? (
-        <StudentDemographicsDialog
-          initialStatus={status}
-          onClose={() => setDialogOpen(false)}
-        />
-      ) : null}
     </>
   );
 }

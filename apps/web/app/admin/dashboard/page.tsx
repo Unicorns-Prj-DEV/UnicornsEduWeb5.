@@ -11,7 +11,6 @@ import { DateInput } from "@/components/ui/DateInput";
 import {
   downloadAdminDashboardFinancialExportExcel,
   downloadAdminDashboardFinancialExportPdf,
-  downloadAdminStudentDemographicsPdf,
   getAdminDashboard,
   getAdminDashboardFinancialDetail,
 } from "@/lib/apis/dashboard.api";
@@ -82,7 +81,7 @@ import type {
 } from "@/dtos/dashboard.dto";
 import { toast } from "sonner";
 import { formatVnInteger } from "@/lib/formatters";
-import { ChartColumn, FileChartColumn, FileDown, FileSpreadsheet, MapPin } from "lucide-react";
+import { ChartColumn, FileChartColumn, FileDown, FileSpreadsheet, Users } from "lucide-react";
 
 const toolbarButtonBaseClass =
   "inline-flex min-h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
@@ -383,22 +382,6 @@ export default function AdminDashboardTabPage() {
     },
   });
 
-  const exportStudentDemographicsPdfMutation = useMutation({
-    mutationFn: () => downloadAdminStudentDemographicsPdf("all"),
-    onMutate: () => ({ toastId: toast.loading("Đang chuẩn bị báo cáo PDF học sinh…") }),
-    onSuccess: ({ blob, filename }, _vars, context) => {
-      triggerBlobDownload(blob, filename);
-      toast.success("Đã tải báo cáo PDF học sinh.", { id: context?.toastId });
-    },
-    onError: (error, _vars, context) => {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Không xuất được báo cáo PDF học sinh.";
-      toast.error(message, { id: context?.toastId });
-    },
-  });
-
   if (fullProfileQuery.isLoading) {
     return <AdminDashboardSkeleton variant="profile-gate" />;
   }
@@ -507,20 +490,14 @@ export default function AdminDashboardTabPage() {
               <ChartColumn className="size-4 shrink-0" aria-hidden />
               Thống kê năm
             </Link>
-            <button
-              type="button"
-              onClick={() => {
-                if (exportStudentDemographicsPdfMutation.isPending) return;
-                exportStudentDemographicsPdfMutation.mutate();
-              }}
-              disabled={exportStudentDemographicsPdfMutation.isPending}
-              aria-busy={exportStudentDemographicsPdfMutation.isPending}
+            <Link
+              href={buildAdminLikePath(routeBase, "student-statistics")}
               className={toolbarSecondaryClass}
-              title="Xuất PDF thống kê học sinh theo khu vực tỉnh thành, năm sinh và category lớp"
+              title="Thống kê học sinh theo khu vực, độ tuổi, khoá học, doanh thu và lợi nhuận (xuất PDF trong trang)"
             >
-              <MapPin className="size-4 shrink-0" aria-hidden />
-              {exportStudentDemographicsPdfMutation.isPending ? "Đang xuất…" : "PDF học sinh"}
-            </button>
+              <Users className="size-4 shrink-0" aria-hidden />
+              Thống kê theo học sinh
+            </Link>
             <button
               type="button"
               onClick={() => {

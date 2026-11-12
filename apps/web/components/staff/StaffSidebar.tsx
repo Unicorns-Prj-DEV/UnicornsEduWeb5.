@@ -255,6 +255,13 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
       isVisible: () => true,
     },
     {
+      href: "/staff/student-statistics",
+      label: "Thống kê học sinh",
+      icon: <IconMonthlyReport />,
+      isActive: (pathname) => pathname.startsWith("/staff/student-statistics"),
+      isVisible: () => true,
+    },
+    {
       href: ownStaffDetailHref || "/staff",
       label: "Cá nhân",
       icon: <IconOperations />,

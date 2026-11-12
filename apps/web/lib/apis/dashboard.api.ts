@@ -11,6 +11,7 @@ import {
   AdminDashboardStudentChurnType,
   AdminDashboardTopupHistoryItem,
   AdminDashboardStudentDemographics,
+  StudentDemographicsQueryParams,
 } from "@/dtos/dashboard.dto";
 import { api } from "../client";
 
@@ -260,28 +261,35 @@ export async function downloadAdminDashboardFinancialExportExcel(params?: {
   );
 }
 
-/** Lấy dữ liệu thống kê học sinh theo khu vực tỉnh thành, năm sinh, category lớp học và tổng nạp ví. */
+function toStudentDemographicsParams(params: StudentDemographicsQueryParams = {}) {
+  const query: Record<string, string> = {};
+  if (params.status) query.status = params.status;
+  if (params.year) query.year = params.year;
+  if (params.year && params.month) query.month = params.month;
+  return query;
+}
+
+/** Thống kê học sinh theo tỉnh, năm sinh, khoá, doanh thu/lợi nhuận; lọc trạng thái + kỳ (tháng / năm). */
 export async function getAdminStudentDemographics(
-  status?: "all" | "active" | "inactive",
+  params: StudentDemographicsQueryParams = {},
 ): Promise<AdminDashboardStudentDemographics> {
-  const params = status ? { status } : undefined;
   const response = await api.get<AdminDashboardStudentDemographics>(
     "/dashboard/student-demographics",
-    { params },
+    { params: toStudentDemographicsParams(params) },
   );
   return response.data;
 }
 
-/** Tải PDF thống kê học sinh theo khu vực, năm sinh, category lớp học và tổng nạp ví. */
+/** Tải PDF thống kê học sinh (cùng bộ lọc với `getAdminStudentDemographics`). */
 export async function downloadAdminStudentDemographicsPdf(
-  status?: "all" | "active" | "inactive" | void,
+  params: StudentDemographicsQueryParams = {},
 ): Promise<{
   blob: Blob;
   filename: string;
 }> {
-  const params = status ? { status } : undefined;
+  const status = params.status;
   const response = await api.get<Blob>("/dashboard/student-demographics/pdf", {
-    params,
+    params: toStudentDemographicsParams(params),
     responseType: "blob",
   });
 
@@ -296,7 +304,8 @@ export async function downloadAdminStudentDemographicsPdf(
         ? "da-nghi"
         : "toan-bo";
   const filename =
-    filenameMatch?.[1] ?? `thong-ke-khu-vuc-do-tuoi-${suffix}-${dateStr}.pdf`;
+    filenameMatch?.[1] ??
+    `thong-ke-hoc-sinh-${suffix}${params.year ? `-${params.year}${params.month ? `-${params.month}` : ""}` : ""}-${dateStr}.pdf`;
 
   return { blob: response.data, filename };
 }

@@ -247,6 +247,9 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isAssistantMonthlyReportRoute = pathname.startsWith(
     "/staff/monthly-report",
   );
+  const isAssistantStudentStatisticsRoute = pathname.startsWith(
+    "/staff/student-statistics",
+  );
   const isStaffNotificationRoute = pathname.startsWith("/staff/notification");
   const isStaffNotificationManageRoute = pathname.startsWith(
     "/staff/notification/manage",
@@ -295,7 +298,8 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isAssistantStaffsRoute ||
     isStaffStudentsListRoute ||
     isAssistantHistoryRoute ||
-    isAssistantMonthlyReportRoute;
+    isAssistantMonthlyReportRoute ||
+    isAssistantStudentStatisticsRoute;
 
   return {
     isDashboardRoute,
