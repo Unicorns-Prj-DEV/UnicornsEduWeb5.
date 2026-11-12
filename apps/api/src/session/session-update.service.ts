@@ -48,7 +48,10 @@ import {
   resolveTaxDeductionRate,
 } from '../payroll/deduction-rates';
 import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
-import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
+import {
+  resolveAssistantManagerStaffIdForAttendance,
+  resolveSaleCsHeadManagerId,
+} from '../payroll/assistant-share.util';
 import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
 import { syncClassTimelineSortByTime } from '../class-timeline/append-timeline-item';
 import {
@@ -1189,12 +1192,16 @@ export class SessionUpdateService {
           if (uniqueCareStaffIds.length > 0) {
             const careStaff = await tx.staffInfo.findMany({
               where: { id: { in: uniqueCareStaffIds } },
-              select: { id: true, customerCareManagedByStaffId: true },
+              select: {
+                id: true,
+                customerCareManagedByStaffId: true,
+                customerCareManagedBy: { select: { roles: true } },
+              },
             });
             careStaff.forEach((s) =>
               assistantManagerByStaffId.set(
                 s.id,
-                s.customerCareManagedByStaffId,
+                resolveSaleCsHeadManagerId(s),
               ),
             );
           }

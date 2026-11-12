@@ -2072,6 +2072,75 @@ describe('StudentService', () => {
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
+
+    it('#271: cho Trưởng phòng giao CSKH kèm % cho học sinh', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-head-1',
+        roles: [StaffRole.sale_customer_care_head],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          {
+            customer_care_staff_id: 'staff-care-2',
+            customer_care_profit_percent: 0.2,
+          },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('#271: chặn CSKH kiêm Sale (không phải trưởng phòng) chuyển CSKH', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.sale, StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { customer_care_staff_id: 'staff-care-2' },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('#271: chặn Trưởng phòng tự đổi % khi CSKH của học sinh là chính mình', async () => {
+      mockPrisma.customerCareService.findUnique.mockResolvedValue({
+        staffId: 'staff-head-1',
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-head-1',
+        roles: [StaffRole.sale_customer_care_head, StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          { customer_care_profit_percent: 0.3 },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('#271: chặn Trưởng phòng tự giao học sinh cho mình kèm %', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-head-1',
+        roles: [StaffRole.sale_customer_care_head, StaffRole.customer_care],
+      });
+
+      await expect(
+        service.updateStudentById(
+          'student-1',
+          {
+            customer_care_staff_id: 'staff-head-1',
+            customer_care_profit_percent: 0.3,
+          },
+          customerCareActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
   });
 
   describe('customer care assignment default percent', () => {

@@ -29,6 +29,9 @@
   - `/staff/customer-care-detail`: hồ sơ staff hiện tại có role `customer_care`
   - `/staff/customer-care-detail/[staffId]`: mở cho linked staff có role `sale_customer_care_head` hoặc `accountant_expense` (Trưởng phòng Sale & CSKH giữ để xem CSKH phụ trách học sinh; từ #267 **không** còn đổi trạng thái thanh toán hoa hồng CSKH)
   - `/staff/assistant-detail`: hồ sơ staff hiện tại có role `sale_customer_care_head`
+  - `/staff/sale-cs-team`, `/staff/sale-cs-team/[staffId]`: **chỉ Trưởng phòng Sale & CSKH** (`sale_customer_care_head` đang active; #271). Gate `isSaleCsTeamRoute` trong `lib/staff-shell-access.ts`, sidebar **Đội Sale & CSKH**. Admin không có role Trưởng phòng bị backend `403`.
+    - **Danh sách:** tìm theo tên, `UpgradedSelect` **Phạm vi** (Thành viên đội / Nhân sự khác), **Role** (Sale & CSKH / Chỉ Sale / Chỉ CSKH), **Trạng thái**. Thẻ thành viên: avatar, tên, role, trạng thái, badge «Đã khoá tài khoản», % CSKH mặc định (chỉ đọc) + số học sinh CSKH. Nút **Sửa role** / **Khoá tài khoản** / **Mở khoá** hiện theo `permissions` backend trả. Phạm vi «Nhân sự khác» không mở chi tiết, chỉ có nút **Bật role**.
+    - **Chi tiết:** hồ sơ chuyên môn (trường ĐH, THPT), % CSKH mặc định chỉ đọc, Trưởng phòng quản lý; nút **Sửa hồ sơ chuyên môn** (popup họ tên + trường, hỏi trước khi bỏ thay đổi), **Sửa role** (Switch Sale/CSKH, role khác chỉ đọc, chặn tắt CSKH còn học sinh), **Khoá/Mở khoá tài khoản** (ConfirmDialog), link **Học sinh & lịch sử CSKH** sang `/staff/customer-care-detail/[staffId]`. Khối **Trợ cấp sale** theo tháng (học sinh, ghi chú, ngày — không số tiền) và **Thưởng** theo tháng (có số tiền, chỉ xem). Toast Sonner cho mọi thao tác.
   - `/staff/accountant-detail`: hồ sơ staff hiện tại có role `accountant_income` hoặc `accountant_expense`; từ #267 `staff.sale_customer_care_head` **không** còn mở admin-like detail qua `?staffId=...`
   - `/staff/communication-detail`: hồ sơ staff hiện tại có role `communication`; Admin xem admin-like detail qua `/admin/...`; từ #267 `staff.sale_customer_care_head` không còn mở `?staffId=...`
   - `/staff/technical-detail`: hồ sơ staff hiện tại có role `technical`; Admin xem admin-like detail qua `/admin/...`; từ #267 `staff.sale_customer_care_head` không còn mở `?staffId=...`
@@ -260,6 +263,7 @@
   - vào `/staff/students`, `/staff/students/[id]`: tạo hồ sơ học sinh từ user có sẵn, sửa hồ sơ, avatar, thành tích/thư viện ảnh, memberships/lịch thi, đổi trạng thái, xoá học sinh, tạo tài khoản học sinh, đặt mật khẩu (backend chỉ cho đích là tài khoản học sinh: «Trưởng phòng Sale & CSKH chỉ được đặt mật khẩu cho tài khoản học sinh.»), đăng xuất thiết bị
   - ví: tạo QR SePay, gửi yêu cầu nạp thẳng cho admin duyệt, rút/giảm số dư trực tiếp (`amount < 0`); **không** được nạp số dương thẳng hoặc duyệt queue nạp thẳng
   - vào `/staff/customer-care-detail/[staffId]` (xem CSKH phụ trách học sinh, chỉnh `% lợi nhuận`; không đổi trạng thái thanh toán hoa hồng)
+  - quản lý đội ở `/staff/sale-cs-team` (#271): bật/tắt role Sale/CSKH, khoá tài khoản người chỉ mang Sale/CSKH, sửa hồ sơ chuyên môn; không với tới chính mình, Admin, người mang role trưởng. Trạng thái thanh toán hoa hồng trưởng phòng (`/staff/assistant-detail`, tab hoa hồng) chỉ Admin / Kế toán chi đổi
 - Trưởng phòng Sale & CSKH **bị chặn** (chỉ Admin, từ #267)
   - `/staff/dashboard`, `/staff/users`, `/staff/staffs*`, `/staff/classes*`, `/staff/costs`, `/staff/history`, `/staff/system-settings`, `/staff/deductions`, `/staff/calendar`, `/staff/surveys`, `/staff/lesson-plans*`, `/staff/lesson-manage-details`, `/staff/lesson-plan-detail/[staffId]`, mọi `*-detail?staffId=...` admin-like
   - backend tương ứng: mọi route `@Roles(UserRole.admin)` không liệt kê Trưởng phòng Sale & CSKH trong `@AllowStaffRolesOnAdminRoutes(...)` đều trả `403` (xem `docs/adr/2026-11-12-admin-deny-by-default.md`)
@@ -362,6 +366,7 @@
 
 - **Frontend API client:** `apps/web/lib/apis/staff-ops.api.ts`
 - **Frontend API client (Ban Đào Tạo xem gia sư):** `apps/web/lib/apis/training-tutor.api.ts` → `GET /training/tutors`, `GET /training/tutors/:id`, `GET /training/tutors/:id/sessions`, `GET /training/tutors/:id/achievements` (chi tiết: `docs/api/training-tutors.md`)
+- **Frontend API client (Trưởng phòng quản lý đội, #271):** `apps/web/lib/apis/sale-cs-team.api.ts` → `/sale-cs-team/members*` (xem `docs/api/sale-cs-team.md`)
 - **Frontend API client (customer care self-service):** `apps/web/lib/apis/customer-care.api.ts`
 - **Frontend API client (self profile):** `apps/web/lib/apis/auth.api.ts`
 - **Frontend API client (notifications):** `apps/web/lib/apis/notification.api.ts`

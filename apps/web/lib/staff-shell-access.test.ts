@@ -171,3 +171,38 @@ describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#26
     ).toBe(false);
   });
 });
+
+describe("Đội Sale & CSKH chỉ Trưởng phòng Sale & CSKH (#271)", () => {
+  const TEAM_ROUTES = ["/staff/sale-cs-team", "/staff/sale-cs-team/UNISTAFF-1"];
+
+  it.each(TEAM_ROUTES)("Trưởng phòng vào được %s", (route) => {
+    expect(
+      resolveStaffShellRouteAccess(
+        staffProfile(["sale_customer_care_head"]),
+        route,
+      ).isAllowed,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["customer_care"],
+    ["sale"],
+    ["accountant_expense"],
+    ["training_head"],
+  ])("role %s không vào được", (role) => {
+    for (const route of TEAM_ROUTES) {
+      expect(
+        resolveStaffShellRouteAccess(staffProfile([role]), route).isAllowed,
+      ).toBe(false);
+    }
+  });
+
+  it("Trưởng phòng vẫn mở được chi tiết CSKH của thành viên", () => {
+    expect(
+      resolveStaffShellRouteAccess(
+        staffProfile(["sale_customer_care_head"]),
+        "/staff/customer-care-detail/UNISTAFF-1",
+      ).isAllowed,
+    ).toBe(true);
+  });
+});

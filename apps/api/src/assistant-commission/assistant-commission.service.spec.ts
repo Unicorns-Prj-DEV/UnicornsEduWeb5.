@@ -375,6 +375,30 @@ describe('AssistantCommissionService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(mockPrisma.attendance.updateMany).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ['chính trưởng phòng', 'assistant-1'],
+      ['trưởng phòng khác', 'other-head'],
+    ])(
+      '#271: chặn %s cập nhật trạng thái thanh toán hoa hồng',
+      async (_label, staffId) => {
+        mockPrisma.staffInfo.findFirst.mockResolvedValue({
+          id: staffId,
+          roles: [StaffRole.sale_customer_care_head],
+        });
+
+        await expect(
+          service.bulkUpdatePaymentStatus(
+            'head-user',
+            UserRole.staff,
+            'assistant-1',
+            ['attendance-1'],
+            PaymentStatus.paid,
+          ),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockPrisma.attendance.updateMany).not.toHaveBeenCalled();
+      },
+    );
   });
 
   it('bulk updates assistant share payment status to paid with tax snapshot', async () => {
@@ -387,8 +411,8 @@ describe('AssistantCommissionService', () => {
     mockPrisma.attendance.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await service.bulkUpdatePaymentStatus(
-      'assistant-user',
-      UserRole.staff,
+      'admin-user',
+      UserRole.admin,
       'assistant-1',
       ['attendance-1'],
       PaymentStatus.paid,
@@ -418,8 +442,8 @@ describe('AssistantCommissionService', () => {
     mockPrisma.attendance.updateMany.mockResolvedValue({ count: 1 });
 
     await service.bulkUpdatePaymentStatus(
-      'assistant-user',
-      UserRole.staff,
+      'admin-user',
+      UserRole.admin,
       'assistant-1',
       ['attendance-1'],
       PaymentStatus.pending,
@@ -439,8 +463,8 @@ describe('AssistantCommissionService', () => {
 
     await expect(
       service.bulkUpdatePaymentStatus(
-        'assistant-user',
-        UserRole.staff,
+        'admin-user',
+        UserRole.admin,
         'assistant-1',
         ['attendance-404'],
         PaymentStatus.paid,

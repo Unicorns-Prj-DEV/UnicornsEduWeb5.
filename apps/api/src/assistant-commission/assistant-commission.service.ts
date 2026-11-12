@@ -207,9 +207,10 @@ export class AssistantCommissionService {
     }
 
     // #270: Kế toán thu không xử lý khoản chi nhân sự.
+    // #271: trạng thái thanh toán là việc trả lương → Trưởng phòng Sale & CSKH
+    // chỉ xem, không cập nhật (kể cả hoa hồng của trưởng phòng khác).
     return (
       staff.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant_expense)
     );
   }

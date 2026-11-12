@@ -195,6 +195,13 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isVisible: ({ canComposeNotifications }) => canComposeNotifications,
     },
     {
+      href: "/staff/sale-cs-team",
+      label: "Đội Sale & CSKH",
+      icon: <IconUsers />,
+      isActive: (pathname) => pathname.startsWith("/staff/sale-cs-team"),
+      isVisible: ({ isAssistant }) => isAssistant,
+    },
+    {
       href: "/staff/assistant-detail",
       label: "Hoa hồng trưởng phòng",
       icon: <IconOperations />,

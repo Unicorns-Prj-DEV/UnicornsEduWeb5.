@@ -49,6 +49,8 @@ export type StaffShellRouteFlags = {
   isStaffSurveysRoute: boolean;
   isStaffCoursesRoute: boolean;
   isStaffTutorsRoute: boolean;
+  /** Đội Sale & CSKH — chỉ Trưởng phòng Sale & CSKH (#271). */
+  isSaleCsTeamRoute: boolean;
 };
 
 export type StaffShellAccessContext = {
@@ -294,6 +296,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffSurveysRoute = pathname.startsWith("/staff/surveys");
   const isStaffCoursesRoute = pathname.startsWith("/staff/courses");
   const isStaffTutorsRoute = pathname.startsWith("/staff/tutors");
+  const isSaleCsTeamRoute = pathname.startsWith("/staff/sale-cs-team");
   const isAssistantAdminLikeRoute =
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
@@ -341,6 +344,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffSurveysRoute,
     isStaffCoursesRoute,
     isStaffTutorsRoute,
+    isSaleCsTeamRoute,
   };
 }
 
@@ -394,6 +398,8 @@ export function resolveStaffShellRouteAccess(
               (isAdmin || isTeacher || isTraining)
           : flags.isStaffTutorsRoute
             ? hasStaffWorkspaceAccess && isStaffOrAdmin && isTraining
+          : flags.isSaleCsTeamRoute
+            ? isAssistantStaff
           : flags.isStaffSurveysRoute
             ? hasStaffWorkspaceAccess &&
               isStaffOrAdmin &&

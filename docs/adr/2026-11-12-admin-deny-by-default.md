@@ -2,6 +2,8 @@
 
 > **Ghi chú đổi tên (#268):** role `assistant` (Trợ lí) nay là `sale_customer_care_head` — **Trưởng phòng Sale & CSKH**; `RegulationAudience.staff_assistant` → `staff_sale_customer_care_head`. Đổi tên tại chỗ bằng `ALTER TYPE … RENAME VALUE`, quyền không đổi. Nội dung bên dưới giữ nguyên tên cũ như bối cảnh lúc ra quyết định.
 
+> **Ghi chú #271 (Trưởng phòng quản lý đội Sale & CSKH):** quyền quản lý đội đi qua module **staff-side** mới `/sale-cs-team` (`@Roles(UserRole.staff)`, policy `staff/sale-cs-head-role-policy.ts`), **không** mở thêm route admin nào cho Trưởng phòng — allowlist trong `admin-deny-by-default.spec.ts` giữ nguyên. Đồng thời thu hồi quyền đổi trạng thái thanh toán hoa hồng trưởng phòng (`assistant-commission`) của Trưởng phòng: chỉ Admin / Kế toán chi. Xem `docs/api/sale-cs-team.md`.
+
 - **Status:** Accepted (#267)
 - **Thay thế:** `docs/adr/2026-06-02-explicit-admin-mirror-rbac.md`
 

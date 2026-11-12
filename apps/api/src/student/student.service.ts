@@ -1,4 +1,5 @@
 import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
+import { assertNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 import {
   BadRequestException,
   ForbiddenException,
@@ -868,9 +869,10 @@ export class StudentService {
   }
 
   /**
-   * Ensures the actor may mutate the student profile (admin, assistant, or
-   * assigned customer_care). Only admin/assistant can change profit percent
-   * or transfer the student to another customer care staff.
+   * Ensures the actor may mutate the student profile (admin, Trưởng phòng Sale
+   * & CSKH, or assigned customer_care). Chỉ Admin / Trưởng phòng được giao,
+   * chuyển CSKH hoặc đổi % CSKH của học sinh (#271); Trưởng phòng không tự đổi %
+   * khi CSKH của học sinh là chính mình (luật #265).
    */
   private async assertCanMutateStudentProfile(
     studentId: string,
@@ -909,19 +911,29 @@ export class StudentService {
 
     const staff = await this.prisma.staffInfo.findUnique({
       where: { userId: actor.userId },
-      select: { roles: true },
+      select: { id: true, roles: true },
     });
 
-    const canManageCustomerCareAssignment = Boolean(
-      staff?.roles.includes(StaffRole.admin) ||
-      hasSaleCsHeadAccess(staff?.roles),
-    );
+    const isStaffAdmin = Boolean(staff?.roles.includes(StaffRole.admin));
+    const canManageCustomerCareAssignment =
+      isStaffAdmin || hasSaleCsHeadAccess(staff?.roles);
 
     if (!canManageCustomerCareAssignment) {
       throw new ForbiddenException(
         changesCustomerCareStaff
-          ? 'Only admin or assistant staff can transfer the student to another customer care staff'
-          : 'Only admin or assistant staff can change customer care profit percent',
+          ? 'Chỉ Admin hoặc Trưởng phòng Sale & CSKH được giao / chuyển CSKH của học sinh.'
+          : 'Chỉ Admin hoặc Trưởng phòng Sale & CSKH được đổi % CSKH của học sinh.',
+      );
+    }
+
+    if (changesProfitPercent && staff) {
+      const resultingCustomerCareStaffId =
+        dto?.customer_care_staff_id !== undefined
+          ? (dto.customer_care_staff_id ?? null)
+          : await this.getAssignedCustomerCareStaffId(studentId);
+      assertNotEditingOwnCompensation(
+        { isAdmin: isStaffAdmin, staffId: staff.id, roles: staff.roles },
+        [resultingCustomerCareStaffId],
       );
     }
   }

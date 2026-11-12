@@ -332,7 +332,6 @@ export default function CustomerCareDetailPanels({
   // #267: thanh toán hoa hồng CSKH là trả lương → Trợ lí không còn quyền.
   const canEditCommissionPaymentStatus =
     fullProfile?.roleType === "admin" ||
-    staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
     staffRoles.includes("admin");
   const canEditProfitPercent =

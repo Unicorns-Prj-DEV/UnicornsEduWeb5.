@@ -40,7 +40,10 @@ import {
 import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { computeTrainingManagerSessionSnapshot } from '../training-manager/training-manager.utils';
 import { createMemoizedTaxDeductionResolver } from '../payroll/deduction-rates';
-import { resolveAssistantManagerStaffIdForAttendance } from '../payroll/assistant-share.util';
+import {
+  resolveAssistantManagerStaffIdForAttendance,
+  resolveSaleCsHeadManagerId,
+} from '../payroll/assistant-share.util';
 import { syncLessonPlanHeadCommissions } from '../payroll/lesson-plan-head-commission.util';
 import {
   resolveLiveSessionAllowanceSnapshots,
@@ -307,12 +310,16 @@ export class SessionCreateService {
           if (uniqueCareStaffIds.length > 0) {
             const careStaff = await tx.staffInfo.findMany({
               where: { id: { in: uniqueCareStaffIds } },
-              select: { id: true, customerCareManagedByStaffId: true },
+              select: {
+                id: true,
+                customerCareManagedByStaffId: true,
+                customerCareManagedBy: { select: { roles: true } },
+              },
             });
             careStaff.forEach((s) =>
               assistantManagerByStaffId.set(
                 s.id,
-                s.customerCareManagedByStaffId,
+                resolveSaleCsHeadManagerId(s),
               ),
             );
           }
