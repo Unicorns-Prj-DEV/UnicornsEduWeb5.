@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -503,7 +504,7 @@ export class UserService {
     if (
       !staff?.roles.includes(StaffRole.customer_care) ||
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant)
+      hasSaleCsHeadAccess(staff.roles)
     ) {
       return null;
     }

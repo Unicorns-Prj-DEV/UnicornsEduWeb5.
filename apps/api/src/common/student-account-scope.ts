@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { StaffRole, UserRole } from 'generated/enums';
 import type { PrismaService } from 'src/prisma/prisma.service';
@@ -17,7 +18,7 @@ export interface StudentAccountScopeActor {
 /** Staff role được thao tác tài khoản (thiết bị, phiên đăng nhập) của mọi học sinh. */
 const STUDENT_ACCOUNT_MANAGER_STAFF_ROLES: StaffRole[] = [
   StaffRole.admin,
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
 ];
 
 /**

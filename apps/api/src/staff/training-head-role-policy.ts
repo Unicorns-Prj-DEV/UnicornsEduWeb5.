@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { StaffRole } from 'generated/enums';
 
@@ -14,7 +15,7 @@ export const TRAINING_HEAD_MANAGEABLE_ROLES: readonly StaffRole[] = [
 /** Nhân sự mang một trong các role này không bị Trưởng ban chỉnh role. */
 export const TRAINING_HEAD_PROTECTED_TARGET_ROLES: readonly StaffRole[] = [
   StaffRole.admin,
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.training_head,
 ];
 

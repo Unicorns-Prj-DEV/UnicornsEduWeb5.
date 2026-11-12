@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   CanActivate,
   ExecutionContext,
@@ -28,7 +29,7 @@ export class AdminOnlyDeleteGuard implements CanActivate {
 
       if (
         staff?.roles.includes(StaffRole.admin) ||
-        staff?.roles.includes(StaffRole.assistant)
+        hasSaleCsHeadAccess(staff?.roles)
       ) {
         return true;
       }

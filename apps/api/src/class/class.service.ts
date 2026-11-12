@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ConflictException,
@@ -297,7 +298,7 @@ export class ClassService {
   private hasElevatedClassAccess(roles: string[]) {
     return (
       roles.includes(StaffRole.admin) ||
-      roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(roles) ||
       roles.includes(StaffRole.accountant) ||
       roles.includes(StaffRole.accountant_income) ||
       roles.includes(StaffRole.accountant_expense)
@@ -311,9 +312,7 @@ export class ClassService {
   }
 
   private shouldScopeStaffClassesToTrainingManager(roles: string[]) {
-    return (
-      hasTrainingAccess(roles) && !this.hasElevatedClassAccess(roles)
-    );
+    return hasTrainingAccess(roles) && !this.hasElevatedClassAccess(roles);
   }
 
   /**

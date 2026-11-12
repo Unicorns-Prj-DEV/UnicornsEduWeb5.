@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
@@ -381,7 +382,7 @@ export default function StaffClassDetailPage() {
     );
   const isAssistant =
     profile?.roleType === "staff" &&
-    (profile.staffInfo?.roles ?? []).includes("assistant");
+    hasSaleCsHeadAccess(profile.staffInfo?.roles);
   const isCustomerCare =
     profile?.roleType === "staff" &&
     (profile.staffInfo?.roles ?? []).includes("customer_care");

@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -37,7 +38,7 @@ import { ExtraAllowanceService } from './extra-allowance.service';
 @Controller('extra-allowance')
 @ApiTags('extra-allowance')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant_expense)
+@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
 @Roles(UserRole.admin)
 export class ExtraAllowanceController {
   constructor(private readonly extraAllowanceService: ExtraAllowanceService) {}
@@ -155,10 +156,7 @@ export class ExtraAllowanceController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Create extra allowance',
     description: 'Create a new extra allowance record.',
@@ -241,10 +239,7 @@ export class ExtraAllowanceController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Delete extra allowance',
     description: 'Delete an extra allowance record by id.',

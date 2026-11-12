@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ConflictException,
@@ -21,7 +22,6 @@ import {
   AttemptStatus,
   LessonKind,
   QuestionType,
-  StaffRole,
   UserRole,
 } from 'generated/enums';
 
@@ -192,7 +192,7 @@ export class CourseContentSupportService {
       where: { classId, teacherId: staffInfo.id, status: 'active' },
     });
 
-    const isAssistant = staffInfo.roles.includes(StaffRole.assistant);
+    const isAssistant = hasSaleCsHeadAccess(staffInfo.roles);
 
     if (!isTeacher && !isAssistant) {
       throw new ForbiddenException('You do not have access to this class');

@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 
@@ -139,7 +140,7 @@ export function resolveAdminShellAccess(
       (isStaff && hasStaffProfile && staffRoles.includes("admin")),
     isAssistant:
       adminTier === "assistant" ||
-      (isStaff && hasStaffProfile && staffRoles.includes("assistant")),
+      (isStaff && hasStaffProfile && hasSaleCsHeadAccess(staffRoles)),
     isAccountant,
     isAccountantIncome,
     isAccountantExpense,

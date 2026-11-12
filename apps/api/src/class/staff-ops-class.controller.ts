@@ -1,4 +1,8 @@
 import {
+  SALE_CS_HEAD_ROLE,
+  hasSaleCsHeadAccess,
+} from 'src/common/sale-cs-head-access';
+import {
   ForbiddenException,
   Body,
   Controller,
@@ -56,7 +60,7 @@ import { ClassSurveyService } from './class-survey.service';
 
 const ELEVATED_CLASS_ACCESS_ROLES: readonly StaffRole[] = [
   StaffRole.admin,
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
@@ -98,7 +102,7 @@ export class StaffOpsClassController {
 
     if (
       actor.roles.includes(StaffRole.admin) ||
-      actor.roles.includes(StaffRole.assistant)
+      hasSaleCsHeadAccess(actor.roles)
     ) {
       return undefined;
     }

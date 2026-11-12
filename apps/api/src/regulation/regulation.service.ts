@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   Injectable,
@@ -275,7 +276,7 @@ export class RegulationService {
     const staffRoles = staff?.roles ?? [];
 
     return {
-      canManageAll: staffRoles.includes(StaffRole.assistant),
+      canManageAll: hasSaleCsHeadAccess(staffRoles),
       visibleAudiences: [
         ...staffRoles.map((role) => STAFF_ROLE_AUDIENCE_MAP[role]),
         // Trưởng Ban Đào Tạo có mọi quyền của Ban Đào Tạo, kể cả quy định gửi Đào Tạo.

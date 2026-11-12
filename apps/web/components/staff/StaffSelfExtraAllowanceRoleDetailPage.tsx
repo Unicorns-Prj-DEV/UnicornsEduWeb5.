@@ -1,5 +1,6 @@
 "use client";
 
+import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -250,7 +251,7 @@ export default function StaffSelfExtraAllowanceRoleDetailPage({
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
   const monthQuery = toExtraAllowanceMonthQuery(selectedMonth);
   const selectedMonthLabel = formatMonthKeyLabel(monthQuery.monthKey);
-  const showAssistantCommissionTab = roleType === "assistant";
+  const showAssistantCommissionTab = roleType === SALE_CS_HEAD_ROLE;
   const showTrainingClassesTab =
     roleType === "training" || roleType === "training_head";
 

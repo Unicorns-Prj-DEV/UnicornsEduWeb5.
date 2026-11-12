@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
@@ -4603,7 +4604,7 @@ export class DashboardService {
                 weekEnd: weekRange.end,
               })
             : Promise.resolve(undefined),
-          normalizedRoles.includes(StaffRole.assistant)
+          hasSaleCsHeadAccess(normalizedRoles)
             ? this.getAssistantSection(
                 {
                   month: range.month,

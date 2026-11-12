@@ -1,4 +1,8 @@
 import {
+  SALE_CS_HEAD_ROLE,
+  hasSaleCsHeadAccess,
+} from 'src/common/sale-cs-head-access';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -180,7 +184,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
 };
 
 const EXTRA_ALLOWANCE_BACKED_OTHER_ROLES = new Set<StaffRole>([
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
@@ -970,7 +974,7 @@ export class StaffService {
     hasExplicitManagedByField: boolean;
   }): string | null | undefined {
     const isDualRole =
-      params.nextRoles.includes(StaffRole.assistant) &&
+      hasSaleCsHeadAccess(params.nextRoles) &&
       params.nextRoles.includes(StaffRole.customer_care);
 
     if (isDualRole) {
@@ -1154,7 +1158,7 @@ export class StaffService {
     const rows = await this.prisma.staffInfo.findMany({
       where: {
         roles: {
-          hasSome: [StaffRole.assistant],
+          hasSome: [SALE_CS_HEAD_ROLE],
         },
         status: StaffStatus.active,
         ...nameSearchWhere,
@@ -1456,7 +1460,10 @@ export class StaffService {
     return { total };
   }
 
-  async getLandingProfiles(query: StaffLandingProfileQueryDto, tutorsOnly = false) {
+  async getLandingProfiles(
+    query: StaffLandingProfileQueryDto,
+    tutorsOnly = false,
+  ) {
     // Landing sync intentionally ignores status + role (all staff rows);
     // `roles` is returned so the landing site can show only tutors (`teacher`).
     const limit =
@@ -2326,7 +2333,7 @@ export class StaffService {
 
       return {
         id: row.id,
-        role: StaffRole.assistant,
+        role: SALE_CS_HEAD_ROLE,
         sourceType: 'assistant_share',
         sourceLabel: 'Phần chia trợ lí 3%',
         label: row.student.fullName?.trim() || 'Học sinh chưa đặt tên',
@@ -2739,7 +2746,7 @@ export class StaffService {
 
       return {
         id: row.id,
-        role: StaffRole.assistant,
+        role: SALE_CS_HEAD_ROLE,
         sourceType: 'assistant_share',
         sourceLabel: 'Phần chia trợ lí 3%',
         label: row.student.fullName?.trim() || 'Học sinh chưa đặt tên',
@@ -2937,7 +2944,7 @@ export class StaffService {
       StaffRole.customer_care,
       StaffRole.lesson_plan_head,
       StaffRole.lesson_plan,
-      StaffRole.assistant,
+      SALE_CS_HEAD_ROLE,
       StaffRole.accountant,
       StaffRole.accountant_income,
       StaffRole.accountant_expense,
@@ -3098,7 +3105,7 @@ export class StaffService {
     staffId: string,
     roles: StaffRole[],
   ): Promise<StaffPaymentPreviewDraftRecord[]> {
-    const isAssistant = roles.includes(StaffRole.assistant);
+    const isAssistant = hasSaleCsHeadAccess(roles);
     const lessonRoleForOutputs = this.resolveLessonRoleForOutputs(roles);
     const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(roles);
 
@@ -4707,7 +4714,7 @@ export class StaffService {
       throw new NotFoundException('Staff not found');
     }
 
-    const isAssistant = staff.roles.includes(StaffRole.assistant);
+    const isAssistant = hasSaleCsHeadAccess(staff.roles);
     const isLessonPlanHead = staff.roles.includes(StaffRole.lesson_plan_head);
     const trainingManagerIncomeRole = resolveTrainingManagerIncomeRole(
       staff.roles,
@@ -5240,7 +5247,7 @@ export class StaffService {
     }
 
     if (isAssistant) {
-      const assistantSummary = otherRoleSummaryMap.get(StaffRole.assistant);
+      const assistantSummary = otherRoleSummaryMap.get(SALE_CS_HEAD_ROLE);
       if (assistantSummary) {
         assistantSummary.total += assistantShareMonthlyTotals.total;
         assistantSummary.paid += assistantShareMonthlyTotals.paid;
@@ -6007,7 +6014,7 @@ export class StaffService {
               'Trợ lí được chỉ định không tồn tại.',
             );
           }
-          if (!manager.roles.includes(StaffRole.assistant)) {
+          if (!hasSaleCsHeadAccess(manager.roles)) {
             throw new BadRequestException(
               'Nhân sự được chỉ định phải có role trợ lí.',
             );
@@ -6262,7 +6269,7 @@ export class StaffService {
       const createdStaffId = await this.withEntityIdRetry(() =>
         this.prisma.$transaction(async (tx) => {
           const isDualRole =
-            data.roles.includes(StaffRole.assistant) &&
+            hasSaleCsHeadAccess(data.roles) &&
             data.roles.includes(StaffRole.customer_care);
           const managedByStaffId = isDualRole
             ? null
@@ -6273,7 +6280,7 @@ export class StaffService {
               where: { id: managedByStaffId },
               select: { roles: true, status: true },
             });
-            if (!manager || !manager.roles.includes(StaffRole.assistant)) {
+            if (!manager || !hasSaleCsHeadAccess(manager.roles)) {
               throw new BadRequestException(
                 'Nhân sự được chỉ định phải có role trợ lí.',
               );

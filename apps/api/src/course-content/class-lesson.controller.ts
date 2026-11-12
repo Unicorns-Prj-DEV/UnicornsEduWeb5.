@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -46,7 +47,7 @@ export class ClassLessonController {
 
   @Post()
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
   @ApiOperation({ summary: 'Tạo chuyên đề mới cho lớp (legacy)' })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiBody({ type: LessonCreateDto })
@@ -70,7 +71,7 @@ export class ClassLessonController {
 
   @Patch(':lessonId')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
   @ApiOperation({ summary: 'Cập nhật chuyên đề (legacy)' })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiParam({ name: 'lessonId', description: 'ID chuyên đề' })
@@ -96,7 +97,7 @@ export class ClassLessonController {
 
   @Delete(':lessonId')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
   @ApiOperation({ summary: 'Xóa chuyên đề (legacy)' })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiParam({ name: 'lessonId', description: 'ID chuyên đề' })
@@ -120,7 +121,7 @@ export class ClassLessonController {
 
   @Get()
   @Roles(UserRole.admin, UserRole.student)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
   @ApiOperation({ summary: 'Lấy danh sách chuyên đề của lớp (legacy)' })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiQuery({ name: 'page', required: false, description: 'Trang hiện tại' })
@@ -156,7 +157,7 @@ export class ClassLessonController {
 
   @Get(':lessonId')
   @Roles(UserRole.admin, UserRole.student)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
   @ApiOperation({ summary: 'Lấy chi tiết 1 chuyên đề (legacy)' })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiParam({ name: 'lessonId', description: 'ID chuyên đề' })
@@ -226,7 +227,7 @@ export class ClassLessonController {
 
   @Post('reorder')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.teacher)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.teacher)
   @ApiOperation({ summary: 'Sắp xếp lại thứ tự chuyên đề (legacy)' })
   @ApiParam({ name: 'classId', description: 'ID lớp học' })
   @ApiBody({

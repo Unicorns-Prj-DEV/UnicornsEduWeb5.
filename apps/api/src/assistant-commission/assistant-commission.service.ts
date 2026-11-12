@@ -1,4 +1,8 @@
 import {
+  SALE_CS_HEAD_ROLE,
+  hasSaleCsHeadAccess,
+} from 'src/common/sale-cs-head-access';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -168,7 +172,7 @@ export class AssistantCommissionService {
 
     const canAccess =
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense);
@@ -198,7 +202,7 @@ export class AssistantCommissionService {
 
     return (
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
@@ -215,7 +219,7 @@ export class AssistantCommissionService {
       throw new NotFoundException('Assistant staff not found');
     }
 
-    if (!assistantStaff.roles.includes(StaffRole.assistant)) {
+    if (!hasSaleCsHeadAccess(assistantStaff.roles)) {
       throw new NotFoundException('Assistant staff not found');
     }
 
@@ -766,7 +770,7 @@ export class AssistantCommissionService {
       if (paymentStatus === PaymentStatus.paid) {
         const taxRatePercent = await resolveTaxDeductionRate(tx, {
           staffId: accessibleAssistantStaffId,
-          roleType: StaffRole.assistant,
+          roleType: SALE_CS_HEAD_ROLE,
           effectiveDate: new Date(),
         });
 

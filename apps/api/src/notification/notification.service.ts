@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
@@ -450,7 +451,7 @@ export class NotificationService {
     return {
       userId: actor.id,
       isAdmin: roles.includes(StaffRole.admin),
-      isAssistant: roles.includes(StaffRole.assistant),
+      isAssistant: hasSaleCsHeadAccess(roles),
     };
   }
 

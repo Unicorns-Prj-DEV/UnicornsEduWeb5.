@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -2195,7 +2196,7 @@ export class LessonService {
     return (
       access.roleType === UserRole.admin ||
       access.staffRoles.includes(StaffRole.admin) ||
-      access.staffRoles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(access.staffRoles) ||
       access.staffRoles.includes(StaffRole.accountant_expense)
     );
   }
@@ -2422,7 +2423,7 @@ export class LessonService {
 
     const canManage =
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.lesson_plan_head);
     const canParticipate =
       canManage || staff.roles.includes(StaffRole.lesson_plan);

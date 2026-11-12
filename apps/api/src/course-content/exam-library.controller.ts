@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -43,7 +44,7 @@ export class CourseExamLibraryController {
   @Get()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -76,7 +77,7 @@ export class CourseExamLibraryController {
   @Post()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -103,7 +104,7 @@ export class CourseExamLibraryController {
   @Patch(':lessonId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -130,7 +131,7 @@ export class CourseExamLibraryController {
   @Delete(':lessonId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -159,7 +160,7 @@ export class CourseExamLibraryController {
   @Post('reorder')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )

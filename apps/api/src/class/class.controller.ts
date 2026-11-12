@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -70,7 +71,7 @@ import {
 @ApiTags('class')
 @ApiCookieAuth('access_token')
 @AllowStaffRolesOnAdminRoutes(
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
@@ -182,7 +183,7 @@ export class ClassController {
   }
 
   @Patch(':id/basic-info')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update class basic info',
     description:
@@ -206,7 +207,7 @@ export class ClassController {
   }
 
   @Patch(':id/pricing-mode')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Đổi chế độ tính tiền của lớp',
     description:
@@ -233,7 +234,7 @@ export class ClassController {
   }
 
   @Patch(':id/teachers')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update class teachers',
     description:
@@ -257,10 +258,7 @@ export class ClassController {
   }
 
   @Patch(':id/teacher-compensation')
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Update class teacher compensation',
     description:
@@ -287,7 +285,7 @@ export class ClassController {
   }
 
   @Patch(':id/schedule')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update class schedule',
     description:
@@ -327,7 +325,7 @@ export class ClassController {
   @ApiResponse({ status: 200, description: 'Class updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async updateClassStudents(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,
@@ -341,7 +339,7 @@ export class ClassController {
   }
 
   @Post(':id/end')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'End class operations',
     description:
@@ -373,7 +371,7 @@ export class ClassController {
   }
 
   @Post(':id/teachers/:teacherId/stop-teaching')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Mark a teacher as stopped teaching this class',
     description:
@@ -406,10 +404,7 @@ export class ClassController {
   }
 
   @Patch(':id/student-tuition')
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_income,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_income)
   @ApiOperation({
     summary: 'Update one student tuition in class',
     description:
@@ -470,7 +465,7 @@ export class ClassController {
   }
 
   @Post(':id/schedule/google-calendar/resync')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Resync class schedule to Google Calendar',
     description:
@@ -489,7 +484,7 @@ export class ClassController {
   }
 
   @Post(':id/makeup-events/:eventId/google-calendar/resync')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Resync one makeup event to Google Calendar',
     description:
@@ -555,7 +550,7 @@ export class ClassController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create class',
     description:
@@ -576,7 +571,7 @@ export class ClassController {
   }
 
   @Post(':id/surveys')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create class survey',
     description:
@@ -600,7 +595,7 @@ export class ClassController {
   }
 
   @Post(':id/makeup-events')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create class makeup schedule event',
     description: 'Create one makeup event for the specified class.',
@@ -655,7 +650,7 @@ export class ClassController {
   }
 
   @Patch(':id/surveys/:surveyId')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update class survey',
     description:
@@ -681,7 +676,7 @@ export class ClassController {
   }
 
   @Patch(':id/makeup-events/:eventId')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update class makeup schedule event',
     description: 'Update one makeup event that belongs to the specified class.',
@@ -719,7 +714,7 @@ export class ClassController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete class',
     description: 'Delete a class record by id.',
@@ -739,7 +734,7 @@ export class ClassController {
   }
 
   @Delete(':id/surveys/:surveyId')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete class survey',
     description: 'Delete one class survey report.',
@@ -761,7 +756,7 @@ export class ClassController {
   }
 
   @Delete(':id/makeup-events/:eventId')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete class makeup schedule event',
     description: 'Delete one makeup event that belongs to the specified class.',

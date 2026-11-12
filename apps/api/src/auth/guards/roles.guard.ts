@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   CanActivate,
   ExecutionContext,
@@ -102,7 +103,7 @@ export class RolesGuard implements CanActivate {
 
       const allowedStaffRoles =
         allowedStaffRolesOnAdminRoutes ??
-        (allowAssistantOnAdminRoutes ? [StaffRole.assistant] : []);
+        (allowAssistantOnAdminRoutes ? [SALE_CS_HEAD_ROLE] : []);
 
       if (
         staffRoles.some((staffRole) => allowedStaffRoles.includes(staffRole))

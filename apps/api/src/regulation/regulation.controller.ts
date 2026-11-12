@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -16,7 +17,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { StaffRole, UserRole } from 'generated/enums';
+import { UserRole } from 'generated/enums';
 import {
   CurrentUser,
   type JwtPayload,
@@ -55,7 +56,7 @@ export class RegulationController {
 
   @Post()
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create a regulation',
     description:
@@ -82,7 +83,7 @@ export class RegulationController {
 
   @Patch(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update a regulation',
     description:
@@ -114,7 +115,7 @@ export class RegulationController {
 
   @Delete(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete a regulation',
     description:

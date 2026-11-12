@@ -1,5 +1,6 @@
 "use client";
 
+import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   keepPreviousData,
@@ -781,7 +782,7 @@ export default function AdminStaffDetailPage({
   const fixedSalaryPayables = incomeSummary?.fixedSalaryPayables ?? [];
   const showAssistantDualRoleHelper =
     hasAssistantAndCustomerCareRoles(staff?.roles) &&
-    otherRoleSummaries.some((item) => item.role === "assistant");
+    otherRoleSummaries.some((item) => item.role === SALE_CS_HEAD_ROLE);
   const beforeDeductionCards = useMemo(() => {
     if (!incomeSummary) {
       return [] as { key: string; label: string; value: number }[];

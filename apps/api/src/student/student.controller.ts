@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   ForbiddenException,
   Body,
@@ -109,7 +110,7 @@ export class StudentController {
     status: 200,
     description: 'Matching users with eligibility metadata.',
   })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async searchAssignableUsers(@Query() query: SearchAssignableStudentUsersDto) {
     return this.studentService.searchAssignableUsersByEmail(query.email);
   }
@@ -126,7 +127,7 @@ export class StudentController {
   @ApiResponse({ status: 201, description: 'Created student.' })
   @ApiResponse({ status: 400, description: 'Validation or eligibility error.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async createStudent(
     @CurrentUser() user: JwtPayload,
     @Body() data: CreateStudentDto,
@@ -149,7 +150,7 @@ export class StudentController {
     description: 'Paginated students list with data and meta.',
   })
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant,
     StaffRole.accountant_income,
   )
@@ -226,7 +227,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Updated student.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async updateStudent(
     @CurrentUser() user: JwtPayload,
     @Body() data: UpdateStudentDto,
@@ -255,7 +256,7 @@ export class StudentController {
       'Assistant can only submit negative balance deltas (withdraw). Positive manual top-up remains admin-only.',
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async updateStudentAccountBalance(
     @CurrentUser() user: JwtPayload,
     @CurrentAuth() auth: ResolvedAuthAccess | null,
@@ -541,7 +542,7 @@ export class StudentController {
     status: 503,
     description: 'ADMIN_EMAIL or SMTP is not configured.',
   })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async createStudentWalletDirectTopUpRequest(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -570,7 +571,7 @@ export class StudentController {
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @ApiResponse({ status: 503, description: 'SePay is not configured.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async createStudentSePayTopUpOrder(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -601,7 +602,7 @@ export class StudentController {
     status: 503,
     description: 'SePay static QR is not configured.',
   })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async getStudentSePayStaticQr(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -627,7 +628,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Student classes updated.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student or class not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async updateStudentClasses(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -653,7 +654,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Updated student.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async updateStudentById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -667,7 +668,7 @@ export class StudentController {
   }
 
   @Patch(':id/status')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   @ApiOperation({
     summary: 'Update student operational status',
     description:
@@ -719,7 +720,7 @@ export class StudentController {
   })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async getStudentWalletHistory(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -740,7 +741,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Student found.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant,
     StaffRole.accountant_income,
     StaffRole.customer_care,
@@ -778,7 +779,7 @@ export class StudentController {
     description: 'Missing linked user or invalid image.',
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async uploadStudentAvatar(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -802,7 +803,7 @@ export class StudentController {
   @ApiResponse({ status: 200, description: 'Student detail without avatar.' })
   @ApiResponse({ status: 400, description: 'Missing linked user.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async deleteStudentAvatar(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -827,7 +828,7 @@ export class StudentController {
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant,
     StaffRole.accountant_income,
     StaffRole.customer_care,
@@ -859,7 +860,7 @@ export class StudentController {
     type: [StudentExamScheduleItemDto],
   })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   async updateStudentExamSchedules(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,
@@ -880,7 +881,7 @@ export class StudentController {
   @ApiParam({ name: 'id', description: 'Student ID' })
   @ApiResponse({ status: 200, description: 'Student deleted.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async deleteStudent(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,

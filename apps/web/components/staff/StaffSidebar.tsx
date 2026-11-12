@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -586,7 +587,7 @@ export default function StaffSidebar() {
   const hasStaffProfile = Boolean(fullProfile?.staffInfo?.id);
   const isFullAdmin =
     fullProfile?.roleType === "admin" || staffRoles.includes("admin");
-  const isAssistant = hasStaffProfile && staffRoles.includes("assistant");
+  const isAssistant = hasStaffProfile && hasSaleCsHeadAccess(staffRoles);
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
   const isTraining = hasTrainingAccess(staffRoles);

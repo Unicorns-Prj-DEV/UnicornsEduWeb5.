@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 
 export function canViewCrossStaffRoleDetail(
@@ -17,5 +18,5 @@ export function canViewCrossStaffRoleDetail(
   }
 
   const roles = profile.staffInfo?.roles ?? [];
-  return roles.includes("assistant") || roles.includes("accountant_expense");
+  return hasSaleCsHeadAccess(roles) || roles.includes("accountant_expense");
 }

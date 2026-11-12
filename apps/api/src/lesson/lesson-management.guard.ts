@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   CanActivate,
   ExecutionContext,
@@ -48,7 +49,7 @@ export class LessonManagementGuard implements CanActivate {
 
     if (
       !staff.roles.includes(StaffRole.admin) &&
-      !staff.roles.includes(StaffRole.assistant) &&
+      !hasSaleCsHeadAccess(staff.roles) &&
       !staff.roles.includes(StaffRole.lesson_plan_head)
     ) {
       throw new ForbiddenException(

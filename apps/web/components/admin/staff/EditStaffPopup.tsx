@@ -1,5 +1,6 @@
 "use client";
 
+import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 import { useMemo, useState, type ReactNode, type SyntheticEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -166,7 +167,7 @@ export default function EditStaffPopup({
   });
 
   const hasCustomerCareRole = selectedRoles.has("customer_care");
-  const hasAssistantRole = selectedRoles.has("assistant");
+  const hasAssistantRole = selectedRoles.has(SALE_CS_HEAD_ROLE);
   const isDualRole = hasCustomerCareRole && hasAssistantRole;
   const showManagedByField = hasCustomerCareRole && !isDualRole;
   const showRevenueShareField = selectedRoles.has("lesson_plan_head");

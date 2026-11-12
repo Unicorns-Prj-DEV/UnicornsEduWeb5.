@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
 import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import Link from "next/link";
@@ -2059,7 +2060,7 @@ export default function StaffDashboardPage() {
     profile?.roleType === "admin" && !linkedStaffId;
   const isAssistant =
     (profile?.roleType === "staff" || profile?.roleType === "admin") &&
-    staffRoles.includes("assistant");
+    hasSaleCsHeadAccess(staffRoles);
 
   const incomeQuery = useQuery({
     queryKey: ["staff", "self", "income-summary", year, month],
@@ -2156,7 +2157,7 @@ export default function StaffDashboardPage() {
     staffRoles.includes("teacher") ||
     hasLessonPlan ||
     hasLessonPlanHead ||
-    staffRoles.includes("assistant") ||
+    hasSaleCsHeadAccess(staffRoles) ||
     staffRoles.includes("customer_care") ||
     hasIncomeAccountantDashboard ||
     hasExpenseAccountantDashboard ||
@@ -2308,7 +2309,7 @@ export default function StaffDashboardPage() {
               />
             ) : null}
 
-            {staffRoles.includes("assistant") && dashboard?.assistant ? (
+            {hasSaleCsHeadAccess(staffRoles) && dashboard?.assistant ? (
               <AssistantSection
                 section={dashboard.assistant}
                 monthLabel={monthLabel}

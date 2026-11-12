@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -78,7 +79,7 @@ export class UserController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async getUsers(
     @CurrentUser() user: JwtPayload,
     @Query() query: GetUsersQueryDto,
@@ -96,7 +97,7 @@ export class UserController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden. Admin only.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async getUserById(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -105,7 +106,7 @@ export class UserController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create user',
     description:
@@ -143,7 +144,7 @@ export class UserController {
   }
 
   @Post('student')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.customer_care)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
   @ApiOperation({
     summary: 'Create student user with profile and classes',
     description:
@@ -186,7 +187,7 @@ export class UserController {
   }
 
   @Patch()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update user',
     description: 'Update a user. Admin only.',
@@ -215,7 +216,7 @@ export class UserController {
   }
 
   @Patch(':id/password')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Set user password',
     description:
@@ -244,7 +245,7 @@ export class UserController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete user',
     description:

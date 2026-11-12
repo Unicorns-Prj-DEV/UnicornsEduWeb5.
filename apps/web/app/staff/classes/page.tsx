@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
 import { useQuery } from "@tanstack/react-query";
 import AdminClassesPage from "@/app/admin/classes/page";
@@ -26,7 +27,7 @@ function hasStaffClassOpsListAccess(roles: string[], roleType?: string): boolean
   return (
     roleType === "admin" ||
     roles.includes("admin") ||
-    roles.includes("assistant") ||
+    hasSaleCsHeadAccess(roles) ||
     roles.includes("accountant_income") ||
     roles.includes("accountant_expense")
   );

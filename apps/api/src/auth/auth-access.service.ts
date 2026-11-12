@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import { Injectable } from '@nestjs/common';
 import {
   StaffRole,
@@ -155,7 +156,7 @@ function resolveAdminTier(
     return 'full';
   }
 
-  if (staffRoles.includes(StaffRole.assistant)) {
+  if (hasSaleCsHeadAccess(staffRoles)) {
     return 'assistant';
   }
 

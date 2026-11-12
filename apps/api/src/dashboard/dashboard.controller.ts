@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { Controller, Get, Query, Res, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import {
@@ -375,7 +376,7 @@ export class DashboardController {
 
   @Get('monthly-report')
   // Báo cáo tháng: admin + trợ lí xem; CSKH và kế toán thu không xem.
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Get the monthly operations report (Báo cáo tháng)',
     description:

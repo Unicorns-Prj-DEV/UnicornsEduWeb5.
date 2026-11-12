@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -42,7 +43,7 @@ const imageUploadInterceptor = FileInterceptor('file', {
 @Controller('question-images')
 @Roles(UserRole.admin)
 @AllowStaffRolesOnAdminRoutes(
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.teacher,
   StaffRole.lesson_plan,
   StaffRole.lesson_plan_head,

@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
 
@@ -47,7 +48,7 @@ export function resolveStaffLessonWorkspace(
     profile?.roleType === "staff" ||
     effectiveRoleTypes.includes(Role.staff) ||
     (hasStaffProfile && profile?.roleType !== "guest");
-  const isAssistant = isStaff && staffRoles.includes("assistant");
+  const isAssistant = isStaff && hasSaleCsHeadAccess(staffRoles);
   const isLessonPlanHead = isStaff && staffRoles.includes("lesson_plan_head");
   const isLessonPlan = isStaff && staffRoles.includes("lesson_plan");
   const isAccountantExpense =

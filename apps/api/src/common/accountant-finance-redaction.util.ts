@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { StaffRole, UserRole } from 'generated/enums';
 
 export type AccountantFinanceView = 'full' | 'income' | 'expense';
@@ -15,7 +16,7 @@ export function resolveAccountantFinanceView(
 ): AccountantFinanceView {
   if (
     roleType === UserRole.admin ||
-    hasAnyRole(staffRoles, [StaffRole.admin, StaffRole.assistant])
+    hasAnyRole(staffRoles, [StaffRole.admin, SALE_CS_HEAD_ROLE])
   ) {
     return 'full';
   }

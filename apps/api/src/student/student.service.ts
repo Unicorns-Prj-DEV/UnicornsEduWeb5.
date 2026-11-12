@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -826,7 +827,7 @@ export class StudentService {
     }
 
     if (
-      staff.roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income)
     ) {
@@ -914,7 +915,7 @@ export class StudentService {
 
     const canManageCustomerCareAssignment = Boolean(
       staff?.roles.includes(StaffRole.admin) ||
-      staff?.roles.includes(StaffRole.assistant),
+      hasSaleCsHeadAccess(staff?.roles),
     );
 
     if (!canManageCustomerCareAssignment) {
@@ -1770,7 +1771,7 @@ export class StudentService {
       );
     }
 
-    if (staff.roles.includes(StaffRole.assistant)) {
+    if (hasSaleCsHeadAccess(staff.roles)) {
       return { staffRoles: staff.roles };
     }
 
@@ -2803,9 +2804,7 @@ export class StudentService {
     // (không reset học phí riêng mỗi lần lưu danh sách lớp).
     const activeClassIds = new Set(
       existingMemberships
-        .filter(
-          (membership) => membership.status === StudentClassStatus.active,
-        )
+        .filter((membership) => membership.status === StudentClassStatus.active)
         .map((membership) => membership.classId),
     );
     const classIdsToActivate = classIds.filter(
@@ -2991,12 +2990,7 @@ export class StudentService {
     }
 
     return this.withEntityIdRetry(() =>
-      this.createStudentOnce(
-        data,
-        auditActor,
-        user,
-        trimmedFullName,
-      ),
+      this.createStudentOnce(data, auditActor, user, trimmedFullName),
     );
   }
 

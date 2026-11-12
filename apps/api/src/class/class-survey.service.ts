@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ConflictException,
@@ -5,7 +6,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { StaffRole, StudentClassStatus, UserRole, ClassTimelineItemKind } from 'generated/enums';
+import {
+  StaffRole,
+  StudentClassStatus,
+  UserRole,
+  ClassTimelineItemKind,
+} from 'generated/enums';
 import {
   ActionHistoryActor,
   ActionHistoryService,
@@ -18,7 +24,10 @@ import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
-import { appendClassTimelineItem, syncClassTimelineSortByTime } from 'src/class-timeline/append-timeline-item';
+import {
+  appendClassTimelineItem,
+  syncClassTimelineSortByTime,
+} from 'src/class-timeline/append-timeline-item';
 
 type SurveyMonthQuery = {
   month: string;
@@ -446,7 +455,7 @@ export class ClassSurveyService {
 
     if (
       actor.roles.includes(StaffRole.admin) ||
-      actor.roles.includes(StaffRole.assistant)
+      hasSaleCsHeadAccess(actor.roles)
     ) {
       return { actorId: actor.id, teacherScoped: false };
     }

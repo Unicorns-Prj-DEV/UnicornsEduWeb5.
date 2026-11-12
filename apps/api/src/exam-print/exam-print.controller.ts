@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Controller,
   Get,
@@ -75,7 +76,7 @@ export class LessonExamPrintController {
   @Get()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
     StaffRole.teacher,

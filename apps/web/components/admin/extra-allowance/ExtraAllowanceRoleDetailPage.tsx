@@ -1,5 +1,6 @@
 "use client";
 
+import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState, useEffect } from "react";
@@ -315,7 +316,7 @@ export default function ExtraAllowanceRoleDetailPage({
   const monthQuery = toExtraAllowanceMonthQuery(selectedMonth);
   const selectedMonthLabel = formatMonthKeyLabel(monthQuery.monthKey);
   const showAssistantCommissionTab =
-    roleType === "assistant" && Boolean(normalizedStaffId);
+    roleType === SALE_CS_HEAD_ROLE && Boolean(normalizedStaffId);
   const showTrainingClassesTab =
     (roleType === "training" || roleType === "training_head") &&
     Boolean(normalizedStaffId);

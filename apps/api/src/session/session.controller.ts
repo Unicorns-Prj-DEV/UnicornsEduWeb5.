@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   Body,
@@ -71,7 +72,7 @@ export class SessionController {
 
   @Post()
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Tạo session',
     description:
@@ -94,7 +95,7 @@ export class SessionController {
   @Put(':id')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )
@@ -129,7 +130,7 @@ export class SessionController {
   @Patch('payment-status/bulk')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )
@@ -189,10 +190,7 @@ export class SessionController {
 
   @Get('/staff/:staffId/unpaid')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
   @ApiOperation({
     summary:
       'Lấy tổng phụ cấp session chưa nhận theo staff trong N ngày gần nhất',
@@ -239,10 +237,7 @@ export class SessionController {
 
   @Get('/staff/:staffId/missed-teaching-alerts')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Lấy cảnh báo chưa dạy theo nhân sự',
   })
@@ -275,10 +270,7 @@ export class SessionController {
 
   @Get('/staff/:staffId')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
   @ApiOperation({ summary: 'Lấy session theo staff + tháng/năm' })
   @ApiParam({
     name: 'staffId',
@@ -303,7 +295,7 @@ export class SessionController {
   @Get('/class/:classId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )
@@ -341,7 +333,7 @@ export class SessionController {
   @Get('/class/:classId/next-ordinal')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )
@@ -367,10 +359,7 @@ export class SessionController {
 
   @Get('/class/:classId/missed-teaching-alerts')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Lấy cảnh báo chưa dạy theo lớp',
   })
@@ -402,7 +391,7 @@ export class SessionController {
   }
 
   @Post('/class/:classId/missed-teaching-explanations')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Lưu giải trình vắng cho buổi học gốc',
   })
@@ -434,7 +423,7 @@ export class SessionController {
   }
 
   @Patch('/missed-teaching-explanations/:id')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Cập nhật giải trình vắng',
   })

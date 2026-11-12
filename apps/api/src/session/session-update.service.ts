@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -1594,7 +1595,7 @@ export class SessionUpdateService {
 
           const resolveAssistantTaxRate = (staffId?: string | null) =>
             staffId
-              ? getTaxRate(staffId, StaffRole.assistant)
+              ? getTaxRate(staffId, SALE_CS_HEAD_ROLE)
               : Promise.resolve(0);
 
           await Promise.all(

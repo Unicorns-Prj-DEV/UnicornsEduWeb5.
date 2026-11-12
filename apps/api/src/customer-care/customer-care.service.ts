@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -144,7 +145,7 @@ export class CustomerCareService {
     }
 
     if (
-      staff.roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income)
     ) {
@@ -185,7 +186,7 @@ export class CustomerCareService {
 
     return (
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant) ||
       staff.roles.includes(StaffRole.accountant_income) ||
       staff.roles.includes(StaffRole.accountant_expense)
@@ -207,8 +208,7 @@ export class CustomerCareService {
     }
 
     return (
-      staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant)
+      staff.roles.includes(StaffRole.admin) || hasSaleCsHeadAccess(staff.roles)
     );
   }
 

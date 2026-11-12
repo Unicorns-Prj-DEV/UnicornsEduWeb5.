@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
@@ -186,7 +187,7 @@ function resolveStaffShellContext(
   const isTraining = hasTrainingAccess(staffRoles);
   const isTrainingRole = staffRoles.includes("training");
   const isTrainingHead = staffRoles.includes("training_head");
-  const isAssistant = staffRoles.includes("assistant");
+  const isAssistant = hasSaleCsHeadAccess(staffRoles);
   const isAccountantIncome =
     staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
   const isAccountantExpense = staffRoles.includes("accountant_expense");

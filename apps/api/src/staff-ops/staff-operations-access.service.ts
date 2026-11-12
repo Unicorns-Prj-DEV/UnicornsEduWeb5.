@@ -1,4 +1,8 @@
 import {
+  SALE_CS_HEAD_ROLE,
+  hasSaleCsHeadAccess,
+} from 'src/common/sale-cs-head-access';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -21,7 +25,7 @@ export type StaffCalendarAccessMode = 'admin' | 'teacher' | 'training';
 
 const ELEVATED_CLASS_ACCESS_ROLES = [
   StaffRole.admin,
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
@@ -163,7 +167,7 @@ export class StaffOperationsAccessService {
 
     if (
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant)
+      hasSaleCsHeadAccess(staff.roles)
     ) {
       return { lockedTeacherId: null };
     }

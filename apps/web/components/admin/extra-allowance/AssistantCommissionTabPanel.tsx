@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -126,7 +127,7 @@ export default function AssistantCommissionTabPanel({
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
   const canEditPaymentStatus =
     fullProfile?.roleType === "admin" ||
-    staffRoles.includes("assistant") ||
+    hasSaleCsHeadAccess(staffRoles) ||
     staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
     staffRoles.includes("accountant") ||

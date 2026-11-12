@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ConflictException,
@@ -989,7 +990,7 @@ export class AuthService {
     const targetIsPrivileged =
       target.roleType === UserRole.admin ||
       targetRoles.includes(StaffRole.admin) ||
-      targetRoles.includes(StaffRole.assistant);
+      hasSaleCsHeadAccess(targetRoles);
 
     if (!actorIsFullAdmin && targetIsPrivileged && target.id !== actor.userId) {
       throw new ForbiddenException(

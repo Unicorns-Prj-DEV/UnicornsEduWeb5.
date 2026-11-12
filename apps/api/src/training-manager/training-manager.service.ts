@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -298,7 +299,7 @@ export class TrainingManagerService {
     }
 
     const canViewOthers =
-      actor.roles.includes(StaffRole.assistant) ||
+      hasSaleCsHeadAccess(actor.roles) ||
       actor.roles.includes(StaffRole.accountant_income) ||
       actor.roles.includes(StaffRole.accountant_expense) ||
       actor.roles.includes(StaffRole.accountant);
@@ -585,7 +586,7 @@ export class TrainingManagerService {
       where: { userId: actor.userId },
       select: { roles: true },
     });
-    if (!staff?.roles.includes(StaffRole.assistant)) {
+    if (!hasSaleCsHeadAccess(staff?.roles)) {
       throw new ForbiddenException(
         'Chỉ admin hoặc trợ lí được chỉnh quản lý lớp.',
       );
@@ -618,7 +619,7 @@ export class TrainingManagerService {
         select: { roles: true },
       });
       const canEdit =
-        actor?.roles.includes(StaffRole.assistant) ||
+        hasSaleCsHeadAccess(actor?.roles) ||
         actor?.roles.includes(StaffRole.accountant_income) ||
         actor?.roles.includes(StaffRole.accountant_expense) ||
         actor?.roles.includes(StaffRole.accountant);

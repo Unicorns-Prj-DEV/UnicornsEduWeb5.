@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -34,7 +35,7 @@ import { BonusService } from './bonus.service';
 @ApiCookieAuth('access_token')
 @AllowStaffRolesOnAdminRoutes(
   StaffRole.admin,
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.accountant_expense,
 )
 @Roles(UserRole.admin)
@@ -115,7 +116,7 @@ export class BonusController {
   @Post()
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.admin,
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant_expense,
   )
   @ApiOperation({
@@ -162,7 +163,7 @@ export class BonusController {
   @Delete(':id')
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.admin,
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant_expense,
   )
   @ApiOperation({

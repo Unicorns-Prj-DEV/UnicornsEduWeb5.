@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { useGiftedLessonPlanEnabled } from "@/lib/gifted-lesson-plan";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -231,7 +232,7 @@ export default function AdminDashboardTabPage() {
 
   const isAssistantStaff =
     profileData?.roleType === "staff" &&
-    (profileData.staffInfo?.roles ?? []).includes("assistant");
+    hasSaleCsHeadAccess(profileData.staffInfo?.roles);
   const assistantStaffId = profileData?.staffInfo?.id ?? "";
 
   const defaultPeriod = useMemo(() => {

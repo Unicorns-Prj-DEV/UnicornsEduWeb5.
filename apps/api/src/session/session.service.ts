@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { Injectable } from '@nestjs/common';
 import {
   CreateMissedTeachingExplanationDto,
@@ -22,7 +23,7 @@ import { StaffOperationsAccessService } from '../staff-ops/staff-operations-acce
 import { StaffRole } from '../../generated/enums';
 
 const ELEVATED_CLASS_ACCESS_ROLES: StaffRole[] = [
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
 ];

@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Controller,
   Delete,
@@ -33,7 +34,7 @@ import { DeviceService } from './device.service';
 @AllowStaffRolesOnAdminRoutes(
   StaffRole.admin,
   StaffRole.customer_care,
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
 )
 @AllowAssistantOnAdminRoutes()
 export class DeviceController {
@@ -104,7 +105,7 @@ export class DeviceController {
   @Delete('cleanup-expired')
   @HttpCode(HttpStatus.OK)
   // Dọn thiết bị toàn hệ thống: không cho CSKH (chỉ admin + trợ lí).
-  @AllowStaffRolesOnAdminRoutes(StaffRole.admin, StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.admin, SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Dọn dẹp thiết bị hết hạn',
     description:

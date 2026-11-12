@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -330,7 +331,7 @@ export default function CustomerCareDetailPanels({
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
   const canEditCommissionPaymentStatus =
     fullProfile?.roleType === "admin" ||
-    staffRoles.includes("assistant") ||
+    hasSaleCsHeadAccess(staffRoles) ||
     staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
     staffRoles.includes("accountant") ||
@@ -338,7 +339,7 @@ export default function CustomerCareDetailPanels({
   const canEditProfitPercent =
     fullProfile?.roleType === "admin" ||
     staffRoles.includes("admin") ||
-    staffRoles.includes("assistant");
+    hasSaleCsHeadAccess(staffRoles);
 
   const {
     data: studentListPages,

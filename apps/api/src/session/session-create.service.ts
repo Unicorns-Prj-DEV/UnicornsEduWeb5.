@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -600,7 +601,7 @@ export class SessionCreateService {
                   ? PaymentStatus.pending
                   : null,
                 assistantTaxDeductionRatePercent: assistantId
-                  ? await getTaxRate(assistantId, StaffRole.assistant)
+                  ? await getTaxRate(assistantId, SALE_CS_HEAD_ROLE)
                   : 0,
               };
             }),

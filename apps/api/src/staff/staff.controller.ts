@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -74,7 +75,7 @@ import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-conte
 @Controller('staff')
 @ApiTags('staff')
 @ApiCookieAuth('access_token')
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.accountant_expense)
+@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.accountant_expense)
 @Roles(UserRole.admin)
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
@@ -102,7 +103,7 @@ export class StaffController {
 
   @Get('customer-care-options')
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.accountant_expense,
     StaffRole.customer_care,
   )
@@ -299,9 +300,14 @@ export class StaffController {
   @Roles()
   @UseGuards(ApiKeyGuard)
   @Throttle({ default: { limit: 30, ttl: 60000 } })
-  @ApiOperation({ summary: 'Count landing tutors, including inactive teachers' })
+  @ApiOperation({
+    summary: 'Count landing tutors, including inactive teachers',
+  })
   @ApiHeader({ name: LANDING_API_KEY_HEADER, required: true })
-  @ApiResponse({ status: 200, description: 'Total teachers across all statuses.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Total teachers across all statuses.',
+  })
   @ApiResponse({ status: 401, description: 'Missing or invalid API key.' })
   async getLandingTutorCount() {
     return this.staffService.getLandingTutorCount();
@@ -312,7 +318,10 @@ export class StaffController {
   @Roles()
   @UseGuards(ApiKeyGuard)
   @Throttle({ default: { limit: 30, ttl: 60000 } })
-  @ApiOperation({ summary: 'List all landing tutors without pagination, including inactive teachers' })
+  @ApiOperation({
+    summary:
+      'List all landing tutors without pagination, including inactive teachers',
+  })
   @ApiHeader({ name: LANDING_API_KEY_HEADER, required: true })
   @ApiResponse({ status: 200, type: StaffLandingProfilesResponseDto })
   @ApiResponse({ status: 401, description: 'Missing or invalid API key.' })
@@ -744,7 +753,7 @@ export class StaffController {
   }
 
   @Post()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Create staff',
     description: 'Create a new staff record.',
@@ -776,7 +785,7 @@ export class StaffController {
   }
 
   @Patch()
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update staff',
     description: 'Update a staff record.',
@@ -811,7 +820,7 @@ export class StaffController {
   }
 
   @Patch(':id/with-fixed-salary-overrides')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update staff roles and fixed-salary overrides together',
     description:
@@ -887,7 +896,7 @@ export class StaffController {
   }
 
   @Patch(':id/status')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Update staff operational status',
     description:
@@ -936,7 +945,7 @@ export class StaffController {
   }
 
   @Delete(':id')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiOperation({
     summary: 'Delete staff',
     description: 'Delete a staff record by id.',
