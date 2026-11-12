@@ -141,7 +141,7 @@ export default function AdminLessonPlanDetailPage() {
   const isLessonPlanHead =
     staffQuery.data?.roles?.includes("lesson_plan_head") ?? false;
   const rolesResolved = staffQuery.isSuccess || staffQuery.isError;
-  // Giáo án học sinh giỏi chỉ có trên IT — JP/ENG trưởng giáo án chỉ có tab hoa hồng.
+  // Giáo án học sinh giỏi chỉ có trên IT — JP/ENG trưởng ban Chuyên môn chỉ có tab hoa hồng.
   const giftedLessonPlanEnabled = useGiftedLessonPlanEnabled();
   const showTabSwitcher = isLessonPlanHead && giftedLessonPlanEnabled !== false;
   const showRevenueTab =

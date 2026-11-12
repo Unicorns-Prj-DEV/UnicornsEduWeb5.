@@ -22,7 +22,7 @@ export function hasTrainingAccess(
 /**
  * Role nhận **Trợ cấp quản lý lớp** trong thu nhập (dòng «Công việc khác»,
  * thuế, preview thanh toán). Người có cả hai role → ghi vào `training`;
- * Trưởng Ban Đào Tạo không có `training` → ghi vào dòng của chính
+ * Trưởng ban Đào tạo không có `training` → ghi vào dòng của chính
  * `training_head` (ADR 2026-11-11-training-head-independent-role).
  */
 export function resolveTrainingManagerIncomeRole(

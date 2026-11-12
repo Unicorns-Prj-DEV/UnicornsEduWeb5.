@@ -908,7 +908,7 @@ describe('StaffService', () => {
       },
       {
         role: StaffRole.lesson_plan,
-        label: 'Chuyên môn',
+        label: 'Ban Chuyên môn',
         total: 100000,
         paid: 80000,
         unpaid: 20000,
@@ -1503,7 +1503,7 @@ describe('StaffService', () => {
     expect(result.otherRoleSummaries).toEqual([
       {
         role: StaffRole.lesson_plan_head,
-        label: 'Trưởng chuyên môn',
+        label: 'Trưởng ban Chuyên môn',
         total: 252933,
         paid: 52320,
         unpaid: 200613,

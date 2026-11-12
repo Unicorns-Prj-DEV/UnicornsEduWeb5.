@@ -1,7 +1,7 @@
 import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 
 /**
- * Chỉnh role nhân sự bởi Trưởng Ban Đào Tạo (CONTEXT.md). Khớp
+ * Chỉnh role nhân sự bởi Trưởng ban Đào tạo (CONTEXT.md). Khớp
  * `training-head-role-policy.ts` ở backend; backend vẫn là nơi chặn cuối.
  */
 export const TRAINING_HEAD_MANAGEABLE_ROLES = [

@@ -202,7 +202,7 @@ export class CreateStaffDto {
   @ApiPropertyOptional({
     example: 3,
     description:
-      'Tỷ lệ % hoa hồng trên tổng doanh thu hệ thống, áp dụng cho nhân sự có vai trò lesson_plan_head (Trưởng chuyên môn). Đơn vị phần trăm (VD: 3 = 3%).',
+      'Tỷ lệ % hoa hồng trên tổng doanh thu hệ thống, áp dụng cho nhân sự có vai trò lesson_plan_head (Trưởng ban Chuyên môn). Đơn vị phần trăm (VD: 3 = 3%).',
   })
   @IsOptional()
   @IsNumber()
@@ -682,7 +682,7 @@ export interface StaffPayDepositSessionsResultDto {
 }
 
 /**
- * PATCH /staff/:id/training-roles — Trưởng Ban Đào Tạo bật/tắt role gia sư /
+ * PATCH /staff/:id/training-roles — Trưởng ban Đào tạo bật/tắt role gia sư /
  * chuyên môn / đào tạo của nhân sự khác. Role ngoài 3 role này → 403.
  */
 export class UpdateStaffTrainingRolesDto {

@@ -274,7 +274,7 @@ const WORKSPACE_POLICY_COPY: Record<
       "Điều phối toàn bộ thư viện, task và lesson output trong một workspace thống nhất.",
   },
   lesson_plan_head: {
-    badge: "Trưởng chuyên môn",
+    badge: "Trưởng ban Chuyên môn",
     description:
       "Theo dõi tổng quan, xử lý công việc và quản lý kho giáo án trong staff shell.",
   },

@@ -3,8 +3,8 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { StaffRole } from 'generated/enums';
 
 /**
- * Role Trưởng Ban Đào Tạo được bật/tắt cho nhân sự khác (CONTEXT.md «Chỉnh role
- * nhân sự (Trưởng Ban Đào Tạo)»). Mọi role khác chỉ đọc và được giữ nguyên.
+ * Role Trưởng ban Đào tạo được bật/tắt cho nhân sự khác (CONTEXT.md «Chỉnh role
+ * nhân sự (Trưởng ban Đào tạo)»). Mọi role khác chỉ đọc và được giữ nguyên.
  */
 export const TRAINING_HEAD_MANAGEABLE_ROLES: readonly StaffRole[] = [
   StaffRole.teacher,
@@ -42,7 +42,7 @@ export function planTrainingHeadRoleChange(params: {
     )
   ) {
     throw new ForbiddenException(
-      'Không được chỉnh role của admin, trợ lí hoặc Trưởng ban đào tạo.',
+      'Không được chỉnh role của admin, trợ lí hoặc Trưởng ban Đào tạo.',
     );
   }
   const outOfScope = params.requestedRoles.filter(
@@ -50,7 +50,7 @@ export function planTrainingHeadRoleChange(params: {
   );
   if (outOfScope.length > 0) {
     throw new ForbiddenException(
-      'Trưởng ban đào tạo chỉ được bật/tắt role gia sư, chuyên môn, đào tạo.',
+      'Trưởng ban Đào tạo chỉ được bật/tắt role gia sư, Ban Chuyên môn, Đào Tạo.',
     );
   }
 

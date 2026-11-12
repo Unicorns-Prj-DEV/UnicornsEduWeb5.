@@ -57,7 +57,7 @@ export async function listTrainingTutorSessions(
   return response.data;
 }
 
-/** Trưởng Ban Đào Tạo bật/tắt role gia sư, chuyên môn, đào tạo của nhân sự. */
+/** Trưởng ban Đào tạo bật/tắt role gia sư, Ban Chuyên môn, Đào Tạo của nhân sự. */
 export async function updateStaffTrainingRoles(
   staffId: string,
   payload: UpdateStaffTrainingRolesPayload,

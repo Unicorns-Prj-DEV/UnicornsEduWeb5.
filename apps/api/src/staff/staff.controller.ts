@@ -869,7 +869,7 @@ export class StaffController {
   @Patch(':id/training-roles')
   @Roles(UserRole.staff)
   @ApiOperation({
-    summary: 'Trưởng ban đào tạo bật/tắt role gia sư / chuyên môn / đào tạo',
+    summary: 'Trưởng ban Đào tạo bật/tắt role gia sư / Ban Chuyên môn / Đào Tạo',
     description:
       'Chỉ staff active có role training_head. Body là trạng thái đích của 3 role teacher / lesson_plan / training; role khác của nhân sự giữ nguyên. 403 nếu body có role ngoài 3 role này, nếu target có admin / assistant / training_head, hoặc target là chính mình. Role bị tắt: mức đè lương cứng / % vận hành của role đó bị xoá và ghi action_history; khoản đã chốt/đã trả không đổi; không cascade lớp dạy, quản lý lớp, đội chuyên môn. Response chỉ có id + roles (không tiền, không PII).',
   })

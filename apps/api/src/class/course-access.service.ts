@@ -33,8 +33,8 @@ const LESSON_PLAN_TEAM_STAFF_ROLES = [
  *
  * Quy tắc:
  * - Admin đầy đủ, Trợ lí (`assistant`) quản lý được nội dung của MỌI khoá (manager).
- * - `lesson_plan` và Trưởng giáo án (`lesson_plan_head`) chỉ thấy/sửa khoá mình được
- *   gán vào đội giáo án (qua `CourseLessonPlanMember`). Trưởng giáo án không có quyền
+ * - `lesson_plan` và Trưởng ban Chuyên môn (`lesson_plan_head`) chỉ thấy/sửa khoá mình được
+ *   gán vào đội giáo án (qua `CourseLessonPlanMember`). Trưởng ban Chuyên môn không có quyền
  *   mặc định vào mọi khoá; quyền riêng của trưởng (tạo khoá, gán đội) cũng chỉ trên
  *   khoá được gán. Hoa hồng chia doanh thu không phụ thuộc việc gán khoá.
  * - Gia sư đang dạy lớp thuộc khoá X KHÔNG vì thế mà sửa được nội dung cấp khoá của X
@@ -153,7 +153,7 @@ export class CourseAccessService {
     }
     const label = courseName ? `của khoá "${courseName}"` : 'của khoá này';
     throw new ForbiddenException(
-      `Bạn không có quyền sửa nội dung ${label}. Chỉ admin, trợ lí, hoặc thành viên đội chuyên môn của khoá (kể cả trưởng chuyên môn) mới được sửa.`,
+      `Bạn không có quyền sửa nội dung ${label}. Chỉ admin, trợ lí, hoặc thành viên đội chuyên môn của khoá (kể cả trưởng ban Chuyên môn) mới được sửa.`,
     );
   }
 

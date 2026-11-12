@@ -112,7 +112,7 @@ export class CourseService {
   }
 
   async create(actor: CourseActor, dto: CreateCourseDto) {
-    // Trưởng giáo án chỉ thấy khoá được gán: tự gán người tạo để khoá không "biến mất".
+    // Trưởng ban Chuyên môn chỉ thấy khoá được gán: tự gán người tạo để khoá không "biến mất".
     const creatorStaffId =
       !this.courseAccess.isManager(actor) && actor.staffId
         ? actor.staffId
@@ -206,7 +206,7 @@ export class CourseService {
     });
   }
 
-  /** Bán một lần đụng tới học phí: chỉ admin/trợ lí, không cho trưởng giáo án. */
+  /** Bán một lần đụng tới học phí: chỉ admin/trợ lí, không cho trưởng ban Chuyên môn. */
   private assertCanChangeSaleMode(actor: CourseActor) {
     if (!this.courseAccess.isManager(actor)) {
       throw new ForbiddenException(

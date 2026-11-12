@@ -114,7 +114,7 @@ export class TrainingTutorService {
   }
 
   /**
-   * Như `assertTrainingViewer`, kèm phạm vi: Trưởng Ban Đào Tạo (và admin) xem
+   * Như `assertTrainingViewer`, kèm phạm vi: Trưởng ban Đào tạo (và admin) xem
    * được mọi nhân sự ở cùng mức dữ liệu hồ sơ gia sư; Ban Đào Tạo thường chỉ
    * xem staff có role `teacher`.
    */
@@ -154,7 +154,7 @@ export class TrainingTutorService {
     const isAllScope = query.scope === 'all';
     if (isAllScope && !canViewAllStaff) {
       throw new ForbiddenException(
-        'Chỉ Trưởng ban đào tạo mới xem được tất cả nhân sự.',
+        'Chỉ Trưởng ban Đào tạo mới xem được tất cả nhân sự.',
       );
     }
     const { page, limit, skip } = clampPaging(query);

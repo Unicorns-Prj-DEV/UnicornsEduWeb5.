@@ -20,7 +20,7 @@ export class TrainingTutorListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: TRAINING_TUTOR_SCOPES,
     description:
-      '`tutors` (mặc định): staff có role teacher. `all`: mọi nhân sự — chỉ Trưởng Ban Đào Tạo (và admin).',
+      '`tutors` (mặc định): staff có role teacher. `all`: mọi nhân sự — chỉ Trưởng ban Đào tạo (và admin).',
   })
   @IsOptional()
   @IsIn(TRAINING_TUTOR_SCOPES)
@@ -35,7 +35,7 @@ export interface TrainingTutorSummaryDto {
   id: string;
   fullName: string;
   status: StaffStatus;
-  /** Role nhân sự (không phải PII) — Trưởng Ban Đào Tạo dùng để chỉnh role. */
+  /** Role nhân sự (không phải PII) — Trưởng ban Đào tạo dùng để chỉnh role. */
   roles: StaffRole[];
   avatarUrl: string | null;
   university: string | null;

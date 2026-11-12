@@ -100,7 +100,7 @@ export class CourseController {
   @ApiOperation({
     summary: 'Get a course detail',
     description:
-      'Chi tiết khoá học kèm thang mức độ khó và đội chuyên môn. Admin/trợ lí xem mọi khoá; lesson_plan và trưởng chuyên môn chỉ xem khoá mình được gán.',
+      'Chi tiết khoá học kèm thang mức độ khó và đội chuyên môn. Admin/trợ lí xem mọi khoá; lesson_plan và trưởng ban Chuyên môn chỉ xem khoá mình được gán.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiResponse({ status: 200, description: 'Course detail.' })
@@ -126,7 +126,7 @@ export class CourseController {
   @ApiOperation({
     summary: 'Create a new course',
     description:
-      'Tạo khoá học. Mở cho admin, trợ lí, trưởng chuyên môn; trưởng chuyên môn tạo khoá thì tự được gán vào đội chuyên môn của khoá đó. default_duration_days để trống nghĩa là vô hạn.',
+      'Tạo khoá học. Mở cho admin, trợ lí, trưởng ban Chuyên môn; trưởng ban Chuyên môn tạo khoá thì tự được gán vào đội chuyên môn của khoá đó. default_duration_days để trống nghĩa là vô hạn.',
   })
   @ApiBody({ type: CreateCourseDto })
   @ApiResponse({ status: 201, description: 'Course created.' })
@@ -141,7 +141,7 @@ export class CourseController {
   @ApiOperation({
     summary: 'Update a course',
     description:
-      'Cập nhật khoá học (kể cả bật/tắt is_active). Mở cho admin, trợ lí; trưởng chuyên môn chỉ sửa khoá mình được gán. default_duration_days truyền null để chuyển về vô hạn.',
+      'Cập nhật khoá học (kể cả bật/tắt is_active). Mở cho admin, trợ lí; trưởng ban Chuyên môn chỉ sửa khoá mình được gán. default_duration_days truyền null để chuyển về vô hạn.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiBody({ type: UpdateCourseDto })
@@ -162,7 +162,7 @@ export class CourseController {
   @ApiOperation({
     summary: 'Delete a course',
     description:
-      'Mở cho admin, trợ lí; trưởng chuyên môn chỉ xoá khoá mình được gán. Chỉ xoá được khi không còn lớp nào dùng khoá học này. Nếu muốn ẩn tạm thời, dùng PATCH với is_active=false.',
+      'Mở cho admin, trợ lí; trưởng ban Chuyên môn chỉ xoá khoá mình được gán. Chỉ xoá được khi không còn lớp nào dùng khoá học này. Nếu muốn ẩn tạm thời, dùng PATCH với is_active=false.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiResponse({ status: 200, description: 'Course deleted.' })
@@ -319,7 +319,7 @@ export class CourseController {
   @ApiOperation({
     summary: 'Assign lesson plan members to a course',
     description:
-      'Thay thế toàn bộ đội chuyên môn của khoá. Chỉ admin, trợ lí, hoặc trưởng chuyên môn đã được gán vào khoá được gán; chỉ gán được nhân sự active có vai trò lesson_plan/lesson_plan_head.',
+      'Thay thế toàn bộ đội chuyên môn của khoá. Chỉ admin, trợ lí, hoặc trưởng ban Chuyên môn đã được gán vào khoá được gán; chỉ gán được nhân sự active có vai trò lesson_plan/lesson_plan_head.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiBody({ type: AssignCourseLessonPlanMembersDto })

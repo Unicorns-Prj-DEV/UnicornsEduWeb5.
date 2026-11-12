@@ -4815,7 +4815,7 @@ export class DashboardService {
               },
               {
                 key: 'lessonPlanHeadCost',
-                label: 'Hoa hồng Trưởng chuyên môn',
+                label: 'Hoa hồng Trưởng ban Chuyên môn',
                 kind: 'expense',
                 amount: rangeTotals.lessonPlanHeadCost,
               },
@@ -5021,7 +5021,7 @@ export class DashboardService {
             },
             {
               key: 'lessonPlanHeadCost',
-              label: 'Hoa hồng Trưởng chuyên môn',
+              label: 'Hoa hồng Trưởng ban Chuyên môn',
               kind: 'expense',
               amount: selectedMonthTrend.lessonPlanHeadCost,
             },
@@ -5688,9 +5688,9 @@ export class DashboardService {
                 },
                 {
                   key: 'pending-lesson-plan-head',
-                  label: 'Hoa hồng Trưởng chuyên môn chưa thanh toán',
+                  label: 'Hoa hồng Trưởng ban Chuyên môn chưa thanh toán',
                   amount: totalLessonPlanHeadAmount,
-                  note: 'Hoa hồng % doanh thu của Trưởng chuyên môn ở trạng thái chưa chi trả.',
+                  note: 'Hoa hồng % doanh thu của Trưởng ban Chuyên môn ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
               ]),
@@ -5822,9 +5822,9 @@ export class DashboardService {
                   },
                   {
                     key: 'lesson-plan-head-cost',
-                    label: 'Hoa hồng Trưởng chuyên môn',
+                    label: 'Hoa hồng Trưởng ban Chuyên môn',
                     amount: selectedMonthTrend.lessonPlanHeadCost,
-                    note: 'Hoa hồng % doanh thu của Trưởng chuyên môn theo buổi học trong kỳ.',
+                    note: 'Hoa hồng % doanh thu của Trưởng ban Chuyên môn theo buổi học trong kỳ.',
                     tone: 'negative',
                   },
                 ],

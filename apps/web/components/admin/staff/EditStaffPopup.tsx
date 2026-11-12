@@ -844,7 +844,7 @@ export default function EditStaffPopup({
                       <StaffFieldRow
                         id="staff-revenue-share"
                         label="% hoa hồng doanh thu"
-                        hint="Trưởng chuyên môn nhận % này trên tổng doanh thu hệ thống mỗi tháng."
+                        hint="Trưởng ban Chuyên môn nhận % này trên tổng doanh thu hệ thống mỗi tháng."
                       >
                         <input
                           id="staff-revenue-share"

@@ -33,7 +33,7 @@ type Props = {
 };
 
 /**
- * Trưởng Ban Đào Tạo bật/tắt role gia sư, chuyên môn, đào tạo. Role khác chỉ
+ * Trưởng ban Đào tạo bật/tắt role gia sư, Ban Chuyên môn, Đào Tạo. Role khác chỉ
  * đọc. Tắt role thì mức đè lương cứng của role đó bị xoá (backend ghi lịch sử).
  */
 export default function EditTrainingRolesDialog({ staff, onClose }: Props) {

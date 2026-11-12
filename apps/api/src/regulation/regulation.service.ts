@@ -278,7 +278,7 @@ export class RegulationService {
       canManageAll: hasSaleCsHeadAccess(staffRoles),
       visibleAudiences: [
         ...staffRoles.map((role) => STAFF_ROLE_AUDIENCE_MAP[role]),
-        // Trưởng Ban Đào Tạo có mọi quyền của Ban Đào Tạo, kể cả quy định gửi Đào Tạo.
+        // Trưởng ban Đào tạo có mọi quyền của Ban Đào Tạo, kể cả quy định gửi Đào Tạo.
         ...(hasTrainingAccess(staffRoles)
           ? [RegulationAudience.staff_training]
           : []),

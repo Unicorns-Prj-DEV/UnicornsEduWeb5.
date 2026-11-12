@@ -184,7 +184,7 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   technical: 'Kỹ thuật',
   customer_care: 'CSKH',
   training: 'Đào Tạo',
-  training_head: 'Trưởng ban đào tạo',
+  training_head: 'Trưởng ban Đào tạo',
   sale: 'Sale',
 };
 
@@ -2201,7 +2201,7 @@ export class StaffService {
   }
 
   /**
-   * Hoa hồng doanh thu Trưởng giáo án (snapshot `lesson_plan_head_commission`) theo
+   * Hoa hồng doanh thu Trưởng ban Chuyên môn (snapshot `lesson_plan_head_commission`) theo
    * trạng thái thanh toán, lọc theo ngày buổi học. Không khấu trừ thuế (khớp payment
    * preview: revenue_share có taxRatePercent = 0).
    */
@@ -4092,8 +4092,8 @@ export class StaffService {
           : 'Thanh toán khoản thưởng đã chọn',
       revenue_share:
         auditScope === 'all'
-          ? 'Thanh toán toàn bộ hoa hồng doanh thu Trưởng chuyên môn'
-          : 'Thanh toán hoa hồng doanh thu Trưởng chuyên môn đã chọn',
+          ? 'Thanh toán toàn bộ hoa hồng doanh thu Trưởng ban Chuyên môn'
+          : 'Thanh toán hoa hồng doanh thu Trưởng ban Chuyên môn đã chọn',
       fixed_salary:
         auditScope === 'all'
           ? 'Thanh toán toàn bộ lương cứng'
@@ -4641,7 +4641,7 @@ export class StaffService {
         WHERE staff_fixed_salary_payables.status::text = 'pending'
         GROUP BY staff_fixed_salary_payables.staff_id
       ),
-      -- Hoa hồng Trưởng chuyên môn: cùng điều kiện với payment preview
+      -- Hoa hồng Trưởng ban Chuyên môn: cùng điều kiện với payment preview
       -- (getRevenueShareAllPendingPreviewRecords, chỉ khi còn role lesson_plan_head).
       revenue_share_unpaid AS (
         SELECT
@@ -6112,8 +6112,8 @@ export class StaffService {
   }
 
   /**
-   * Trưởng Ban Đào Tạo bật/tắt role gia sư / chuyên môn / đào tạo của nhân sự
-   * khác (CONTEXT.md «Chỉnh role nhân sự (Trưởng Ban Đào Tạo)»). Role bị tắt
+   * Trưởng ban Đào tạo bật/tắt role gia sư / Ban Chuyên môn / Đào Tạo của nhân sự
+   * khác (CONTEXT.md «Chỉnh role nhân sự (Trưởng ban Đào tạo)»). Role bị tắt
    * mất mức đè lương cứng / % vận hành (xoá im lặng, ghi action_history); khoản
    * đã chốt/đã trả giữ nguyên; không cascade lớp / quản lý lớp / đội khoá.
    */
@@ -6132,7 +6132,7 @@ export class StaffService {
       !actor.roles.includes(StaffRole.training_head)
     ) {
       throw new ForbiddenException(
-        'Chỉ Trưởng ban đào tạo được dùng chức năng này.',
+        'Chỉ Trưởng ban Đào tạo được dùng chức năng này.',
       );
     }
 
@@ -6179,7 +6179,7 @@ export class StaffService {
         actor: auditActor,
         entityType: 'staff',
         entityId: target.id,
-        description: 'Trưởng ban đào tạo chỉnh role nhân sự',
+        description: 'Trưởng ban Đào tạo chỉnh role nhân sự',
         beforeValue: { roles: target.roles },
         afterValue: { roles: plan.nextRoles },
       });

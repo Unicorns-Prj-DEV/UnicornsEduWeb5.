@@ -12,7 +12,7 @@ function staffProfile(staffRoles: string[]): UserInfoDto {
   } as unknown as UserInfoDto;
 }
 
-describe("route thu nhập Đào Tạo / Trưởng ban đào tạo", () => {
+describe("route thu nhập Đào Tạo / Trưởng ban Đào tạo", () => {
   it("training_head thuần vào /staff/training-head-detail, không vào /staff/training-detail", () => {
     const profile = staffProfile(["training_head"]);
     expect(

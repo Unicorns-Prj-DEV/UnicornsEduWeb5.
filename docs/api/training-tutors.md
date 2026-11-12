@@ -11,7 +11,7 @@ Module: `apps/api/src/training-tutor/`. Controller `@Controller('training/tutors
 
 "Gia sư" = `staff_info.roles` có `teacher`, mọi trạng thái. Với Ban Đào Tạo thường, staff chỉ có role vận hành (không `teacher`) → `404` ở endpoint chi tiết, không xuất hiện ở danh sách.
 
-**Phạm vi Trưởng Ban Đào Tạo** (`resolveTrainingViewer` → `canViewAllStaff`): staff có `training_head` (và admin) mở được `GET /training/tutors/:id`, `/sessions`, `/achievements` của **mọi nhân sự**, và dùng `scope=all` ở danh sách. Cùng allowlist field — không thêm dữ liệu nhạy cảm.
+**Phạm vi Trưởng ban Đào tạo** (`resolveTrainingViewer` → `canViewAllStaff`): staff có `training_head` (và admin) mở được `GET /training/tutors/:id`, `/sessions`, `/achievements` của **mọi nhân sự**, và dùng `scope=all` ở danh sách. Cùng allowlist field — không thêm dữ liệu nhạy cảm.
 
 ## Field allowlist
 
@@ -70,7 +70,7 @@ ADR `docs/adr/2026-11-11-staff-achievement-star-first.md`. Cùng phạm vi với
 
 Trả về giống `/staff/:staffId/achievements/*` (`AchievementDto` / danh sách). Web: `StaffAchievementsDialog` `editable` (tắt khi target là chính người xem) → `AchievementListEditor` `mode="training"`.
 
-## Chỉnh role nhân sự (Trưởng Ban Đào Tạo)
+## Chỉnh role nhân sự (Trưởng ban Đào tạo)
 
 ### `PATCH /staff/:id/training-roles`
 

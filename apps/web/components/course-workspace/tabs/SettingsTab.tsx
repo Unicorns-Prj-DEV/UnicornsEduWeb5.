@@ -623,7 +623,7 @@ function LessonPlanTeamCard({
       <h2 className="text-base font-semibold text-text-primary">Đội chuyên môn</h2>
       <p className="mt-0.5 text-sm text-text-secondary">
         Nhân sự soạn nội dung học thuật và ngân hàng câu hỏi của khoá. Thành viên lesson_plan chỉ
-        thấy khoá mình được gán; trưởng chuyên môn thấy mọi khoá.
+        thấy khoá mình được gán; trưởng ban Chuyên môn thấy mọi khoá.
       </p>
 
       {canMutate ? (
