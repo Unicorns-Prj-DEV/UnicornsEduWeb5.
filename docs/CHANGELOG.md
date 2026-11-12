@@ -53,6 +53,9 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ### Security
 - `PATCH` buổi học qua staff-ops: gia sư (access mode `teacher`) không còn sửa được buổi do gia sư khác dạy (`403`).
+- **Buộc đăng xuất học sinh / quản trị thiết bị theo phạm vi:** `POST /auth/admin/students/:id/force-logout`, `GET /device/student/:studentId` và `DELETE /device/:deviceId/force-logout` trước đây mở cho mọi staff (force-logout) hoặc mọi CSKH (device) trên **mọi** học sinh. Nay dùng chung `assertCanManageStudentAccount` (`apps/api/src/common/student-account-scope.ts`): admin + staff `admin`/`assistant` → mọi học sinh; `customer_care` → chỉ học sinh mình đang chăm sóc (ngoài phạm vi `404`); role khác `403`. `DELETE /device/cleanup-expired` (dọn toàn hệ thống) bỏ CSKH, chỉ admin + trợ lí.
+- **Báo cáo UNIOJ:** học sinh gọi `GET /unioj/report` / `/report/pdf` với `name` của người khác thì xem được báo cáo của họ. Nay với học sinh backend bỏ qua `name`, dùng `student_info.full_name` của chính tài khoản (`UniojService.resolveReportStudentName`). Admin/staff không đổi.
+- **Ngân hàng câu hỏi lộ đáp án:** `GET /questions` và `GET /questions/:id` mở cho học sinh và trả `correctIndex`/`tfAnswerKey`/`blankAnswerKey`/`explanation`. Bỏ `student` khỏi 2 route (không trang học sinh nào dùng; học sinh làm bài qua luồng attempt).
 
 ### Added
 

@@ -52,12 +52,19 @@ export class DeviceController {
     description: 'Bao gồm thiết bị đã hết hạn',
   })
   @ApiResponse({ status: 200, description: 'Danh sách thiết bị' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy học sinh' })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy học sinh (hoặc ngoài phạm vi CSKH)',
+  })
   async getStudentDevices(
     @Param('studentId') studentId: string,
+    @CurrentUser() user: JwtPayload,
     @Query('includeExpired') includeExpired?: string,
   ) {
-    const devices = await this.deviceService.getDevicesByStudentId(studentId);
+    const devices = await this.deviceService.getDevicesByStudentId(studentId, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
 
     if (includeExpired !== 'true') {
       return devices.filter((d) => !d.isExpired);
@@ -75,7 +82,10 @@ export class DeviceController {
   })
   @ApiParam({ name: 'deviceId', description: 'ID thiết bị' })
   @ApiResponse({ status: 200, description: 'Đã buộc đăng xuất thành công' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy thiết bị' })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy thiết bị (hoặc ngoài phạm vi CSKH)',
+  })
   async forceLogout(
     @Param('deviceId') deviceId: string,
     @CurrentUser() user: JwtPayload,
@@ -93,12 +103,15 @@ export class DeviceController {
 
   @Delete('cleanup-expired')
   @HttpCode(HttpStatus.OK)
+  // Dọn thiết bị toàn hệ thống: không cho CSKH (chỉ admin + trợ lí).
+  @AllowStaffRolesOnAdminRoutes(StaffRole.admin, StaffRole.assistant)
   @ApiOperation({
     summary: 'Dọn dẹp thiết bị hết hạn',
     description:
       'Xóa các thiết bị không hoạt động quá 60 ngày hoặc refresh token đã hết hạn.',
   })
   @ApiResponse({ status: 200, description: 'Đã dọn dẹp thành công' })
+  @ApiResponse({ status: 403, description: 'Không có quyền' })
   async cleanupExpired() {
     return this.deviceService.cleanupExpiredDevices();
   }

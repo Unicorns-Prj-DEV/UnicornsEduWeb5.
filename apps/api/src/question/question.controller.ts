@@ -45,7 +45,9 @@ export class QuestionController {
   constructor(private readonly service: QuestionService) {}
 
   @Get()
-  @Roles(UserRole.admin, UserRole.student)
+  // Ngân hàng câu hỏi trả kèm đáp án (correctIndex/tfAnswerKey/blankAnswerKey/
+  // explanation) nên không mở cho học sinh; học sinh làm bài qua luồng attempt.
+  @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.assistant,
     StaffRole.teacher,
@@ -65,7 +67,9 @@ export class QuestionController {
   }
 
   @Get(':id')
-  @Roles(UserRole.admin, UserRole.student)
+  // Ngân hàng câu hỏi trả kèm đáp án (correctIndex/tfAnswerKey/blankAnswerKey/
+  // explanation) nên không mở cho học sinh; học sinh làm bài qua luồng attempt.
+  @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.assistant,
     StaffRole.teacher,

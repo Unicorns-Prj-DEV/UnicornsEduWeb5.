@@ -818,12 +818,15 @@ export class AuthController {
   @ApiOperation({
     summary: 'Force logout student',
     description:
-      'Admin or staff force-logouts a student, removing all active devices.',
+      'Removes every active device of a student. Admin and staff assistant may target any student; staff customer_care only students they are assigned to; other staff roles get 403.',
   })
   @ApiParam({ name: 'id', description: 'Student user ID' })
   @ApiResponse({ status: 200, description: 'Student force-logged out.' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions.' })
-  @ApiResponse({ status: 404, description: 'Student not found.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Student not found (or outside customer care scope).',
+  })
   async forceLogoutStudent(
     @Param('id') studentId: string,
     @CurrentUser() actor: JwtPayload,

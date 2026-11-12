@@ -35,6 +35,7 @@ import { STAFF_DATA_CONSENT_VERSION } from './constants';
 import { UserDeviceService } from './user-device.service';
 import type { DeviceInfo } from './user-device.service';
 import { maskEmailAddress } from 'src/common/mask-email.util';
+import { assertCanManageStudentAccount } from 'src/common/student-account-scope';
 
 type JwtSignOptions = Parameters<JwtService['signAsync']>[1];
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
@@ -1576,14 +1577,19 @@ export class AuthService {
   ): Promise<{ message: string }> {
     const student = await this.prisma.user.findUnique({
       where: { id: studentId },
-      select: { id: true, email: true, roleType: true },
+      select: {
+        id: true,
+        email: true,
+        roleType: true,
+        studentInfo: { select: { id: true } },
+      },
     });
 
     if (!student) {
       throw new NotFoundException('Student not found');
     }
 
-    if (student.roleType !== UserRole.student) {
+    if (student.roleType !== UserRole.student || !student.studentInfo) {
       throw new BadRequestException('Target must be a student account');
     }
 
@@ -1595,6 +1601,13 @@ export class AuthService {
     if (!actor) {
       throw new UnauthorizedException('Actor not found');
     }
+
+    // Admin/trợ lí: mọi học sinh; CSKH: chỉ học sinh mình chăm sóc; role khác: 403.
+    await assertCanManageStudentAccount(
+      this.prisma,
+      { userId: actor.id, roleType: actor.roleType },
+      student.studentInfo.id,
+    );
 
     // Remove all devices
     await this.userDeviceService.removeAllDevicesForUser(studentId);
