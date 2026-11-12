@@ -1,10 +1,12 @@
 import { StaffRole, UserRole } from 'generated/enums';
 import {
+  redactClassForAccountantView,
   redactClassForTrainingManagerView,
   redactClassStudentWalletBalances,
   redactOtherTeachersIncome,
   redactOtherTeachersSessions,
   resolveAccountantFinanceView,
+  resolveAdminClassFinanceView,
 } from './accountant-finance-redaction.util';
 
 describe('resolveAccountantFinanceView', () => {
@@ -243,5 +245,74 @@ describe('redactOtherTeachersSessions', () => {
         student: { id: 'student-1', fullName: 'Học sinh A' },
       },
     ]);
+  });
+});
+
+describe('#272 resolveAdminClassFinanceView (route admin của lớp)', () => {
+  const head = StaffRole.sale_customer_care_head;
+
+  it.each([
+    [UserRole.admin, [] as StaffRole[], 'full'],
+    [UserRole.staff, [StaffRole.admin], 'full'],
+    [UserRole.staff, [head], 'income'],
+    [UserRole.staff, [head, StaffRole.accountant_income], 'income'],
+    [UserRole.staff, [head, StaffRole.accountant_expense], 'full'],
+    [UserRole.staff, [StaffRole.accountant_income], 'income'],
+    [UserRole.staff, [StaffRole.accountant_expense], 'expense'],
+  ])('%s %j → %s', (roleType, staffRoles, expected) => {
+    expect(resolveAdminClassFinanceView(roleType, staffRoles)).toBe(expected);
+  });
+
+  it('không đổi góc nhìn staff-ops: Trưởng phòng vẫn full ở resolver cũ', () => {
+    expect(resolveAccountantFinanceView(UserRole.staff, [head])).toBe('full');
+  });
+
+  it('Trưởng phòng xem chi tiết lớp: còn Học phí lớp, mất lương gia sư', () => {
+    const classDetail = {
+      id: 'class-1',
+      name: 'Toán 9',
+      studentTuitionPerSession: 180000,
+      studentTuitionPerBlock: 60000,
+      tuitionPackageTotal: 2000000,
+      tuitionPackageSession: 10,
+      allowancePerSessionPerStudent: 90000,
+      allowancePerBlockPerStudent: 30000,
+      maxAllowancePerSession: 300000,
+      maxAllowancePerBlock: 100000,
+      scaleAmount: 10000,
+      trainingManagerRatePercent: 5,
+      teachers: [
+        {
+          id: 'teacher-1',
+          fullName: 'Gia sư A',
+          customAllowance: 100000,
+          customAllowancePerSession: 100000,
+          customScaleAmount: 5000,
+          operatingDeductionRatePercent: 10,
+          taxRatePercent: 10,
+        },
+      ],
+      students: [
+        {
+          id: 'student-1',
+          customTuitionPerSession: 150000,
+          effectiveTuitionPerSession: 150000,
+        },
+      ],
+    };
+
+    const view = resolveAdminClassFinanceView(UserRole.staff, [head]);
+    const redacted = redactClassForAccountantView(classDetail, view);
+
+    expect(redacted).toEqual({
+      id: 'class-1',
+      name: 'Toán 9',
+      studentTuitionPerSession: 180000,
+      studentTuitionPerBlock: 60000,
+      tuitionPackageTotal: 2000000,
+      tuitionPackageSession: 10,
+      teachers: [{ id: 'teacher-1', fullName: 'Gia sư A' }],
+      students: classDetail.students,
+    });
   });
 });

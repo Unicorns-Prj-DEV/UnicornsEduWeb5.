@@ -28,6 +28,8 @@ import {
   ClassStatusActionDto,
   ScheduleSlotDto,
   UpdateClassBasicInfoDto,
+  UpdateClassTuitionDto,
+  CLASS_TUITION_FIELDS,
   UpdateClassDto,
   UpdateClassPricingModeDto,
   UpdateClassScheduleDto,
@@ -1960,9 +1962,50 @@ export class ClassService {
     return result.response;
   }
 
+  /** **Thông tin lớp** + lương gia sư mặc định của lớp (không học phí, #272). */
   async updateClassBasicInfo(
     id: string,
     dto: UpdateClassBasicInfoDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    // #272: Thông tin lớp không ghi học phí — kể cả khi payload lọt qua
+    // ValidationPipe (gọi nội bộ); học phí đi PATCH /class/:id/tuition.
+    const infoOnly: Record<string, unknown> = { ...dto };
+    for (const field of CLASS_TUITION_FIELDS) {
+      delete infoOnly[field];
+    }
+    return this.applyClassFieldsUpdate(
+      id,
+      infoOnly as UpdateClassBasicInfoDto,
+      'Cập nhật thông tin cơ bản lớp học',
+      auditActor,
+    );
+  }
+
+  /** **Học phí lớp** (#272): chỉ các trường giá/học phí của lớp. */
+  async updateClassTuition(
+    id: string,
+    dto: UpdateClassTuitionDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const tuitionOnly: UpdateClassTuitionDto = {};
+    for (const field of CLASS_TUITION_FIELDS) {
+      if (dto[field] !== undefined) {
+        (tuitionOnly as Record<string, unknown>)[field] = dto[field];
+      }
+    }
+    return this.applyClassFieldsUpdate(
+      id,
+      tuitionOnly,
+      'Cập nhật học phí lớp',
+      auditActor,
+    );
+  }
+
+  private async applyClassFieldsUpdate(
+    id: string,
+    dto: UpdateClassBasicInfoDto & UpdateClassTuitionDto,
+    auditDescription: string,
     auditActor?: ActionHistoryActor,
   ) {
     const existing = await this.prisma.class.findUnique({
@@ -2073,7 +2116,7 @@ export class ClassService {
           actor: auditActor,
           entityType: 'class',
           entityId: id,
-          description: 'Cập nhật thông tin cơ bản lớp học',
+          description: auditDescription,
           beforeValue,
           afterValue,
         });

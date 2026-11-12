@@ -253,7 +253,22 @@ export class CreateClassDto {
   student_ids?: string[];
 }
 
-/** DTO for PATCH /class/:id/basic-info – basic info + tuition only */
+/**
+ * Trường thuộc **Học phí lớp** (#272). Chỉ sửa qua `PATCH /class/:id/tuition`;
+ * `PATCH /class/:id/basic-info` (Thông tin lớp) không nhận các trường này.
+ */
+export const CLASS_TUITION_FIELDS = [
+  'student_tuition_per_session',
+  'student_tuition_per_block',
+  'tuition_package_total',
+  'tuition_package_session',
+] as const;
+
+/**
+ * DTO for PATCH /class/:id/basic-info – **Thông tin lớp** (tên, khoá, trạng
+ * thái, sĩ số, không điểm danh, hạn xem nội dung) + lương gia sư mặc định của
+ * lớp. Không có học phí (#272 → `UpdateClassTuitionDto`).
+ */
 export class UpdateClassBasicInfoDto extends PartialType(
   PickType(CreateClassDto, [
     'name',
@@ -263,10 +278,6 @@ export class UpdateClassBasicInfoDto extends PartialType(
     'allowance_per_session_per_student',
     'max_allowance_per_session',
     'scale_amount',
-    'student_tuition_per_session',
-    'student_tuition_per_block',
-    'tuition_package_total',
-    'tuition_package_session',
     'no_attendance',
   ]),
 ) {
@@ -284,6 +295,11 @@ export class UpdateClassBasicInfoDto extends PartialType(
   })
   content_access_expires_at?: string | null;
 }
+
+/** DTO for PATCH /class/:id/tuition – **Học phí lớp** (#272). */
+export class UpdateClassTuitionDto extends PartialType(
+  PickType(CreateClassDto, CLASS_TUITION_FIELDS),
+) {}
 
 export class UpdateClassPricingModeDto {
   @ApiProperty({

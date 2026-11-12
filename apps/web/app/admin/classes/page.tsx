@@ -131,13 +131,15 @@ function AdminClassesPageContent({
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAssistant, isAccountant } = resolveAdminShellAccess(fullProfile);
+  const { isAdmin } = resolveAdminShellAccess(fullProfile);
   const canOpenAdminCourses = resolveCourseWorkspaceCapabilities(
     fullProfile,
     "/admin",
   ).canEnterWorkspace;
-  const canCreateClass = !forceReadOnlyList && (isAdmin || isAssistant);
-  const canDeleteClass = !forceReadOnlyList && !isAccountant;
+  // POST/DELETE /class chỉ Admin (#267). Trưởng phòng Sale & CSKH và kế toán
+  // chỉ xem danh sách (#272).
+  const canCreateClass = !forceReadOnlyList && isAdmin;
+  const canDeleteClass = !forceReadOnlyList && isAdmin;
 
   useEffect(() => {
     setSearchInput(search);

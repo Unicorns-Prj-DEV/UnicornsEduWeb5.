@@ -1067,7 +1067,7 @@ describe('ClassService', () => {
         { from: '19:00:00', to: '20:30:00' },
       ]);
 
-      await service.updateClassBasicInfo('class-1', {
+      await service.updateClassTuition('class-1', {
         student_tuition_per_session: 180000,
         student_tuition_per_block: 50000,
       });
@@ -1086,7 +1086,7 @@ describe('ClassService', () => {
         { from: '19:00:00', to: '20:30:00' },
       ]);
 
-      await service.updateClassBasicInfo('class-1', {
+      await service.updateClassTuition('class-1', {
         student_tuition_per_session: 180000,
         student_tuition_per_block: null,
       });
@@ -1096,6 +1096,36 @@ describe('ClassService', () => {
         data: {
           studentTuitionPerSession: 180000,
           studentTuitionPerBlock: 60000,
+        },
+      });
+    });
+
+    it('#272: basic-info bỏ qua trường học phí lọt qua (chỉ ghi Thông tin lớp)', async () => {
+      await service.updateClassBasicInfo('class-1', {
+        name: 'Lớp mới',
+        student_tuition_per_session: 180000,
+        tuition_package_total: 2000000,
+      } as never);
+
+      expect(mockTx.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: { name: 'Lớp mới' },
+      });
+    });
+
+    it('#272: updateClassTuition chỉ ghi trường học phí, bỏ qua lương / tên lớp', async () => {
+      await service.updateClassTuition('class-1', {
+        tuition_package_total: 2000000,
+        tuition_package_session: 10,
+        name: 'Không được đổi',
+        allowance_per_session_per_student: 999999,
+      } as never);
+
+      expect(mockTx.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: {
+          tuitionPackageTotal: 2000000,
+          tuitionPackageSession: 10,
         },
       });
     });
@@ -1895,7 +1925,7 @@ describe('ClassService', () => {
         course: { isOneTime: true },
       });
       await expect(
-        service.updateClassBasicInfo('class-1', { tuition_package_total: 0 }),
+        service.updateClassTuition('class-1', { tuition_package_total: 0 }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(mockTx.class.update).not.toHaveBeenCalled();
     });

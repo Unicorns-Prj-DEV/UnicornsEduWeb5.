@@ -175,6 +175,13 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   // Chọn lớp / CSKH khi ghi danh học sinh (chỉ đọc).
   'ClassController.getClasses',
   'StaffController.searchCustomerCareStaffOptions',
+  // #272: xem mọi lớp (response bỏ lương gia sư), sửa Học phí lớp và học phí
+  // riêng của học sinh.
+  'ClassController.getClassById',
+  'ClassController.getStudentsByClassId',
+  'ClassController.listMakeupEventsByClassId',
+  'ClassController.updateClassStudentTuition',
+  'ClassController.updateClassTuition',
   // Gửi thông báo.
   'NotificationController.createNotificationDraft',
   'NotificationController.deleteNotification',
@@ -211,6 +218,25 @@ function loadAllControllers(): ControllerClass[] {
   }
   return [...controllers];
 }
+
+/** #272: route lớp mở lại cho Trưởng phòng Sale & CSKH. */
+const SALE_CS_HEAD_CLASS_ROUTES = [
+  'getClasses',
+  'getClassById',
+  'getStudentsByClassId',
+  'listMakeupEventsByClassId',
+  'updateClassTuition',
+  'updateClassStudentTuition',
+] as const;
+
+const asStaff = (
+  controller: ControllerClass,
+  methodName: string,
+  staffRoles: StaffRole[],
+) =>
+  guard.canActivate(
+    contextFor(controller, methodName, UserRole.staff, staffRoles, null),
+  );
 
 describe('Admin routes deny-by-default (#267)', () => {
   describe('toàn bộ route admin-only', () => {
@@ -284,7 +310,7 @@ describe('Admin routes deny-by-default (#267)', () => {
       [
         'lớp',
         ClassController,
-        adminOnlyRoutes(ClassController, ['getClasses']),
+        adminOnlyRoutes(ClassController, [...SALE_CS_HEAD_CLASS_ROUTES]),
       ],
       ['chi phí', CostController, adminOnlyRoutes(CostController)],
       ['thưởng', BonusController, adminOnlyRoutes(BonusController)],
@@ -353,6 +379,76 @@ describe('Admin routes deny-by-default (#267)', () => {
         await expect(asAdmin(controller, methodName)).resolves.toBe(true);
       });
     });
+  });
+
+  describe('#272 Thông tin lớp / Học phí lớp', () => {
+    const income = [StaffRole.accountant_income];
+    const expense = [StaffRole.accountant_expense];
+
+    it.each(SALE_CS_HEAD_CLASS_ROUTES)(
+      'cho Trưởng phòng vào ClassController.%s',
+      async (methodName) => {
+        await expect(asAssistant(ClassController, methodName)).resolves.toBe(
+          true,
+        );
+      },
+    );
+
+    it.each([
+      'updateClass',
+      'updateClassBasicInfo',
+      'updateClassPricingMode',
+      'updateClassTeacherCompensation',
+    ])('từ chối Trưởng phòng sửa %s', async (methodName) => {
+      await expect(
+        asAssistant(ClassController, methodName),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it.each(['updateClass', 'updateClassBasicInfo', 'updateClassTuition'])(
+      'Kế toán thu bị 403 ở %s',
+      async (methodName) => {
+        await expect(
+          asStaff(ClassController, methodName, income),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      },
+    );
+
+    it.each([
+      'updateClass',
+      'updateClassBasicInfo',
+      'updateClassTuition',
+      'updateClassStudentTuition',
+    ])('Kế toán chi bị 403 ở %s', async (methodName) => {
+      await expect(
+        asStaff(ClassController, methodName, expense),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('Kế toán thu sửa được học phí riêng của học sinh', async () => {
+      await expect(
+        asStaff(ClassController, 'updateClassStudentTuition', income),
+      ).resolves.toBe(true);
+    });
+
+    it.each(['getClassById', 'getStudentsByClassId'])(
+      'kế toán thu/chi vẫn xem được %s',
+      async (methodName) => {
+        await expect(
+          asStaff(ClassController, methodName, income),
+        ).resolves.toBe(true);
+        await expect(
+          asStaff(ClassController, methodName, expense),
+        ).resolves.toBe(true);
+      },
+    );
+
+    it.each(['updateClass', 'updateClassBasicInfo', 'updateClassTuition'])(
+      'Admin vẫn sửa được %s',
+      async (methodName) => {
+        await expect(asAdmin(ClassController, methodName)).resolves.toBe(true);
+      },
+    );
   });
 
   describe('nạp thẳng số dương vào ví học sinh', () => {

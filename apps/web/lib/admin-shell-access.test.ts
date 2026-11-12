@@ -74,14 +74,16 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     "/admin/students",
     "/admin/students/student-1",
     "/admin/notification",
+    // #272: Trưởng phòng xem lớp.
+    "/admin/classes",
+    "/admin/classes/class-1",
   ];
   const ASSISTANT_DENIED_ROUTES = [
     "/admin/users",
     "/admin/users/user-1",
     "/admin/staffs",
     "/admin/staffs/staff-1",
-    "/admin/classes",
-    "/admin/classes/class-1",
+    "/admin/classes/class-1/sessions",
     "/admin/costs",
     "/admin/extra-allowances",
     "/admin/system-settings",
@@ -96,7 +98,7 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     "/admin/some-future-page",
   ];
 
-  it("Trợ lí chỉ vào được Học sinh và Thông báo", () => {
+  it("Trợ lí chỉ vào được Học sinh, Lớp học (#272) và Thông báo", () => {
     const access = resolveAdminShellAccess(staffProfile(["sale_customer_care_head"]));
     for (const route of ASSISTANT_ALLOWED_ROUTES) {
       expect(canAccessAdminShellRoute(access, route), route).toBe(true);
@@ -116,14 +118,15 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     }
   });
 
-  it("menu Trợ lí chỉ còn Học sinh và Thông báo", () => {
+  it("menu Trợ lí: Học sinh, Lớp học (#272), Thông báo", () => {
     expect([...ASSISTANT_VISIBLE_HREFS].sort()).toEqual([
+      "/admin/classes",
       "/admin/notification",
       "/admin/students",
     ]);
   });
 
-  it("Trợ lí không còn quản lý tài khoản / trợ cấp thêm / học phí lớp", () => {
+  it("Trợ lí không quản lý tài khoản / trợ cấp thêm; sửa được học phí riêng HS (#272)", () => {
     const assistantProfile = staffProfile(["sale_customer_care_head"]);
     const assistantUsers = resolveUserAdminCapabilities(assistantProfile);
     expect(assistantUsers.canManageUsers).toBe(false);
@@ -134,7 +137,7 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     expect(
       resolveStudentAdminCapabilities(assistantProfile)
         .canEditStudentClassTuition,
-    ).toBe(false);
+    ).toBe(true);
 
     const adminProfile = staffProfile(["admin"]);
     const adminUsers = resolveUserAdminCapabilities(adminProfile);
@@ -154,6 +157,17 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     expect(caps.canDirectlyWithdrawWallet).toBe(true);
     expect(caps.canRequestDirectTopUp).toBe(true);
     expect(caps.canDirectlyAdjustWallet).toBe(false);
+  });
+
+  it("#272: học phí riêng HS — Kế toán thu sửa, Kế toán chi không", () => {
+    expect(
+      resolveStudentAdminCapabilities(staffProfile(["accountant_income"]))
+        .canEditStudentClassTuition,
+    ).toBe(true);
+    expect(
+      resolveStudentAdminCapabilities(staffProfile(["accountant_expense"]))
+        .canEditStudentClassTuition,
+    ).toBe(false);
   });
 
   it("Kế toán vẫn giữ phạm vi cũ", () => {

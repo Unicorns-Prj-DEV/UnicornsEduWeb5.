@@ -4,6 +4,8 @@
 
 > **Ghi chú #271 (Trưởng phòng quản lý đội Sale & CSKH):** quyền quản lý đội đi qua module **staff-side** mới `/sale-cs-team` (`@Roles(UserRole.staff)`, policy `staff/sale-cs-head-role-policy.ts`), **không** mở thêm route admin nào cho Trưởng phòng — allowlist trong `admin-deny-by-default.spec.ts` giữ nguyên. Đồng thời thu hồi quyền đổi trạng thái thanh toán hoa hồng trưởng phòng (`assistant-commission`) của Trưởng phòng: chỉ Admin / Kế toán chi. Xem `docs/api/sale-cs-team.md`.
 
+> **Ghi chú #272 (Thông tin lớp / Học phí lớp):** mở lại cho Trưởng phòng Sale & CSKH các route admin đọc lớp — `GET /class`, `GET /class/:id`, `GET /class/:id/students`, `GET /class/:id/makeup-events` (cùng Kế toán thu/chi) — và route sửa `PATCH /class/:id/tuition` (Học phí lớp, cùng Admin), `PATCH /class/:id/student-tuition` (học phí riêng học sinh, cùng Kế toán thu). Response lọc qua `resolveAdminClassFinanceView`: Trưởng phòng không thấy lương gia sư. Đồng thời vá lỗ `PATCH /class` (trước kế thừa Kế toán thu/chi từ cấp controller) và `basic-info` thành chỉ Admin. Allowlist trong `admin-deny-by-default.spec.ts` cập nhật theo. Xem `docs/api/class-info-tuition.md`.
+
 - **Status:** Accepted (#267)
 - **Thay thế:** `docs/adr/2026-06-02-explicit-admin-mirror-rbac.md`
 

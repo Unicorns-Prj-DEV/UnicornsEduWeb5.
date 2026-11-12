@@ -51,6 +51,8 @@ export const ACCOUNTANT_EXPENSE_VISIBLE_HREFS = new Set([
  */
 export const ASSISTANT_VISIBLE_HREFS = new Set([
   "/admin/students",
+  // #272: Trưởng phòng xem mọi lớp (không lương gia sư), sửa Học phí lớp.
+  "/admin/classes",
   "/admin/notification",
 ]);
 
@@ -77,6 +79,7 @@ export function getAccountantVisibleAdminHrefs(
 
 const ASSISTANT_ALLOWED_ROUTE_PATTERNS = [
   /^\/admin\/students(?:\/[^/]+)?$/,
+  /^\/admin\/classes(?:\/[^/]+)?$/,
   /^\/admin\/notification$/,
 ] as const;
 
@@ -259,7 +262,9 @@ export function resolveStudentAdminCapabilities(
     canDirectlyWithdrawWallet: access.isAdmin || access.isAssistant,
     canRequestDirectTopUp: access.isAssistant || isCustomerCareStaff,
     // #267: học phí theo lớp thuộc quản lý lớp → chỉ Admin / kế toán thu.
-    canEditStudentClassTuition: access.isAdmin || access.isAccountantIncome,
+    // #272: học phí riêng của học sinh — Admin, Trưởng phòng, Kế toán thu.
+    canEditStudentClassTuition:
+      access.isAdmin || access.isAssistant || access.isAccountantIncome,
     canDeleteStudent: access.isAdmin || access.isAssistant,
   };
 }

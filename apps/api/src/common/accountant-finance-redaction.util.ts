@@ -29,6 +29,33 @@ export function resolveAccountantFinanceView(
   return 'full';
 }
 
+/**
+ * #272: góc nhìn tài chính trên **route admin của lớp** (`/class/*`).
+ *
+ * Khác `resolveAccountantFinanceView` ở chỗ Trưởng phòng Sale & CSKH thấy
+ * **Học phí lớp** nhưng **không** thấy lương gia sư (trợ cấp mỗi học sinh,
+ * scale, % vận hành, % trợ cấp quản lý lớp) — giống góc nhìn Kế toán thu
+ * (`income`). Hợp quyền: kiêm Kế toán chi thì thấy cả hai (`full`).
+ *
+ * Chỉ dùng ở route admin của lớp; góc nhìn gia sư / quản lý lớp ở staff-ops
+ * giữ `resolveAccountantFinanceView` để người kiêm Trưởng phòng vẫn thấy lương
+ * của chính mình ở lớp mình dạy.
+ */
+export function resolveAdminClassFinanceView(
+  roleType: UserRole,
+  staffRoles: readonly StaffRole[],
+): AccountantFinanceView {
+  if (
+    roleType === UserRole.admin ||
+    staffRoles.includes(StaffRole.admin) ||
+    !staffRoles.includes(SALE_CS_HEAD_ROLE)
+  ) {
+    return resolveAccountantFinanceView(roleType, staffRoles);
+  }
+
+  return staffRoles.includes(StaffRole.accountant_expense) ? 'full' : 'income';
+}
+
 function omitFields<T extends Record<string, unknown>>(
   value: T,
   fields: readonly string[],
@@ -46,6 +73,8 @@ const CLASS_INCOME_HIDDEN_FIELDS = [
   'maxAllowancePerSession',
   'maxAllowancePerBlock',
   'scaleAmount',
+  // #272: % trợ cấp quản lý lớp cũng là lương nhân sự theo lớp.
+  'trainingManagerRatePercent',
 ] as const;
 
 const CLASS_EXPENSE_HIDDEN_FIELDS = [
