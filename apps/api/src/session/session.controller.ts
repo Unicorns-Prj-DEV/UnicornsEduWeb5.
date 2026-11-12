@@ -92,10 +92,8 @@ export class SessionController {
 
   @Put(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.accountant_income,
-    StaffRole.accountant_expense,
-  )
+  // #275: Kế toán thu không sửa buổi; giữ Admin + Kế toán chi.
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Cập nhật session',
     description:
@@ -105,13 +103,18 @@ export class SessionController {
   @ApiBody({ type: SessionUpdateDto, description: 'Session update payload' })
   @ApiResponse({ status: 200, description: 'Session đã được cập nhật.' })
   @ApiResponse({ status: 400, description: 'Lỗi khi cập nhật session.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Chỉ Admin và Kế toán chi (#275: Kế toán thu bị từ chối); Kế toán chi không tự sửa trợ cấp / hệ số / thanh toán buổi của chính mình (#265).',
+  })
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
   async updateSession(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() data: SessionUpdateDto,
   ) {
-    // Route chỉ mở cho admin/trợ lí/kế toán → được lưu khi Nhận xét buổi học còn trống
+    // Route chỉ mở cho Admin + Kế toán chi → được lưu khi Nhận xét buổi học còn trống
     // field bắt buộc. Gia sư sửa buổi qua staff-ops vẫn bị kiểm tra đủ.
     return this.sessionService.updateSession(
       { ...data, id },
@@ -126,10 +129,9 @@ export class SessionController {
 
   @Patch('payment-status/bulk')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.accountant_income,
-    StaffRole.accountant_expense,
-  )
+  // #275: trạng thái thanh toán trợ cấp buổi do Kế toán chi làm (biên bản 12/11);
+  // Kế toán thu bị 403.
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Cập nhật trạng thái thanh toán cho nhiều session',
     description:
@@ -147,6 +149,11 @@ export class SessionController {
   @ApiResponse({
     status: 400,
     description: 'Payload không hợp lệ hoặc thiếu sessionIds.',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Chỉ Admin và Kế toán chi (#275: Kế toán thu bị từ chối); không tự đổi trạng thái thanh toán buổi của chính mình (#265).',
   })
   @ApiResponse({
     status: 404,

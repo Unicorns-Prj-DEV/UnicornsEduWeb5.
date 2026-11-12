@@ -263,11 +263,11 @@ export default function AdminClassDetailPage() {
     [adminAccess, routeBase, viewerStaffId],
   );
   const canManageMakeupSchedule = isAdmin;
-  const canEditSessionPaymentStatus =
-    isAdmin || adminAccess.isAccountantExpense || adminAccess.isAccountantIncome;
+  // #275: `PUT /sessions/:id` + `payment-status/bulk` chỉ Admin + Kế toán chi.
+  const canEditSessionPaymentStatus = isAdmin || adminAccess.isAccountantExpense;
   const canEditSessions = isAdmin;
   // Khớp quyền `PUT /sessions/:id`: được lưu khi Nhận xét buổi học còn trống field bắt buộc.
-  const canSkipRequiredSessionReview = isAdmin || isAccountant;
+  const canSkipRequiredSessionReview = isAdmin || adminAccess.isAccountantExpense;
   const canManageClassStatus = isAdmin;
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");

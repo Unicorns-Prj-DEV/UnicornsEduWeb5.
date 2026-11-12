@@ -299,8 +299,15 @@ function StaffClassDetailLoadingSkeleton({
   );
 }
 
-function toStaffCreateSessionPayload(payload: SessionCreatePayload) {
+function toStaffCreateSessionPayload(
+  payload: SessionCreatePayload,
+  options: { includeTeacherId: boolean },
+) {
   return {
+    // #275: Admin / Quản lý lớp chọn gia sư; gia sư thuần để BE gán chính mình.
+    ...(options.includeTeacherId && payload.teacherId
+      ? { teacherId: payload.teacherId }
+      : {}),
     date: payload.date,
     startTime: payload.startTime,
     endTime: payload.endTime,
@@ -523,15 +530,24 @@ export default function StaffClassDetailPage() {
   const canManageClassTeachers = isManagingTrainer && classDetail?.status !== "ended";
   /** Admin on staff shell + CSKH (assigned students only; others empty via BE redact). */
   const showStudentBalanceColumn = isAdmin || isCustomerCareView;
-  const canOpenReadonlyClassForms = isTrainingView;
+  /** #275: Quản lý lớp làm mọi việc của gia sư trên mọi buổi của lớp (BE chặn lớp khác). */
+  const canWorkOnAllClassSessions = isAdmin || isManagingTrainer;
+  const canOpenReadonlyClassForms = isTrainingView && !isManagingTrainer;
   const usesTeacherScope =
     !isAdmin && (teacherAssignedToClass || hasTeacherSelfServiceAccess);
   const teacherCount = classDetail?.teachers?.length ?? 0;
-  const canManageSchedule = isTeacherWorkspaceActor;
-  const canManageSessions = isTeacherWorkspaceActor;
+  const canManageSchedule = isTeacherWorkspaceActor || isManagingTrainer;
+  const canManageSessions = isTeacherWorkspaceActor || isManagingTrainer;
   // Gia sư thấy cả buổi của gia sư khác trong lớp nhưng chỉ ở dạng nhận xét (BE đã bỏ mọi số tiền).
+  // Hợp quyền (#275): kiêm Quản lý lớp thì không khoá về buổi của mình.
   const isReviewOnlySession = (session: SessionItem) =>
-    usesTeacherScope && Boolean(actorStaffId) && session.teacherId !== actorStaffId;
+    usesTeacherScope &&
+    !isManagingTrainer &&
+    Boolean(actorStaffId) &&
+    session.teacherId !== actorStaffId;
+  /** Hệ số / Dạy thử: Admin, hoặc gia sư trên buổi do mình dạy — Quản lý lớp không đổi buổi của gia sư khác. */
+  const canToggleTrialForSession = (session: SessionItem) =>
+    isAdmin || (Boolean(actorStaffId) && session.teacherId === actorStaffId);
   const ownSessionCount = usesTeacherScope
     ? sessions.filter((session) => session.teacherId === actorStaffId).length
     : sessions.length;
@@ -543,41 +559,58 @@ export default function StaffClassDetailPage() {
   const canCreateSession =
     canManageSessions &&
     activeClassStudents.length > 0 &&
-    (hasTeacherSelfServiceAccess ? true : teacherCount === 1);
+    (isManagingTrainer
+      ? teacherCount > 0
+      : hasTeacherSelfServiceAccess
+        ? true
+        : teacherCount === 1);
+  /** Quản lý lớp chọn gia sư khi tạo buổi (BE kiểm gia sư thuộc lớp). */
+  const sessionTeacherMode = isManagingTrainer ? "select" : "readOnly";
   const canManageSurveys = canManageSessions && popupTeachers.length > 0;
-  const defaultTeacherId = hasTeacherSelfServiceAccess
+  const defaultTeacherId = isManagingTrainer
+    ? teacherAssignedToClass
+      ? actorStaffId
+      : teacherCount === 1
+        ? classDetail?.teachers?.[0]?.id ?? ""
+        : ""
+    : hasTeacherSelfServiceAccess
+      ? actorStaffId
+      : teacherCount === 1
+        ? classDetail?.teachers?.[0]?.id ?? ""
+        : "";
+  const defaultScheduleTeacherId = hasTeacherSelfServiceAccess && !isManagingTrainer
     ? actorStaffId
     : teacherCount === 1
       ? classDetail?.teachers?.[0]?.id ?? ""
       : "";
-  const defaultScheduleTeacherId = hasTeacherSelfServiceAccess
-    ? actorStaffId
-    : teacherCount === 1
-      ? classDetail?.teachers?.[0]?.id ?? ""
-      : "";
-  const canManageMakeupSchedule = isAdmin || hasTeacherSelfServiceAccess;
+  const canManageMakeupSchedule =
+    isAdmin || hasTeacherSelfServiceAccess || isManagingTrainer;
   const canCreateMakeupSchedule =
-    (isAdmin && teacherCount > 0) || (hasTeacherSelfServiceAccess && teacherAssignedToClass);
+    (canWorkOnAllClassSessions && teacherCount > 0) ||
+    (hasTeacherSelfServiceAccess && teacherAssignedToClass);
   const canResyncSchedule =
     isAdmin ||
     (hasTeacherSelfServiceAccess &&
       scheduleItems.some((item) => item.teacherId === actorStaffId));
   const canResyncMakeupSchedule = isAdmin || hasTeacherSelfServiceAccess;
-  const makeupTeacherMode = hasTeacherSelfServiceAccess ? "readOnly" : "select";
-  const defaultMakeupTeacherId = hasTeacherSelfServiceAccess
+  const makeupTeacherMode =
+    hasTeacherSelfServiceAccess && !canWorkOnAllClassSessions ? "readOnly" : "select";
+  const defaultMakeupTeacherId = teacherAssignedToClass
     ? actorStaffId
     : teacherCount === 1
       ? classDetail?.teachers?.[0]?.id ?? ""
       : "";
   const canManageOwnUnlinkedMakeupEvent = (event: MakeupScheduleEventRecord) =>
-    isAdmin ||
+    canWorkOnAllClassSessions ||
     (Boolean(actorStaffId) &&
       event.teacherId === actorStaffId &&
       !event.linkedSessionId);
   const makeupScheduleDisabledMessage =
-    isAdmin && teacherCount === 0
+    canWorkOnAllClassSessions && teacherCount === 0
       ? "Lớp chưa có gia sư phụ trách nên chưa thể tạo buổi bù."
-      : !isAdmin && !hasTeacherSelfServiceAccess && !canOpenReadonlyClassForms
+      : !canWorkOnAllClassSessions &&
+          !hasTeacherSelfServiceAccess &&
+          !canOpenReadonlyClassForms
         ? "Tài khoản hiện tại chỉ có quyền xem lịch dạy bù của lớp."
         : undefined;
 
@@ -645,7 +678,12 @@ export default function StaffClassDetailPage() {
   const createSessionMutation = useMutation({
     mutationKey: staffOpsKeys.createSession(id),
     mutationFn: (payload: SessionCreatePayload) =>
-      staffOpsApi.createSession(id, toStaffCreateSessionPayload(payload)),
+      staffOpsApi.createSession(
+        id,
+        toStaffCreateSessionPayload(payload, {
+          includeTeacherId: canWorkOnAllClassSessions,
+        }),
+      ),
     onSuccess: invalidateSessionQueries,
   });
 
@@ -870,7 +908,7 @@ export default function StaffClassDetailPage() {
         onClose={() => setSchedulePopupOpen(false)}
         classDetail={classDetail}
         teachers={popupTeachers}
-        allowTeacherSelection={false}
+        allowTeacherSelection={isManagingTrainer}
         defaultTeacherId={defaultScheduleTeacherId}
         readOnly={canOpenReadonlyClassForms}
         allowEffectiveFromEdit={isAdmin}
@@ -944,10 +982,10 @@ export default function StaffClassDetailPage() {
               (classDetail.teachers ?? []).map((t) => [t.id, t.customScaleAmount ?? null]),
             ),
           }}
-          teacherMode="readOnly"
+          teacherMode={sessionTeacherMode}
           allowFinancialFields={false}
           showAllowancePreview={isAdmin || teacherAssignedToClass}
-          allowTrialTeachingToggle
+          allowTrialTeachingToggle={!isManagingTrainer || isAdmin}
           createSessionFn={handleCreateSession}
           onClose={() => setAddSessionPopupOpen(false)}
         />
@@ -1379,6 +1417,7 @@ export default function StaffClassDetailPage() {
                             canOpenReadonlyClassForms || !canManageSessions
                           }
                           allowTrialTeachingToggle
+                          canToggleTrialForSession={canToggleTrialForSession}
                           showTrainingManagerAllowance={isTrainingView}
                           isReviewOnlySession={isReviewOnlySession}
                           updateSessionFn={handleUpdateSession}
@@ -1394,7 +1433,7 @@ export default function StaffClassDetailPage() {
             ) : (
               <ClassModulesTab
                 classId={id}
-                canManageContent={canManageSessions}
+                canManageContent={isTeacherWorkspaceActor}
                 practiceActionsBasePath={`/staff/classes/${id}`}
               />
             )}

@@ -7,6 +7,7 @@ import {
 import { StaffRole, UserRole } from '../../generated/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { hasAnyStaffRole } from '../common/staff-role-policy';
+import { hasTrainingAccess } from '../common/training-access';
 
 export interface StaffOperationsActor {
   id: string;
@@ -19,6 +20,64 @@ export type StaffClassViewAccessMode =
   | 'customer_care'
   | 'training_manager';
 export type StaffCalendarAccessMode = 'admin' | 'teacher' | 'training';
+
+export interface StaffClassAccess {
+  mode: StaffClassViewAccessMode;
+  /** Admin hệ thống hoặc staff mang role admin. */
+  isAdmin: boolean;
+  /** Mang role gia sư và đang được giao dạy lớp. */
+  isClassTeacher: boolean;
+  /** Ban Đào tạo được giao làm Quản lý lớp của lớp. */
+  isClassManager: boolean;
+}
+
+export interface StaffClassWorkAccess {
+  /** `staff_info.id` của actor; `null` với user admin không có hồ sơ staff. */
+  staffId: string | null;
+  isAdmin: boolean;
+  isClassTeacher: boolean;
+  isClassManager: boolean;
+}
+
+/** Admin hoặc Quản lý lớp làm được trên mọi buổi của lớp (#275). */
+export function canWorkOnAllClassSessions(
+  access: Pick<StaffClassWorkAccess, 'isAdmin' | 'isClassManager'>,
+): boolean {
+  return access.isAdmin || access.isClassManager;
+}
+
+/** Gia sư chỉ buổi do mình dạy; Admin / Quản lý lớp mọi buổi của lớp. */
+export function canWorkOnClassSession(
+  access: StaffClassWorkAccess,
+  sessionTeacherId: string | null | undefined,
+): boolean {
+  if (canWorkOnAllClassSessions(access)) {
+    return true;
+  }
+  return (
+    access.isClassTeacher &&
+    access.staffId !== null &&
+    sessionTeacherId === access.staffId
+  );
+}
+
+/**
+ * Hệ số / Dạy thử: Admin, hoặc gia sư trên buổi do chính mình dạy. Quản lý lớp
+ * không đổi hệ số / dạy thử trên buổi của gia sư khác (#275).
+ */
+export function canEditClassSessionCoefficient(
+  access: StaffClassWorkAccess,
+  sessionTeacherId: string | null | undefined,
+): boolean {
+  if (access.isAdmin) {
+    return true;
+  }
+  return (
+    access.isClassTeacher &&
+    access.staffId !== null &&
+    sessionTeacherId === access.staffId
+  );
+}
 
 const ELEVATED_CLASS_ACCESS_ROLES = [
   StaffRole.admin,
@@ -194,34 +253,38 @@ export class StaffOperationsAccessService {
     }
   }
 
-  async resolveClassViewAccessMode(
+  /**
+   * Quyền xem lớp + các cờ hợp quyền (#275). `mode` giữ thứ tự cố định
+   * admin → teacher → customer_care → training_manager và chỉ dùng để chọn
+   * cách redact dữ liệu xem; quyền thao tác đọc từ các cờ `isClassTeacher` /
+   * `isClassManager` nên người kiêm gia sư + Quản lý lớp được hợp quyền.
+   */
+  async resolveClassAccess(
     actor: StaffOperationsActor,
     classId: string,
-  ): Promise<StaffClassViewAccessMode> {
+  ): Promise<StaffClassAccess> {
     if (actor.roles.length === 0) {
-      return 'admin';
+      return {
+        mode: 'admin',
+        isAdmin: true,
+        isClassTeacher: false,
+        isClassManager: false,
+      };
     }
+
+    const isAdmin = actor.roles.includes(StaffRole.admin);
+    const [isClassTeacher, isClassManager] = await Promise.all([
+      this.isTeacherOfClass(actor, classId),
+      this.isManagerOfClass(actor, classId),
+    ]);
+    const flags = { isAdmin, isClassTeacher, isClassManager };
 
     if (this.hasElevatedClassAccess(actor.roles)) {
-      return 'admin';
+      return { mode: 'admin', ...flags };
     }
 
-    if (actor.roles.includes(StaffRole.teacher)) {
-      const teacherAssignment = await this.prisma.classTeacher.findUnique({
-        where: {
-          classId_teacherId: {
-            classId,
-            teacherId: actor.id,
-          },
-        },
-        select: {
-          teacherId: true,
-        },
-      });
-
-      if (teacherAssignment) {
-        return 'teacher';
-      }
+    if (isClassTeacher) {
+      return { mode: 'teacher', ...flags };
     }
 
     if (actor.roles.includes(StaffRole.customer_care)) {
@@ -243,25 +306,114 @@ export class StaffOperationsAccessService {
         });
 
       if (customerCareAssignment) {
-        return 'customer_care';
+        return { mode: 'customer_care', ...flags };
       }
     }
 
-    if (hasTrainingAccess(actor.roles)) {
-      const managedClass = await this.prisma.class.findFirst({
-        where: {
-          id: classId,
-          trainingManagerStaffId: actor.id,
-        },
-        select: { id: true },
-      });
-
-      if (managedClass) {
-        return 'training_manager';
-      }
+    if (isClassManager) {
+      return { mode: 'training_manager', ...flags };
     }
 
     throw new NotFoundException('Class not found');
+  }
+
+  async resolveClassViewAccessMode(
+    actor: StaffOperationsActor,
+    classId: string,
+  ): Promise<StaffClassViewAccessMode> {
+    return (await this.resolveClassAccess(actor, classId)).mode;
+  }
+
+  /**
+   * Quyền thao tác trên buổi học / việc của gia sư trong một lớp (#275):
+   * Admin (user admin hoặc staff role admin), gia sư được giao lớp, hoặc Quản lý
+   * lớp (Ban Đào tạo được giao làm quản lý lớp). Hợp quyền: người kiêm gia sư và
+   * Quản lý lớp có cả hai cờ. Kế toán / CSKH / Ban Đào tạo không quản lý lớp → 403.
+   */
+  async resolveClassWorkAccess(
+    userId: string,
+    roleType: UserRole,
+    classId: string,
+  ): Promise<StaffClassWorkAccess> {
+    if (roleType === UserRole.admin) {
+      return {
+        staffId: null,
+        isAdmin: true,
+        isClassTeacher: false,
+        isClassManager: false,
+      };
+    }
+
+    const staff = await this.resolveStaffActor(userId);
+
+    if (staff.roles.includes(StaffRole.admin)) {
+      return {
+        staffId: staff.id,
+        isAdmin: true,
+        isClassTeacher: false,
+        isClassManager: false,
+      };
+    }
+
+    const [isClassTeacher, isClassManager] = await Promise.all([
+      this.isTeacherOfClass(staff, classId),
+      this.isManagerOfClass(staff, classId),
+    ]);
+
+    if (!isClassTeacher && !isClassManager) {
+      throw new ForbiddenException(
+        'Chỉ Admin, gia sư của lớp hoặc Quản lý lớp mới được thao tác trên lớp này.',
+      );
+    }
+
+    return {
+      staffId: staff.id,
+      isAdmin: false,
+      isClassTeacher,
+      isClassManager,
+    };
+  }
+
+  private async isTeacherOfClass(
+    actor: StaffOperationsActor,
+    classId: string,
+  ): Promise<boolean> {
+    if (!actor.roles.includes(StaffRole.teacher)) {
+      return false;
+    }
+
+    const teacherAssignment = await this.prisma.classTeacher.findUnique({
+      where: {
+        classId_teacherId: {
+          classId,
+          teacherId: actor.id,
+        },
+      },
+      select: {
+        teacherId: true,
+      },
+    });
+
+    return Boolean(teacherAssignment);
+  }
+
+  private async isManagerOfClass(
+    actor: StaffOperationsActor,
+    classId: string,
+  ): Promise<boolean> {
+    if (!hasTrainingAccess(actor.roles)) {
+      return false;
+    }
+
+    const managedClass = await this.prisma.class.findFirst({
+      where: {
+        id: classId,
+        trainingManagerStaffId: actor.id,
+      },
+      select: { id: true },
+    });
+
+    return Boolean(managedClass);
   }
 
   async resolveSingleTeacherForClass(classId: string): Promise<string> {
@@ -281,4 +433,3 @@ export class StaffOperationsAccessService {
     return classTeachers[0].teacherId;
   }
 }
-import { hasTrainingAccess } from 'src/common/training-access';

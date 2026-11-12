@@ -65,11 +65,12 @@ export class SessionService {
     );
   }
 
-  updateSession(
+  async updateSession(
     data: SessionUpdateDto,
     actor?: ActionHistoryActor,
     reviewOptions?: ReviewValidationOptions,
   ) {
+    await this.sessionUpdateService.assertAdminRouteUpdateAllowed(data, actor);
     return this.sessionUpdateService.updateSession(data, actor, reviewOptions);
   }
 
@@ -191,16 +192,18 @@ export class SessionService {
       userId,
       roleType,
     );
-    const accessMode =
-      await this.staffOperationsAccess.resolveClassViewAccessMode(
-        actor,
-        classId,
-      );
+    const access = await this.staffOperationsAccess.resolveClassAccess(
+      actor,
+      classId,
+    );
 
+    // #275: kiêm Quản lý lớp → thấy cảnh báo của mọi gia sư trong lớp.
     return this.sessionScheduleRulesService.getMissedTeachingAlertsByClass(
       classId,
       days,
-      accessMode === 'teacher' ? actor.id : undefined,
+      access.mode === 'teacher' && !access.isClassManager
+        ? actor.id
+        : undefined,
     );
   }
 

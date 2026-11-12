@@ -27,6 +27,7 @@ import { RegulationController } from '../regulation/regulation.controller';
 import { SessionController } from '../session/session.controller';
 import { StaffController } from '../staff/staff.controller';
 import { StudentController } from '../student/student.controller';
+import { SurveysController } from '../class/surveys.controller';
 import { UserController } from '../user/user.controller';
 
 /**
@@ -626,6 +627,88 @@ describe('Admin routes deny-by-default (#267)', () => {
         await expect(asAdmin(ClassController, methodName)).resolves.toBe(true);
       },
     );
+  });
+
+  describe('#275 buổi học trên route admin + khảo sát chung', () => {
+    const sessionFinanceRoutes = [
+      'updateSession',
+      'updateSessionPaymentStatuses',
+    ];
+
+    it.each(sessionFinanceRoutes)(
+      'Admin và Kế toán chi vào được SessionController.%s',
+      async (methodName) => {
+        await expect(asAdmin(SessionController, methodName)).resolves.toBe(
+          true,
+        );
+        await expect(
+          asStaff(SessionController, methodName, [
+            StaffRole.accountant_expense,
+          ]),
+        ).resolves.toBe(true);
+      },
+    );
+
+    const sessionDenied: [string, StaffRole[]][] = [
+      ['Kế toán thu', [StaffRole.accountant_income]],
+      ['Quản lý lớp / Đào tạo', [StaffRole.training]],
+      ['Trưởng ban Đào tạo', [StaffRole.training_head]],
+      ['Gia sư', [StaffRole.teacher]],
+      ['Trưởng phòng', [StaffRole.sale_customer_care_head]],
+    ];
+    describe.each(sessionDenied)('%s', (_label, staffRoles) => {
+      it.each([...sessionFinanceRoutes, 'deleteSession'])(
+        'bị 403 ở SessionController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(SessionController, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
+
+    it('Kế toán chi vẫn không xoá được buổi (chỉ Admin)', async () => {
+      await expect(
+        asStaff(SessionController, 'deleteSession', [
+          StaffRole.accountant_expense,
+        ]),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    const surveyRoutes = adminOnlyRoutes(SurveysController);
+
+    it('có route khảo sát chung để kiểm tra', () => {
+      expect(surveyRoutes.length).toBeGreaterThan(0);
+    });
+
+    describe.each([
+      ['Ban Chuyên môn', [StaffRole.lesson_plan]],
+      ['Trưởng ban Chuyên môn', [StaffRole.lesson_plan_head]],
+    ] as [string, StaffRole[]][])('%s', (_label, staffRoles) => {
+      it.each(surveyRoutes)(
+        'vào được SurveysController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(SurveysController, methodName, staffRoles),
+          ).resolves.toBe(true);
+        },
+      );
+    });
+
+    describe.each([
+      ['Quản lý lớp / Đào tạo', [StaffRole.training]],
+      ['Gia sư', [StaffRole.teacher]],
+      ['Kế toán', [StaffRole.accountant_income, StaffRole.accountant_expense]],
+    ] as [string, StaffRole[]][])('%s', (_label, staffRoles) => {
+      it.each(surveyRoutes)(
+        'bị 403 ở SurveysController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(SurveysController, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
   });
 
   describe('nạp thẳng số dương vào ví học sinh', () => {

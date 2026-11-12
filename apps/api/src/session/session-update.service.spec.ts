@@ -46,10 +46,23 @@ describe('SessionUpdateService', () => {
   };
 
   const accessService = {
-    resolveActor: jest.fn(),
-    assertTeacherAssignedToClass: jest.fn(),
+    resolveClassWorkAccess: jest.fn(),
     resolveClassViewAccessMode: jest.fn().mockResolvedValue('teacher'),
   };
+  const workAccess = (
+    overrides: Partial<{
+      staffId: string | null;
+      isAdmin: boolean;
+      isClassTeacher: boolean;
+      isClassManager: boolean;
+    }>,
+  ) => ({
+    staffId: 'teacher-1',
+    isAdmin: false,
+    isClassTeacher: false,
+    isClassManager: false,
+    ...overrides,
+  });
 
   const rosterService = {
     assertAttendanceStudentsBelongToClass: jest.fn(),
@@ -119,10 +132,9 @@ describe('SessionUpdateService', () => {
         },
       ],
     });
-    accessService.resolveActor.mockResolvedValue({
-      id: 'teacher-1',
-      roles: [StaffRole.teacher],
-    });
+    accessService.resolveClassWorkAccess.mockResolvedValue(
+      workAccess({ isClassTeacher: true }),
+    );
     rosterService.assertAttendanceStudentsBelongToClass.mockResolvedValue(
       new Map([
         ['student-1', 180000],
@@ -149,8 +161,9 @@ describe('SessionUpdateService', () => {
       ],
     });
 
-    expect(accessService.assertTeacherAssignedToClass).toHaveBeenCalledWith(
-      'teacher-1',
+    expect(accessService.resolveClassWorkAccess).toHaveBeenCalledWith(
+      'user-1',
+      UserRole.staff,
       'class-1',
     );
     expect(updateSessionSpy).toHaveBeenCalledWith(
@@ -188,6 +201,9 @@ describe('SessionUpdateService', () => {
       teacherPaymentStatus: 'paid',
       attendance: [],
     });
+    accessService.resolveClassWorkAccess.mockResolvedValue(
+      workAccess({ staffId: null, isAdmin: true }),
+    );
     const updateSessionSpy = jest.spyOn(service, 'updateSession');
 
     await expect(
@@ -209,10 +225,9 @@ describe('SessionUpdateService', () => {
       teacherPaymentStatus: 'deposit',
       attendance: [],
     });
-    accessService.resolveActor.mockResolvedValue({
-      id: 'teacher-1',
-      roles: [StaffRole.teacher],
-    });
+    accessService.resolveClassWorkAccess.mockResolvedValue(
+      workAccess({ isClassTeacher: true }),
+    );
     const updateSessionSpy = jest
       .spyOn(service, 'updateSession')
       .mockResolvedValue({ id: 'session-1' } as never);
@@ -600,10 +615,9 @@ describe('SessionUpdateService', () => {
       teacherId: 'teacher-other',
       attendance: [],
     });
-    accessService.resolveActor.mockResolvedValue({
-      id: 'teacher-1',
-      roles: [StaffRole.teacher],
-    });
+    accessService.resolveClassWorkAccess.mockResolvedValue(
+      workAccess({ isClassTeacher: true }),
+    );
     const updateSessionSpy = jest.spyOn(service, 'updateSession');
 
     await expect(
@@ -612,5 +626,169 @@ describe('SessionUpdateService', () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(updateSessionSpy).not.toHaveBeenCalled();
+  });
+
+  describe('#275 Quản lý lớp trên staff-ops', () => {
+    const otherTeacherSession = {
+      id: 'session-2',
+      classId: 'class-1',
+      teacherId: 'teacher-other',
+      coefficient: 1,
+      teacherPaymentStatus: 'unpaid',
+      attendance: [],
+    };
+
+    it('lets Quản lý lớp edit content and attendance of another teacher session', async () => {
+      mockPrisma.session.findUnique.mockResolvedValue(otherTeacherSession);
+      accessService.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({ staffId: 'manager-1', isClassManager: true }),
+      );
+      rosterService.assertAttendanceStudentsBelongToClass.mockResolvedValue(
+        new Map([['student-1', 150000]]),
+      );
+      const updateSessionSpy = jest
+        .spyOn(service, 'updateSession')
+        .mockResolvedValue({ id: 'session-2' } as never);
+
+      await service.updateSessionForStaff(
+        'user-9',
+        UserRole.staff,
+        'session-2',
+        {
+          lessonContent: '<p>Nội dung</p>',
+          attendance: [
+            { studentId: 'student-1', status: AttendanceStatus.present },
+          ],
+        },
+      );
+
+      expect(updateSessionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'session-2',
+          lessonContent: '<p>Nội dung</p>',
+        }),
+        undefined,
+      );
+    });
+
+    it('lets a teacher who is also Quản lý lớp edit another teacher session (hợp quyền)', async () => {
+      mockPrisma.session.findUnique.mockResolvedValue(otherTeacherSession);
+      accessService.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({ isClassTeacher: true, isClassManager: true }),
+      );
+      const updateSessionSpy = jest
+        .spyOn(service, 'updateSession')
+        .mockResolvedValue({ id: 'session-2' } as never);
+
+      await service.updateSessionForStaff(
+        'user-1',
+        UserRole.staff,
+        'session-2',
+        { notes: 'Ghi chú' },
+      );
+
+      expect(updateSessionSpy).toHaveBeenCalled();
+    });
+
+    it.each([
+      ['đánh dấu Dạy thử', 0],
+      ['đổi hệ số', 0.5],
+    ])(
+      'forbids Quản lý lớp to %s on another teacher session',
+      async (_label, coefficient) => {
+        mockPrisma.session.findUnique.mockResolvedValue(otherTeacherSession);
+        accessService.resolveClassWorkAccess.mockResolvedValue(
+          workAccess({ staffId: 'manager-1', isClassManager: true }),
+        );
+        const updateSessionSpy = jest.spyOn(service, 'updateSession');
+
+        await expect(
+          service.updateSessionForStaff('user-9', UserRole.staff, 'session-2', {
+            coefficient,
+          }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(updateSessionSpy).not.toHaveBeenCalled();
+      },
+    );
+
+    it('accepts an unchanged coefficient sent back by Quản lý lớp', async () => {
+      mockPrisma.session.findUnique.mockResolvedValue(otherTeacherSession);
+      accessService.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({ staffId: 'manager-1', isClassManager: true }),
+      );
+      const updateSessionSpy = jest
+        .spyOn(service, 'updateSession')
+        .mockResolvedValue({ id: 'session-2' } as never);
+
+      await service.updateSessionForStaff(
+        'user-9',
+        UserRole.staff,
+        'session-2',
+        { coefficient: 1, notes: 'x' },
+      );
+
+      expect(updateSessionSpy).toHaveBeenCalled();
+    });
+
+    it('rejects staff not assigned to the class (403 from resolveClassWorkAccess)', async () => {
+      mockPrisma.session.findUnique.mockResolvedValue(otherTeacherSession);
+      accessService.resolveClassWorkAccess.mockRejectedValue(
+        new ForbiddenException(
+          'Chỉ Admin, gia sư của lớp hoặc Quản lý lớp mới được thao tác trên lớp này.',
+        ),
+      );
+      const updateSessionSpy = jest.spyOn(service, 'updateSession');
+
+      await expect(
+        service.updateSessionForStaff('user-9', UserRole.staff, 'session-2', {
+          notes: 'x',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(updateSessionSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('assertAdminRouteUpdateAllowed (#265 trên PUT /sessions/:id)', () => {
+    it('forbids Kế toán chi editing compensation of their own session', async () => {
+      mockPrisma.session.findUnique.mockResolvedValue({
+        teacherId: 'staff-acc',
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        roleType: UserRole.staff,
+        staffInfo: { id: 'staff-acc', roles: [StaffRole.accountant_expense] },
+      });
+
+      await expect(
+        service.assertAdminRouteUpdateAllowed(
+          { id: 'session-1', allowanceAmount: 1 } as never,
+          { userId: 'user-acc', roleType: UserRole.staff } as never,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows Kế toán chi editing compensation of another teacher session', async () => {
+      mockPrisma.session.findUnique.mockResolvedValue({
+        teacherId: 'teacher-1',
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        roleType: UserRole.staff,
+        staffInfo: { id: 'staff-acc', roles: [StaffRole.accountant_expense] },
+      });
+
+      await expect(
+        service.assertAdminRouteUpdateAllowed(
+          { id: 'session-1', allowanceAmount: 1 } as never,
+          { userId: 'user-acc', roleType: UserRole.staff } as never,
+        ),
+      ).resolves.toBeUndefined();
+    });
+
+    it('skips the lookup when the payload does not touch compensation', async () => {
+      await service.assertAdminRouteUpdateAllowed(
+        { id: 'session-1', notes: 'x' } as never,
+        { userId: 'user-acc', roleType: UserRole.staff } as never,
+      );
+      expect(mockPrisma.session.findUnique).not.toHaveBeenCalled();
+    });
   });
 });

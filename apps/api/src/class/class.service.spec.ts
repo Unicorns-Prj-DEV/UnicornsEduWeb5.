@@ -138,6 +138,7 @@ describe('ClassService', () => {
   const mockStaffOperationsAccess = {
     resolveActor: jest.fn(),
     assertTeacherAssignedToClass: jest.fn(),
+    resolveClassWorkAccess: jest.fn(),
   };
   const mockActionHistoryService = {
     recordUpdate: jest.fn(),
@@ -1182,11 +1183,36 @@ describe('ClassService', () => {
   });
 
   describe('updateClassScheduleForStaff', () => {
-    it('does not apply teacher assignment scope to elevated multi-role staff', async () => {
-      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
-        id: 'staff-1',
-        roles: [StaffRole.teacher, StaffRole.accountant_income],
-      });
+    const workAccess = (
+      overrides: Partial<{
+        staffId: string | null;
+        isAdmin: boolean;
+        isClassTeacher: boolean;
+        isClassManager: boolean;
+      }>,
+    ) => ({
+      staffId: 'staff-1',
+      isAdmin: false,
+      isClassTeacher: false,
+      isClassManager: false,
+      ...overrides,
+    });
+    const otherTeacherSlot = {
+      schedule: [
+        {
+          dayOfWeek: 3,
+          from: '20:00:00',
+          to: '21:30:00',
+          teacherId: 'teacher-2',
+          effectiveFrom: '2026-01-01',
+        },
+      ],
+    };
+
+    it('lets admin edit any slot and keep effectiveFrom', async () => {
+      mockStaffOperationsAccess.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({ isAdmin: true }),
+      );
       const updateScheduleSpy = jest
         .spyOn(service, 'updateClassSchedule')
         .mockResolvedValue({ id: 'class-1' } as never);
@@ -1195,27 +1221,21 @@ describe('ClassService', () => {
         'user-1',
         UserRole.staff,
         'class-1',
-        { schedule: [] } as never,
+        otherTeacherSlot as never,
       );
 
-      expect(
-        mockStaffOperationsAccess.assertTeacherAssignedToClass,
-      ).not.toHaveBeenCalled();
       expect(updateScheduleSpy).toHaveBeenCalledWith(
         'class-1',
-        { schedule: [] },
+        otherTeacherSlot,
         undefined,
       );
     });
 
-    // #267: Trợ lí không còn quyền lớp cấp quản trị; kiêm giáo viên thì bị
-    // giới hạn như giáo viên.
-    it('applies teacher assignment scope to assistant who is also a teacher', async () => {
-      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
-        id: 'staff-1',
-        roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
-      });
-      jest
+    it('#275: Quản lý lớp sửa được slot của gia sư khác (không backdate)', async () => {
+      mockStaffOperationsAccess.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({ staffId: 'manager-1', isClassManager: true }),
+      );
+      const updateScheduleSpy = jest
         .spyOn(service, 'updateClassSchedule')
         .mockResolvedValue({ id: 'class-1' } as never);
 
@@ -1223,19 +1243,87 @@ describe('ClassService', () => {
         'user-1',
         UserRole.staff,
         'class-1',
-        { schedule: [] } as never,
+        otherTeacherSlot as never,
       );
 
-      expect(
-        mockStaffOperationsAccess.assertTeacherAssignedToClass,
-      ).toHaveBeenCalledWith('staff-1', 'class-1');
+      expect(updateScheduleSpy).toHaveBeenCalledWith(
+        'class-1',
+        {
+          schedule: [
+            expect.objectContaining({
+              teacherId: 'teacher-2',
+              effectiveFrom: undefined,
+            }),
+          ],
+        },
+        undefined,
+      );
     });
 
-    it('strips effectiveFrom from a pure-teacher actor submission (only elevated staff may backdate)', async () => {
-      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
-        id: 'teacher-1',
-        roles: [StaffRole.teacher],
-      });
+    it('#275: kiêm gia sư + Quản lý lớp được hợp quyền (không bị khoá về slot của mình)', async () => {
+      mockStaffOperationsAccess.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({
+          staffId: 'teacher-1',
+          isClassTeacher: true,
+          isClassManager: true,
+        }),
+      );
+      const updateScheduleSpy = jest
+        .spyOn(service, 'updateClassSchedule')
+        .mockResolvedValue({ id: 'class-1' } as never);
+
+      await service.updateClassScheduleForStaff(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+        otherTeacherSlot as never,
+      );
+
+      expect(updateScheduleSpy).toHaveBeenCalled();
+    });
+
+    it('rejects a pure teacher editing another teacher slot', async () => {
+      mockStaffOperationsAccess.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({ staffId: 'teacher-1', isClassTeacher: true }),
+      );
+      const updateScheduleSpy = jest
+        .spyOn(service, 'updateClassSchedule')
+        .mockResolvedValue({ id: 'class-1' } as never);
+
+      await expect(
+        service.updateClassScheduleForStaff(
+          'user-1',
+          UserRole.staff,
+          'class-1',
+          otherTeacherSlot as never,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(updateScheduleSpy).not.toHaveBeenCalled();
+    });
+
+    it('#275: lớp không được giao (hoặc Kế toán) → 403 từ resolveClassWorkAccess', async () => {
+      mockStaffOperationsAccess.resolveClassWorkAccess.mockRejectedValue(
+        new ForbiddenException('no'),
+      );
+      const updateScheduleSpy = jest
+        .spyOn(service, 'updateClassSchedule')
+        .mockResolvedValue({ id: 'class-1' } as never);
+
+      await expect(
+        service.updateClassScheduleForStaff(
+          'user-1',
+          UserRole.staff,
+          'class-1',
+          otherTeacherSlot as never,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(updateScheduleSpy).not.toHaveBeenCalled();
+    });
+
+    it('strips effectiveFrom from a pure-teacher actor submission (only admin may backdate)', async () => {
+      mockStaffOperationsAccess.resolveClassWorkAccess.mockResolvedValue(
+        workAccess({ staffId: 'teacher-1', isClassTeacher: true }),
+      );
       const updateScheduleSpy = jest
         .spyOn(service, 'updateClassSchedule')
         .mockResolvedValue({ id: 'class-1' } as never);

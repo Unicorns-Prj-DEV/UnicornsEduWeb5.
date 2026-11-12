@@ -1356,16 +1356,24 @@ export class ClassService {
     dto: UpdateClassScheduleDto,
     auditActor?: ActionHistoryActor,
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(
+    // #275: Admin + Quản lý lớp sửa mọi slot của lớp; gia sư chỉ slot của
+    // mình; lớp không được giao → 403.
+    const access = await this.staffOperationsAccess.resolveClassWorkAccess(
       userId,
       roleType,
+      id,
     );
-    if (this.isTeacherActor(actor.roles)) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(
-        actor.id,
-        id,
-      );
-      await this.assertTeacherOnlyOwnScheduleEntries(actor.id, id, dto);
+    if (!access.isAdmin && access.isClassManager) {
+      // Quản lý lớp không backdate ngày hiệu lực (chỉ Admin).
+      dto = {
+        ...dto,
+        schedule: dto.schedule.map((entry) => ({
+          ...entry,
+          effectiveFrom: undefined,
+        })),
+      };
+    } else if (!access.isAdmin && access.isClassTeacher && access.staffId) {
+      await this.assertTeacherOnlyOwnScheduleEntries(access.staffId, id, dto);
       // Chỉ Admin/Trợ lý được backdate ngày hiệu lực; gia sư tự sửa lịch của
       // chính mình luôn dùng now() -- bỏ qua effectiveFrom nếu có gửi lên,
       // tránh gia sư tự backdate qua gọi thẳng API (bypass UI).

@@ -27,7 +27,11 @@ import {
   SessionUpdateDto,
 } from '../dtos/session.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { StaffOperationsAccessService } from '../staff-ops/staff-operations-access.service';
+import {
+  StaffOperationsAccessService,
+  canEditClassSessionCoefficient,
+  canWorkOnClassSession,
+} from '../staff-ops/staff-operations-access.service';
 import { SessionLedgerService } from './session-ledger.service';
 import { SessionRosterService } from './session-roster.service';
 import { SessionSnapshotService } from './session-snapshot.service';
@@ -445,6 +449,39 @@ export class SessionUpdateService {
         timeout: SESSION_UPDATE_TRANSACTION_TIMEOUT_MS,
       },
     );
+  }
+
+  /**
+   * `PUT /sessions/:id` (Admin + Kế toán chi, #275): luật #265 — không ai trừ
+   * Admin tự sửa trợ cấp / hệ số / trạng thái thanh toán của buổi do chính mình
+   * dạy (hoặc gán buổi sang chính mình).
+   */
+  async assertAdminRouteUpdateAllowed(
+    data: SessionUpdateDto,
+    actor?: ActionHistoryActor,
+  ): Promise<void> {
+    const touchesCompensation =
+      data.allowanceAmount !== undefined ||
+      data.coefficient !== undefined ||
+      data.teacherPaymentStatus !== undefined ||
+      data.includeTeacherOperatingDeduction !== undefined ||
+      data.teacherId !== undefined;
+    if (!touchesCompensation || !data.id) {
+      return;
+    }
+
+    const session = await this.prisma.session.findUnique({
+      where: { id: data.id },
+      select: { teacherId: true },
+    });
+    if (!session) {
+      return;
+    }
+
+    await assertActorNotEditingOwnCompensation(this.prisma, actor, [
+      session.teacherId,
+      ...(data.teacherId ? [data.teacherId] : []),
+    ]);
   }
 
   async updateSession(
@@ -1826,14 +1863,38 @@ export class SessionUpdateService {
       throw new NotFoundException('Session not found');
     }
 
-    // Trợ cấp = allowance_amount × coefficient: đổi Dạy thử sau khi đã chốt
-    // thanh toán/cọc sẽ làm lệch số đã chi, nên staff-ops không cho đổi.
+    // #275: gia sư chỉ buổi do mình dạy; Admin + Quản lý lớp mọi buổi của lớp
+    // (hợp quyền). Kế toán / Ban Đào tạo không quản lý lớp → 403.
+    const access = await this.staffOperationsAccess.resolveClassWorkAccess(
+      userId,
+      roleType,
+      existingSession.classId,
+    );
+    if (!canWorkOnClassSession(access, existingSession.teacherId)) {
+      throw new ForbiddenException(
+        'Bạn chỉ được sửa buổi học do chính mình dạy.',
+      );
+    }
+
     const nextCoefficient = this.sessionValidationService.normalizeCoefficient(
       data.coefficient,
     );
-    if (
+    const hasCoefficientChange =
       nextCoefficient !== undefined &&
-      nextCoefficient !== Number(existingSession.coefficient ?? 1) &&
+      nextCoefficient !== Number(existingSession.coefficient ?? 1);
+    if (
+      hasCoefficientChange &&
+      !canEditClassSessionCoefficient(access, existingSession.teacherId)
+    ) {
+      throw new ForbiddenException(
+        'Quản lý lớp không được đổi hệ số hay đánh dấu dạy thử của buổi gia sư khác.',
+      );
+    }
+
+    // Trợ cấp = allowance_amount × coefficient: đổi Dạy thử sau khi đã chốt
+    // thanh toán/cọc sẽ làm lệch số đã chi, nên staff-ops không cho đổi.
+    if (
+      hasCoefficientChange &&
       this.sessionValidationService.isSessionTimeEditLocked(
         existingSession.teacherPaymentStatus,
       )
@@ -1847,28 +1908,6 @@ export class SessionUpdateService {
       data,
       existingSession.snapshotNoAttendance,
     );
-
-    const actor = await this.staffOperationsAccess.resolveActor(
-      userId,
-      roleType,
-    );
-    if (actor.roles.includes(StaffRole.teacher)) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(
-        actor.id,
-        existingSession.classId,
-      );
-      // Gia sư xem được buổi của gia sư khác (chỉ nhận xét) nhưng không được sửa.
-      const accessMode =
-        await this.staffOperationsAccess.resolveClassViewAccessMode(
-          actor,
-          existingSession.classId,
-        );
-      if (accessMode === 'teacher' && existingSession.teacherId !== actor.id) {
-        throw new ForbiddenException(
-          'Bạn chỉ được sửa buổi học do chính mình dạy.',
-        );
-      }
-    }
 
     let enrichedAttendance: SessionUpdateDto['attendance'] | undefined;
     if (data.attendance !== undefined) {
@@ -1911,7 +1950,7 @@ export class SessionUpdateService {
         tutorial: data.tutorial,
         ...pickSessionReviewInput(data),
         recordingUrl: data.recordingUrl,
-        // Dạy thử: mọi role staff-ops đều đổi được; FE chỉ gửi khi đổi toggle.
+        // Dạy thử: Admin hoặc gia sư trên buổi của mình (#275); FE chỉ gửi khi đổi toggle.
         coefficient: data.coefficient,
         attendance: enrichedAttendance,
       },

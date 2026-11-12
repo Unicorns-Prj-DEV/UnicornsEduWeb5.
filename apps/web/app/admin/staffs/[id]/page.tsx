@@ -355,7 +355,7 @@ export default function AdminStaffDetailPage({
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAssistant, isAccountant, isAccountantExpense, isAccountantIncome } =
+  const { isAdmin, isAccountant, isAccountantExpense } =
     resolveAdminShellAccess(fullProfile);
   const { canManageUsers } = resolveUserAdminCapabilities(fullProfile, routeBase);
   const ownStaffId = fullProfile?.staffInfo?.id;
@@ -363,18 +363,18 @@ export default function AdminStaffDetailPage({
   const viewingOwnStaffRecordOnStaffShell =
     routeBase === "/staff" && viewingOwnStaffRecord;
   const canViewBeforeDeduction = isAdmin || isAccountant;
-  const canCreateBonus = isAdmin || isAssistant || isAccountantExpense;
+  const canCreateBonus = isAdmin || isAccountantExpense;
   const canDeleteBonus = canCreateBonus;
-  const canEditTaxSettings = isAdmin || isAssistant || isAccountantExpense;
-  const canPayAll = isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
-  const canEditSessionDetails = isAdmin || isAssistant;
+  const canEditTaxSettings = isAdmin || isAccountantExpense;
+  // #275: Kế toán thu không còn chốt thanh toán buổi (BE chỉ Admin + Kế toán chi).
+  const canPayAll = isAdmin || isAccountantExpense;
+  const canEditSessionDetails = isAdmin;
   // Khớp quyền `PUT /sessions/:id`: được lưu khi Nhận xét buổi học còn trống field bắt buộc.
-  const canSkipRequiredSessionReview = isAdmin || isAssistant || isAccountant;
-  const canEditSessionPaymentStatus =
-    isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
-  const canManageMissedTeachingAlerts = isAdmin || isAssistant;
+  const canSkipRequiredSessionReview = isAdmin || isAccountantExpense;
+  const canEditSessionPaymentStatus = isAdmin || isAccountantExpense;
+  const canManageMissedTeachingAlerts = isAdmin;
   const canEditStaffProfile =
-    (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
+    isAdmin && !viewingOwnStaffRecordOnStaffShell;
 
   const {
     data: staff,
@@ -1868,7 +1868,7 @@ export default function AdminStaffDetailPage({
           allowQrEdit={!viewingOwnStaffRecordOnStaffShell}
           // Thành tích của chính mình sửa ở hồ sơ cá nhân (API trả 403 ở mọi shell).
           allowAchievementEdit={
-            (isAdmin || isAssistant) && !viewingOwnStaffRecord
+            isAdmin && !viewingOwnStaffRecord
           }
           // #270: backend đã bỏ trường người xem không được thấy; ẩn luôn ô trống.
           showPersonalInfo={staff.sensitiveView?.personal ?? true}

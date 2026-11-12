@@ -9,7 +9,11 @@ jest.mock('../prisma/prisma.service', () => ({
 }));
 
 import { StaffRole, UserRole } from '../../generated/enums';
-import { StaffOperationsAccessService } from './staff-operations-access.service';
+import {
+  StaffOperationsAccessService,
+  canEditClassSessionCoefficient,
+  canWorkOnClassSession,
+} from './staff-operations-access.service';
 
 describe('StaffOperationsAccessService', () => {
   const mockPrisma = {
@@ -351,6 +355,159 @@ describe('StaffOperationsAccessService', () => {
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(mockPrisma.class.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resolveClassWorkAccess (#275)', () => {
+    const staff = (id: string, roles: StaffRole[]) =>
+      mockPrisma.staffInfo.findFirst.mockResolvedValue({ id, roles });
+
+    it('gives admin users full access without a staff lookup', async () => {
+      await expect(
+        service.resolveClassWorkAccess('user-admin', UserRole.admin, 'class-1'),
+      ).resolves.toEqual({
+        staffId: null,
+        isAdmin: true,
+        isClassTeacher: false,
+        isClassManager: false,
+      });
+      expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('flags the training manager of the class (Quản lý lớp)', async () => {
+      staff('manager-1', [StaffRole.training]);
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+
+      await expect(
+        service.resolveClassWorkAccess('user-1', UserRole.staff, 'class-1'),
+      ).resolves.toEqual({
+        staffId: 'manager-1',
+        isAdmin: false,
+        isClassTeacher: false,
+        isClassManager: true,
+      });
+      expect(mockPrisma.class.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'class-1', trainingManagerStaffId: 'manager-1' },
+        }),
+      );
+    });
+
+    it('flags both roles for a teacher who is also the class manager (hợp quyền)', async () => {
+      staff('staff-1', [StaffRole.teacher, StaffRole.training_head]);
+      mockPrisma.classTeacher.findUnique.mockResolvedValue({
+        teacherId: 'staff-1',
+      });
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+
+      const access = await service.resolveClassWorkAccess(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+      );
+
+      expect(access).toMatchObject({
+        isClassTeacher: true,
+        isClassManager: true,
+      });
+      expect(canWorkOnClassSession(access, 'teacher-other')).toBe(true);
+    });
+
+    it('rejects training staff on a class they do not manage', async () => {
+      staff('manager-1', [StaffRole.training]);
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.resolveClassWorkAccess('user-1', UserRole.staff, 'class-2'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it.each([
+      StaffRole.accountant_income,
+      StaffRole.accountant_expense,
+      StaffRole.customer_care,
+    ])('rejects %s without class assignment', async (role) => {
+      staff('staff-x', [role]);
+
+      await expect(
+        service.resolveClassWorkAccess('user-1', UserRole.staff, 'class-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.class.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('session permission helpers (#275)', () => {
+    const teacher = {
+      staffId: 'teacher-1',
+      isAdmin: false,
+      isClassTeacher: true,
+      isClassManager: false,
+    };
+    const manager = {
+      staffId: 'manager-1',
+      isAdmin: false,
+      isClassTeacher: false,
+      isClassManager: true,
+    };
+    const admin = {
+      staffId: null,
+      isAdmin: true,
+      isClassTeacher: false,
+      isClassManager: false,
+    };
+
+    it('lets teacher work only on own sessions, manager and admin on all', () => {
+      expect(canWorkOnClassSession(teacher, 'teacher-1')).toBe(true);
+      expect(canWorkOnClassSession(teacher, 'teacher-2')).toBe(false);
+      expect(canWorkOnClassSession(manager, 'teacher-2')).toBe(true);
+      expect(canWorkOnClassSession(admin, 'teacher-2')).toBe(true);
+    });
+
+    it('never lets Quản lý lớp change coefficient / trial of another teacher session', () => {
+      expect(canEditClassSessionCoefficient(manager, 'teacher-2')).toBe(false);
+      expect(
+        canEditClassSessionCoefficient(
+          { ...manager, staffId: 'teacher-1', isClassTeacher: true },
+          'teacher-2',
+        ),
+      ).toBe(false);
+      expect(canEditClassSessionCoefficient(teacher, 'teacher-1')).toBe(true);
+      expect(canEditClassSessionCoefficient(admin, 'teacher-2')).toBe(true);
+    });
+  });
+
+  describe('resolveClassAccess (#275)', () => {
+    it('keeps teacher view mode but flags class manager for union access', async () => {
+      mockPrisma.classTeacher.findUnique.mockResolvedValue({
+        teacherId: 'staff-1',
+      });
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+
+      await expect(
+        service.resolveClassAccess(
+          { id: 'staff-1', roles: [StaffRole.teacher, StaffRole.training] },
+          'class-1',
+        ),
+      ).resolves.toEqual({
+        mode: 'teacher',
+        isAdmin: false,
+        isClassTeacher: true,
+        isClassManager: true,
+      });
+    });
+
+    it('returns training_manager mode for a pure class manager', async () => {
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+
+      await expect(
+        service.resolveClassAccess(
+          { id: 'manager-1', roles: [StaffRole.training] },
+          'class-1',
+        ),
+      ).resolves.toMatchObject({
+        mode: 'training_manager',
+        isClassManager: true,
+      });
     });
   });
 });

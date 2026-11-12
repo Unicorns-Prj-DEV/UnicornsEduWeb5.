@@ -25,4 +25,5 @@ Một module chung `apps/api/src/common/staff-role-policy.ts`:
 - Một nơi quyết định; thêm role trưởng mới chỉ sửa `PRIVILEGED_STAFF_ROLES`.
 - Mỗi lệnh ghi lương thêm một truy vấn tra actor (`users` + `staff_info`) — rẻ, chấp nhận.
 - Thứ tự ưu tiên access mode ở trang lớp (`resolveClassViewAccessMode`: admin → teacher → customer_care → training_manager) **chưa** là hợp quyền; để #275–#277 xử lý cùng logic sửa buổi.
+  - **Cập nhật #275:** quyền thao tác trên lớp nay là hợp quyền. `resolveClassAccess` trả thêm cờ `isAdmin` / `isClassTeacher` / `isClassManager`, `resolveClassWorkAccess` dùng cho mọi đường ghi (buổi, lịch, buổi bù, khảo sát lớp). `mode` giữ thứ tự cũ nhưng chỉ chọn cách redact dữ liệu xem (người kiêm gia sư + Quản lý lớp thấy buổi của gia sư khác theo góc nhìn Quản lý lớp, buổi của mình đủ trường). Luật 1 vẫn áp: `lockedTeacherId` khoá dòng lương gia sư của chính Quản lý lớp, và `PUT /sessions/:id` gọi `assertActorNotEditingOwnCompensation` khi đổi trường lương.
 - Service mới ghi lương phải gọi `assertActorNotEditingOwnCompensation`; review code cần kiểm tra.

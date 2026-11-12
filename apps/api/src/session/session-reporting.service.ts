@@ -13,6 +13,7 @@ import { SQL_TEACHER_SESSION_CAPPED_GROSS } from '../common/teacher-session-allo
 import {
   redactOtherTeachersSessions,
   redactSessionsForAccountantView,
+  redactSessionForTrainingManagerView,
   redactSessionsForTrainingManagerView,
   resolveAccountantFinanceView,
 } from '../common/accountant-finance-redaction.util';
@@ -137,11 +138,11 @@ export class SessionReportingService {
       userId,
       roleType,
     );
-    const accessMode =
-      await this.staffOperationsAccess.resolveClassViewAccessMode(
-        actor,
-        classId,
-      );
+    const access = await this.staffOperationsAccess.resolveClassAccess(
+      actor,
+      classId,
+    );
+    const accessMode = access.mode;
 
     const sessions = await this.prisma.session.findMany({
       // Gia sư thấy mọi buổi của lớp; buổi của gia sư khác được redact còn nhận xét ở dưới.
@@ -175,9 +176,19 @@ export class SessionReportingService {
     }
 
     if (accessMode === 'teacher') {
+      const financeView = resolveAccountantFinanceView(roleType, actor.roles);
+      // #275 hợp quyền: kiêm Quản lý lớp → buổi của gia sư khác hiện đủ như
+      // Quản lý lớp (để thao tác), không chỉ còn phần nhận xét.
+      if (access.isClassManager) {
+        return mappedSessions.map((session) =>
+          session.teacherId === actor.id
+            ? redactSessionsForAccountantView([session], financeView)[0]
+            : redactSessionForTrainingManagerView(session),
+        );
+      }
       return redactSessionsForAccountantView(
         redactOtherTeachersSessions(mappedSessions, actor.id),
-        resolveAccountantFinanceView(roleType, actor.roles),
+        financeView,
       );
     }
 

@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  StaffRole,
   StudentClassStatus,
   UserRole,
   ClassTimelineItemKind,
@@ -438,30 +437,29 @@ export class ClassSurveyService {
     return this.getClassSurveys(classId, query);
   }
 
+  /**
+   * Khảo sát của lớp (#275): Admin và Quản lý lớp quản lý mọi khảo sát của lớp
+   * mình; gia sư của lớp vẫn tạo / sửa / xoá khảo sát do chính mình phụ trách
+   * (luồng khoá tạo buổi khi lớp chưa nộp khảo sát). Hợp quyền: kiêm gia sư +
+   * Quản lý lớp → không bị khoá về khảo sát của mình. Lớp khác → 403.
+   */
   private async resolveStaffSurveyManager(
     userId: string,
     roleType: UserRole,
     classId: string,
   ) {
-    if (roleType === UserRole.admin) {
-      return { actorId: null, teacherScoped: false };
-    }
-
-    const actor = await this.staffOperationsAccess.resolveActor(
+    const access = await this.staffOperationsAccess.resolveClassWorkAccess(
       userId,
       roleType,
+      classId,
     );
 
-    if (actor.roles.includes(StaffRole.admin)) {
-      return { actorId: actor.id, teacherScoped: false };
+    if (access.isAdmin || access.isClassManager) {
+      return { actorId: access.staffId, teacherScoped: false };
     }
 
-    if (actor.roles.includes(StaffRole.teacher)) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(
-        actor.id,
-        classId,
-      );
-      return { actorId: actor.id, teacherScoped: true };
+    if (access.isClassTeacher) {
+      return { actorId: access.staffId, teacherScoped: true };
     }
 
     throw new ForbiddenException(
