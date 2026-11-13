@@ -41,7 +41,7 @@ describe("route thu nhập Đào Tạo / Trưởng ban Đào tạo", () => {
       resolveStaffShellRouteAccess(profile, "/staff/calendar").isAllowed,
     ).toBe(true);
     expect(
-      resolveStaffShellRouteAccess(profile, "/staff/tutors").isAllowed,
+      resolveStaffShellRouteAccess(profile, "/staff/staffs").isAllowed,
     ).toBe(true);
   });
 
@@ -192,12 +192,9 @@ describe("Danh sách nhân sự /staff/staffs cho Trưởng phòng Sale & CSKH (
     ).toBe(true);
   });
 
-  it.each([
-    ["customer_care"],
-    ["sale"],
-    ["training"],
-    ["training_head"],
-  ])("role %s không vào được", (role) => {
+  // Ban Đào Tạo cũng vào `/staff/staffs` nhưng thấy danh sách gia sư của mình
+  // (khối test "Hồ sơ nhân sự … cho các trưởng" bên dưới).
+  it.each([["customer_care"], ["sale"]])("role %s không vào được", (role) => {
     for (const route of TEAM_ROUTES) {
       expect(
         resolveStaffShellRouteAccess(staffProfile([role]), route).isAllowed,
@@ -230,7 +227,17 @@ describe("Hồ sơ nhân sự /staff/staffs/:id cho các trưởng", () => {
   });
 
   it.each([["training"], ["training_head"]])(
-    "role %s không vào danh sách /staff/staffs (dùng /staff/tutors)",
+    "role %s vào danh sách /staff/staffs (thay /staff/tutors cũ)",
+    (role) => {
+      expect(
+        resolveStaffShellRouteAccess(staffProfile([role]), "/staff/staffs")
+          .isAllowed,
+      ).toBe(true);
+    },
+  );
+
+  it.each([["teacher"], ["lesson_plan_head"], ["customer_care"]])(
+    "role %s không vào danh sách /staff/staffs",
     (role) => {
       expect(
         resolveStaffShellRouteAccess(staffProfile([role]), "/staff/staffs")

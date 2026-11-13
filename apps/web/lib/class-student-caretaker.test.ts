@@ -48,6 +48,19 @@ describe("resolveClassTeacherHref (card Gia sư phụ trách)", () => {
     }
   });
 
+  it("Trưởng ban Đào tạo luôn sang hồ sơ giới hạn ở staff shell", () => {
+    for (const routeBase of ["/admin", "/staff"] as const) {
+      expect(
+        resolveClassTeacherHref({
+          routeBase,
+          teacherId: "t1",
+          access: none,
+          viewerIsTrainingHead: true,
+        }),
+      ).toBe("/staff/staffs/t1");
+    }
+  });
+
   it("không có id thì không có link", () => {
     expect(
       resolveClassTeacherHref({

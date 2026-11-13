@@ -21,6 +21,20 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Ban Đào Tạo dùng chung giao diện admin (13/11)
+
+#### Changed
+
+- **Danh sách nhân sự Ban Đào Tạo chuyển về `/staff/staffs`, y hệt `/admin/staffs`:** sidebar **Nhân sự** thay **Gia sư**; route `/staff/tutors` **đã xoá** (không redirect, như `/staff/sale-cs-team`). `TrainingStaffList` cùng bố cục `SaleCsTeamStaffList`: tìm tên, **Bộ lọc** trạng thái (mặc định Hoạt động), chip, thẻ mobile / bảng desktop, phân trang, bộ lọc trên URL, bấm dòng mở hồ sơ. Trưởng ban Đào tạo thấy nhân sự ba nhóm **Gia sư / Ban Chuyên môn / Đào tạo** + bộ lọc **Nhóm**, **Sửa role**, **Bật role cho nhân sự khác**; Ban Đào Tạo thường chỉ thấy gia sư. Gate `lib/staff-shell-access.ts` mở danh sách `/staff/staffs` cho Ban Đào Tạo (bỏ cờ `isStaffTutorsRoute`); xoá `TutorIdentity`, `TutorStatusBadge` (không còn dùng). Link quay lại ở hồ sơ trỏ `/staff/staffs`.
+- **`GET /training/tutors` nhận `role`** (`teacher|lesson_plan|training`, chỉ với `scope=all`; giá trị khác `400`; bỏ qua ở `scope=tutors`) để lọc theo nhóm.
+- **Trưởng ban Đào tạo sửa gia sư lớp bằng form admin:** trên `/staff/classes/:id`, card **Gia sư & Quản lý** chỉ còn một nút **Chỉnh sửa** mở `EditClassTeachersPopup` (`variant="trainingHead"`) — thêm / bỏ gia sư, trợ cấp riêng / scale / `% vận hành`, chọn Quản lý lớp. Lưu theo diff qua route staff-ops được phép (`POST …/teachers`, `PATCH …/teacher-pay`, `POST …/stop-teaching`) + `PATCH /class/:id/training-manager` không `%`; `PATCH /class/:id/teachers` vẫn chỉ Admin (#267). Dòng của chính mình và `%` Quản lý lớp khoá. Quản lý lớp thường giữ `ManagedClassTeachersPopup`.
+- **Trưởng ban Đào tạo xem lớp bằng đúng trang admin:** `/staff/classes/:id` của lớp Trưởng ban **không dạy và không quản lý** render `AdminClassDetailPage` (như Trưởng phòng Sale & CSKH / Kế toán) — Gia sư & Quản lý có lương + Quản lý lớp, Khung giờ, Danh sách học sinh (không học phí / số dư, không bấm sang hồ sơ học sinh), Lịch dạy bù, Cảnh báo chưa dạy, Lịch sử & Nội dung **chỉ xem**; **Chỉnh sửa thông tin lớp** sửa Tên / Khoá / Sĩ số + **trợ cấp mặc định của lớp** (Trợ cấp / HV / buổi, Trợ cấp tối đa, Scales; gửi `PATCH /staff-ops/classes/:id/teacher-pay` chỉ ô đã đổi, ô chạm lương của chính mình khoá — cùng dialog ở workspace staff); **Chỉnh sửa** gia sư mở `EditClassTeachersPopup variant="trainingHead"`. Buổi / khảo sát / cảnh báo đọc qua `GET /staff-ops/classes/:id/*` (đã redact) thay route Admin + Kế toán. Lớp Trưởng ban đang dạy hoặc quản lý giữ workspace staff (tạo buổi, điểm danh, sửa lịch). Thẻ gia sư link `/staff/staffs/:id`.
+- **Card «Lớp phụ trách» ở hồ sơ `/staff/staffs/:id` theo bố cục admin:** thẻ mobile / bảng «Lớp · Trạng thái», lớp đã nghỉ mờ + nhãn **NGHỈ DẠY** thay hai nhóm chip; Trưởng ban Đào tạo bấm tên lớp sang `/staff/classes/:id` (Ban Đào Tạo thường không có link vì backend chỉ mở lớp họ dạy / quản lý).
+
+#### Fixed
+
+- **Dropdown «Quản lý lớp» luôn rỗng (Admin lẫn Trưởng ban Đào tạo):** `GET /staff/training-manager-options` bị `GET /staff/:id` của `StaffModule` (đăng ký trước, class-level `@Roles(admin)` + `ParseStaffIdPipe`) nuốt → Admin `400`, Trưởng ban `403`. Đổi route thành **`GET /training-manager/options`** (cùng query `search`, `limit`; FE `getTrainingManagerOptions` đổi theo, query key giữ nguyên). Ảnh hưởng `EditClassTeachersPopup`, `ClassTrainingManagerAssignDialog`, `AddClassPopup`.
+
 ### Kiểm thử quyền theo từng role 13/11 (Chrome DevTools, DB local)
 
 #### Security

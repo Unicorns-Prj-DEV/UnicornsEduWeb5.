@@ -51,7 +51,6 @@ export default function StaffAccessGate({
     isStaffNotificationManageRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
-    isStaffTutorsRoute,
   } = flags;
   const redirectHref = routeAccess.redirectHref;
 
@@ -69,8 +68,6 @@ export default function StaffAccessGate({
         ? "Survey Workspace Locked"
         : isStaffCoursesRoute
           ? "Course Workspace Locked"
-        : isStaffTutorsRoute
-          ? "Tutor Directory Locked"
         : isStaffCostsRoute
               ? "Cost Workspace Locked"
               : isAssistantStaffsRoute
@@ -103,8 +100,6 @@ export default function StaffAccessGate({
           ? "Tài khoản này không dùng được màn Bài khảo sát trong staff shell."
           : isStaffCoursesRoute
             ? "Tài khoản này không dùng được màn Nội dung khoá trong staff shell."
-          : isStaffTutorsRoute
-            ? "Tài khoản này không dùng được màn hồ sơ gia sư."
           : isStaffClassesRoute
           ? "Tài khoản này không dùng được màn lớp học trong staff shell."
           : isStaffDeductionsRoute
@@ -147,8 +142,6 @@ export default function StaffAccessGate({
         ? "Route `/staff/notification` chỉ mở khi tài khoản có linked staff profile hợp lệ. Đây là feed chỉ đọc dành cho nhân sự xem các thông báo đã push."
         : isStaffSurveysRoute
           ? "Route `/staff/surveys` mở cho `admin`, `staff.lesson_plan`, và `staff.lesson_plan_head` — dùng để tạo/sửa/xóa Bài khảo sát, soạn thông báo kèm (Title/Thời gian/Nội dung/Hướng dẫn/Lưu ý/Gia sư) và sao chép để dán vào Zalo."
-          : isStaffTutorsRoute
-            ? "Route `/staff/tutors` chỉ mở cho Ban Đào Tạo (`staff.training` đang active). Màn này chỉ đọc hồ sơ gia sư: không có CCCD, thông tin cá nhân, ngân hàng hay tiền."
           : isStaffCoursesRoute
             ? "Route `/staff/courses` mở cho `staff.lesson_plan` và `staff.lesson_plan_head`. Đây là workspace khoá học dùng chung với `/admin/courses` (wrapper mỏng, `routeBase=/staff`). `lesson_plan` chỉ thấy khoá được phân công, không thêm/sửa/xoá/switch khoá, nhưng soạn được tab Nội dung / Câu hỏi / Cài đặt (3 tab). `lesson_plan_head` chỉ thấy khoá mình được gán vào đội chuyên môn (khoá tự tạo được tự gán) và đủ thao tác workspace trên các khoá đó. `teacher`, `accountant_*`, `customer_care`, `training` bị chặn. Admin dùng `/admin/courses`."
           : isStaffClassesRoute
@@ -160,7 +153,7 @@ export default function StaffAccessGate({
               : isStaffCostsRoute
                 ? "Route `/staff/costs` hiện mở cho Admin và `staff.accountant_expense`. Kế toán chi dùng admin-like cost workspace trong staff shell, bao gồm tạo mới, chỉnh sửa, cập nhật trạng thái và xóa chi phí."
                 : isAssistantStaffsRoute
-                  ? "Route `/staff/staffs` mở danh sách/chi tiết cho Admin và `staff.accountant_expense`; Trưởng phòng Sale & CSKH xem danh sách + hồ sơ đội Sale/CSKH. Trang chi tiết `/staff/staffs/[id]` còn mở cho Ban Đào Tạo (gia sư; Trưởng ban Đào tạo thêm Ban Chuyên môn / Đào tạo) — không có thông tin cá nhân, ngân hàng, thu nhập."
+                  ? "Route `/staff/staffs` mở danh sách/chi tiết cho Admin và `staff.accountant_expense`; Trưởng phòng Sale & CSKH xem danh sách + hồ sơ đội Sale/CSKH. Ban Đào Tạo cũng dùng danh sách + hồ sơ (gia sư; Trưởng ban Đào tạo thêm Ban Chuyên môn / Đào tạo) — không có thông tin cá nhân, ngân hàng, thu nhập."
                   : isAssistantAdminLikeRoute
                     ? "Nhóm route này mirror lại các module quản trị trong staff shell và chỉ mở cho Admin (#267). Trưởng phòng Sale & CSKH chỉ dùng Học sinh (kèm ví) và Soạn thông báo; các staff role khác dùng self-service hoặc workspace chuyên biệt của riêng mình."
                     : isCustomerCareSelfRoute

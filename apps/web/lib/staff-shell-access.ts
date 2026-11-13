@@ -50,8 +50,6 @@ export type StaffShellRouteFlags = {
   isStaffCalendarRoute: boolean;
   isStaffSurveysRoute: boolean;
   isStaffCoursesRoute: boolean;
-  isStaffTutorsRoute: boolean;
-  /** Đội Sale & CSKH — chỉ Trưởng phòng Sale & CSKH (#271). */
 };
 
 export type StaffShellAccessContext = {
@@ -297,7 +295,6 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffCalendarRoute = pathname.startsWith("/staff/calendar");
   const isStaffSurveysRoute = pathname.startsWith("/staff/surveys");
   const isStaffCoursesRoute = pathname.startsWith("/staff/courses");
-  const isStaffTutorsRoute = pathname.startsWith("/staff/tutors");
   const isAssistantAdminLikeRoute =
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
@@ -345,7 +342,6 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffCalendarRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
-    isStaffTutorsRoute,
   };
 }
 
@@ -396,9 +392,7 @@ export function resolveStaffShellRouteAccess(
           ? false
           : flags.isStaffCalendarRoute
             ? hasStaffWorkspaceAccess && (isAdmin || isTeacher || isTraining)
-            : flags.isStaffTutorsRoute
-              ? hasStaffWorkspaceAccess && isStaffOrAdmin && isTraining
-              : flags.isStaffSurveysRoute
+            : flags.isStaffSurveysRoute
                   ? hasStaffWorkspaceAccess &&
                     isStaffOrAdmin &&
                     (isAdmin ||
@@ -447,11 +441,11 @@ export function resolveStaffShellRouteAccess(
                                     isStaffOrAdmin &&
                                     isAccountantExpense) ||
                                   // Trưởng phòng Sale & CSKH: danh sách + hồ sơ đội
-                                  // Sale/CSKH (bản giới hạn). Ban Đào Tạo chỉ hồ sơ
-                                  // cấp dưới; danh sách của họ ở `/staff/tutors`.
+                                  // Sale/CSKH (bản giới hạn). Ban Đào Tạo: danh sách
+                                  // + hồ sơ gia sư (Trưởng ban thêm Ban Chuyên môn /
+                                  // Đào tạo) — thay `/staff/tutors` cũ.
                                   isAssistantStaff ||
-                                  (flags.isStaffDetailRoute &&
-                                    hasStaffWorkspaceAccess &&
+                                  (hasStaffWorkspaceAccess &&
                                     isStaffOrAdmin &&
                                     isTraining)
                                 : flags.isAssistantAdminLikeRoute

@@ -81,7 +81,7 @@ export default function HeadStaffDetailPage({
     />
   ) : viewerIsTraining ? (
     <StaffDetailBackLink
-      href="/staff/tutors"
+      href="/staff/staffs"
       label={viewerIsTrainingHead ? "Danh sách nhân sự" : "Danh sách gia sư"}
     />
   ) : (
@@ -136,6 +136,7 @@ export default function HeadStaffDetailPage({
     <TrainingTutorClassesCard
       currentClasses={tutor.currentClasses}
       pastClasses={tutor.pastClasses}
+      linkable={viewerIsTrainingHead}
     />
   ) : null;
   // Ô trái lưới hai cột: «Lớp phụ trách» (như admin) hoặc «Công việc» nếu chỉ

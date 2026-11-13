@@ -7,6 +7,8 @@ Lớp chia thành hai phần sửa riêng:
 
 Hai route API vẫn tách (quyền khác nhau), nhưng **web** (13/11) sửa cả hai trong **một dialog «Thông tin lớp»** (`EditClassBasicInfoPopup`): người được sửa Học phí lớp (Admin, Trưởng phòng Sale & CSKH) thấy thêm mục **Học phí lớp** cuối dialog; lưu gọi `PATCH /class/:id/basic-info` khi Thông tin lớp đổi rồi `PATCH /class/:id/tuition` khi học phí đổi. Trang chi tiết lớp **không còn** card Học phí lớp. Popup riêng `EditClassTuitionPopup` chỉ còn cho luồng bắt buộc điền trước học sinh đầu tiên (#273). Form học phí dùng chung `components/admin/class/ClassTuitionFields.tsx` (`useClassTuitionForm`).
 
+**Trưởng ban Đào tạo sửa trợ cấp mặc định của lớp trong dialog «Thông tin lớp» (13/11):** dialog hiện thêm **Trợ cấp / HV / buổi**, **Trợ cấp tối đa / buổi**, **Scales** (không có Cách thu học phí). `PATCH /class/:id/basic-info` vẫn chỉ nhận tên / khoá / sĩ số với role trưởng, nên web gửi phần tiền sang `PATCH /staff-ops/classes/:id/teacher-pay` — **chỉ ô đã đổi** (vd `{ "allowance_per_session_per_student": 45000 }`), áp dụng cho buổi tạo sau. Ô chạm lương của chính mình (đang dạy lớp: trợ cấp / HS khi không có trợ cấp riêng, scale khi không có scale riêng, trần luôn) bị khoá kèm ghi chú, khớp `findOwnPayFieldsInTeacherPayUpdate` (`lib/class-teacher-own-pay.ts`). Không có thay đổi backend.
+
 ## Quyền theo route
 
 | Route | Admin | Trưởng ban Đào tạo | Trưởng phòng Sale & CSKH | Kế toán thu | Kế toán chi |

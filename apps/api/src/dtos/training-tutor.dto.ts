@@ -14,6 +14,15 @@ import { PaginationQueryDto } from './pagination.dto';
 export const TRAINING_TUTOR_SCOPES = ['tutors', 'all'] as const;
 export type TrainingTutorScope = (typeof TRAINING_TUTOR_SCOPES)[number];
 
+/** Lọc một role trong ba nhóm ở `scope=all` (Gia sư / Ban Chuyên môn / Đào tạo). */
+export const TRAINING_TUTOR_ROLE_FILTERS = [
+  StaffRole.teacher,
+  StaffRole.lesson_plan,
+  StaffRole.training,
+] as const;
+export type TrainingTutorRoleFilter =
+  (typeof TRAINING_TUTOR_ROLE_FILTERS)[number];
+
 export class TrainingTutorListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Tìm theo họ tên gia sư' })
   @IsOptional()
@@ -33,6 +42,15 @@ export class TrainingTutorListQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(TRAINING_TUTOR_SCOPES)
   scope?: TrainingTutorScope;
+
+  @ApiPropertyOptional({
+    enum: TRAINING_TUTOR_ROLE_FILTERS,
+    description:
+      'Chỉ dùng với `scope=all`: lọc người mang role này (teacher = Gia sư, lesson_plan = Ban Chuyên môn, training = Đào tạo). Bỏ trống = cả ba nhóm.',
+  })
+  @IsOptional()
+  @IsIn(TRAINING_TUTOR_ROLE_FILTERS)
+  role?: TrainingTutorRoleFilter;
 }
 
 /**

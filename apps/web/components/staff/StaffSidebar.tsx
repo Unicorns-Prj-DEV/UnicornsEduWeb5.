@@ -112,9 +112,10 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       label: "Nhân sự",
       icon: <IconStaff />,
       isActive: (pathname) => pathname.startsWith("/staff/staffs"),
-      // Trưởng phòng Sale & CSKH: danh sách đội Sale & CSKH (bản giới hạn).
-      isVisible: ({ isAccountantExpense, isAssistant }) =>
-        isAccountantExpense || isAssistant,
+      // Trưởng phòng Sale & CSKH: đội Sale & CSKH; Ban Đào Tạo: gia sư (Trưởng
+      // ban thêm Ban Chuyên môn / Đào tạo) — bản giới hạn, thay `/staff/tutors`.
+      isVisible: ({ isAccountantExpense, isAssistant, isTraining }) =>
+        isAccountantExpense || isAssistant || isTraining,
     },
     {
       href: "/staff/classes",
@@ -152,13 +153,6 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
         pathname === "/staff/calendar" || pathname.startsWith("/staff/calendar/"),
       isVisible: ({ canAccessClassWorkspace, isTraining }) =>
         canAccessClassWorkspace || isTraining,
-    },
-    {
-      href: "/staff/tutors",
-      label: "Gia sư",
-      icon: <IconStaff />,
-      isActive: (pathname) => pathname.startsWith("/staff/tutors"),
-      isVisible: ({ isTraining }) => isTraining,
     },
     {
       href: "/staff/costs",

@@ -60,6 +60,11 @@ export function resolveClassTeacherHref(options: {
   routeBase: AdminLikeRouteBase;
   teacherId: string | null | undefined;
   access: Pick<AdminShellAccess, "isAdmin" | "isAccountantExpense">;
+  /**
+   * Trưởng ban Đào tạo: gia sư lớp luôn trong phạm vi hồ sơ giới hạn
+   * `/staff/staffs/:id` (#270) — Trưởng ban không vào admin shell.
+   */
+  viewerIsTrainingHead?: boolean;
 }): string | null {
   const teacherId = options.teacherId?.trim();
   if (!teacherId) {
@@ -72,6 +77,9 @@ export function resolveClassTeacherHref(options: {
   }
   if (options.access.isAccountantExpense) {
     return `${options.routeBase}${path}`;
+  }
+  if (options.viewerIsTrainingHead) {
+    return `/staff${path}`;
   }
   return null;
 }

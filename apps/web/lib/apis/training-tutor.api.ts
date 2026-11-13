@@ -45,6 +45,7 @@ export async function listTrainingTutors(
         ...(params.search ? { search: params.search } : {}),
         ...(params.status ? { status: params.status } : {}),
         ...(params.scope === "all" ? { scope: "all" } : {}),
+        ...(params.scope === "all" && params.role ? { role: params.role } : {}),
       },
     },
   );

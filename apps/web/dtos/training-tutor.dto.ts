@@ -87,9 +87,14 @@ export interface TrainingTutorListParams {
   status?: "" | StaffStatus;
   /** `all` = nhân sự ba nhóm Gia sư / Ban Chuyên môn / Đào tạo — chỉ Trưởng ban Đào tạo. Mặc định chỉ gia sư. */
   scope?: TrainingTutorScope;
+  /** Chỉ với `scope=all`: lọc một nhóm. Rỗng = cả ba nhóm. */
+  role?: "" | TrainingTutorRoleFilter;
 }
 
 export type TrainingTutorScope = "tutors" | "all";
+
+/** Ba nhóm Trưởng ban Đào tạo quản lý: Gia sư, Ban Chuyên môn, Đào tạo (#278). */
+export type TrainingTutorRoleFilter = "teacher" | "lesson_plan" | "training";
 
 /**
  * GET /training/tutors/role-candidates — nhân sự thường ngoài ba nhóm (không

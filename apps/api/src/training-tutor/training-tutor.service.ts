@@ -332,10 +332,16 @@ export class TrainingTutorService {
       );
     }
     const { page, limit, skip } = clampPaging(query);
+    // Lọc role chỉ trong ba nhóm (`scope=all`); `tutors` vốn chỉ gia sư. Gộp
+    // vào `AND` vì tìm theo tên cũng trả `AND`.
+    const andFilters: Prisma.StaffInfoWhereInput[] = [
+      buildNameSearchWhere(query.search),
+      ...(isAllScope && query.role ? [{ roles: { has: query.role } }] : []),
+    ];
     const where: Prisma.StaffInfoWhereInput = {
       ...(isAllScope ? TRAINING_TEAM_WHERE : TUTOR_WHERE),
       ...(query.status ? { status: query.status } : {}),
-      ...buildNameSearchWhere(query.search),
+      AND: andFilters,
     };
 
     const [total, rows] = await Promise.all([
