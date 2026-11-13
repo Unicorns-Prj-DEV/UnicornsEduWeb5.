@@ -95,13 +95,22 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
       'updateStudent',
       'updateStudentById',
       'updateStudentExamSchedules',
-      'getStudentWalletHistory',
     ]) {
       expect(getAllowedStaffRoles(StudentController, methodName)).toEqual([
         StaffRole.sale_customer_care_head,
         StaffRole.customer_care,
       ]);
     }
+  });
+
+  it('Kế toán thu xem lịch sử ví học sinh (quyết định 13/11)', () => {
+    expect(
+      getAllowedStaffRoles(StudentController, 'getStudentWalletHistory'),
+    ).toEqual([
+      StaffRole.sale_customer_care_head,
+      StaffRole.accountant_income,
+      StaffRole.customer_care,
+    ]);
   });
 
   it('allows assistant on student delete and wallet adjustment routes', () => {

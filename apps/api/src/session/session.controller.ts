@@ -288,11 +288,22 @@ export class SessionController {
   })
   @ApiResponse({ status: 400, description: 'month/year không hợp lệ.' })
   async getSessionsByTeacherId(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Param('staffId', new ParseStaffIdPipe()) teacherId: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
-    return this.sessionService.getSessionsByTeacherId(teacherId, month, year);
+    const sessions = await this.sessionService.getSessionsByTeacherId(
+      teacherId,
+      month,
+      year,
+    );
+    // Kế toán chi xem buổi để tính lương, không thấy học phí (biên bản 2026-11-12 mục 3).
+    return redactSessionsForAccountantView(
+      sessions,
+      resolveAccountantFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+    );
   }
 
   @Get('/class/:classId')

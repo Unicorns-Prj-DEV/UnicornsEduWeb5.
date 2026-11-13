@@ -312,14 +312,47 @@ export function redactStudentClassRowsForAccountantView<T>(
   );
 }
 
+// Kế toán thu không thấy khoản chi nào cho nhân sự: trợ cấp gia sư (kể cả
+// snapshot để tính lại), % vận hành, thuế, và trợ cấp Quản lý lớp từng buổi.
 const SESSION_INCOME_HIDDEN_FIELDS = [
   'allowanceAmount',
   'teacherPaymentStatus',
+  'snapshotPerStudentAllowance',
+  'snapshotScaleAmount',
+  'teacherOperatingDeductionRatePercent',
+  'teacherTaxDeductionRatePercent',
+  'operatingDeductionAmount',
+  'operatingDeductionRatePercent',
+  'trainingManagerRatePercent',
+  'trainingManagerAllowanceAmount',
+  'trainingManagerPaymentStatus',
+  'trainingManagerTaxDeductionRatePercent',
 ] as const;
 
 const SESSION_EXPENSE_HIDDEN_FIELDS = ['tuitionFee'] as const;
 
-const ATTENDANCE_EXPENSE_HIDDEN_FIELDS = ['tuitionFee'] as const;
+// `payrollBasisTuitionFee` (học phí chốt để tính hoa hồng) và `trialCatchUpFee`
+// (phần thu bù học thử) cũng là học phí của học sinh.
+const ATTENDANCE_TUITION_FIELDS = [
+  'tuitionFee',
+  'payrollBasisTuitionFee',
+  'trialCatchUpFee',
+] as const;
+
+const ATTENDANCE_EXPENSE_HIDDEN_FIELDS = ATTENDANCE_TUITION_FIELDS;
+
+// Hoa hồng CSKH và hoa hồng trưởng phòng ghi trên từng dòng điểm danh (hệ số,
+// thuế, trạng thái thanh toán) là khoản chi cho nhân sự khác.
+const ATTENDANCE_COMMISSION_FIELDS = [
+  'customerCareCoef',
+  'customerCarePaymentStatus',
+  'customerCareTaxDeductionRatePercent',
+  'saleCsHeadPaymentStatus',
+  'saleCsHeadTaxDeductionRatePercent',
+] as const;
+
+// Kế toán thu không thấy khoản chi nào cho nhân sự (biên bản 2026-11-12 mục 3).
+const ATTENDANCE_INCOME_HIDDEN_FIELDS = ATTENDANCE_COMMISSION_FIELDS;
 
 export function redactSessionForAccountantView<T>(
   session: T,
@@ -333,6 +366,16 @@ export function redactSessionForAccountantView<T>(
 
   if (financeView === 'income') {
     next = omitFields(next, SESSION_INCOME_HIDDEN_FIELDS);
+    if (Array.isArray(next.attendance)) {
+      next.attendance = next.attendance.map((attendance: unknown) =>
+        attendance && typeof attendance === 'object'
+          ? omitFields(
+              attendance as Record<string, unknown>,
+              ATTENDANCE_INCOME_HIDDEN_FIELDS,
+            )
+          : attendance,
+      );
+    }
   }
 
   if (financeView === 'expense') {
@@ -386,7 +429,10 @@ const SESSION_TRAINING_MANAGER_HIDDEN_FIELDS = [
   'operatingDeductionRatePercent',
 ] as const;
 
-const ATTENDANCE_TRAINING_MANAGER_HIDDEN_FIELDS = ['tuitionFee'] as const;
+const ATTENDANCE_TRAINING_MANAGER_HIDDEN_FIELDS = [
+  ...ATTENDANCE_TUITION_FIELDS,
+  ...ATTENDANCE_COMMISSION_FIELDS,
+] as const;
 
 export function redactClassForTrainingManagerView<T>(classRecord: T): T {
   if (!classRecord || typeof classRecord !== 'object') {
@@ -407,6 +453,40 @@ export function redactClassForTrainingManagerView<T>(classRecord: T): T {
           ])
         : student,
     );
+  }
+
+  return next as T;
+}
+
+/**
+ * CSKH xem lớp (quyết định 13/11): không thấy học phí lớp; học phí từng học
+ * sinh chỉ giữ ở học sinh mình đang chăm sóc. Lương gia sư che riêng bằng
+ * `redactOtherTeachersIncome`.
+ */
+export function redactClassForCustomerCareView<T>(
+  classRecord: T,
+  assignedStudentIds: ReadonlySet<string>,
+): T {
+  if (!classRecord || typeof classRecord !== 'object') {
+    return classRecord;
+  }
+
+  const next = omitFields(
+    classRecord as Record<string, unknown>,
+    CLASS_TRAINING_MANAGER_HIDDEN_FIELDS,
+  );
+
+  if (Array.isArray(next.students)) {
+    next.students = next.students.map((student) => {
+      if (!student || typeof student !== 'object') {
+        return student;
+      }
+      const row = student as Record<string, unknown>;
+      const studentId = typeof row.id === 'string' ? row.id : null;
+      return studentId && assignedStudentIds.has(studentId)
+        ? row
+        : omitFields(row, STUDENT_EXPENSE_HIDDEN_FIELDS);
+    });
   }
 
   return next as T;

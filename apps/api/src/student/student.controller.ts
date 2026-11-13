@@ -725,7 +725,12 @@ export class StudentController {
   })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Student not found.' })
-  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
+  // Kế toán thu cần đối soát nạp ví với học phí (quyết định 13/11).
+  @AllowStaffRolesOnAdminRoutes(
+    SALE_CS_HEAD_ROLE,
+    StaffRole.accountant_income,
+    StaffRole.customer_care,
+  )
   async getStudentWalletHistory(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseStudentIdPipe()) id: string,

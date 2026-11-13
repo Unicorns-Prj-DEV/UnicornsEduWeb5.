@@ -91,6 +91,23 @@ describe('planTrainingHeadRoleChange', () => {
     ).toThrow(ForbiddenException);
   });
 
+  it('người ngoài ba nhóm: bật role được, không bật gì thì 403 (như khoá tài khoản)', () => {
+    expect(
+      planTrainingHeadRoleChange({
+        ...base,
+        targetRoles: [StaffRole.customer_care],
+        requestedRoles: [StaffRole.teacher],
+      }).added,
+    ).toEqual([StaffRole.teacher]);
+    expect(() =>
+      planTrainingHeadRoleChange({
+        ...base,
+        targetRoles: [StaffRole.customer_care],
+        requestedRoles: [],
+      }),
+    ).toThrow(ForbiddenException);
+  });
+
   it('400 khi bỏ hết role', () => {
     expect(() =>
       planTrainingHeadRoleChange({

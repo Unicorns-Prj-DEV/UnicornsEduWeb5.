@@ -1084,9 +1084,10 @@ export class CustomerCareService {
       { allowIncomeViewers: true },
     );
 
+    // Body thiếu/ sai kiểu (DTO là interface, không validate runtime) → 400, không 500.
     const uniqueAttendanceIds = Array.from(
       new Set(
-        attendanceIds.filter(
+        (Array.isArray(attendanceIds) ? attendanceIds : []).filter(
           (attendanceId): attendanceId is string =>
             typeof attendanceId === 'string' && attendanceId.trim().length > 0,
         ),
@@ -1229,9 +1230,10 @@ export class CustomerCareService {
       staffId,
     );
 
+    // Body thiếu/ sai kiểu (DTO là interface, không validate runtime) → 400, không 500.
     const uniqueStudentIds = Array.from(
       new Set(
-        studentIds.filter(
+        (Array.isArray(studentIds) ? studentIds : []).filter(
           (studentId): studentId is string =>
             typeof studentId === 'string' && studentId.trim().length > 0,
         ),

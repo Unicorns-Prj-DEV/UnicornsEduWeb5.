@@ -120,8 +120,9 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconClasses />,
       isActive: (pathname) =>
         pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
-      isVisible: ({ isAccountant, isTraining, hasManagedClasses }) =>
-        isAccountant || (isTraining && hasManagedClasses),
+      // #277: Trưởng ban Đào tạo thấy mọi lớp, không cần đang quản lý lớp nào.
+      isVisible: ({ isAccountant, isTraining, isTrainingHead, hasManagedClasses }) =>
+        isAccountant || isTrainingHead || (isTraining && hasManagedClasses),
     },
     {
       href: "/staff/students",

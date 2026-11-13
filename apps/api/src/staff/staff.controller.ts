@@ -912,7 +912,7 @@ export class StaffController {
     summary:
       'Trưởng ban Đào tạo bật/tắt role gia sư / Ban Chuyên môn / Đào Tạo',
     description:
-      'Chỉ staff active có role training_head. Body là trạng thái đích của 3 role teacher / lesson_plan / training; role khác của nhân sự giữ nguyên. 403 nếu body có role ngoài 3 role này, nếu target là Admin / mang role trưởng (admin, sale_customer_care_head, training_head, lesson_plan_head — #278), hoặc target là chính mình. Role bị tắt: mức đè lương cứng / % vận hành của role đó bị xoá và ghi action_history; khoản đã chốt/đã trả không đổi; không cascade lớp dạy, quản lý lớp, đội chuyên môn. Response chỉ có id + roles, roles chỉ gồm teacher / lesson_plan / training (#278: không lộ role khác).',
+      'Chỉ staff active có role training_head. Body là trạng thái đích của 3 role teacher / lesson_plan / training; role khác của nhân sự giữ nguyên. 403 nếu body có role ngoài 3 role này, nếu target là Admin / mang role trưởng (admin, sale_customer_care_head, training_head, lesson_plan_head — #278), target là chính mình, hoặc target ngoài 3 nhóm (không mang teacher / lesson_plan / training) mà body không bật role nào (chỉ được bật role cho ứng viên). Role bị tắt: mức đè lương cứng / % vận hành của role đó bị xoá và ghi action_history; khoản đã chốt/đã trả không đổi; không cascade lớp dạy, quản lý lớp, đội chuyên môn. Response chỉ có id + roles, roles chỉ gồm teacher / lesson_plan / training (#278: không lộ role khác).',
   })
   @ApiParam({ name: 'id', description: 'Staff id của nhân sự được chỉnh' })
   @ApiBody({ type: UpdateStaffTrainingRolesDto })
@@ -921,7 +921,7 @@ export class StaffController {
   @ApiResponse({
     status: 403,
     description:
-      'Không phải Trưởng ban, role ngoài phạm vi, target được bảo vệ hoặc tự chỉnh.',
+      'Không phải Trưởng ban, role ngoài phạm vi, target được bảo vệ, tự chỉnh, hoặc target ngoài 3 nhóm mà không bật role nào.',
   })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
   async updateStaffTrainingRoles(

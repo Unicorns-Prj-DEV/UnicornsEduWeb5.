@@ -119,6 +119,9 @@ describe('ClassService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
+    customerCareService: {
+      findMany: jest.fn(),
+    },
     classTeacher: {
       findMany: jest.fn(),
     },
@@ -465,6 +468,43 @@ describe('ClassService', () => {
         limit: 20,
         teacherId: 'teacher-1',
       });
+    });
+
+    it('gia sư thuần: danh sách không có học phí, chỉ thấy lương của mình (quyết định 13/11)', async () => {
+      mockStaffOperationsAccess.resolveActor.mockResolvedValue({
+        id: 'teacher-1',
+        roles: [StaffRole.teacher],
+      });
+      jest.spyOn(service, 'getClasses').mockResolvedValue({
+        data: [
+          {
+            id: 'class-1',
+            trainingManagerStaffId: 'manager-1',
+            studentTuitionPerSession: 250_000,
+            tuitionPackageTotal: 2_000_000,
+            teachers: [
+              { id: 'teacher-1', customAllowance: 100_000 },
+              { id: 'teacher-2', customAllowance: 90_000 },
+            ],
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 20 },
+      } as never);
+
+      const result = (await service.getClassesForStaff(
+        'user-1',
+        UserRole.staff,
+        { page: 1, limit: 20 },
+      )) as unknown as {
+        data: Array<
+          Record<string, unknown> & { teachers: Record<string, unknown>[] }
+        >;
+      };
+
+      expect(result.data[0].studentTuitionPerSession).toBeUndefined();
+      expect(result.data[0].tuitionPackageTotal).toBeUndefined();
+      expect(result.data[0].teachers[0].customAllowance).toBe(100_000);
+      expect(result.data[0].teachers[1].customAllowance).toBeUndefined();
     });
 
     it('keeps training-only staff scoped to managed classes', async () => {
@@ -2083,10 +2123,54 @@ describe('ClassService', () => {
       },
     );
 
-    it('gia sư thuần giữ nguyên hành vi cũ (thấy học phí lớp)', async () => {
+    it('gia sư thuần không thấy học phí, chỉ thấy lương của mình (quyết định 13/11)', async () => {
       const result = await viewAs({ mode: 'teacher', isClassManager: false });
 
-      expect(result.studentTuitionPerSession).toBe(200000);
+      expect(result.studentTuitionPerSession).toBeUndefined();
+      expect(result.tuitionPackageTotal).toBeUndefined();
+      expect(result.students[0].effectiveTuitionPerSession).toBeUndefined();
+      expect(result.teachers[0].customAllowance).toBe(100000);
+      expect(result.teachers[1].customAllowance).toBeUndefined();
+    });
+
+    it('CSKH chỉ thấy học phí học sinh mình chăm sóc, không thấy học phí lớp / lương gia sư', async () => {
+      mockStaffOperationsAccess.resolveClassViewerActor.mockResolvedValue({
+        id: 'cskh-actor',
+        roles: ['customer_care'],
+      });
+      mockStaffOperationsAccess.resolveClassAccess.mockResolvedValue({
+        mode: 'customer_care',
+        isAdmin: false,
+        isClassTeacher: false,
+        isClassManager: false,
+        isTrainingHead: false,
+      });
+      jest.spyOn(service, 'getClassById').mockResolvedValue({
+        ...classDetail(),
+        students: [
+          { id: 'student-1', effectiveTuitionPerSession: 180000 },
+          { id: 'student-2', effectiveTuitionPerSession: 150000 },
+        ],
+      } as never);
+      mockPrisma.customerCareService.findMany.mockResolvedValue([
+        { studentId: 'student-1' },
+      ]);
+
+      const result = (await service.getClassByIdForStaff(
+        'user-1',
+        UserRole.staff,
+        'class-1',
+      )) as unknown as Record<string, unknown> & {
+        students: Record<string, unknown>[];
+        teachers: Record<string, unknown>[];
+      };
+
+      expect(result.studentTuitionPerSession).toBeUndefined();
+      expect(result.tuitionPackageTotal).toBeUndefined();
+      expect(result.students[0].effectiveTuitionPerSession).toBe(180000);
+      expect(result.students[1].effectiveTuitionPerSession).toBeUndefined();
+      expect(result.teachers[0].customAllowance).toBeUndefined();
+      expect(result.teachers[1].customAllowance).toBeUndefined();
     });
   });
 

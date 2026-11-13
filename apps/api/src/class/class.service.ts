@@ -107,6 +107,7 @@ import {
 } from './class-teacher-allowance.util';
 import {
   redactClassForAccountantView,
+  redactClassForCustomerCareView,
   redactClassForTrainingManagerView,
   redactClassListForAccountantView,
   redactClassListForTrainingManagerView,
@@ -1273,11 +1274,26 @@ export class ClassService {
       financeView,
     );
 
-    if (scopeToTrainingManager) {
-      return redactClassListForTrainingManagerView(accountantScoped);
+    const isTeacherScoped = this.shouldScopeStaffClassesToTeacher(actor.roles);
+    if (!scopeToTrainingManager && !isTeacherScoped) {
+      return accountantScoped;
     }
 
-    return accountantScoped;
+    // Quyết định 13/11: gia sư không thấy học phí lớp; lương gia sư khác chỉ
+    // hiện ở lớp mình quản lý (hoặc mọi lớp với Trưởng ban Đào tạo).
+    const tuitionHidden =
+      redactClassListForTrainingManagerView(accountantScoped);
+    if (seesAllClasses) {
+      return tuitionHidden;
+    }
+    return {
+      ...tuitionHidden,
+      data: tuitionHidden.data.map((item) =>
+        item.trainingManagerStaffId === actor.id
+          ? item
+          : redactOtherTeachersIncome(item, actor.id),
+      ),
+    };
   }
 
   async getClassByIdForStaff(userId: string, roleType: UserRole, id: string) {
@@ -1300,11 +1316,12 @@ export class ClassService {
     // trên dòng thu nhập của chính họ (lịch sử buổi / trợ cấp quản lý lớp).
     // Role xem được học phí (Admin, Kế toán, CSKH của học sinh) giữ nguyên.
     // #277: Trưởng ban Đào tạo (mọi lớp) cùng góc nhìn: không học phí.
+    // Quyết định 13/11: gia sư (kể cả chỉ dạy) cũng không thấy học phí lớp.
     const managerView = seesClassAsTrainingManager(access);
     if (
       accessMode === 'training_manager' ||
       accessMode === 'training_head' ||
-      (accessMode === 'teacher' && managerView)
+      accessMode === 'teacher'
     ) {
       result = redactClassForTrainingManagerView(result);
     }
@@ -1338,12 +1355,18 @@ export class ClassService {
         },
         select: { studentId: true },
       });
-      return redactClassStudentWalletBalances(result, {
-        mode: 'allowlist',
-        allowedStudentIds: new Set(
-          assignedStudents.map((row) => row.studentId),
+      const assignedStudentIds = new Set(
+        assignedStudents.map((row) => row.studentId),
+      );
+      // Quyết định 13/11: CSKH chỉ thấy học phí của học sinh mình chăm sóc,
+      // không thấy học phí lớp và lương gia sư.
+      return redactClassStudentWalletBalances(
+        redactOtherTeachersIncome(
+          redactClassForCustomerCareView(result, assignedStudentIds),
+          actor.id,
         ),
-      });
+        { mode: 'allowlist', allowedStudentIds: assignedStudentIds },
+      );
     }
 
     return redactClassStudentWalletBalances(result, { mode: 'none' });

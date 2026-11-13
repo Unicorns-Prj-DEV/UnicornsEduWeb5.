@@ -134,6 +134,7 @@ export default function AdminStudentDetailPage() {
         canDirectlyWithdrawWallet,
         canRequestDirectTopUp,
         canEditStudentClassTuition,
+        canViewWalletHistory,
     } = resolveStudentAdminCapabilities(fullProfile, routeBase);
     const { canManageUsers } = resolveUserAdminCapabilities(fullProfile, routeBase);
     const backLabel = isCustomerCareReadOnlyView
@@ -476,7 +477,7 @@ export default function AdminStudentDetailPage() {
                     }}
                 />
             ) : null}
-            {canManageStudent ? (
+            {canViewWalletHistory ? (
                 <StudentWalletHistoryPopup
                     open={walletHistoryOpen}
                     onClose={() => setWalletHistoryOpen(false)}
@@ -710,7 +711,7 @@ export default function AdminStudentDetailPage() {
                                 balance={student.accountBalance ?? 0}
                                 onTopUp={canCreateWalletQr || canDirectlyAdjustWallet ? handleTopUp : undefined}
                                 onWithdraw={canDirectlyWithdrawWallet ? handleWithdraw : undefined}
-                                onOpenHistory={canManageStudent ? () => setWalletHistoryOpen(true) : undefined}
+                                onOpenHistory={canViewWalletHistory ? () => setWalletHistoryOpen(true) : undefined}
                             />
                             <StudentExamCard
                                 className="min-w-0"

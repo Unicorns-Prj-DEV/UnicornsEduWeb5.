@@ -6,7 +6,11 @@ jest.mock('src/payroll/deduction-rates', () => ({
   resolveTaxDeductionRate: jest.fn().mockResolvedValue(10),
 }));
 
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   PaymentStatus,
   StaffRole,
@@ -426,6 +430,29 @@ describe('CustomerCareService', () => {
         ),
       ).rejects.toThrow(ForbiddenException);
     });
+  });
+
+  it('body bulk thiếu mảng id trả 400, không crash 500', async () => {
+    await expect(
+      service.bulkUpdateCommissionPaymentStatus(
+        'admin-user',
+        UserRole.admin,
+        'staff-1',
+        undefined as unknown as string[],
+        PaymentStatus.paid,
+      ),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.bulkUpdateProfitPercent(
+        'admin-user',
+        UserRole.admin,
+        'staff-1',
+        undefined as unknown as string[],
+        0.1,
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects bulk payment updates for customer-care-only staff', async () => {

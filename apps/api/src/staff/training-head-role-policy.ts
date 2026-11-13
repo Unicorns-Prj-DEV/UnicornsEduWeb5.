@@ -177,6 +177,16 @@ export function planTrainingHeadRoleChange(
   const added = TRAINING_HEAD_MANAGEABLE_ROLES.filter(
     (role) => requested.has(role) && !params.targetRoles.includes(role),
   );
+  // Người ngoài ba nhóm chỉ là ứng viên: Trưởng ban được bật role cho họ,
+  // không được gọi "không đổi gì" (nhất quán với khoá tài khoản → 403).
+  const targetInScope = params.targetRoles.some((role) =>
+    TRAINING_HEAD_MANAGEABLE_ROLES.includes(role),
+  );
+  if (!targetInScope && added.length === 0) {
+    throw new ForbiddenException(
+      'Nhân sự ngoài nhóm Gia sư, Ban Chuyên môn, Đào tạo — chỉ được bật role cho họ.',
+    );
+  }
   const nextRoles = [...kept, ...added];
   if (nextRoles.length === 0) {
     throw new BadRequestException('Nhân sự phải còn ít nhất một role.');

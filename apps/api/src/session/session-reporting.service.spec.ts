@@ -211,4 +211,40 @@ describe('SessionReportingService', () => {
       }
     });
   });
+
+  describe('chỉ trả id + tên gia sư (biên bản 2026-11-12 mục 3)', () => {
+    const SAFE_TEACHER_SELECT = {
+      select: {
+        id: true,
+        user: { select: { first_name: true, last_name: true } },
+      },
+    };
+    type FindManyArgs = { include: Record<string, unknown> };
+    const prisma = {
+      session: { findMany: jest.fn<Promise<unknown[]>, [FindManyArgs]>() },
+    };
+    let reporting: SessionReportingService;
+
+    beforeEach(() => {
+      prisma.session.findMany.mockResolvedValue([]);
+      reporting = new SessionReportingService(prisma as never, {} as never);
+    });
+
+    it('getSessionsByClassId không kéo CCCD/ngân hàng của gia sư', async () => {
+      await reporting.getSessionsByClassId('class-1', '11', '2026');
+
+      const args = prisma.session.findMany.mock.calls[0][0];
+      expect(args.include.teacher).toEqual(SAFE_TEACHER_SELECT);
+    });
+
+    it('getSessionsByTeacherId chỉ lấy id + tên lớp, không lấy học phí lớp', async () => {
+      await reporting.getSessionsByTeacherId('teacher-1', '11', '2026');
+
+      const args = prisma.session.findMany.mock.calls[0][0];
+      expect(args.include.teacher).toEqual(SAFE_TEACHER_SELECT);
+      expect(args.include.class).toEqual({
+        select: { id: true, name: true },
+      });
+    });
+  });
 });

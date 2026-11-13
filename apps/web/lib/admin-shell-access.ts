@@ -24,6 +24,7 @@ export type StudentAdminCapabilities = {
   canDirectlyWithdrawWallet: boolean;
   canRequestDirectTopUp: boolean;
   canEditStudentClassTuition: boolean;
+  canViewWalletHistory: boolean;
   canDeleteStudent: boolean;
 };
 
@@ -265,6 +266,8 @@ export function resolveStudentAdminCapabilities(
     // #272: học phí riêng của học sinh — Admin, Trưởng phòng, Kế toán thu.
     canEditStudentClassTuition:
       access.isAdmin || access.isAssistant || access.isAccountantIncome,
+    // Quyết định 13/11: Kế toán thu xem lịch sử ví để đối soát (chỉ xem).
+    canViewWalletHistory: canManageStudent || access.isAccountantIncome,
     canDeleteStudent: access.isAdmin || access.isAssistant,
   };
 }

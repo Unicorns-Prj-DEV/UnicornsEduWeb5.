@@ -170,6 +170,17 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     ).toBe(false);
   });
 
+  it("Kế toán thu xem lịch sử ví học sinh, Kế toán chi không (quyết định 13/11)", () => {
+    expect(
+      resolveStudentAdminCapabilities(staffProfile(["accountant_income"]))
+        .canViewWalletHistory,
+    ).toBe(true);
+    expect(
+      resolveStudentAdminCapabilities(staffProfile(["accountant_expense"]))
+        .canViewWalletHistory,
+    ).toBe(false);
+  });
+
   it("Kế toán vẫn giữ phạm vi cũ", () => {
     const income = resolveAdminShellAccess(staffProfile(["accountant_income"]));
     expect(canAccessAdminShellRoute(income, "/admin/classes")).toBe(true);

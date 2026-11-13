@@ -21,6 +21,29 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Kiểm thử quyền theo từng role 13/11 (Chrome DevTools, DB local)
+
+#### Security
+
+- **Không lộ hồ sơ nhân sự gia sư trong lịch sử buổi:** `GET /sessions/class/:classId`, `GET /sessions/staff/:staffId` (và `GET /staff-ops/classes/:id/sessions`) trước đây trả nguyên bản ghi `staff_info` của gia sư (`cccdNumber`, ngày/nơi cấp, dân tộc, giới tính, địa chỉ, ngày sinh, `bankAccount`, `bankQrLink`) cho mọi người xem — kể cả Kế toán thu. Nay chỉ select `id` + tên (`SessionReportingService.teacherSelect`). `GET /sessions/staff/:staffId` chỉ kèm `class: { id, name }` thay vì cả bản ghi lớp (học phí, trợ cấp).
+- **Kế toán chi không thấy học phí trên lịch sử buổi của nhân sự:** `GET /sessions/staff/:staffId` chưa qua `redactSessionsForAccountantView` → trả `tuitionFee`; nay đã che như `/sessions/class/:classId`. Attendance ẩn thêm `payrollBasisTuitionFee` (học phí chốt để tính hoa hồng) và `trialCatchUpFee` (phần thu bù học thử) với Kế toán chi, Quản lý lớp và Trưởng ban Đào tạo.
+- **Kế toán thu không thấy khoản chi nhân sự trên buổi (biên bản 12/11 mục 3):** ngoài `allowanceAmount` / `teacherPaymentStatus`, ẩn thêm `snapshotPerStudentAllowance`, `snapshotScaleAmount`, `% vận hành` / thuế gia sư, trợ cấp + % + thuế + trạng thái thanh toán Quản lý lớp từng buổi; attendance ẩn hệ số / thuế / trạng thái thanh toán hoa hồng CSKH và hoa hồng trưởng phòng. Quản lý lớp và Trưởng ban Đào tạo cũng không còn thấy các trường hoa hồng này trên attendance.
+
+- **Gia sư không thấy học phí, gia sư & CSKH không thấy lương gia sư khác (quyết định 13/11):** `GET /staff-ops/classes` với gia sư thuần bỏ học phí lớp và che trợ cấp / scale / `% vận hành` của gia sư khác (trừ lớp mình làm Quản lý lớp; Trưởng ban Đào tạo giữ như #277). `GET /staff-ops/classes/:id` chế độ `teacher` luôn bỏ học phí lớp + học phí từng học sinh; chế độ `customer_care` bỏ học phí lớp, học phí từng học sinh chỉ giữ ở học sinh mình chăm sóc (`redactClassForCustomerCareView`), che lương mọi gia sư. `GET /staff-ops/classes/:id/sessions` với gia sư bỏ `tuitionFee` buổi + học phí trên attendance, kể cả buổi của mình (trừ khi kiêm Admin / Trưởng phòng Sale & CSKH / Kế toán thu).
+
+#### Changed
+
+- **Kế toán thu xem lịch sử ví học sinh (quyết định 13/11):** `GET /student/:id/wallet-history` mở thêm `accountant_income`; web thêm capability `canViewWalletHistory` để hiện nút **Xem lịch sử giao dịch** trên thẻ ví ở trang học sinh. Vẫn không nạp/rút ví.
+- `snapshotPerStudentAllowance` trên buổi giữ nguyên với Trưởng ban Đào tạo (quyết định 13/11: không che).
+
+#### Fixed
+
+- **Sidebar Trưởng ban Đào tạo thiếu mục «Lớp học»:** `StaffSidebar` chỉ hiện mục này cho Quản lý lớp đang có lớp; Trưởng ban (thấy mọi lớp từ #277) giờ luôn thấy.
+- Docs `README.md`: Kế toán chi **xem** (không sửa) lương gia sư theo lớp — khớp biên bản 5.2 và hành vi API (`403`).
+- **`POST /cost` body rỗng vẫn tạo khoản chi:** `CreateCostDto` bắt buộc `category` (không rỗng / toàn khoảng trắng) và `amount` (số nguyên ≥ 0), khớp form web `CostFormPopup`. Body `{}` → `400`. `PUT /cost` vẫn sửa một phần; nếu gửi `amount` thì cũng phải ≥ 0.
+- **`PATCH /customer-care/staff/:staffId/payment-status/bulk` và `.../profit-percent/bulk` trả `500` khi body thiếu mảng id:** DTO là interface nên không validate runtime, service gọi `.filter` trên `undefined`. Nay thiếu / sai kiểu `attendanceIds` / `studentIds` → `400`. (Staff không tồn tại vốn đã trả `404`.)
+- **`PATCH /staff/:id/training-roles` không nhất quán với khoá tài khoản:** Trưởng ban Đào tạo gọi lên nhân sự ngoài ba nhóm (vd CSKH thuần) mà không bật role nào → trước `200` no-op, nay `403` như `PATCH /training/tutors/:id/account-status`. Bật role cho ứng viên ngoài ba nhóm vẫn được.
+
 ### Follow-up grill 13/11 — Nhóm 1 (Lớp & tài chính)
 
 #### Changed
