@@ -37,16 +37,21 @@ export async function getCustomerCareStudents(
       total: payload?.meta?.total ?? 0,
       page: payload?.meta?.page ?? page,
       limit: payload?.meta?.limit ?? limit,
+      assignedTotal:
+        payload?.meta?.assignedTotal ?? payload?.meta?.total ?? 0,
     },
   };
 }
 
-/** Số học sinh đang học mà CSKH đang chăm sóc (`meta.total`, chỉ tải 1 dòng). */
-export async function getCustomerCareActiveStudentCount(
+/**
+ * Số học sinh sẽ mất Người chăm sóc khi tắt role CSKH: mọi học sinh đang gán,
+ * kể cả đã nghỉ (`meta.assignedTotal`, chỉ tải 1 dòng).
+ */
+export async function getCustomerCareAssignedStudentCount(
   staffId: string,
 ): Promise<number> {
   const result = await getCustomerCareStudents(staffId, { page: 1, limit: 1 });
-  return result.meta.total;
+  return result.meta.assignedTotal;
 }
 
 export async function getMyMissingDropOutReasons(): Promise<CustomerCareMissingDropOutReasonList> {

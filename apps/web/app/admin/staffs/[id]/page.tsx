@@ -643,13 +643,36 @@ export default function AdminStaffDetailPage({
   const showClassOperatingColumn = isAdmin || isAccountantExpense;
   /**
    * Follow-up grill 13/11: Kế toán chi chỉ xem % vận hành theo lớp; sửa khi kiêm
-   * Trưởng ban Đào tạo. (Kiêm Quản lý lớp: backend cho sửa lớp mình, trang này
-   * không có Quản lý lớp từng dòng nên không mở ô — sửa ở trang lớp.)
+   * Trưởng ban Đào tạo (mọi lớp) hoặc Quản lý lớp của lớp đó (từng dòng, theo
+   * `class.trainingManagerStaffId`) — hợp quyền, khớp backend.
    */
-  const canEditClassOperatingDeduction =
-    isAdmin ||
-    (isAccountantExpense &&
-      canSetClassTeacherPay({ isAdmin, staffRoles: viewerStaffRoles }));
+  const editableOperatingClassIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isAdmin && !isAccountantExpense) return ids;
+    for (const row of staff?.classTeachers ?? []) {
+      const classId = row.class?.id;
+      if (!classId) continue;
+      if (
+        isAdmin ||
+        canSetClassTeacherPay({
+          isAdmin,
+          staffRoles: viewerStaffRoles,
+          viewerStaffId: ownStaffId,
+          classTrainingManagerStaffId: row.class.trainingManagerStaffId,
+        })
+      ) {
+        ids.add(classId);
+      }
+    }
+    return ids;
+  }, [
+    isAdmin,
+    isAccountantExpense,
+    staff?.classTeachers,
+    viewerStaffRoles,
+    ownStaffId,
+  ]);
+  const canEditClassOperatingDeduction = editableOperatingClassIds.size > 0;
   const operatingPercentByClassId = useMemo(() => {
     const m = new Map<string, number>();
     for (const row of staff?.classTeachers ?? []) {
@@ -691,7 +714,7 @@ export default function AdminStaffDetailPage({
         const hasRow = detail.classTeachers?.some(
           (ct) => ct.class?.id === classId,
         );
-        if (!hasRow) continue;
+        if (!hasRow || !editableOperatingClassIds.has(classId)) continue;
 
         const baseline = baselineForClass(classId);
         const draft = draftSnapshot[classId];
@@ -747,7 +770,7 @@ export default function AdminStaffDetailPage({
       const hasRow = staff.classTeachers?.some(
         (ct) => ct.class?.id === classId,
       );
-      if (!hasRow) continue;
+      if (!hasRow || !editableOperatingClassIds.has(classId)) continue;
       const baseline = operatingPercentByClassId.get(classId) ?? 0;
       const draft = classOperatingDraft[classId];
       const inputStr =
@@ -763,6 +786,7 @@ export default function AdminStaffDetailPage({
     return false;
   }, [
     canEditClassOperatingDeduction,
+    editableOperatingClassIds,
     staff,
     classMonthlySummaries,
     operatingPercentByClassId,
@@ -2088,7 +2112,7 @@ export default function AdminStaffDetailPage({
                                 <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                                   KH vận hành (%)
                                 </p>
-                                {canEditClassOperatingDeduction &&
+                                {editableOperatingClassIds.has(item.classId) &&
                                 hasClassTeacherRow ? (
                                   <div className="mt-1 flex min-w-0 max-w-full items-center gap-1.5">
                                     <input
@@ -2236,8 +2260,9 @@ export default function AdminStaffDetailPage({
                                     onClick={(e) => e.stopPropagation()}
                                     onKeyDown={(e) => e.stopPropagation()}
                                   >
-                                    {canEditClassOperatingDeduction &&
-                                    hasClassTeacherRow ? (
+                                    {editableOperatingClassIds.has(
+                                      item.classId,
+                                    ) && hasClassTeacherRow ? (
                                       <div className="flex items-center justify-end gap-1.5">
                                         <input
                                           type="number"

@@ -120,7 +120,7 @@ export interface StaffDetail {
     } | null;
     classTeachers?: Array<{
         operatingDeductionRatePercent?: number | string | null;
-        class: { id: string; name: string };
+        class: { id: string; name: string; trainingManagerStaffId?: string | null };
     }>;
     monthlyStats?: Array<{ month: string; totalUnpaidAll?: number | null }>;
     classAllowance?: StaffClassAllowanceItem[];

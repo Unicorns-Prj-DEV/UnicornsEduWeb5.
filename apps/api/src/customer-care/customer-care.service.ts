@@ -274,9 +274,12 @@ export class CustomerCareService {
       staffId: accessibleStaffId,
       student: { status: StudentStatus.active },
     };
-    const total = await this.prisma.customerCareService.count({
-      where: activeStudentWhere,
-    });
+    const [total, assignedTotal] = await Promise.all([
+      this.prisma.customerCareService.count({ where: activeStudentWhere }),
+      this.prisma.customerCareService.count({
+        where: { staffId: accessibleStaffId },
+      }),
+    ]);
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const safePage = Math.min(page, totalPages);
     const skip = (safePage - 1) * limit;
@@ -345,6 +348,7 @@ export class CustomerCareService {
         total,
         page: safePage,
         limit,
+        assignedTotal,
       },
     };
   }

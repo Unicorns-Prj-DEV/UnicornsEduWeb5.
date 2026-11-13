@@ -26,7 +26,13 @@ export interface CustomerCareStudentListMetaDto {
 
 export interface CustomerCareStudentListDto {
   data: CustomerCareStudentDto[];
-  meta: CustomerCareStudentListMetaDto;
+  meta: CustomerCareStudentListMetaDto & {
+    /**
+     * Mọi học sinh đang gán cho CSKH này, kể cả đã nghỉ — đúng số bị gỡ khi
+     * tắt role CSKH (`total` chỉ đếm học sinh đang học).
+     */
+    assignedTotal: number;
+  };
 }
 
 export interface CustomerCareTopUpHistoryItemDto {

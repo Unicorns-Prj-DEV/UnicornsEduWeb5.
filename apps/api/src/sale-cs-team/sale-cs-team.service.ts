@@ -59,6 +59,8 @@ const TEAM_MEMBER_WHERE = {
  * không phải tài khoản admin hệ thống.
  */
 const TEAM_CANDIDATE_WHERE = {
+  // Đối xứng ứng viên của Trưởng ban Đào tạo: chỉ nhân sự đang hoạt động.
+  status: StaffStatus.active,
   NOT: [
     { roles: { hasSome: [...SALE_CS_HEAD_MANAGEABLE_ROLES] } },
     { roles: { hasSome: [...PRIVILEGED_STAFF_ROLES] } },
@@ -196,7 +198,7 @@ export class SaleCsTeamService {
       AND: [
         isCandidates ? TEAM_CANDIDATE_WHERE : TEAM_MEMBER_WHERE,
         !isCandidates && query.role ? { roles: { has: query.role } } : {},
-        query.status ? { status: query.status } : {},
+        !isCandidates && query.status ? { status: query.status } : {},
         buildNameSearchWhere(query.search),
       ],
     };

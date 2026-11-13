@@ -64,7 +64,9 @@ describe('CustomerCareService', () => {
 
   it('returns paginated students with 21-day top-up totals', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-1' });
-    mockPrisma.customerCareService.count.mockResolvedValue(12);
+    mockPrisma.customerCareService.count
+      .mockResolvedValueOnce(12)
+      .mockResolvedValueOnce(15);
     mockPrisma.customerCareService.findMany.mockResolvedValue([
       {
         student: {
@@ -99,6 +101,10 @@ describe('CustomerCareService', () => {
         staffId: 'staff-1',
         student: { status: StudentStatus.active },
       },
+    });
+    // assignedTotal: mọi học sinh đang gán (kể cả đã nghỉ) — số bị gỡ khi tắt role CSKH.
+    expect(mockPrisma.customerCareService.count).toHaveBeenCalledWith({
+      where: { staffId: 'staff-1' },
     });
     expect(mockPrisma.customerCareService.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -137,7 +143,7 @@ describe('CustomerCareService', () => {
           recentTopUpMeetsThreshold: true,
         },
       ],
-      meta: { total: 12, page: 2, limit: 10 },
+      meta: { total: 12, page: 2, limit: 10, assignedTotal: 15 },
     });
   });
 

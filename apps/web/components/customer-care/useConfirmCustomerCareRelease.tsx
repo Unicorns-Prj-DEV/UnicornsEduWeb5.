@@ -3,12 +3,12 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { getCustomerCareActiveStudentCount } from "@/lib/apis/customer-care.api";
+import { getCustomerCareAssignedStudentCount } from "@/lib/apis/customer-care.api";
 import { buildCustomerCareReleaseConfirm } from "@/lib/customer-care-role-release";
 
 /**
- * Admin tắt role CSKH (sửa nhân sự / tab phân quyền user): đếm học sinh đang
- * học người đó chăm sóc rồi hỏi xác nhận (follow-up 13/11 mục 2.1). Không đếm
+ * Admin tắt role CSKH (sửa nhân sự / tab phân quyền user): đếm mọi học sinh
+ * đang gán cho người đó (kể cả đã nghỉ) rồi hỏi xác nhận (follow-up 13/11 mục 2.1). Không đếm
  * được thì vẫn hỏi, câu chữ không kèm số. Trả `true` khi được phép lưu.
  */
 export function useConfirmCustomerCareRelease() {
@@ -24,9 +24,9 @@ export function useConfirmCustomerCareRelease() {
             "customer-care",
             "students",
             params.staffId,
-            "active-count",
+            "assigned-count",
           ],
-          queryFn: () => getCustomerCareActiveStudentCount(params.staffId),
+          queryFn: () => getCustomerCareAssignedStudentCount(params.staffId),
           staleTime: 0,
         });
       } catch {

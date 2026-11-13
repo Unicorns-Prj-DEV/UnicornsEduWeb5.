@@ -5487,7 +5487,10 @@ export class StaffService {
           classTeachers: {
             select: {
               operatingDeductionRatePercent: true,
-              class: { select: { id: true, name: true } },
+              // Quản lý lớp từng dòng: web mở ô % vận hành cho người kiêm Quản lý lớp đó.
+              class: {
+                select: { id: true, name: true, trainingManagerStaffId: true },
+              },
             },
           },
           monthlyStats: {

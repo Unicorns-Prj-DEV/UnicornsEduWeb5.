@@ -238,6 +238,32 @@ describe('SaleCsTeamService (#271)', () => {
       });
     });
 
+    it('ứng viên chỉ lấy nhân sự đang hoạt động, bỏ qua lọc trạng thái', async () => {
+      mockActor();
+      mockPrisma.staffInfo.count.mockResolvedValue(0);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+      await service.listMembers(HEAD_VIEWER, {
+        scope: 'candidates',
+        status: StaffStatus.inactive,
+      });
+
+      const where = mockPrisma.staffInfo.findMany.mock.calls[0][0].where;
+      expect(where.AND[0].status).toBe(StaffStatus.active);
+      expect(where.AND).not.toContainEqual({ status: StaffStatus.inactive });
+    });
+
+    it('danh sách thành viên vẫn lọc theo trạng thái người dùng chọn', async () => {
+      mockActor();
+      mockPrisma.staffInfo.count.mockResolvedValue(0);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+      await service.listMembers(HEAD_VIEWER, { status: StaffStatus.inactive });
+
+      const where = mockPrisma.staffInfo.findMany.mock.calls[0][0].where;
+      expect(where.AND).toContainEqual({ status: StaffStatus.inactive });
+    });
+
     it('404 khi xem nhân sự ngoài đội', async () => {
       mockActor();
       mockPrisma.staffInfo.findFirst.mockResolvedValueOnce(null);

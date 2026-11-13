@@ -26,7 +26,7 @@ Mỗi dòng trả về kèm `permissions { canEditRoles, canLockAccount, canEdit
 
 | Method | Path | Mô tả |
 |---|---|---|
-| GET | `/sale-cs-team/members` | Danh sách. Query: `page`, `limit`, `search` (tên), `role` (`sale`\|`customer_care`), `status` (`active`\|`inactive`), `scope` (`members` mặc định \| `candidates`). `candidates` = nhân sự **chưa** thuộc đội, loại người mang role trưởng/Admin và tài khoản admin — dùng để bật role Sale/CSKH cho người mới. |
+| GET | `/sale-cs-team/members` | Danh sách. Query: `page`, `limit`, `search` (tên), `role` (`sale`\|`customer_care`), `status` (`active`\|`inactive`), `scope` (`members` mặc định \| `candidates`). `candidates` = nhân sự **chưa** thuộc đội, loại người mang role trưởng/Admin và tài khoản admin, **chỉ nhân sự đang hoạt động** (bỏ qua `status`) — dùng để bật role Sale/CSKH cho người mới. |
 | GET | `/sale-cs-team/members/:staffId` | Chi tiết thành viên đội; `404` nếu không thuộc đội. |
 | GET | `/sale-cs-team/members/:staffId/sale-allowances` | Trợ cấp sale (`extra_allowances.role_type = sale`): `id`, `month`, `note`, `createdAt`, `student { id, fullName }`. **Không** có `amount` / `status` / thuế. Query `month` (`YYYY-MM`, bỏ trống = mọi tháng; sai định dạng `400`). |
 | GET | `/sale-cs-team/members/:staffId/bonuses` | Thưởng có **số tiền**: `id`, `workType`, `amount`, `status`, `note`, `month`, `date`. Chỉ đọc — không có endpoint tạo/sửa. Query `month` như trên. |

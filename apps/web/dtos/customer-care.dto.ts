@@ -24,7 +24,10 @@ export interface CustomerCareStudentListMeta {
 
 export interface CustomerCareStudentListResponse {
   data: CustomerCareStudentItem[];
-  meta: CustomerCareStudentListMeta;
+  meta: CustomerCareStudentListMeta & {
+    /** Mọi học sinh đang gán, kể cả đã nghỉ — số bị gỡ khi tắt role CSKH. */
+    assignedTotal: number;
+  };
 }
 
 export interface CustomerCareTopUpHistoryItem {

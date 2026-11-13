@@ -67,7 +67,7 @@ export default function StaffSaleCsTeamPage() {
     page,
     limit: PAGE_SIZE,
     search,
-    status,
+    status: isCandidates ? ("" as const) : status,
     scope,
     role: isCandidates ? ("" as const) : role,
   };
@@ -190,18 +190,20 @@ export default function StaffSaleCsTeamPage() {
             />
           </div>
         ) : null}
-        <div className="sm:w-48">
-          <UpgradedSelect
-            name="sale-cs-team-status"
-            ariaLabel="Lọc trạng thái"
-            value={status}
-            options={STATUS_OPTIONS}
-            onValueChange={(next) => {
-              setStatus(next as "" | StaffStatus);
-              resetPage();
-            }}
-          />
-        </div>
+        {isCandidates ? null : (
+          <div className="sm:w-48">
+            <UpgradedSelect
+              name="sale-cs-team-status"
+              ariaLabel="Lọc trạng thái"
+              value={status}
+              options={STATUS_OPTIONS}
+              onValueChange={(next) => {
+                setStatus(next as "" | StaffStatus);
+                resetPage();
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {isLoading ? (
