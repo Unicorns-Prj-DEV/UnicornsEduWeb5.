@@ -118,6 +118,8 @@ export interface SaleCsTeamPermissionsDto {
   canEditRoles: boolean;
   canLockAccount: boolean;
   canEditProfile: boolean;
+  /** Thêm/sửa/xoá/sao/ảnh thành tích (nhân sự dưới cấp). */
+  canEditAchievements: boolean;
 }
 
 export interface SaleCsTeamMemberDto {
@@ -139,7 +141,21 @@ export interface SaleCsTeamMemberDto {
   managedBy: { id: string; fullName: string } | null;
   /** Số học sinh CSKH này đang phụ trách. */
   customerCareStudentCount: number;
+  /** Tỉnh/TP (không nhạy cảm, như cột «Tỉnh» ở `/admin/staffs`). */
+  province: string | null;
+  /** Số thành tích — nút «Xem thành tích» ở danh sách. */
+  achievementCount: number;
   permissions: SaleCsTeamPermissionsDto;
+}
+
+/**
+ * Chi tiết thành viên (trang `/staff/staffs/:id`, bố cục như admin): thêm field
+ * không nhạy cảm của card «Hồ sơ nhân sự». Vẫn không có email, SĐT, CCCD, ngày
+ * sinh, dân tộc, giới tính, địa chỉ, ngân hàng, QR (#270).
+ */
+export interface SaleCsTeamMemberDetailDto extends SaleCsTeamMemberDto {
+  accountHandle: string | null;
+  googleMeetLink: string | null;
 }
 
 export interface SaleCsTeamPageDto<T> {
@@ -165,6 +181,8 @@ export interface SaleCsTeamBonusDto {
   note: string | null;
   month: string;
   date: string;
+  /** ISO — trang chi tiết hiện giờ tạo như thẻ «Thưởng tháng» của admin. */
+  createdAt: string;
 }
 
 export interface SaleCsTeamRolesResultDto {

@@ -10,6 +10,10 @@ import {
   ActionHistoryActor,
   ActionHistoryService,
 } from 'src/action-history/action-history.service';
+import {
+  AchievementService,
+  type StaffAchievementEditor,
+} from 'src/achievements/achievement.service';
 import { AuthIdentityCacheService } from 'src/auth/auth-identity-cache.service';
 import type { JwtPayload } from 'src/auth/decorators/current-user.decorator';
 import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
@@ -19,6 +23,7 @@ import type {
   SaleCsTeamAccountStatusResultDto,
   SaleCsTeamBonusDto,
   SaleCsTeamListQueryDto,
+  SaleCsTeamMemberDetailDto,
   SaleCsTeamMemberDto,
   SaleCsTeamMonthQueryDto,
   SaleCsTeamPageDto,
@@ -33,8 +38,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from 'src/customer-care/customer-care-role-release';
 import {
   SALE_CS_HEAD_MANAGEABLE_ROLES,
+  assertSaleCsHeadCanEditAchievements,
   assertSaleCsHeadCanEditProfile,
   assertSaleCsHeadCanLockAccount,
+  canSaleCsHeadEditAchievements,
   canSaleCsHeadEditProfile,
   canSaleCsHeadEditRoles,
   canSaleCsHeadLockAccount,
@@ -42,7 +49,11 @@ import {
 } from 'src/staff/sale-cs-head-role-policy';
 import { buildNameSearchWhere } from 'src/staff/staff-name-search';
 import { AVATAR_STORAGE_BUCKET } from 'src/storage/media-buckets';
-import { createSignedStorageUrl } from 'src/storage/supabase-storage';
+import {
+  createSignedStorageUrl,
+  type UploadableFile,
+} from 'src/storage/supabase-storage';
+import { uploadUserAvatarFiles } from 'src/storage/user-avatar-upload';
 
 const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
 const DEFAULT_LIMIT = 20;
@@ -88,6 +99,7 @@ const MEMBER_SELECT = {
       avatarPath: true,
       roleType: true,
       status: true,
+      province: true,
     },
   },
   customerCareManagedBy: {
@@ -98,10 +110,19 @@ const MEMBER_SELECT = {
       },
     },
   },
-  _count: { select: { customerCareServices: true } },
+  _count: { select: { customerCareServices: true, achievements: true } },
 } satisfies Prisma.StaffInfoSelect;
 
 type MemberRow = Prisma.StaffInfoGetPayload<{ select: typeof MEMBER_SELECT }>;
+
+/**
+ * Trang chi tiết thành viên (`/staff/staffs/:id`, bố cục `/admin/staffs/:id`)
+ * thêm link Google Meet (link lớp, không phải dữ liệu cá nhân — #270).
+ */
+const MEMBER_DETAIL_SELECT = {
+  ...MEMBER_SELECT,
+  googleMeetLink: true,
+} satisfies Prisma.StaffInfoSelect;
 
 /** Target của thao tác ghi: role, tài khoản, tên — đủ cho policy + audit. */
 const TARGET_SELECT = {
@@ -118,6 +139,8 @@ const TARGET_SELECT = {
       email: true,
       roleType: true,
       status: true,
+      avatarPath: true,
+      avatarWatermarkedPath: true,
     },
   },
   _count: { select: { customerCareServices: true } },
@@ -167,6 +190,7 @@ export class SaleCsTeamService {
     private readonly actionHistoryService: ActionHistoryService,
     private readonly authIdentityCacheService: AuthIdentityCacheService,
     private readonly fixedSalarySettingsService: FixedSalarySettingsService,
+    private readonly achievementService: AchievementService,
   ) {}
 
   /** Staff active mang role Trưởng phòng Sale & CSKH; trả staff id của actor. */
@@ -225,16 +249,49 @@ export class SaleCsTeamService {
   async getMember(
     viewer: SaleCsTeamViewer,
     staffId: string,
-  ): Promise<SaleCsTeamMemberDto> {
+  ): Promise<SaleCsTeamMemberDetailDto> {
     const headStaffId = await this.resolveHead(viewer);
     const row = await this.prisma.staffInfo.findFirst({
       where: { ...TEAM_MEMBER_WHERE, id: staffId },
-      select: MEMBER_SELECT,
+      select: MEMBER_DETAIL_SELECT,
     });
     if (!row) {
       throw new NotFoundException('Không tìm thấy thành viên đội Sale & CSKH.');
     }
-    return this.toMember(row, headStaffId);
+    return {
+      ...(await this.toMember(row, headStaffId)),
+      accountHandle: row.user?.accountHandle ?? null,
+      googleMeetLink: row.googleMeetLink,
+    };
+  }
+
+  /** Thành tích của thành viên đội (xem được cả hồ sơ Admin / trưởng trong đội). */
+  async listAchievements(viewer: SaleCsTeamViewer, staffId: string) {
+    await this.resolveHead(viewer);
+    await this.assertTeamMember(staffId);
+    return this.achievementService.listStaffAchievements(staffId);
+  }
+
+  /**
+   * Người sửa thành tích của nhân sự dưới cấp: như admin (không ràng buộc minh
+   * chứng, ghi lịch sử thao tác). Hồ sơ của mình / Admin / trưởng → 403.
+   */
+  async resolveAchievementEditor(
+    viewer: SaleCsTeamViewer,
+    staffId: string,
+  ): Promise<StaffAchievementEditor> {
+    const headStaffId = await this.resolveHead(viewer);
+    const target = await this.findTarget(staffId);
+    assertSaleCsHeadCanEditAchievements({
+      actorStaffId: headStaffId,
+      targetStaffId: target.id,
+      targetRoles: target.roles,
+      targetIsAdminAccount: target.user?.roleType === UserRole.admin,
+    });
+    return this.achievementService.resolveOtherStaffAchievementEditor(
+      viewer,
+      target.id,
+    );
   }
 
   /** Trợ cấp sale của thành viên: học sinh, ghi chú, ngày — không select số tiền. */
@@ -292,6 +349,7 @@ export class SaleCsTeamService {
         note: true,
         month: true,
         date: true,
+        createdAt: true,
       },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     });
@@ -299,6 +357,7 @@ export class SaleCsTeamService {
     return rows.map((row) => ({
       ...row,
       date: row.date.toISOString().slice(0, 10),
+      createdAt: row.createdAt.toISOString(),
     }));
   }
 
@@ -511,6 +570,62 @@ export class SaleCsTeamService {
     return this.getMember(viewer, target.id);
   }
 
+  /**
+   * Đổi ảnh đại diện của nhân sự dưới cấp — cùng phạm vi sửa hồ sơ chuyên môn
+   * (thành viên đội, không phải mình / Admin / trưởng). Lưu bản gốc + bản
+   * watermark như Trưởng ban Đào tạo, ghi lịch sử thao tác.
+   */
+  async uploadAvatar(
+    viewer: SaleCsTeamViewer,
+    targetStaffId: string,
+    file: UploadableFile | undefined,
+  ): Promise<SaleCsTeamMemberDetailDto> {
+    const headStaffId = await this.resolveHead(viewer);
+    const target = await this.findTarget(targetStaffId);
+    assertSaleCsHeadCanEditProfile({
+      actorStaffId: headStaffId,
+      targetStaffId: target.id,
+      targetRoles: target.roles,
+      targetIsAdminAccount: target.user?.roleType === UserRole.admin,
+    });
+    if (!target.userId) {
+      throw new BadRequestException(
+        'Nhân sự chưa có tài khoản nên không đổi được ảnh đại diện.',
+      );
+    }
+    if (!file) {
+      throw new BadRequestException('Vui lòng chọn ảnh đại diện để tải lên.');
+    }
+
+    const userId = target.userId;
+    const { avatarPath, avatarWatermarkedPath } = await uploadUserAvatarFiles(
+      userId,
+      file,
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { avatarPath, avatarWatermarkedPath },
+        select: { id: true },
+      });
+      await this.actionHistoryService.recordUpdate(tx, {
+        actor: toAuditActor(viewer),
+        entityType: 'staff',
+        entityId: target.id,
+        description: 'Trưởng phòng Sale & CSKH đổi ảnh đại diện nhân sự',
+        beforeValue: {
+          avatarPath: target.user?.avatarPath ?? null,
+          avatarWatermarkedPath: target.user?.avatarWatermarkedPath ?? null,
+        },
+        afterValue: { avatarPath, avatarWatermarkedPath },
+      });
+    });
+
+    this.invalidateAuth(userId);
+    return this.getMember(viewer, target.id);
+  }
+
   private async assertTeamMember(staffId: string) {
     const member = await this.prisma.staffInfo.findFirst({
       where: { ...TEAM_MEMBER_WHERE, id: staffId },
@@ -576,10 +691,13 @@ export class SaleCsTeamService {
           }
         : null,
       customerCareStudentCount: row._count.customerCareServices,
+      province: user?.province ?? null,
+      achievementCount: row._count.achievements ?? 0,
       permissions: {
         canEditRoles: canSaleCsHeadEditRoles(policyTarget),
         canLockAccount: user != null && canSaleCsHeadLockAccount(policyTarget),
         canEditProfile: canSaleCsHeadEditProfile(policyTarget),
+        canEditAchievements: canSaleCsHeadEditAchievements(policyTarget),
       },
     };
   }

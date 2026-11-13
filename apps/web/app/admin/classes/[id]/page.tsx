@@ -40,7 +40,6 @@ import {
   TutorCard,
 } from "@/components/admin/class";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
-import ClassTuitionCard from "@/components/admin/class/ClassTuitionCard";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import StudentClassTuitionPopup from "@/components/admin/student/StudentClassTuitionPopup";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
@@ -70,7 +69,10 @@ import {
 import { canSetClassTeacherPay } from "@/lib/class-teacher-pay-access";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassWriteAccess } from "@/lib/class-write-access";
-import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
+import {
+  resolveClassStudentCaretakerHref,
+  resolveClassTeacherHref,
+} from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { toastWarnings } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
@@ -233,7 +235,10 @@ export default function AdminClassDetailPage() {
     staffId: adminAccess.staffId,
   });
   const canEditClassInfo = isAdmin || isSaleCsHead;
-  /** Học phí lớp (PATCH /class/:id/tuition): Admin + Trưởng phòng. */
+  /**
+   * Học phí lớp (PATCH /class/:id/tuition): Admin + Trưởng phòng. Sửa trong
+   * dialog Thông tin lớp; trang không còn card Học phí lớp (13/11).
+   */
   const canEditClassTuition = isAdmin || isSaleCsHead;
   const canEditTeacherRoster = isAdmin;
   /** POST /sessions chỉ Admin trên route admin; giữ CTA khớp backend. */
@@ -261,6 +266,9 @@ export default function AdminClassDetailPage() {
       }),
     [adminAccess, routeBase, viewerStaffId],
   );
+  /** Hồ sơ gia sư chỉ Admin / Kế toán chi mở được; role khác card không bấm. */
+  const resolveTeacherHref = (teacherId: string) =>
+    resolveClassTeacherHref({ routeBase, teacherId, access: adminAccess });
   const canManageMakeupSchedule = isAdmin;
   // #275: `PUT /sessions/:id` + `payment-status/bulk` chỉ Admin + Kế toán chi.
   const canEditSessionPaymentStatus = isAdmin || adminAccess.isAccountantExpense;
@@ -820,6 +828,8 @@ export default function AdminClassDetailPage() {
           onClose={() => setBasicInfoPopupOpen(false)}
           classDetail={classDetail}
           access={classWriteAccess}
+          canEditTuition={canEditClassTuition}
+          hasActiveStudents={activeClassStudents.length > 0}
         />
       ) : null}
       {canEditClassTuition ? (
@@ -939,6 +949,7 @@ export default function AdminClassDetailPage() {
             defaultScaleAmount={classDetail.scaleAmount}
             showTeacherCompensation={showTeacherCompensation}
             className="flex-1"
+            getTeacherHref={resolveTeacherHref}
             canStopTeaching={canManageClassStatus && classDetail.status === "running"}
             onStopTeaching={handleStopTeaching}
             stopTeachingPendingTeacherId={stopTeachingPendingTeacherId}
@@ -1008,17 +1019,6 @@ export default function AdminClassDetailPage() {
             )}
           </ClassCard>
         </div>
-
-        {showClassTuitionMeta ? (
-          <ClassTuitionCard
-            classDetail={classDetail}
-            canEdit={canEditClassTuition}
-            onEdit={() => {
-              setTuitionRequiredForFirstStudent(false);
-              setTuitionPopupOpen(true);
-            }}
-          />
-        ) : null}
 
         {/* Row 2: Danh sách học sinh */}
         <ClassRosterCard

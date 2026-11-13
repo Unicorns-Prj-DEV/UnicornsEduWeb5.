@@ -114,7 +114,7 @@ export default function StaffAccessGate({
               : isStaffCostsRoute
                 ? "Tài khoản này không dùng được màn chi phí trong staff shell."
                 : isAssistantStaffsRoute
-                  ? "Tài khoản này không dùng được danh sách nhân sự trong staff shell."
+                  ? "Tài khoản này không dùng được danh sách / hồ sơ nhân sự trong staff shell."
                   : isAssistantAdminLikeRoute
                     ? "Route này chỉ mở cho Admin."
                     : isCustomerCareSelfRoute
@@ -160,7 +160,7 @@ export default function StaffAccessGate({
               : isStaffCostsRoute
                 ? "Route `/staff/costs` hiện mở cho Admin và `staff.accountant_expense`. Kế toán chi dùng admin-like cost workspace trong staff shell, bao gồm tạo mới, chỉnh sửa, cập nhật trạng thái và xóa chi phí."
                 : isAssistantStaffsRoute
-                  ? "Route `/staff/staffs` hiện mở danh sách/chi tiết cho Admin và `staff.accountant_expense` trong staff shell."
+                  ? "Route `/staff/staffs` mở danh sách/chi tiết cho Admin và `staff.accountant_expense`; Trưởng phòng Sale & CSKH xem danh sách + hồ sơ đội Sale/CSKH. Trang chi tiết `/staff/staffs/[id]` còn mở cho Ban Đào Tạo (gia sư; Trưởng ban Đào tạo thêm Ban Chuyên môn / Đào tạo) — không có thông tin cá nhân, ngân hàng, thu nhập."
                   : isAssistantAdminLikeRoute
                     ? "Nhóm route này mirror lại các module quản trị trong staff shell và chỉ mở cho Admin (#267). Trưởng phòng Sale & CSKH chỉ dùng Học sinh (kèm ví) và Soạn thông báo; các staff role khác dùng self-service hoặc workspace chuyên biệt của riêng mình."
                     : isCustomerCareSelfRoute

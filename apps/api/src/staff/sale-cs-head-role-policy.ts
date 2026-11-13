@@ -68,6 +68,13 @@ export function canSaleCsHeadEditProfile(target: SaleCsHeadTarget): boolean {
   );
 }
 
+/** Có được sửa thành tích của target không — cùng phạm vi sửa hồ sơ chuyên môn. */
+export function canSaleCsHeadEditAchievements(
+  target: SaleCsHeadTarget,
+): boolean {
+  return canSaleCsHeadEditProfile(target);
+}
+
 function assertNotSelfOrProtected(target: SaleCsHeadTarget, action: string) {
   if (target.actorStaffId === target.targetStaffId) {
     throw new ForbiddenException(`Không thể tự ${action} của chính mình.`);
@@ -132,6 +139,21 @@ export function assertSaleCsHeadCanEditProfile(target: SaleCsHeadTarget): void {
   if (!isSaleCsTeamMember(target.targetRoles)) {
     throw new ForbiddenException(
       'Chỉ được sửa hồ sơ chuyên môn của thành viên đội Sale & CSKH.',
+    );
+  }
+}
+
+/**
+ * Sửa thành tích (thêm/sửa/xoá/sao/ảnh/sắp xếp): cùng phạm vi «dưới cấp» với
+ * sửa hồ sơ chuyên môn — thành viên đội, không phải mình / Admin / trưởng.
+ */
+export function assertSaleCsHeadCanEditAchievements(
+  target: SaleCsHeadTarget,
+): void {
+  assertNotSelfOrProtected(target, 'sửa thành tích');
+  if (!isSaleCsTeamMember(target.targetRoles)) {
+    throw new ForbiddenException(
+      'Chỉ được sửa thành tích của thành viên đội Sale & CSKH.',
     );
   }
 }

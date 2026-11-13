@@ -62,7 +62,10 @@ describe("Báo cáo tháng / Thống kê học sinh chỉ Admin (#269)", () => {
     ["Trợ lí / TP Sale & CSKH", ["sale_customer_care_head"]],
     ["Kế toán thu", ["accountant_income"]],
     ["Kế toán chi", ["accountant_expense"]],
-    ["Trợ lí kiêm Kế toán thu", ["sale_customer_care_head", "accountant_income"]],
+    [
+      "Trợ lí kiêm Kế toán thu",
+      ["sale_customer_care_head", "accountant_income"],
+    ],
     ["CSKH", ["customer_care"]],
   ])("từ chối %s", (_label, roles) => {
     const profile = staffProfile(roles);
@@ -81,23 +84,25 @@ describe("Báo cáo tháng / Thống kê học sinh chỉ Admin (#269)", () => {
   });
 });
 
-describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#267)", () => {
+describe("Trợ lí trong staff shell chỉ còn Học sinh, Lớp học và Thông báo (#267, #272)", () => {
   const ASSISTANT_ALLOWED_ROUTES = [
     "/staff",
     "/staff/profile",
     "/staff/students",
     "/staff/students/student-1",
+    // #272: Trưởng phòng xem mọi lớp (không lương gia sư).
+    "/staff/classes",
+    "/staff/classes/class-1",
     "/staff/notification",
     "/staff/notification/manage",
     "/staff/assistant-detail",
+    // Danh sách + hồ sơ đội Sale & CSKH (thay `/staff/sale-cs-team`).
+    "/staff/staffs",
+    "/staff/staffs/UNISTAFF-1",
   ];
   const ASSISTANT_DENIED_ROUTES = [
     "/staff/dashboard",
     "/staff/users",
-    "/staff/staffs",
-    "/staff/staffs/staff-1",
-    "/staff/classes",
-    "/staff/classes/class-1",
     "/staff/system-settings",
     "/staff/deductions",
     "/staff/costs",
@@ -117,7 +122,7 @@ describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#26
     "/staff/sale-detail",
   ];
 
-  it("cho Trợ lí vào Học sinh, Thông báo và trang cá nhân", () => {
+  it("cho Trợ lí vào Học sinh, Lớp học, Thông báo và trang cá nhân", () => {
     const profile = staffProfile(["sale_customer_care_head"]);
     for (const route of ASSISTANT_ALLOWED_ROUTES) {
       expect(
@@ -158,7 +163,10 @@ describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#26
   });
 
   it("Trợ lí kiêm role khác giữ quyền của role đó", () => {
-    const profile = staffProfile(["sale_customer_care_head", "accountant_income"]);
+    const profile = staffProfile([
+      "sale_customer_care_head",
+      "accountant_income",
+    ]);
     expect(
       resolveStaffShellRouteAccess(profile, "/staff/classes").isAllowed,
     ).toBe(true);
@@ -172,8 +180,8 @@ describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#26
   });
 });
 
-describe("Đội Sale & CSKH chỉ Trưởng phòng Sale & CSKH (#271)", () => {
-  const TEAM_ROUTES = ["/staff/sale-cs-team", "/staff/sale-cs-team/UNISTAFF-1"];
+describe("Danh sách nhân sự /staff/staffs cho Trưởng phòng Sale & CSKH (#271)", () => {
+  const TEAM_ROUTES = ["/staff/staffs"];
 
   it.each(TEAM_ROUTES)("Trưởng phòng vào được %s", (route) => {
     expect(
@@ -187,7 +195,7 @@ describe("Đội Sale & CSKH chỉ Trưởng phòng Sale & CSKH (#271)", () => {
   it.each([
     ["customer_care"],
     ["sale"],
-    ["accountant_expense"],
+    ["training"],
     ["training_head"],
   ])("role %s không vào được", (role) => {
     for (const route of TEAM_ROUTES) {
@@ -205,4 +213,38 @@ describe("Đội Sale & CSKH chỉ Trưởng phòng Sale & CSKH (#271)", () => {
       ).isAllowed,
     ).toBe(true);
   });
+});
+
+describe("Hồ sơ nhân sự /staff/staffs/:id cho các trưởng", () => {
+  const DETAIL = "/staff/staffs/UNISTAFF-1";
+
+  it.each([
+    ["sale_customer_care_head"],
+    ["training"],
+    ["training_head"],
+    ["accountant_expense"],
+  ])("role %s vào được trang chi tiết", (role) => {
+    expect(
+      resolveStaffShellRouteAccess(staffProfile([role]), DETAIL).isAllowed,
+    ).toBe(true);
+  });
+
+  it.each([["training"], ["training_head"]])(
+    "role %s không vào danh sách /staff/staffs (dùng /staff/tutors)",
+    (role) => {
+      expect(
+        resolveStaffShellRouteAccess(staffProfile([role]), "/staff/staffs")
+          .isAllowed,
+      ).toBe(false);
+    },
+  );
+
+  it.each([["customer_care"], ["sale"], ["teacher"], ["lesson_plan_head"]])(
+    "role %s không vào trang chi tiết",
+    (role) => {
+      expect(
+        resolveStaffShellRouteAccess(staffProfile([role]), DETAIL).isAllowed,
+      ).toBe(false);
+    },
+  );
 });

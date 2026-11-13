@@ -151,7 +151,7 @@ Chỉ staff `active` có `training_head` (`resolveHead`); admin không mang role
 | --- | --- | --- | --- | --- |
 | `GET` | `/training/tutors/:id/bonuses` | `month?` (`YYYY-MM`) | `assertTrainingHeadSubordinate` | **Chỉ xem**: `{ id, workType, amount, status, note, month, date }[]`, mới nhất trước. Không có route tạo/sửa/xoá thưởng |
 | `PATCH` | `/training/tutors/:id/professional-profile` | `{ lastName?, firstName?, university?, highSchool? }` | `assertTrainingHeadSubordinate` | Tên rỗng → `400`; đổi họ tên cần tài khoản (`400`). Ghi `action_history` |
-| `POST` | `/training/tutors/:id/avatar` | multipart `avatar` (JPG/PNG/WebP ≤ 5 MB) | `assertTrainingHeadSubordinate` | Thay ảnh đại diện |
+| `POST` | `/training/tutors/:id/avatar` | multipart `avatar` (JPG/PNG/WebP ≤ 5 MB) | `assertTrainingHeadSubordinate` | Thay ảnh đại diện (storage qua helper chung `uploadUserAvatarFiles`) |
 | `PATCH` | `/training/tutors/:id/status` | `{ status: "active" \| "inactive", reason? }` | `assertTrainingHeadCanChangeStatus` | Qua `StaffService.updateStaffStatus` (cùng hiệu ứng với admin: gỡ lịch dạy sắp tới khi nghỉ) |
 | `PATCH` | `/training/tutors/:id/account-status` | `{ locked: boolean }` | `assertTrainingHeadCanLockAccount` | Đổi `users.status`; chưa có tài khoản → `400`; ghi `action_history`; invalidate cache auth |
 
@@ -163,4 +163,4 @@ Không có route sửa thông tin cá nhân (liên hệ, CCCD, ngân hàng) hay 
 
 `POST /staff/:id/regenerate-meet-link` (`StaffService.assertCanRegenerateMeetLink`): được gọi bởi admin (`role_type` hoặc staff role `admin`), chính nhân sự đó, hoặc Trưởng ban Đào tạo `active` trên cấp dưới. Còn lại `403` (trước #278 mọi staff gọi được); target không có → `404`. Link hiện tại đọc từ `management.googleMeetLink` của chi tiết.
 
-Web: `TrainingTutorWorkSection` (trạng thái, khoá tài khoản, link Meet, có `ConfirmDialog`), `TrainingTutorProfileDialog` (họ tên, trường, ảnh), `TrainingTutorBonusesSection` (thưởng chỉ đọc) trên `/staff/tutors/[id]`, hiện theo `management.permissions`.
+Web: hồ sơ ở route chung `/staff/staffs/[id]` (`HeadStaffDetailPage`; route cũ `/staff/tutors/[id]` đã xoá). Bấm avatar / tên mở `TrainingTutorInfoDialog` (hồ sơ chuyên môn + ảnh, role ba nhóm, đã nghỉ, khoá đăng nhập, link Meet; một nút Lưu, có `ConfirmDialog`); card `TrainingTutorClassesCard` (lớp đang dạy / đã nghỉ), `TrainingTutorSessionsCard` (lịch sử buổi), `StaffBonusViewCard` (`source="training"`, thưởng chỉ đọc khi `canViewBonuses`). Mọi phần hiện theo `management.permissions`.

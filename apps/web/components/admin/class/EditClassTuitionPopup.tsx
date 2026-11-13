@@ -9,27 +9,10 @@ import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
-import { MoneyInput } from "@/components/ui/MoneyInput";
 import type { ClassDetail, UpdateClassTuitionPayload } from "@/dtos/class.dto";
 import * as classApi from "@/lib/apis/class.api";
-import {
-  compactTuitionPerSessionLine,
-  computeStudentTuitionPerSessionFromPackage,
-  parseTuitionPackageInputs,
-} from "@/lib/class.helpers";
-import {
-  classRateFieldLabels,
-  compactTuitionChargeLine,
-  displayedClassRate,
-  oneTimePackageError,
-  standardBlockCountFromClassSchedule,
-  toPerBlockTuitionForApi,
-} from "@/lib/class-pricing-mode";
-import {
-  moneyInputInitialFromNumber,
-  parseOptionalMoneyInt,
-} from "@/lib/money-input.helpers";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
+import ClassTuitionFields, { useClassTuitionForm } from "./ClassTuitionFields";
 import {
   classEditorModalPrimaryButtonClassName,
   classEditorModalSecondaryButtonClassName,
@@ -59,9 +42,8 @@ type Props = {
 };
 
 /**
- * **Học phí lớp** (#272): tổng gói / số buổi của lớp, và học phí / 30 phút khi
- * lớp tính theo block. Admin và Trưởng phòng Sale & CSKH sửa — tách khỏi
- * Thông tin lớp (chỉ Admin).
+ * **Học phí lớp** bắt buộc điền trước học sinh đầu tiên (#273). Sửa học phí
+ * thường ngày nằm trong dialog Thông tin lớp (13/11: bỏ card Học phí lớp).
  */
 export default function EditClassTuitionPopup({ open, ...props }: Props) {
   if (!open) return null;
@@ -78,29 +60,9 @@ function EditClassTuitionForm({
 }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
   const pricingMode = classDetail.pricingMode ?? "per_session";
-  const standardBlockCount = standardBlockCountFromClassSchedule(classDetail.schedule ?? []);
-
-  const initialTotal = moneyInputInitialFromNumber(classDetail.tuitionPackageTotal);
-  const initialSessions =
-    classDetail.tuitionPackageSession == null ? "" : String(classDetail.tuitionPackageSession);
-  const initialPerBlock = moneyInputInitialFromNumber(
-    displayedClassRate({
-      mode: "per_block",
-      perSession: classDetail.studentTuitionPerSession,
-      perBlock: classDetail.studentTuitionPerBlock,
-      standardBlockCount,
-    }),
-  );
-
-  const [totalInput, setTotalInput] = useState(initialTotal);
-  const [sessionsInput, setSessionsInput] = useState(initialSessions);
-  const [perBlockInput, setPerBlockInput] = useState(initialPerBlock);
+  const tuitionForm = useClassTuitionForm(classDetail);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
-
-  const isDirty =
-    totalInput !== initialTotal ||
-    sessionsInput !== initialSessions ||
-    (pricingMode === "per_block" && perBlockInput !== initialPerBlock);
+  const isDirty = tuitionForm.isDirty(pricingMode);
 
   const mutation = useMutation({
     mutationFn: (payload: UpdateClassTuitionPayload) =>
@@ -136,53 +98,14 @@ function EditClassTuitionForm({
       return;
     }
 
-    const pkg = parseTuitionPackageInputs(totalInput, sessionsInput);
-    if (!pkg.ok) {
-      toast.error(pkg.message);
-      return;
-    }
-    const oneTimeError = oneTimePackageError(
+    const payload = tuitionForm.buildPayload({
       pricingMode,
-      pkg.mode === "empty" ? undefined : pkg.total,
-      { allowEmpty: !requiredBeforeFirstStudent && !hasActiveStudents },
-    );
-    if (oneTimeError) {
-      toast.error(oneTimeError);
-      return;
-    }
-
-    const perBlock = toPerBlockTuitionForApi({
-      mode: pricingMode,
-      displayedAmount: parseOptionalMoneyInt(perBlockInput),
+      requiredBeforeFirstStudent,
+      hasActiveStudents,
     });
-    if (requiredBeforeFirstStudent && pkg.mode === "empty" && perBlock == null) {
-      toast.error("Hãy điền Học phí lớp (nhập 0đ nếu học miễn phí) trước khi thêm học sinh đầu tiên.");
-      return;
-    }
-    const payload: UpdateClassTuitionPayload =
-      pkg.mode === "empty"
-        ? {}
-        : {
-            tuition_package_total: pkg.total,
-            tuition_package_session: pkg.sessions,
-            student_tuition_per_session: computeStudentTuitionPerSessionFromPackage(
-              pkg.total,
-              pkg.sessions,
-            ),
-          };
-    if (perBlock !== undefined) {
-      payload.student_tuition_per_block = perBlock;
-    }
+    if (!payload) return;
     mutation.mutate(payload);
   };
-
-  const tuitionBrief = compactTuitionChargeLine({
-    mode: pricingMode,
-    totalInput,
-    sessionsInput,
-    standardBlockCount,
-    perSessionLine: compactTuitionPerSessionLine(totalInput, sessionsInput),
-  });
 
   return (
     <>
@@ -205,43 +128,11 @@ function EditClassTuitionForm({
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Tổng gói</span>
-                <MoneyInput
-                  value={totalInput}
-                  onValueChange={setTotalInput}
-                  className={INPUT_CLASS}
-                  placeholder="VNĐ"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Số buổi</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={sessionsInput}
-                  onChange={(e) => setSessionsInput(e.target.value)}
-                  className={INPUT_CLASS}
-                  placeholder="Số buổi"
-                />
-              </label>
-              {pricingMode === "per_block" ? (
-                <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                  <span>{classRateFieldLabels(pricingMode).tuition}</span>
-                  <MoneyInput
-                    value={perBlockInput}
-                    onValueChange={setPerBlockInput}
-                    className={INPUT_CLASS}
-                    placeholder="Để trống = suy từ gói"
-                  />
-                </label>
-              ) : null}
-              {tuitionBrief ? (
-                <p className="text-xs tabular-nums text-text-muted sm:col-span-2">{tuitionBrief}</p>
-              ) : null}
-            </div>
+            <ClassTuitionFields
+              form={tuitionForm}
+              pricingMode={pricingMode}
+              inputClassName={INPUT_CLASS}
+            />
           </ResponsiveDialogBody>
 
           <ResponsiveActionFooter>

@@ -5,6 +5,8 @@ Lớp chia thành hai phần sửa riêng:
 - **Thông tin lớp**: tên, khoá, trạng thái, sĩ số tối đa, không điểm danh, hạn truy cập nội dung, lương gia sư mặc định của lớp.
 - **Học phí lớp**: tổng gói (`tuition_package_total`), số buổi (`tuition_package_session`), học phí / buổi (`student_tuition_per_session`), học phí / 30 phút (`student_tuition_per_block`, lớp theo block).
 
+Hai route API vẫn tách (quyền khác nhau), nhưng **web** (13/11) sửa cả hai trong **một dialog «Thông tin lớp»** (`EditClassBasicInfoPopup`): người được sửa Học phí lớp (Admin, Trưởng phòng Sale & CSKH) thấy thêm mục **Học phí lớp** cuối dialog; lưu gọi `PATCH /class/:id/basic-info` khi Thông tin lớp đổi rồi `PATCH /class/:id/tuition` khi học phí đổi. Trang chi tiết lớp **không còn** card Học phí lớp. Popup riêng `EditClassTuitionPopup` chỉ còn cho luồng bắt buộc điền trước học sinh đầu tiên (#273). Form học phí dùng chung `components/admin/class/ClassTuitionFields.tsx` (`useClassTuitionForm`).
+
 ## Quyền theo route
 
 | Route | Admin | Trưởng ban Đào tạo | Trưởng phòng Sale & CSKH | Kế toán thu | Kế toán chi |

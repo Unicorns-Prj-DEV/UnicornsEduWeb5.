@@ -77,8 +77,8 @@ export default function StaffAchievementsDialog({
   staffId: string;
   staffName: string;
   onClose: () => void;
-  /** `training`: Ban Đào Tạo đọc/sửa qua endpoint `/training/tutors/:id/achievements`. */
-  mode?: "admin" | "training";
+  /** `training`: Ban Đào Tạo đọc/sửa qua `/training/tutors/:id/achievements`; `saleCsTeam`: Trưởng phòng Sale & CSKH đọc/sửa (nhân sự dưới cấp) qua `/sale-cs-team/members/:id/achievements`. */
+  mode?: "admin" | "training" | "saleCsTeam";
   /** Không bật cho hồ sơ của chính người xem (API trả 403). */
   editable?: boolean;
 }) {

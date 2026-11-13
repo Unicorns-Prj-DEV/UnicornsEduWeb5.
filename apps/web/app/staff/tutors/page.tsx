@@ -45,7 +45,7 @@ type EditTrainingRolesTarget = ComponentProps<
 const PAGE_SIZE = 20;
 const TH_CLASS =
   "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary";
-const tutorHref = (id: string) => `/staff/tutors/${encodeURIComponent(id)}`;
+const tutorHref = (id: string) => `/staff/staffs/${encodeURIComponent(id)}`;
 const tutorLabel = (tutor: TrainingTutorListItem) =>
   `Xem hồ sơ ${tutor.fullName.trim() || "gia sư"}`;
 const STATUS_OPTIONS = [
