@@ -38,6 +38,8 @@ import {
   ROLE_LABELS,
 } from "@/lib/staff.constants";
 import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { isRemovingCustomerCareRole } from "@/lib/customer-care-role-release";
+import { useConfirmCustomerCareRelease } from "@/components/customer-care/useConfirmCustomerCareRelease";
 
 type Props = {
   open: boolean;
@@ -107,6 +109,8 @@ export default function EditStaffPopup({
   canDeleteAvatar = false,
 }: Props) {
   const queryClient = useQueryClient();
+  const { confirmRelease, dialog: customerCareReleaseDialog } =
+    useConfirmCustomerCareRelease();
 
   const [fullName, setFullName] = useState(staff.fullName ?? "");
   const [cccdNumber, setCccdNumber] = useState(staff.cccdNumber ?? "");
@@ -378,7 +382,13 @@ export default function EditStaffPopup({
     }
   };
 
-  const submit = ({ inactiveConfirmed }: { inactiveConfirmed: boolean }) => {
+  const submit = ({
+    inactiveConfirmed,
+    customerCareReleaseConfirmed = false,
+  }: {
+    inactiveConfirmed: boolean;
+    customerCareReleaseConfirmed?: boolean;
+  }) => {
     if (overridesQuery.isLoading || overridesQuery.isError) {
       return;
     }
@@ -407,6 +417,22 @@ export default function EditStaffPopup({
 
     const roleFixedSalaryOverrides = buildRoleFixedSalaryOverrides();
     if (!roleFixedSalaryOverrides) return;
+
+    // Follow-up 13/11 mục 2.1: tắt CSKH → học sinh mất Người chăm sóc ngay.
+    if (
+      !customerCareReleaseConfirmed &&
+      isRemovingCustomerCareRole(staff.roles ?? [], selectedRoles)
+    ) {
+      void confirmRelease({
+        staffId: staff.id,
+        staffName: fullName.trim() || staff.fullName || "",
+      }).then((confirmed) => {
+        if (confirmed) {
+          submit({ inactiveConfirmed, customerCareReleaseConfirmed: true });
+        }
+      });
+      return;
+    }
 
     const warnings = collectDisabledRoleOverrideWarnings({
       originalRoles: staff.roles ?? [],
@@ -914,6 +940,8 @@ export default function EditStaffPopup({
         variant="destructive"
         onConfirm={confirmOverrideRemoval}
       />
+
+      {customerCareReleaseDialog}
 
       <ConfirmDialog
         open={inactiveConfirmOpen}

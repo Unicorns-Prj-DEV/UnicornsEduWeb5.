@@ -77,6 +77,8 @@ export interface UpdateSaleCsTeamRolesPayload {
 export interface SaleCsTeamRolesResult {
   id: string;
   roles: string[];
+  /** Số học sinh vừa mất Người chăm sóc do tắt role CSKH (follow-up 13/11 mục 2.1). */
+  releasedCustomerCareStudentCount: number;
 }
 
 export interface UpdateSaleCsTeamAccountStatusPayload {

@@ -128,6 +128,7 @@ import {
   isSurveyRequiredFor,
 } from '../class/survey-requirement';
 import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
+import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from '../customer-care/customer-care-role-release';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
 function toDateOrNull(
@@ -6094,6 +6095,13 @@ export class StaffService {
           data: payload as Prisma.StaffInfoUpdateArgs['data'],
         });
 
+        // Follow-up 13/11 mục 2.1: tắt CSKH → học sinh mất Người chăm sóc ngay.
+        await releaseCustomerCareAssignmentsOnRoleRemovalInTx(tx, {
+          staffId: data.id,
+          previousRoles: existingStaff.roles,
+          nextRoles: data.roles ?? existingStaff.roles,
+        });
+
         const afterValue =
           auditActor || options?.roleFixedSalaryOverrides
             ? await this.getStaffAuditSnapshot(tx, data.id)
@@ -6197,6 +6205,14 @@ export class StaffService {
         where: { id: target.id },
         data: { roles: plan.nextRoles },
         select: { id: true },
+      });
+
+      // Trưởng ban Đào tạo không chạm customer_care (plan chỉ đổi 3 role), gọi
+      // để mọi đường ghi role đi chung một luật (follow-up 13/11 mục 2.1).
+      await releaseCustomerCareAssignmentsOnRoleRemovalInTx(tx, {
+        staffId: target.id,
+        previousRoles: target.roles,
+        nextRoles: plan.nextRoles,
       });
 
       await this.actionHistoryService.recordUpdate(tx, {

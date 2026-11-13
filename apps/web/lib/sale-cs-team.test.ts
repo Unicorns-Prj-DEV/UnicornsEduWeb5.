@@ -4,7 +4,6 @@ import {
   getNonTeamRoles,
   getSaleCsTeamRoles,
   hasAnyRoleAfterTeamChange,
-  isRemovingCustomerCareWithStudents,
 } from "./sale-cs-team";
 
 describe("sale-cs-team (#271)", () => {
@@ -18,30 +17,6 @@ describe("sale-cs-team (#271)", () => {
     expect(hasAnyRoleAfterTeamChange(["sale"], [])).toBe(false);
     expect(hasAnyRoleAfterTeamChange(["sale", "teacher"], [])).toBe(true);
     expect(hasAnyRoleAfterTeamChange(["sale"], ["customer_care"])).toBe(true);
-  });
-
-  it("cảnh báo tắt CSKH khi còn học sinh", () => {
-    expect(
-      isRemovingCustomerCareWithStudents({
-        currentRoles: ["customer_care", "sale"],
-        selected: ["sale"],
-        customerCareStudentCount: 2,
-      }),
-    ).toBe(true);
-    expect(
-      isRemovingCustomerCareWithStudents({
-        currentRoles: ["customer_care", "sale"],
-        selected: ["sale"],
-        customerCareStudentCount: 0,
-      }),
-    ).toBe(false);
-    expect(
-      isRemovingCustomerCareWithStudents({
-        currentRoles: ["customer_care"],
-        selected: ["customer_care"],
-        customerCareStudentCount: 5,
-      }),
-    ).toBe(false);
   });
 
   it("định dạng % CSKH", () => {

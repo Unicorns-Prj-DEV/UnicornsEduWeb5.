@@ -108,6 +108,7 @@ describe('SaleCsTeamService (#271)', () => {
       update: jest.fn(),
     },
     user: { update: jest.fn() },
+    customerCareService: { deleteMany: jest.fn() },
     extraAllowance: { findMany: jest.fn() },
     bonus: { findMany: jest.fn() },
     $transaction: jest.fn(),
@@ -346,7 +347,9 @@ describe('SaleCsTeamService (#271)', () => {
       expect(result).toEqual({
         id: 'UNISTAFF-T1',
         roles: [StaffRole.sale, StaffRole.customer_care],
+        releasedCustomerCareStudentCount: 0,
       });
+      expect(mockPrisma.customerCareService.deleteMany).not.toHaveBeenCalled();
       expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith({
         where: { id: 'UNISTAFF-T1' },
         data: { roles: [StaffRole.sale, StaffRole.customer_care] },
@@ -377,20 +380,61 @@ describe('SaleCsTeamService (#271)', () => {
       );
     });
 
-    it('chặn tắt CSKH khi còn học sinh', async () => {
+    it('tắt CSKH còn học sinh: gỡ gán mọi học sinh trong cùng transaction (follow-up 2.1)', async () => {
       mockActor();
       mockPrisma.staffInfo.findUnique.mockResolvedValue(
         buildTarget([StaffRole.sale, StaffRole.customer_care], {
           _count: { customerCareServices: 2 },
         }),
       );
+      mockPrisma.customerCareService.deleteMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.updateRoles(HEAD_VIEWER, 'UNISTAFF-T1', {
+        roles: [StaffRole.sale],
+      });
+
+      expect(result).toEqual({
+        id: 'UNISTAFF-T1',
+        roles: [StaffRole.sale],
+        releasedCustomerCareStudentCount: 2,
+      });
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.customerCareService.deleteMany).toHaveBeenCalledWith({
+        where: { staffId: 'UNISTAFF-T1' },
+      });
+      expect(mockActionHistory.recordUpdate).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          beforeValue: expect.objectContaining({ customerCareStudentCount: 2 }),
+          afterValue: expect.objectContaining({ customerCareStudentCount: 0 }),
+        }),
+      );
+    });
+
+    it('tắt CSKH bị chặn quyền thì không gỡ học sinh nào', async () => {
+      mockActor();
+      const target = buildTarget(
+        [StaffRole.training_head, StaffRole.customer_care],
+        { _count: { customerCareServices: 2 } },
+      );
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(target);
 
       await expect(
-        service.updateRoles(HEAD_VIEWER, 'UNISTAFF-T1', {
-          roles: [StaffRole.sale],
-        }),
+        service.updateRoles(HEAD_VIEWER, 'UNISTAFF-T1', { roles: [] }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.customerCareService.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('bỏ hết role vẫn 400', async () => {
+      mockActor();
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(
+        buildTarget([StaffRole.customer_care]),
+      );
+
+      await expect(
+        service.updateRoles(HEAD_VIEWER, 'UNISTAFF-T1', { roles: [] }),
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(mockPrisma.staffInfo.update).not.toHaveBeenCalled();
+      expect(mockPrisma.customerCareService.deleteMany).not.toHaveBeenCalled();
     });
 
     it.each([

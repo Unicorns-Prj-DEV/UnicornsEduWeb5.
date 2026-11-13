@@ -31,22 +31,6 @@ export function hasAnyRoleAfterTeamChange(
   return getNonTeamRoles(currentRoles).length > 0 || selected.length > 0;
 }
 
-/**
- * Tắt CSKH khi CSKH còn học sinh bị backend chặn (400) — UI báo trước để
- * Trưởng phòng chuyển học sinh sang CSKH khác.
- */
-export function isRemovingCustomerCareWithStudents(params: {
-  currentRoles: readonly string[];
-  selected: readonly string[];
-  customerCareStudentCount: number;
-}): boolean {
-  return (
-    params.currentRoles.includes("customer_care") &&
-    !params.selected.includes("customer_care") &&
-    params.customerCareStudentCount > 0
-  );
-}
-
 /** % mặc định CSKH (phân số 0–0.99) → «25%». */
 export function formatCustomerCarePercent(value: number | null): string {
   if (value == null) return "—";

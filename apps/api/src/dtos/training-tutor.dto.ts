@@ -120,6 +120,24 @@ export interface TrainingTutorSessionDto {
   class: TrainingTutorClassDto;
 }
 
+/**
+ * Ứng viên để Trưởng ban Đào tạo bật role Gia sư / Ban Chuyên môn / Đào tạo
+ * (follow-up 13/11 mục 2.2): nhân sự thường **ngoài** ba nhóm, đang active.
+ */
+export class TrainingRoleCandidateQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ description: 'Tìm theo họ tên nhân sự' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+/** Chỉ họ tên + role hiện có — không thông tin cá nhân, không ảnh, không tiền. */
+export interface TrainingRoleCandidateDto {
+  id: string;
+  fullName: string;
+  roles: StaffRole[];
+}
+
 export interface TrainingTutorPageDto<T> {
   data: T[];
   meta: { total: number; page: number; limit: number };

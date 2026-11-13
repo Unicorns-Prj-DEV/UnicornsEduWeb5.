@@ -41,6 +41,14 @@ export async function getCustomerCareStudents(
   };
 }
 
+/** Số học sinh đang học mà CSKH đang chăm sóc (`meta.total`, chỉ tải 1 dòng). */
+export async function getCustomerCareActiveStudentCount(
+  staffId: string,
+): Promise<number> {
+  const result = await getCustomerCareStudents(staffId, { page: 1, limit: 1 });
+  return result.meta.total;
+}
+
 export async function getMyMissingDropOutReasons(): Promise<CustomerCareMissingDropOutReasonList> {
   const res = await api.get<CustomerCareMissingDropOutReasonList>(
     "/customer-care/me/missing-drop-out-reasons",

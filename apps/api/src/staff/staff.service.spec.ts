@@ -638,6 +638,69 @@ describe('StaffService', () => {
     expect(syncOrder).toBeGreaterThan(updateOrder);
   });
 
+  describe('tắt role CSKH qua Admin sửa nhân sự (follow-up 13/11 mục 2.1)', () => {
+    const buildCareStaff = (roles: StaffRole[]) => ({
+      id: 'staff-care',
+      userId: 'user-care',
+      roles,
+      status: 'active',
+      customerCareManagedByStaffId: null,
+      user: { id: 'user-care', first_name: 'Chăm', last_name: 'Sóc' },
+      classTeachers: [],
+    });
+
+    async function adminUpdateRoles(
+      previousRoles: StaffRole[],
+      nextRoles: StaffRole[],
+    ) {
+      mockPrisma.staffInfo.findUnique
+        .mockResolvedValueOnce(buildCareStaff(previousRoles))
+        .mockResolvedValue(buildCareStaff(nextRoles));
+      mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-care' });
+      jest
+        .spyOn(service, 'getStaffById')
+        .mockResolvedValue(buildCareStaff(nextRoles) as never);
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        roleType: 'admin',
+        staffInfo: null,
+      });
+      await service.updateStaffWithFixedSalaryOverrides(
+        'staff-care',
+        { roles: nextRoles, roleFixedSalaryOverrides: [] },
+        {
+          userId: 'admin-1',
+          userEmail: 'admin@example.com',
+          roleType: 'admin',
+        },
+      );
+    }
+
+    it('gỡ gán mọi học sinh của CSKH sau khi ghi role, cùng transaction', async () => {
+      await adminUpdateRoles(
+        [StaffRole.customer_care, StaffRole.teacher],
+        [StaffRole.teacher],
+      );
+
+      expect(mockPrisma.customerCareService.deleteMany).toHaveBeenCalledWith({
+        where: { staffId: 'staff-care' },
+      });
+      expect(
+        mockPrisma.customerCareService.deleteMany.mock.invocationCallOrder[0],
+      ).toBeGreaterThan(
+        mockPrisma.staffInfo.update.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('giữ role CSKH thì không gỡ học sinh', async () => {
+      await adminUpdateRoles(
+        [StaffRole.customer_care],
+        [StaffRole.customer_care, StaffRole.teacher],
+      );
+
+      expect(mockPrisma.customerCareService.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
   it('syncs remaining roles after a role is removed, still in the same transaction', async () => {
     const existingStaff = {
       id: 'staff-1',

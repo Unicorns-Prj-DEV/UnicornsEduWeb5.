@@ -13,6 +13,7 @@ import {
   UserStatus,
 } from 'generated/enums';
 import { hasTrainingAccess } from 'src/common/training-access';
+import { PRIVILEGED_STAFF_ROLES } from 'src/common/staff-role-policy';
 import {
   AchievementService,
   type StaffAchievementEditor,
@@ -27,6 +28,8 @@ import { getPreferredUserFullName } from 'src/common/user-name.util';
 import type { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import type {
   TrainingHeadTutorManagementDto,
+  TrainingRoleCandidateDto,
+  TrainingRoleCandidateQueryDto,
   TrainingTutorAccountStatusResultDto,
   TrainingTutorBonusDto,
   TrainingTutorClassDto,
@@ -145,6 +148,30 @@ const TUTOR_WHERE = {
 const TRAINING_TEAM_WHERE = {
   roles: { hasSome: [...TRAINING_HEAD_MANAGEABLE_ROLES] },
 } satisfies Prisma.StaffInfoWhereInput;
+
+/**
+ * Ứng viên để Trưởng ban bật role ba nhóm (follow-up 13/11 mục 2.2, CONTEXT.md
+ * «Chỉnh role nhân sự (Trưởng ban Đào tạo)»): nhân sự thường ngoài ba nhóm —
+ * không Admin, không role trưởng, không tài khoản admin hệ thống, đang active.
+ * Loại chính người gọi ở query (`id not`).
+ */
+const ROLE_CANDIDATE_WHERE = {
+  status: StaffStatus.active,
+  NOT: [
+    { roles: { hasSome: [...TRAINING_HEAD_MANAGEABLE_ROLES] } },
+    { roles: { hasSome: [...PRIVILEGED_STAFF_ROLES] } },
+    { user: { is: { roleType: UserRole.admin } } },
+  ],
+} satisfies Prisma.StaffInfoWhereInput;
+
+/** Allowlist ứng viên: họ tên + role hiện có, không thông tin cá nhân. */
+const ROLE_CANDIDATE_SELECT = {
+  id: true,
+  roles: true,
+  user: {
+    select: { first_name: true, last_name: true, accountHandle: true },
+  },
+} satisfies Prisma.StaffInfoSelect;
 
 /** Target của thao tác ghi: role, tài khoản, tên — đủ cho policy + audit. */
 const TARGET_SELECT = {
@@ -513,6 +540,47 @@ export class TrainingTutorService {
       );
     }
     return actor.id;
+  }
+
+  /**
+   * Ứng viên bật role Gia sư / Ban Chuyên môn / Đào tạo (follow-up 13/11 mục
+   * 2.2). Người trong ba nhóm đã có ở `scope=all`, nên chỉ trả người ngoài
+   * nhóm. Chỉ họ tên + role hiện có (role không phải PII) — bật role đi qua
+   * `PATCH /staff/:id/training-roles` (policy chặn lại lần nữa).
+   */
+  async listRoleCandidates(
+    viewer: TrainingTutorViewer,
+    query: TrainingRoleCandidateQueryDto,
+  ): Promise<TrainingTutorPageDto<TrainingRoleCandidateDto>> {
+    const headStaffId = await this.resolveHead(viewer);
+    const { page, limit, skip } = clampPaging(query);
+    const where: Prisma.StaffInfoWhereInput = {
+      AND: [
+        ROLE_CANDIDATE_WHERE,
+        { id: { not: headStaffId } },
+        buildNameSearchWhere(query.search),
+      ],
+    };
+
+    const [total, rows] = await Promise.all([
+      this.prisma.staffInfo.count({ where }),
+      this.prisma.staffInfo.findMany({
+        where,
+        select: ROLE_CANDIDATE_SELECT,
+        orderBy: [{ user: { first_name: 'asc' } }, { id: 'asc' }],
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        fullName: getPreferredUserFullName(row.user) ?? '',
+        roles: row.roles,
+      })),
+      meta: { total, page, limit },
+    };
   }
 
   private async findTarget(staffId: string): Promise<TargetRow> {

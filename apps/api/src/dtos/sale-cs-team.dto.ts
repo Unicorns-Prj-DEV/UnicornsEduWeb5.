@@ -170,6 +170,8 @@ export interface SaleCsTeamBonusDto {
 export interface SaleCsTeamRolesResultDto {
   id: string;
   roles: StaffRole[];
+  /** Số học sinh vừa mất Người chăm sóc do tắt role CSKH (follow-up 13/11 mục 2.1). */
+  releasedCustomerCareStudentCount: number;
 }
 
 export interface SaleCsTeamAccountStatusResultDto {

@@ -10,6 +10,8 @@ import type {
   TrainingTutorPage,
   TrainingTutorSession,
   TrainingTutorListItem,
+  TrainingRoleCandidate,
+  TrainingRoleCandidateParams,
   UpdateStaffTrainingRolesPayload,
 } from "@/dtos/training-tutor.dto";
 import { api } from "@/lib/client";
@@ -23,6 +25,8 @@ export const trainingTutorKeys = {
     ["training-tutors", "sessions", id, page] as const,
   bonuses: (id: string, month: string) =>
     ["training-tutors", "bonuses", id, month] as const,
+  roleCandidates: (params: TrainingRoleCandidateParams) =>
+    ["training-tutors", "role-candidates", params] as const,
 };
 
 function tutorPath(id: string, suffix = ""): string {
@@ -41,6 +45,23 @@ export async function listTrainingTutors(
         ...(params.search ? { search: params.search } : {}),
         ...(params.status ? { status: params.status } : {}),
         ...(params.scope === "all" ? { scope: "all" } : {}),
+      },
+    },
+  );
+  return response.data;
+}
+
+/** Ứng viên ngoài ba nhóm để Trưởng ban Đào tạo bật role (follow-up 13/11 mục 2.2). */
+export async function listTrainingRoleCandidates(
+  params: TrainingRoleCandidateParams,
+): Promise<TrainingTutorPage<TrainingRoleCandidate>> {
+  const response = await api.get<TrainingTutorPage<TrainingRoleCandidate>>(
+    "/training/tutors/role-candidates",
+    {
+      params: {
+        page: params.page,
+        limit: params.limit,
+        ...(params.search ? { search: params.search } : {}),
       },
     },
   );

@@ -24,8 +24,12 @@ import {
   getNonTeamRoles,
   getSaleCsTeamRoles,
   hasAnyRoleAfterTeamChange,
-  isRemovingCustomerCareWithStudents,
 } from "@/lib/sale-cs-team";
+import {
+  buildCustomerCareReleaseConfirm,
+  formatCustomerCareReleasedToast,
+  isRemovingCustomerCareRole,
+} from "@/lib/customer-care-role-release";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 
 type Props = {
@@ -40,7 +44,8 @@ type Props = {
 
 /**
  * Trưởng phòng Sale & CSKH bật/tắt role Sale / CSKH (#271). Role khác chỉ đọc.
- * Backend chặn: tự sửa mình, Admin, người mang role trưởng; tắt CSKH còn học sinh.
+ * Backend chặn: tự sửa mình, Admin, người mang role trưởng. Tắt CSKH còn học
+ * sinh → hỏi xác nhận; backend gỡ Người chăm sóc của mọi học sinh đó.
  */
 export default function SaleCsTeamRolesDialog({ staff, onClose }: Props) {
   const titleId = useId();
@@ -55,17 +60,22 @@ export default function SaleCsTeamRolesDialog({ staff, onClose }: Props) {
     selected.length !== initial.length ||
     selected.some((role) => !initial.includes(role));
   const hasAnyRole = hasAnyRoleAfterTeamChange(staff.roles, selected);
-  const blockedByStudents = isRemovingCustomerCareWithStudents({
-    currentRoles: staff.roles,
-    selected,
-    customerCareStudentCount: staff.customerCareStudentCount,
-  });
-  const canSubmit = isDirty && hasAnyRole && !blockedByStudents;
+  const releasesStudents =
+    isRemovingCustomerCareRole(staff.roles, selected) &&
+    staff.customerCareStudentCount > 0;
+  const canSubmit = isDirty && hasAnyRole;
 
   const mutation = useMutation({
     mutationFn: () => updateSaleCsTeamRoles(staff.id, { roles: selected }),
-    onSuccess: async () => {
-      toast.success("Đã cập nhật role nhân sự.");
+    onSuccess: async (result) => {
+      const released = formatCustomerCareReleasedToast(
+        result.releasedCustomerCareStudentCount,
+      );
+      toast.success(
+        released
+          ? `Đã cập nhật role nhân sự. ${released}`
+          : "Đã cập nhật role nhân sự.",
+      );
       await queryClient.invalidateQueries({ queryKey: saleCsTeamKeys.all });
       onClose();
     },
@@ -91,9 +101,16 @@ export default function SaleCsTeamRolesDialog({ staff, onClose }: Props) {
     if (await confirmUnsavedClose(confirm, isDirty)) onClose();
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit || mutation.isPending) return;
+    const releaseConfirm = releasesStudents
+      ? buildCustomerCareReleaseConfirm({
+          staffName: staff.fullName,
+          studentCount: staff.customerCareStudentCount,
+        })
+      : null;
+    if (releaseConfirm && !(await confirm(releaseConfirm))) return;
     mutation.mutate();
   };
 
@@ -121,7 +138,10 @@ export default function SaleCsTeamRolesDialog({ staff, onClose }: Props) {
             {staff.fullName.trim() || "Nhân sự"}
           </p>
         </div>
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form
+          onSubmit={(event) => void handleSubmit(event)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <ResponsiveDialogBody>
             <ul className="divide-y divide-border-subtle">
               {SALE_CS_TEAM_ROLES.map((role) => {
@@ -166,15 +186,16 @@ export default function SaleCsTeamRolesDialog({ staff, onClose }: Props) {
               </div>
             ) : null}
 
-            {removed.length > 0 && !blockedByStudents ? (
+            {removed.length > 0 ? (
               <p className="mt-4 rounded-lg bg-warning/10 px-3 py-2 text-xs text-text-secondary">
                 Tắt role sẽ xoá mức đè lương cứng riêng của role đó (nếu có).
               </p>
             ) : null}
-            {blockedByStudents ? (
-              <p className="mt-4 rounded-lg bg-error/10 px-3 py-2 text-xs text-error">
-                CSKH này còn {staff.customerCareStudentCount} học sinh. Chuyển
-                học sinh sang CSKH khác trước khi tắt role CSKH.
+            {releasesStudents ? (
+              <p className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-text-secondary">
+                CSKH này đang chăm sóc {staff.customerCareStudentCount} học
+                sinh. Tắt role CSKH thì các học sinh này mất Người chăm sóc
+                ngay, chờ giao lại.
               </p>
             ) : null}
             {!hasAnyRole ? (

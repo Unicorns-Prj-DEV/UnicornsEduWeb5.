@@ -30,6 +30,7 @@ import type {
 } from 'src/dtos/sale-cs-team.dto';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from 'src/customer-care/customer-care-role-release';
 import {
   SALE_CS_HEAD_MANAGEABLE_ROLES,
   assertSaleCsHeadCanEditProfile,
@@ -301,8 +302,8 @@ export class SaleCsTeamService {
 
   /**
    * Bật/tắt role sale / customer_care. Role bị tắt mất mức đè lương cứng / %
-   * vận hành (như Trưởng ban Đào tạo). Không tắt CSKH khi còn học sinh — phải
-   * chuyển học sinh sang CSKH khác trước để hoa hồng không treo.
+   * vận hành (như Trưởng ban Đào tạo). Tắt CSKH → gỡ gán mọi học sinh người đó
+   * đang chăm sóc trong cùng transaction (follow-up 13/11 mục 2.1).
    */
   async updateRoles(
     viewer: SaleCsTeamViewer,
@@ -320,47 +321,66 @@ export class SaleCsTeamService {
       requestedRoles: data.roles,
     });
     if (plan.added.length === 0 && plan.removed.length === 0) {
-      return { id: target.id, roles: target.roles };
-    }
-    if (
-      plan.removed.includes(StaffRole.customer_care) &&
-      target._count.customerCareServices > 0
-    ) {
-      throw new BadRequestException(
-        'CSKH đang phụ trách học sinh. Chuyển học sinh sang CSKH khác trước khi tắt role CSKH.',
-      );
+      return {
+        id: target.id,
+        roles: target.roles,
+        releasedCustomerCareStudentCount: 0,
+      };
     }
 
     const actor = toAuditActor(viewer);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.staffInfo.update({
-        where: { id: target.id },
-        data: { roles: plan.nextRoles },
-        select: { id: true },
-      });
-
-      await this.actionHistoryService.recordUpdate(tx, {
-        actor,
-        entityType: 'staff',
-        entityId: target.id,
-        description: 'Trưởng phòng Sale & CSKH chỉnh role nhân sự',
-        beforeValue: { roles: target.roles },
-        afterValue: { roles: plan.nextRoles },
-      });
-
-      if (plan.removed.length > 0) {
-        await this.fixedSalarySettingsService.syncStaffRoleOverridesInTx(tx, {
-          staffId: target.id,
-          nextRoles: plan.nextRoles,
-          items: [],
-          staff: target,
-          actor,
+    const releasedCustomerCareStudentCount = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.staffInfo.update({
+          where: { id: target.id },
+          data: { roles: plan.nextRoles },
+          select: { id: true },
         });
-      }
-    });
+
+        // Follow-up 13/11 mục 2.1: tắt CSKH → học sinh mất Người chăm sóc ngay.
+        const releasedCount =
+          await releaseCustomerCareAssignmentsOnRoleRemovalInTx(tx, {
+            staffId: target.id,
+            previousRoles: target.roles,
+            nextRoles: plan.nextRoles,
+          });
+
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor,
+          entityType: 'staff',
+          entityId: target.id,
+          description: 'Trưởng phòng Sale & CSKH chỉnh role nhân sự',
+          beforeValue: {
+            roles: target.roles,
+            customerCareStudentCount: target._count.customerCareServices,
+          },
+          afterValue: {
+            roles: plan.nextRoles,
+            customerCareStudentCount:
+              target._count.customerCareServices - releasedCount,
+          },
+        });
+
+        if (plan.removed.length > 0) {
+          await this.fixedSalarySettingsService.syncStaffRoleOverridesInTx(tx, {
+            staffId: target.id,
+            nextRoles: plan.nextRoles,
+            items: [],
+            staff: target,
+            actor,
+          });
+        }
+
+        return releasedCount;
+      },
+    );
 
     this.invalidateAuth(target.userId);
-    return { id: target.id, roles: plan.nextRoles };
+    return {
+      id: target.id,
+      roles: plan.nextRoles,
+      releasedCustomerCareStudentCount,
+    };
   }
 
   /** Khoá / mở khoá tài khoản đăng nhập (`users.status`). */

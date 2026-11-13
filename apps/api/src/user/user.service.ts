@@ -73,6 +73,7 @@ import {
   getPreferredUserFullName,
   splitFullName,
 } from 'src/common/user-name.util';
+import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from 'src/customer-care/customer-care-role-release';
 
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
 const AVATAR_STORAGE_PATH_SEGMENT = 'avatar';
@@ -862,6 +863,13 @@ export class UserService {
                 data: {
                   roles: normalizedStaffRoles,
                 },
+              });
+
+              // Follow-up 13/11 mục 2.1: tắt CSKH → học sinh mất Người chăm sóc ngay.
+              await releaseCustomerCareAssignmentsOnRoleRemovalInTx(tx, {
+                staffId: existingUser.staffInfo.id,
+                previousRoles: existingUser.staffInfo.roles,
+                nextRoles: normalizedStaffRoles,
               });
 
               if (auditActor) {

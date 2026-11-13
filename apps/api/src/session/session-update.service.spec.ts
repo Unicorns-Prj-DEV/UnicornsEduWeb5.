@@ -791,4 +791,151 @@ describe('SessionUpdateService', () => {
       expect(mockPrisma.session.findUnique).not.toHaveBeenCalled();
     });
   });
+
+  describe('snapshot người chăm sóc khi sửa điểm danh', () => {
+    const extraTx = () => {
+      const upsert = jest.fn().mockResolvedValue({});
+      Object.assign(mockPrisma, {
+        attendance: {
+          findMany: jest.fn().mockResolvedValue([]),
+          upsert,
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        class: { findUnique: jest.fn().mockResolvedValue(null) },
+        classScheduleEntry: { findMany: jest.fn().mockResolvedValue([]) },
+        customerCareService: {
+          findMany: jest.fn().mockResolvedValue([
+            { studentId: 'student-1', profitPercent: 0.2, staffId: 'care-new' },
+            { studentId: 'student-2', profitPercent: 0.3, staffId: 'care-new' },
+          ]),
+        },
+        studentClass: {
+          findMany: jest.fn(
+            ({ where }: { where: { studentId: { in: string[] } } }) =>
+              Promise.resolve(
+                where.studentId.in.map((studentId) => ({
+                  studentId,
+                  customStudentTuitionPerSession: 200000,
+                  class: {
+                    pricingMode: null,
+                    studentTuitionPerSession: 200000,
+                  },
+                })),
+              ),
+          ),
+        },
+        walletTransactionsHistory: {
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          createManyAndReturn: jest.fn().mockResolvedValue([]),
+        },
+      });
+      mockPrisma.session.findMany.mockResolvedValue([]);
+      ledgerService.getAttendanceChargeAmount.mockReturnValue(0);
+      snapshotService.getSessionAuditSnapshot.mockResolvedValue(null);
+      return upsert;
+    };
+
+    it('giữ CSKH đã chụp của dòng cũ, chỉ chụp CSKH hiện hành cho dòng mới', async () => {
+      const upsert = extraTx();
+      const existingSession = {
+        id: 'session-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: new Date('2026-03-15T00:00:00.000Z'),
+        teacherPaymentStatus: SessionPaymentStatus.unpaid,
+        class: { name: 'Toán 10A' },
+        attendance: [
+          {
+            id: 'att-1',
+            studentId: 'student-1',
+            status: AttendanceStatus.excused,
+            tuitionFee: 200000,
+            customerCareStaffId: 'care-old',
+            customerCareCoef: 0.1,
+            customerCarePaymentStatus: 'pending',
+            saleCsHeadStaffId: null,
+            saleCsHeadPaymentStatus: null,
+            transactionId: null,
+          },
+        ],
+      };
+      mockPrisma.session.findUnique.mockResolvedValue(existingSession);
+      rosterService.assertAttendanceStudentsBelongToClass.mockResolvedValue(
+        new Map([
+          ['student-1', 200000],
+          ['student-2', 200000],
+        ]),
+      );
+
+      await service.updateSession({
+        id: 'session-1',
+        attendance: [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.excused,
+            notes: 'Ốm',
+          },
+          {
+            studentId: 'student-2',
+            status: AttendanceStatus.excused,
+            notes: 'Ốm',
+          },
+        ],
+      });
+
+      const byStudent = new Map(
+        upsert.mock.calls.map(([args]) => [args.create.studentId, args]),
+      );
+      const oldRow = byStudent.get('student-1');
+      expect(oldRow.update.customerCareStaffId).toBeUndefined();
+      expect(oldRow.update.customerCareCoef).toBeUndefined();
+      expect(oldRow.update.customerCarePaymentStatus).toBeUndefined();
+      const newRow = byStudent.get('student-2');
+      expect(newRow.create.customerCareStaffId).toBe('care-new');
+    });
+
+    it('chụp lại CSKH khi dòng cũ đổi từ vắng (không tính phí) sang vắng có phép (tính phí)', async () => {
+      const upsert = extraTx();
+      mockPrisma.session.findUnique.mockResolvedValue({
+        id: 'session-1',
+        classId: 'class-1',
+        teacherId: 'teacher-1',
+        date: new Date('2026-03-15T00:00:00.000Z'),
+        teacherPaymentStatus: SessionPaymentStatus.unpaid,
+        class: { name: 'Toán 10A' },
+        attendance: [
+          {
+            id: 'att-1',
+            studentId: 'student-1',
+            status: AttendanceStatus.absent,
+            tuitionFee: null,
+            customerCareStaffId: null,
+            customerCareCoef: null,
+            customerCarePaymentStatus: null,
+            saleCsHeadStaffId: null,
+            saleCsHeadPaymentStatus: null,
+            transactionId: null,
+          },
+        ],
+      });
+      rosterService.assertAttendanceStudentsBelongToClass.mockResolvedValue(
+        new Map([['student-1', 200000]]),
+      );
+
+      await service.updateSession({
+        id: 'session-1',
+        attendance: [
+          {
+            studentId: 'student-1',
+            status: AttendanceStatus.excused,
+            notes: 'Ốm',
+          },
+        ],
+      });
+
+      const [[args]] = upsert.mock.calls;
+      expect(args.update.customerCareStaffId).toBe('care-new');
+    });
+  });
 });

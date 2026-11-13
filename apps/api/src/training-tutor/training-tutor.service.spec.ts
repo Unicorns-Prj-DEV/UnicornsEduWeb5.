@@ -709,6 +709,87 @@ describe('TrainingTutorService', () => {
       });
     });
 
+    describe('listRoleCandidates (follow-up 13/11 mục 2.2)', () => {
+      it('Trưởng ban: chỉ nhân sự thường ngoài ba nhóm, active, trừ chính mình; chỉ họ tên + role', async () => {
+        mockViewer([StaffRole.training_head]);
+        mockPrisma.staffInfo.count.mockResolvedValueOnce(1);
+        mockPrisma.staffInfo.findMany.mockResolvedValueOnce([
+          leakyTutorRow({
+            id: 'UNISTAFF-CSKH',
+            roles: [StaffRole.customer_care],
+          }),
+        ]);
+
+        const result = await service.listRoleCandidates(head, {
+          search: 'An',
+        });
+
+        expect(result).toEqual({
+          data: [
+            {
+              id: 'UNISTAFF-CSKH',
+              fullName: 'Sư Gia',
+              roles: [StaffRole.customer_care],
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 20 },
+        });
+        expectNoHiddenKeys(result, [...HIDDEN_STAFF_KEYS, 'avatarUrl']);
+
+        const args = firstCallArg<StaffFindManyArgs>(
+          mockPrisma.staffInfo.findMany,
+        );
+        const where = JSON.stringify(args.where);
+        expect(where).toContain('"status":"active"');
+        expect(where).toContain('"id":{"not":"UNISTAFF-HEAD"}');
+        for (const role of [
+          StaffRole.teacher,
+          StaffRole.lesson_plan,
+          StaffRole.training,
+          StaffRole.admin,
+          StaffRole.sale_customer_care_head,
+          StaffRole.training_head,
+          StaffRole.lesson_plan_head,
+        ]) {
+          expect(where).toContain(`"${role}"`);
+        }
+        expect(where).toContain('"roleType":"admin"');
+        expect(args.where).toEqual(
+          expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                NOT: expect.arrayContaining([
+                  { user: { is: { roleType: UserRole.admin } } },
+                ]),
+              }),
+            ]),
+          }),
+        );
+        expect(Object.keys(args.select).sort()).toEqual(
+          ['id', 'roles', 'user'].sort(),
+        );
+      });
+
+      it.each([
+        ['Ban Đào Tạo thường', [StaffRole.training]],
+        ['Trưởng phòng Sale & CSKH', [StaffRole.sale_customer_care_head]],
+        ['Admin không mang role Trưởng ban', [StaffRole.admin]],
+      ])('%s bị 403', async (_label, roles) => {
+        mockViewer(roles);
+        await expect(
+          service.listRoleCandidates(head, {}),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockPrisma.staffInfo.findMany).not.toHaveBeenCalled();
+      });
+
+      it('Trưởng ban đã nghỉ bị 403', async () => {
+        mockViewer([StaffRole.training_head], StaffStatus.inactive);
+        await expect(
+          service.listRoleCandidates(head, {}),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+    });
+
     describe('listBonuses', () => {
       it('cho phép xem thưởng của cấp dưới (có số tiền)', async () => {
         mockViewer([StaffRole.training_head]);

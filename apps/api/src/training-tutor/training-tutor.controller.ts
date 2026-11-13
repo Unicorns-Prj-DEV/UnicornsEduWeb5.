@@ -32,6 +32,7 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { ParseStaffIdPipe } from 'src/common/pipes/parse-entity-id.pipe';
 import { PaginationQueryDto } from 'src/dtos/pagination.dto';
 import {
+  TrainingRoleCandidateQueryDto,
   TrainingTutorListQueryDto,
   TrainingTutorMonthQueryDto,
   UpdateTrainingTutorAccountStatusDto,
@@ -77,6 +78,31 @@ export class TrainingTutorController {
     @Query() query: TrainingTutorListQueryDto,
   ) {
     return this.trainingTutorService.listTutors(user, query);
+  }
+
+  // Khai báo trước `:id` để không bị route động nuốt.
+  @Get('role-candidates')
+  @ApiOperation({
+    summary:
+      'Trưởng ban Đào tạo: ứng viên bật role Gia sư / Ban Chuyên môn / Đào tạo',
+    description:
+      'Nhân sự thường **ngoài** ba nhóm (vd CSKH thuần), đang active: loại Admin, người mang role trưởng, tài khoản admin hệ thống và chính người gọi. Chỉ trả `{ id, fullName, roles }` (roles = role hiện có) — không email, SĐT, CCCD, ảnh, ngân hàng, tiền. Bật role qua `PATCH /staff/:id/training-roles`. Follow-up grill 13/11 mục 2.2.',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      '`{ data: { id, fullName, roles }[], meta: { total, page, limit } }`.',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải staff active mang role Trưởng ban Đào tạo (kể cả Admin không có role này, Ban Đào Tạo thường).',
+  })
+  roleCandidates(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: TrainingRoleCandidateQueryDto,
+  ) {
+    return this.trainingTutorService.listRoleCandidates(user, query);
   }
 
   @Get(':id')

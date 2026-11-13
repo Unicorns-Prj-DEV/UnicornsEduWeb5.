@@ -37,6 +37,7 @@ describe('UserService', () => {
     },
     customerCareService: {
       upsert: jest.fn(),
+      deleteMany: jest.fn(),
     },
     studentInfo: {
       create: jest.fn(),
@@ -513,6 +514,65 @@ describe('UserService', () => {
     expect(authService.invalidateAuthIdentityCache).toHaveBeenCalledWith(
       'user-1',
     );
+  });
+
+  describe('tắt role CSKH từ tab phân quyền user (follow-up 13/11 mục 2.1)', () => {
+    function mockStaffUser(roles: string[]) {
+      const user = {
+        id: 'user-1',
+        email: 'care@example.com',
+        phone: null,
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+        first_name: 'Chăm',
+        last_name: 'Sóc',
+        roleType: UserRole.staff,
+        province: null,
+        accountHandle: 'care',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T10:00:00.000Z'),
+        staffInfo: { id: 'staff-care', fullName: 'Chăm Sóc', roles },
+        studentInfo: null,
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.user.update.mockResolvedValue(user);
+      mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-care' });
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care',
+        roles,
+        userId: 'user-1',
+        status: 'active',
+      });
+      mockPrisma.customerCareService.deleteMany.mockResolvedValue({
+        count: 3,
+      });
+    }
+
+    it('bỏ customer_care thì gỡ gán học sinh trong cùng transaction', async () => {
+      mockStaffUser(['customer_care', 'teacher']);
+
+      await service.updateUser({
+        id: 'user-1',
+        roleType: UserRole.staff,
+        staffRoles: ['teacher'],
+      });
+
+      expect(mockPrisma.customerCareService.deleteMany).toHaveBeenCalledWith({
+        where: { staffId: 'staff-care' },
+      });
+    });
+
+    it('giữ customer_care thì không gỡ học sinh', async () => {
+      mockStaffUser(['customer_care']);
+
+      await service.updateUser({
+        id: 'user-1',
+        roleType: UserRole.staff,
+        staffRoles: ['customer_care', 'teacher'],
+      });
+
+      expect(mockPrisma.customerCareService.deleteMany).not.toHaveBeenCalled();
+    });
   });
 
   it('auto-creates a student profile when roleType is changed to student', async () => {

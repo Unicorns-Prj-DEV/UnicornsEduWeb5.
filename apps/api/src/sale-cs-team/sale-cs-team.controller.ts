@@ -106,14 +106,14 @@ export class SaleCsTeamController {
   @ApiOperation({
     summary: 'Trưởng phòng: bật/tắt role Sale / CSKH',
     description:
-      'Body là trạng thái đích của role sale / customer_care; role khác giữ nguyên. 403 nếu tự chỉnh, target là Admin hoặc mang role trưởng, hoặc body có role ngoài sale/customer_care. 400 nếu bỏ hết role hoặc tắt CSKH khi còn học sinh. Role bị tắt mất mức đè lương cứng / % vận hành (ghi action_history).',
+      'Body là trạng thái đích của role sale / customer_care; role khác giữ nguyên. 403 nếu tự chỉnh, target là Admin hoặc mang role trưởng, hoặc body có role ngoài sale/customer_care. 400 nếu bỏ hết role. Tắt CSKH → mọi học sinh người đó đang chăm sóc mất Người chăm sóc ngay (gỡ `customer_care_service` cùng transaction, trả `releasedCustomerCareStudentCount`); bật lại không khôi phục, buổi đã ghi giữ nguyên. Role bị tắt mất mức đè lương cứng / % vận hành (ghi action_history).',
   })
   @ApiParam({ name: 'staffId', description: 'Staff id (UNISTAFF-…)' })
   @ApiBody({ type: UpdateSaleCsTeamRolesDto })
   @ApiResponse({ status: 200, description: 'Roles sau khi lưu.' })
   @ApiResponse({
     status: 400,
-    description: 'Bỏ hết role, hoặc tắt CSKH khi còn học sinh.',
+    description: 'Bỏ hết role.',
   })
   @ApiResponse({
     status: 403,

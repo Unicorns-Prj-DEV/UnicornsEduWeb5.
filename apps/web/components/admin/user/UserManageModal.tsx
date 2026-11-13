@@ -28,6 +28,8 @@ import {
 } from "@/lib/user-manage-form";
 import DeleteUserConfirmDialog from "./DeleteUserConfirmDialog";
 import SetUserPasswordDialog from "./SetUserPasswordDialog";
+import { useConfirmCustomerCareRelease } from "@/components/customer-care/useConfirmCustomerCareRelease";
+import { isRemovingCustomerCareRole } from "@/lib/customer-care-role-release";
 import UserLinkedProfileLinks from "./UserLinkedProfileLinks";
 
 const INPUT_CLASS =
@@ -80,6 +82,8 @@ export default function UserManageModal({
   onDeleted,
 }: Props) {
   const queryClient = useQueryClient();
+  const { confirmRelease, dialog: customerCareReleaseDialog } =
+    useConfirmCustomerCareRelease();
   const [form, setForm] = useState<UserManageFormState | null>(() =>
     user ? buildUserManageFormState(user) : null,
   );
@@ -160,7 +164,7 @@ export default function UserManageModal({
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user || !form || updateMutation.isPending) return;
 
     const nextErrors = validateUserManageForm(form);
@@ -168,6 +172,20 @@ export default function UserManageModal({
     if (Object.keys(nextErrors).length > 0) {
       focusFirstError(nextErrors);
       return;
+    }
+
+    // Follow-up 13/11 mục 2.1: tắt CSKH → học sinh mất Người chăm sóc ngay.
+    const staffInfo = user.staffInfo;
+    if (
+      staffInfo?.id &&
+      form.roleType === "staff" &&
+      isRemovingCustomerCareRole(staffInfo.roles ?? [], form.staffRoles)
+    ) {
+      const confirmed = await confirmRelease({
+        staffId: staffInfo.id,
+        staffName: getUserDisplayName(user) || user.accountHandle || "",
+      });
+      if (!confirmed) return;
     }
 
     const payload = buildUpdateUserPayload(user.id, form);
@@ -540,7 +558,7 @@ export default function UserManageModal({
           </button>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={updateMutation.isPending}
             className="min-h-11 flex-1 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-text-inverse transition hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
           >
@@ -555,6 +573,8 @@ export default function UserManageModal({
         open={passwordDialogOpen}
         onClose={() => setPasswordDialogOpen(false)}
       />
+
+      {customerCareReleaseDialog}
 
       <DeleteUserConfirmDialog
         user={user}

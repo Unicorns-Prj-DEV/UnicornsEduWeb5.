@@ -127,6 +127,22 @@ Trả `{ id, roles }` với `roles` chỉ gồm ba role nhóm (#278).
 
 Web: `updateStaffTrainingRoles` trong `lib/apis/training-tutor.api.ts`; nút hiện theo `management.permissions.canEditRoles` từ backend; `lib/training-head-roles.ts` giữ helper khớp policy (`lesson_plan_head` là role được bảo vệ; `hasAnyRoleAfterChange` tính cả `hasOtherRoles`).
 
+### `GET /training/tutors/role-candidates` (follow-up 13/11 mục 2.2)
+
+Ứng viên để Trưởng ban Đào tạo bật role cho nhân sự **ngoài ba nhóm** (vd CSKH thuần). `TrainingTutorController.listRoleCandidates`, khai báo trước `:id`. Query: `page`, `limit`, `search` (tên).
+
+| Điều kiện | Kết quả |
+| --- | --- |
+| Người gọi không phải staff `active` có `training_head` (kể cả Admin không mang role này) | `403` |
+| Còn lại | `200 { data: [{ id, fullName, roles }], meta: { total, page, limit } }` |
+
+- Lọc: `staff_info.status = active`; không mang `teacher` / `lesson_plan` / `training`; không mang `admin` / role trưởng (`sale_customer_care_head`, `training_head`, `lesson_plan_head`); tài khoản không phải `role_type = admin`; không phải chính người gọi. Sắp theo tên.
+- Chỉ trả họ tên + **mọi role hiện có** (để Trưởng ban biết người đó đang làm gì); không email, SĐT, ảnh, giấy tờ, thu nhập.
+- Bật role vẫn qua `PATCH /staff/:id/training-roles` (policy không yêu cầu đích thuộc ba nhóm).
+- Đối xứng: Trưởng phòng Sale & CSKH dùng `GET /sale-cs-team/members?scope=candidates` (#271).
+
+Web: `listTrainingRoleCandidates` (`lib/apis/training-tutor.api.ts`, key `trainingTutorKeys.roleCandidates`), popup `TrainingRoleCandidatePicker`.
+
 ## Trưởng ban Đào tạo quản lý cấp dưới (#278)
 
 Chỉ staff `active` có `training_head` (`resolveHead`); admin không mang role này → `403` (dùng route admin). Target không tồn tại → `404`. Mọi route kiểm tra policy trong `staff/training-head-role-policy.ts`; không mở route admin nào.

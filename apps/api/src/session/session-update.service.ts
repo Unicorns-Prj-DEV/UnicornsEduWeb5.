@@ -1283,12 +1283,26 @@ export class SessionUpdateService {
                         null,
                       );
 
-              const resolvedCareStaffId = shouldRefreshAttendanceAssignments
+              // Buổi đã ghi giữ nguyên người chăm sóc / trưởng phòng đã chụp
+              // (glossary «Người chăm sóc»): chỉ chụp lại khi dòng mới, đổi lớp
+              // hoặc đổi giữa trạng thái tính phí và không tính phí.
+              const refreshAssignments =
+                shouldRefreshAttendanceAssignments &&
+                (!existingAttendance ||
+                  nextClassId !== existingSession.classId ||
+                  this.sessionValidationService.isTuitionChargeableStatus(
+                    existingAttendance.status,
+                  ) !==
+                    this.sessionValidationService.isTuitionChargeableStatus(
+                      attendanceItem.status,
+                    ));
+
+              const resolvedCareStaffId = refreshAssignments
                 ? (customerCareByStudentId.get(attendanceItem.studentId)
                     ?.staffId ?? null)
                 : (existingAttendance?.customerCareStaffId ?? null);
 
-              const resolvedAssistantId = shouldRefreshAttendanceAssignments
+              const resolvedAssistantId = refreshAssignments
                 ? resolveAssistantManagerStaffIdForAttendance({
                     customerCareStaffId: resolvedCareStaffId,
                     customerCareManagedByStaffId: resolvedCareStaffId
@@ -1303,12 +1317,13 @@ export class SessionUpdateService {
                 status: attendanceItem.status,
                 notes: attendanceItem.notes ?? null,
                 tuitionFee: resolvedTuitionFee,
-                customerCareCoef: shouldRefreshAttendanceAssignments
+                customerCareCoef: refreshAssignments
                   ? (customerCareByStudentId.get(attendanceItem.studentId)
                       ?.profitPercent ?? null)
                   : (existingAttendance?.customerCareCoef ?? null),
                 customerCareStaffId: resolvedCareStaffId,
                 saleCsHeadStaffId: resolvedAssistantId,
+                refreshAssignments,
                 existingAttendanceId: existingAttendance?.id ?? null,
                 existingTransactionId:
                   existingAttendance?.transactionId ?? null,
@@ -1705,13 +1720,13 @@ export class SessionUpdateService {
                 update: {
                   status: attendanceItem.status,
                   notes: attendanceItem.notes,
-                  customerCareCoef: shouldRefreshAttendanceAssignments
+                  customerCareCoef: attendanceItem.refreshAssignments
                     ? attendanceItem.customerCareCoef
                     : undefined,
-                  customerCareStaffId: shouldRefreshAttendanceAssignments
+                  customerCareStaffId: attendanceItem.refreshAssignments
                     ? attendanceItem.customerCareStaffId
                     : undefined,
-                  customerCarePaymentStatus: shouldRefreshAttendanceAssignments
+                  customerCarePaymentStatus: attendanceItem.refreshAssignments
                     ? attendanceItem.customerCareStaffId
                       ? (attendanceItem.existingCustomerCarePaymentStatus ??
                         PaymentStatus.pending)
@@ -1724,10 +1739,10 @@ export class SessionUpdateService {
                   tuitionFee: attendanceItem.tuitionFee,
                   trialCatchUpFee: null,
                   transactionId,
-                  saleCsHeadStaffId: shouldRefreshAttendanceAssignments
+                  saleCsHeadStaffId: attendanceItem.refreshAssignments
                     ? attendanceItem.saleCsHeadStaffId
                     : undefined,
-                  saleCsHeadPaymentStatus: shouldRefreshAttendanceAssignments
+                  saleCsHeadPaymentStatus: attendanceItem.refreshAssignments
                     ? attendanceItem.saleCsHeadStaffId
                       ? (attendanceItem.existingAssistantPaymentStatus ??
                         PaymentStatus.pending)

@@ -91,6 +91,23 @@ export interface TrainingTutorListParams {
 
 export type TrainingTutorScope = "tutors" | "all";
 
+/**
+ * GET /training/tutors/role-candidates — nhân sự thường ngoài ba nhóm (không
+ * admin/role trưởng, không phải chính mình, đang hoạt động) để Trưởng ban Đào
+ * tạo bật role (follow-up 13/11 mục 2.2). Chỉ họ tên + role hiện có.
+ */
+export interface TrainingRoleCandidate {
+  id: string;
+  fullName: string;
+  roles: string[];
+}
+
+export interface TrainingRoleCandidateParams {
+  page: number;
+  limit: number;
+  search?: string;
+}
+
 /** PATCH /staff/:id/training-roles — trạng thái đích của role gia sư/chuyên môn/đào tạo. */
 export interface UpdateStaffTrainingRolesPayload {
   roles: string[];
