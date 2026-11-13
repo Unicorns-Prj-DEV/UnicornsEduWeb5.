@@ -62,10 +62,13 @@ import { ClassService } from './class.service';
 import { ClassSurveyService } from './class-survey.service';
 import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-context';
 import {
+  canSeeClassStudentContactsOnAdminRoutes,
   canSeeClassStudentWalletOnAdminRoutes,
   redactClassForAccountantView,
   redactClassListForAccountantView,
+  redactClassStudentContacts,
   redactClassStudentWalletBalances,
+  redactStudentClassRowsContacts,
   redactStudentClassRowsForAccountantView,
   redactStudentClassRowsWalletBalance,
   resolveAdminClassFinanceView,
@@ -75,20 +78,25 @@ import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-acc
 /**
  * Response route admin của lớp theo người xem: bỏ học phí / lương gia sư
  * (#272/#274) và bỏ số dư ví học sinh với role không được xem (follow-up grill
- * 13/11 — Trưởng ban Đào tạo không xem; Kế toán chi vẫn xem).
+ * 13/11 — Trưởng ban Đào tạo không xem; Kế toán chi vẫn xem), và bỏ liên hệ /
+ * hồ sơ học sinh với Trưởng ban Đào tạo thuần (quyết định 13/11).
  */
 function redactAdminClassResponse<T>(
   classRecord: T,
   roleType: UserRole,
   staffRoles: readonly StaffRole[],
 ): T {
-  const redacted = redactClassForAccountantView(
+  let redacted = redactClassForAccountantView(
     classRecord,
     resolveAdminClassFinanceView(roleType, staffRoles),
   );
-  return canSeeClassStudentWalletOnAdminRoutes(roleType, staffRoles)
-    ? redacted
-    : redactClassStudentWalletBalances(redacted, { mode: 'none' });
+  if (!canSeeClassStudentWalletOnAdminRoutes(roleType, staffRoles)) {
+    redacted = redactClassStudentWalletBalances(redacted, { mode: 'none' });
+  }
+  if (!canSeeClassStudentContactsOnAdminRoutes(roleType, staffRoles)) {
+    redacted = redactClassStudentContacts(redacted);
+  }
+  return redacted;
 }
 
 /**
@@ -192,7 +200,7 @@ export class ClassController {
   @ApiResponse({
     status: 200,
     description:
-      'List of students in the class. Trưởng ban Đào tạo: không có số dư ví học sinh (`accountBalance`, kể cả `student.accountBalance`); Admin, Trưởng phòng Sale & CSKH, Kế toán thu/chi giữ (follow-up grill 13/11).',
+      'List of students in the class. Trưởng ban Đào tạo: không có số dư ví học sinh (`accountBalance`, kể cả `student.accountBalance`) và `student` chỉ còn `id`, `fullName`, `status` (không liên hệ / hồ sơ — quyết định 13/11); Admin, Trưởng phòng Sale & CSKH, Kế toán thu/chi giữ (follow-up grill 13/11).',
   })
   @ApiResponse({ status: 403, description: 'Role không được xem lớp.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
@@ -204,12 +212,15 @@ export class ClassController {
   ) {
     const students = await this.classService.getStudentsByClassId(id);
     const staffRoles = req.resolvedStaffRoles ?? [];
-    return redactStudentClassRowsWalletBalance(
-      redactStudentClassRowsForAccountantView(
-        students,
-        resolveAdminClassFinanceView(user.roleType, staffRoles),
+    return redactStudentClassRowsContacts(
+      redactStudentClassRowsWalletBalance(
+        redactStudentClassRowsForAccountantView(
+          students,
+          resolveAdminClassFinanceView(user.roleType, staffRoles),
+        ),
+        canSeeClassStudentWalletOnAdminRoutes(user.roleType, staffRoles),
       ),
-      canSeeClassStudentWalletOnAdminRoutes(user.roleType, staffRoles),
+      canSeeClassStudentContactsOnAdminRoutes(user.roleType, staffRoles),
     );
   }
 
@@ -695,7 +706,7 @@ export class ClassController {
   @ApiResponse({
     status: 200,
     description:
-      'Class found. Trưởng phòng Sale & CSKH / Kế toán thu: không có lương gia sư; Kế toán chi: không có học phí nhưng giữ số dư ví học sinh (#272). Trưởng ban Đào tạo: không có học phí, không số dư ví học sinh (#274/#277); kiêm role xem được ví thì thấy ví (follow-up grill 13/11).',
+      'Class found. Trưởng phòng Sale & CSKH / Kế toán thu: không có lương gia sư; Kế toán chi: không có học phí nhưng giữ số dư ví học sinh (#272). Trưởng ban Đào tạo: không có học phí, không số dư ví học sinh (#274/#277); kiêm role xem được ví thì thấy ví (follow-up grill 13/11). Trưởng ban Đào tạo thuần: `students[]` chỉ còn tên, trạng thái, CSKH, số buổi (không email / SĐT / phụ huynh / hồ sơ — quyết định 13/11).',
   })
   @ApiResponse({ status: 403, description: 'Role không được xem lớp.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })

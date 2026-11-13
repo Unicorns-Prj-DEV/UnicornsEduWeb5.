@@ -155,7 +155,7 @@ export class StaffOpsClassController {
   @ApiOperation({
     summary: 'Get class detail for staff operations',
     description:
-      '#277: Trưởng ban Đào tạo xem mọi lớp: thông tin lớp, gia sư + lương gia sư theo lớp, lịch; không có học phí lớp / học phí từng học sinh / số dư ví.',
+      '#277: Trưởng ban Đào tạo xem mọi lớp: thông tin lớp, gia sư + lương gia sư theo lớp, lịch; không có học phí lớp / học phí từng học sinh / số dư ví. Quyết định 13/11: Trưởng ban Đào tạo, Quản lý lớp, gia sư nhận `students[]` chỉ gồm `id`, `fullName`, `status`, `customerCareStaff`, `totalAttendedSession` (không email / SĐT / phụ huynh / hồ sơ học sinh); CSKH, Admin, Kế toán giữ.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiResponse({ status: 200, description: 'Class detail.' })

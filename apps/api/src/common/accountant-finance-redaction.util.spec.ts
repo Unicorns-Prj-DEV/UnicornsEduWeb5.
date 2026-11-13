@@ -1,13 +1,16 @@
 import { StaffRole, UserRole } from 'generated/enums';
 import {
+  canSeeClassStudentContactsOnAdminRoutes,
   canSeeClassStudentWalletOnAdminRoutes,
   redactClassForAccountantView,
   redactClassForTrainingManagerView,
+  redactClassStudentContacts,
   redactClassStudentWalletBalances,
   redactOtherTeachersIncome,
   redactOtherTeachersSessions,
   redactSessionForTrainingManagerView,
   redactSessionsForAccountantView,
+  redactStudentClassRowsContacts,
   redactStudentClassRowsWalletBalance,
   resolveAccountantFinanceView,
   resolveAdminClassFinanceView,
@@ -386,6 +389,101 @@ describe('số dư ví trên route admin của lớp (follow-up grill 13/11)', (
       { studentId: 's-1', student: { id: 's-1', fullName: 'HS' } },
     ]);
     expect(redactStudentClassRowsWalletBalance(rows, true)).toBe(rows);
+  });
+});
+
+describe('liên hệ / hồ sơ học sinh theo người xem lớp (quyết định 13/11)', () => {
+  const fullStudent = {
+    id: 's-1',
+    fullName: 'Học sinh A',
+    status: 'active',
+    email: 'hs@example.com',
+    parentName: 'Phụ huynh A',
+    parentPhone: '0900000000',
+    parentEmail: 'ph@example.com',
+    parentReceiptEmailEnabled: true,
+    school: 'THPT X',
+    province: 'Hà Nội',
+    birthYear: 2010,
+    gender: 'male',
+    goal: 'Thi chuyên',
+    customerSource: 'facebook',
+    dropOutReason: null,
+    userId: 'user-1',
+    customerCareStaff: { id: 'cs-1', fullName: 'CSKH' },
+    totalAttendedSession: 7,
+    customTuitionPerSession: 200_000,
+    accountBalance: 1_000_000,
+  };
+
+  it('Quản lý lớp / Trưởng ban / gia sư qua staff-ops: chỉ còn danh tính tối thiểu', () => {
+    const result = redactClassForTrainingManagerView({
+      id: 'class-1',
+      students: [fullStudent],
+    });
+    expect(result.students[0]).toEqual({
+      id: 's-1',
+      fullName: 'Học sinh A',
+      status: 'active',
+      customerCareStaff: { id: 'cs-1', fullName: 'CSKH' },
+      totalAttendedSession: 7,
+    });
+  });
+
+  it('whitelist: cột mới không khai báo cũng bị ẩn; học phí / ví để redaction riêng quyết', () => {
+    const result = redactClassStudentContacts({
+      students: [{ ...fullStudent, zaloPhone: '0911111111' }],
+    });
+    expect(result.students[0]).not.toHaveProperty('zaloPhone');
+    expect(result.students[0]).not.toHaveProperty('parentPhone');
+    expect(result.students[0]).toMatchObject({
+      customTuitionPerSession: 200_000,
+      accountBalance: 1_000_000,
+    });
+  });
+
+  it('route admin: chỉ Admin, Trưởng phòng, Kế toán thu/chi xem liên hệ', () => {
+    expect(canSeeClassStudentContactsOnAdminRoutes(UserRole.admin, [])).toBe(
+      true,
+    );
+    for (const role of [
+      StaffRole.admin,
+      StaffRole.sale_customer_care_head,
+      StaffRole.accountant_income,
+      StaffRole.accountant_expense,
+    ]) {
+      expect(
+        canSeeClassStudentContactsOnAdminRoutes(UserRole.staff, [role]),
+      ).toBe(true);
+    }
+    expect(
+      canSeeClassStudentContactsOnAdminRoutes(UserRole.staff, [
+        StaffRole.training_head,
+      ]),
+    ).toBe(false);
+    expect(
+      canSeeClassStudentContactsOnAdminRoutes(UserRole.staff, [
+        StaffRole.training_head,
+        StaffRole.sale_customer_care_head,
+      ]),
+    ).toBe(true);
+  });
+
+  it('GET /class/:id/students: student lồng chỉ còn id, tên, trạng thái', () => {
+    const rows = [{ studentId: 's-1', status: 'active', student: fullStudent }];
+    expect(redactStudentClassRowsContacts(rows, false)).toEqual([
+      {
+        studentId: 's-1',
+        status: 'active',
+        student: {
+          id: 's-1',
+          fullName: 'Học sinh A',
+          status: 'active',
+          accountBalance: 1_000_000,
+        },
+      },
+    ]);
+    expect(redactStudentClassRowsContacts(rows, true)).toBe(rows);
   });
 });
 
