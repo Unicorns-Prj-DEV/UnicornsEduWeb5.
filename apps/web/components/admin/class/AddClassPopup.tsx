@@ -325,9 +325,12 @@ function AddClassDialog({ onClose, onCreated, access }: Omit<Props, "open">) {
       toast.error(tuitionPkg.message);
       return;
     }
+    // Follow-up 13/11: lớp bán một lần mới tạo, chưa có học sinh được để trống
+    // Tổng gói; kèm học sinh thì gói phải > 0đ ngay.
     const oneTimePkgError = oneTimePackageError(
       pricingMode,
       tuitionPkg.mode === "empty" ? undefined : tuitionPkg.total,
+      { allowEmpty: selectedStudents.length === 0 },
     );
     if (oneTimePkgError) {
       toast.error(oneTimePkgError);

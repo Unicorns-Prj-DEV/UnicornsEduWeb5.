@@ -127,12 +127,31 @@ describe('CourseService – lesson_plan_head scope', () => {
       expect(prisma.class.updateMany).not.toHaveBeenCalled();
     });
 
-    it('chặn bật khi còn lớp chưa có tổng gói', async () => {
+    it('chặn bật khi còn lớp đang có học sinh mà chưa có tổng gói', async () => {
       prisma.class.count.mockResolvedValue(1);
       await expect(
         service.update(admin, course.id, { is_one_time: true } as never),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.course.update).not.toHaveBeenCalled();
+    });
+
+    it('lớp còn trống được để trống gói khi bật bán một lần (follow-up 13/11)', async () => {
+      await service.update(admin, course.id, { is_one_time: true } as never);
+      expect(prisma.class.count).toHaveBeenCalledWith({
+        where: {
+          courseId: course.id,
+          OR: [
+            { tuitionPackageTotal: { lte: 0 } },
+            {
+              tuitionPackageTotal: null,
+              students: {
+                some: { OR: [{ status: null }, { status: 'active' }] },
+              },
+            },
+          ],
+        },
+      });
+      expect(prisma.course.update).toHaveBeenCalled();
     });
 
     it('tắt luôn được và đưa lớp về per_session', async () => {

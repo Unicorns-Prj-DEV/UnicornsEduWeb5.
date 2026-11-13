@@ -3,6 +3,7 @@ import { ClassPricingMode, StudentClassStatus } from 'generated/enums';
 import {
   assertClassTuitionBeforeFirstStudent,
   CLASS_TUITION_REQUIRED_MESSAGE,
+  ONE_TIME_CLASS_TUITION_REQUIRED_MESSAGE,
   findClassIdsWithoutActiveStudents,
   hasClassTuitionForPricingMode,
 } from './class-first-student-tuition';
@@ -130,14 +131,14 @@ describe('#273 học phí lớp trước học sinh đầu tiên', () => {
         ).toBe(true);
       });
 
-      it('tổng gói 0đ → đã điền', () => {
+      it('tổng gói 0đ → chưa đủ: lớp bán một lần cần gói > 0đ (follow-up 13/11)', () => {
         expect(
           hasClassTuitionForPricingMode({
             ...empty,
             pricingMode: mode,
             tuitionPackageTotal: 0,
           }),
-        ).toBe(true);
+        ).toBe(false);
       });
     });
   });
@@ -205,6 +206,37 @@ describe('#273 học phí lớp trước học sinh đầu tiên', () => {
           findMany: jest
             .fn()
             .mockResolvedValue([classRow({ studentTuitionPerSession: 0 })]),
+        },
+      };
+      await expect(
+        assertClassTuitionBeforeFirstStudent(db as never, ['class-1']),
+      ).resolves.toBeUndefined();
+    });
+
+    it('lớp bán một lần gói trống → 400 bắt điền Tổng gói > 0đ', async () => {
+      const db = {
+        class: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              classRow({ pricingMode: ClassPricingMode.one_time }),
+            ]),
+        },
+      };
+      await expect(
+        assertClassTuitionBeforeFirstStudent(db as never, ['class-1']),
+      ).rejects.toThrow(ONE_TIME_CLASS_TUITION_REQUIRED_MESSAGE);
+    });
+
+    it('lớp bán một lần gói > 0đ → cho nhận học sinh đầu tiên', async () => {
+      const db = {
+        class: {
+          findMany: jest.fn().mockResolvedValue([
+            classRow({
+              pricingMode: ClassPricingMode.one_time,
+              tuitionPackageTotal: 5_000_000,
+            }),
+          ]),
         },
       };
       await expect(

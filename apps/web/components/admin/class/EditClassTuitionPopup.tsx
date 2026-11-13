@@ -50,6 +50,11 @@ type Props = {
    * buộc điền (0đ tính là đã điền) và gọi `onSaved` để mở tiếp popup học sinh.
    */
   requiredBeforeFirstStudent?: boolean;
+  /**
+   * Lớp đang có học sinh học. Lớp bán một lần còn trống được để trống Tổng gói
+   * (follow-up grill 13/11); mặc định `true` để không nới lỏng nhầm.
+   */
+  hasActiveStudents?: boolean;
   onSaved?: () => void;
 };
 
@@ -68,6 +73,7 @@ function EditClassTuitionForm({
   onClose,
   classDetail,
   requiredBeforeFirstStudent = false,
+  hasActiveStudents = true,
   onSaved,
 }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
@@ -138,6 +144,7 @@ function EditClassTuitionForm({
     const oneTimeError = oneTimePackageError(
       pricingMode,
       pkg.mode === "empty" ? undefined : pkg.total,
+      { allowEmpty: !requiredBeforeFirstStudent && !hasActiveStudents },
     );
     if (oneTimeError) {
       toast.error(oneTimeError);

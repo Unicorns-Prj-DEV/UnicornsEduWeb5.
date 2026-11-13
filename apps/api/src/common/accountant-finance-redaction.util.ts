@@ -170,6 +170,57 @@ export function redactClassStudentWalletBalances<T>(
   return next as T;
 }
 
+/**
+ * Follow-up grill 13/11 — glossary «Số dư ví trên danh sách học sinh trong
+ * lớp» trên **route admin của lớp** (`/class/*`): Admin, Trưởng phòng Sale &
+ * CSKH, Kế toán thu, Kế toán chi xem được. Trưởng ban Đào tạo (và mọi role
+ * khác lọt vào route) không xem. Hợp quyền: mang một role xem được là xem.
+ */
+export function canSeeClassStudentWalletOnAdminRoutes(
+  roleType: UserRole,
+  staffRoles: readonly StaffRole[],
+): boolean {
+  if (roleType === UserRole.admin) {
+    return true;
+  }
+  return hasAnyStaffRole(staffRoles, [
+    StaffRole.admin,
+    SALE_CS_HEAD_ROLE,
+    StaffRole.accountant_income,
+    StaffRole.accountant_expense,
+  ]);
+}
+
+/**
+ * Bỏ số dư ví khỏi dòng `student_classes` có `include: { student }` (route
+ * `GET /class/:id/students`) — cả trường phẳng lẫn `student.accountBalance`.
+ */
+export function redactStudentClassRowsWalletBalance<T>(
+  rows: T[],
+  canSeeWallet: boolean,
+): T[] {
+  if (canSeeWallet) {
+    return rows;
+  }
+
+  return rows.map((row) => {
+    if (!row || typeof row !== 'object') {
+      return row;
+    }
+    const next = omitFields(
+      row as Record<string, unknown>,
+      STUDENT_WALLET_BALANCE_HIDDEN_FIELDS,
+    );
+    if (next.student && typeof next.student === 'object') {
+      next.student = omitFields(
+        next.student as Record<string, unknown>,
+        STUDENT_WALLET_BALANCE_HIDDEN_FIELDS,
+      );
+    }
+    return next as T;
+  });
+}
+
 export function redactClassForAccountantView<T>(
   classRecord: T,
   financeView: AccountantFinanceView,

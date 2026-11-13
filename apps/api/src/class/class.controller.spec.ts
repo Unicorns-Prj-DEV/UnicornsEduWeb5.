@@ -2,6 +2,7 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid'),
 }));
 
+import { ForbiddenException } from '@nestjs/common';
 import { StaffRole, UserRole } from 'generated/enums';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { ClassController } from './class.controller';
@@ -37,13 +38,20 @@ describe('ClassController #272 redaction', () => {
 
   const classService = {
     getClassById: jest.fn(),
+    getStudentsByClassId: jest.fn(),
     updateClassTuition: jest.fn(),
     updateClassStudentTuition: jest.fn(),
+    updateClassBasicInfo: jest.fn(),
+    updateClassTeacherCompensation: jest.fn(),
+  };
+  const staffOperationsAccess = {
+    resolveClassTeacherManagerScope: jest.fn(),
   };
   const controller = new ClassController(
     classService as never,
     {} as never,
     {} as never,
+    staffOperationsAccess as never,
   );
 
   const user = (roleType: UserRole): JwtPayload => ({
@@ -63,6 +71,17 @@ describe('ClassController #272 redaction', () => {
     classService.getClassById.mockResolvedValue(classDetail());
     classService.updateClassTuition.mockResolvedValue(classDetail());
     classService.updateClassStudentTuition.mockResolvedValue(classDetail());
+    classService.updateClassBasicInfo.mockResolvedValue(classDetail());
+    classService.updateClassTeacherCompensation.mockResolvedValue(
+      classDetail(),
+    );
+    classService.getStudentsByClassId.mockResolvedValue([
+      {
+        studentId: 'student-1',
+        customStudentTuitionPerSession: 150000,
+        student: { id: 'student-1', fullName: 'HS 1', accountBalance: 500000 },
+      },
+    ]);
   });
 
   const expectNoTeacherPay = (result: Record<string, unknown>) => {
@@ -134,5 +153,132 @@ describe('ClassController #272 redaction', () => {
       'class-1',
     )) as unknown as { students: Record<string, unknown>[] };
     expect(result.students[0]).toHaveProperty('accountBalance', 500000);
+  });
+
+  describe('follow-up grill 13/11 — số dư ví trên danh sách học sinh', () => {
+    type StudentRow = { student: Record<string, unknown> } & Record<
+      string,
+      unknown
+    >;
+
+    it('Trưởng ban Đào tạo gọi GET /class/:id/students: không có số dư ví', async () => {
+      const rows = (await controller.getStudentsByClassId(
+        user(UserRole.staff),
+        req([StaffRole.training_head]),
+        'class-1',
+      )) as unknown as StudentRow[];
+      expect(rows[0].student).not.toHaveProperty('accountBalance');
+      expect(rows[0].student).toHaveProperty('fullName', 'HS 1');
+    });
+
+    it.each([
+      ['Kế toán chi', [StaffRole.accountant_expense]],
+      ['Kế toán thu', [StaffRole.accountant_income]],
+      ['Trưởng phòng Sale & CSKH', [StaffRole.sale_customer_care_head]],
+    ])(
+      '%s gọi GET /class/:id/students: giữ số dư ví',
+      async (_label, roles) => {
+        const rows = (await controller.getStudentsByClassId(
+          user(UserRole.staff),
+          req(roles),
+          'class-1',
+        )) as unknown as StudentRow[];
+        expect(rows[0].student).toHaveProperty('accountBalance', 500000);
+      },
+    );
+
+    it('Admin gọi GET /class/:id/students: giữ số dư ví', async () => {
+      const rows = (await controller.getStudentsByClassId(
+        user(UserRole.admin),
+        req([]),
+        'class-1',
+      )) as unknown as StudentRow[];
+      expect(rows[0].student).toHaveProperty('accountBalance', 500000);
+    });
+
+    it('Trưởng ban Đào tạo kiêm Kế toán chi: hợp quyền → thấy số dư ví', async () => {
+      const result = (await controller.getClassById(
+        user(UserRole.staff),
+        req([StaffRole.training_head, StaffRole.accountant_expense]),
+        'class-1',
+      )) as unknown as { students: Record<string, unknown>[] };
+      expect(result.students[0]).toHaveProperty('accountBalance', 500000);
+    });
+
+    it('Trưởng ban Đào tạo sửa Thông tin lớp: response không có số dư ví', async () => {
+      const result = (await controller.updateClassBasicInfo(
+        user(UserRole.staff),
+        req([StaffRole.training_head]),
+        'class-1',
+        { name: 'Toán 9A' },
+      )) as unknown as { students: Record<string, unknown>[] };
+      expect(result.students[0]).not.toHaveProperty('accountBalance');
+    });
+  });
+
+  describe('follow-up grill 13/11 — Kế toán chi chỉ xem lương gia sư theo lớp', () => {
+    const dto = {
+      teachers: [{ teacher_id: 'teacher-1', custom_allowance: 120000 }],
+    };
+
+    it('Kế toán chi thuần sửa teacher-compensation → 403, không ghi', async () => {
+      staffOperationsAccess.resolveClassTeacherManagerScope.mockRejectedValue(
+        new ForbiddenException(
+          'Chỉ Admin, Trưởng ban Đào tạo hoặc Quản lý lớp',
+        ),
+      );
+      await expect(
+        controller.updateClassTeacherCompensation(
+          user(UserRole.staff),
+          req([StaffRole.accountant_expense]),
+          'class-1',
+          dto as never,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(
+        staffOperationsAccess.resolveClassTeacherManagerScope,
+      ).toHaveBeenCalledWith('user-1', UserRole.staff, 'class-1');
+      expect(
+        classService.updateClassTeacherCompensation,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('Kế toán chi kiêm Trưởng ban Đào tạo: hợp quyền → được sửa', async () => {
+      staffOperationsAccess.resolveClassTeacherManagerScope.mockResolvedValue({
+        lockedTeacherId: 'staff-1',
+        isAdmin: false,
+        isClassManager: false,
+        isTrainingHead: true,
+      });
+      const result = (await controller.updateClassTeacherCompensation(
+        user(UserRole.staff),
+        req([StaffRole.accountant_expense, StaffRole.training_head]),
+        'class-1',
+        dto as never,
+      )) as unknown as Record<string, unknown>;
+      expect(classService.updateClassTeacherCompensation).toHaveBeenCalledWith(
+        'class-1',
+        dto,
+        expect.objectContaining({ userId: 'user-1' }),
+      );
+      // Hợp quyền expense + training_head: vẫn không thấy học phí.
+      expect(result).not.toHaveProperty('studentTuitionPerSession');
+    });
+
+    it('Admin sửa teacher-compensation được', async () => {
+      staffOperationsAccess.resolveClassTeacherManagerScope.mockResolvedValue({
+        lockedTeacherId: null,
+        isAdmin: true,
+        isClassManager: false,
+        isTrainingHead: false,
+      });
+      await controller.updateClassTeacherCompensation(
+        user(UserRole.admin),
+        req([]),
+        'class-1',
+        dto as never,
+      );
+      expect(classService.updateClassTeacherCompensation).toHaveBeenCalled();
+    });
   });
 });

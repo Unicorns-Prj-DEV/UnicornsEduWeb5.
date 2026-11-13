@@ -79,6 +79,7 @@ describe('StaffService', () => {
     },
     class: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
     },
     classScheduleEntry: {
@@ -3281,7 +3282,14 @@ describe('StaffService', () => {
     });
   });
 
-  it('lets expense accountants update class operating deduction rates', async () => {
+  it('Kế toán chi kiêm Trưởng ban Đào tạo sửa % vận hành theo lớp được (hợp quyền, follow-up 13/11)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      roleType: UserRole.staff,
+      staffInfo: {
+        id: 'staff-head',
+        roles: [StaffRole.accountant_expense, StaffRole.training_head],
+      },
+    });
     mockPrisma.classTeacher.findUnique.mockResolvedValue({
       id: 'assignment-1',
       operatingDeductionRatePercent: 5,
@@ -3296,11 +3304,11 @@ describe('StaffService', () => {
       { operating_deduction_rate_percent: 12.5 },
       {
         roleType: UserRole.staff,
-        staffRoles: [StaffRole.accountant_expense],
+        staffRoles: [StaffRole.accountant_expense, StaffRole.training_head],
         auditActor: {
           userId: 'admin-1',
           userEmail: 'admin@example.com',
-          roleType: UserRole.admin,
+          roleType: UserRole.staff,
         },
       },
     );
@@ -3320,7 +3328,7 @@ describe('StaffService', () => {
       actor: {
         userId: 'admin-1',
         userEmail: 'admin@example.com',
-        roleType: UserRole.admin,
+        roleType: UserRole.staff,
       },
       entityType: 'class_teacher',
       entityId: 'assignment-1',
@@ -3335,6 +3343,85 @@ describe('StaffService', () => {
         classId: 'class-1',
         operatingDeductionRatePercent: 12.5,
       },
+    });
+  });
+
+  describe('% vận hành theo lớp — Kế toán chi chỉ xem (follow-up grill 13/11)', () => {
+    const patch = (
+      staffRoles: StaffRole[],
+      roleType: UserRole = UserRole.staff,
+    ) =>
+      service.patchStaffClassTeacherOperatingDeduction(
+        'staff-1',
+        'class-1',
+        { operating_deduction_rate_percent: 12.5 },
+        {
+          roleType,
+          staffRoles,
+          auditActor: {
+            userId: 'actor-user',
+            userEmail: 'actor@example.com',
+            roleType,
+          },
+        },
+      );
+
+    beforeEach(() => {
+      mockPrisma.classTeacher.findUnique.mockResolvedValue({
+        id: 'assignment-1',
+        operatingDeductionRatePercent: 5,
+      });
+      jest
+        .spyOn(service, 'getStaffById')
+        .mockResolvedValue({ id: 'staff-1' } as never);
+    });
+
+    it('Kế toán chi thuần → 403, không ghi', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: { id: 'staff-acc', roles: [StaffRole.accountant_expense] },
+      });
+      await expect(
+        patch([StaffRole.accountant_expense]),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.classTeacher.update).not.toHaveBeenCalled();
+    });
+
+    it('Kế toán chi kiêm Ban Đào tạo nhưng không quản lý lớp này → 403', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: {
+          id: 'staff-acc',
+          roles: [StaffRole.accountant_expense, StaffRole.training],
+        },
+      });
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+      await expect(
+        patch([StaffRole.accountant_expense, StaffRole.training]),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.classTeacher.update).not.toHaveBeenCalled();
+    });
+
+    it('Kế toán chi kiêm Quản lý lớp của lớp này → được sửa', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: {
+          id: 'staff-acc',
+          roles: [StaffRole.accountant_expense, StaffRole.training],
+        },
+      });
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+      await patch([StaffRole.accountant_expense, StaffRole.training]);
+      expect(mockPrisma.class.findFirst).toHaveBeenCalledWith({
+        where: { id: 'class-1', trainingManagerStaffId: 'staff-acc' },
+        select: { id: true },
+      });
+      expect(mockPrisma.classTeacher.update).toHaveBeenCalled();
+    });
+
+    it('Admin → được sửa', async () => {
+      await patch([], UserRole.admin);
+      expect(mockPrisma.classTeacher.update).toHaveBeenCalled();
     });
   });
 

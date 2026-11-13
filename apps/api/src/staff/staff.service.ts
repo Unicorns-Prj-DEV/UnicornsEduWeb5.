@@ -72,6 +72,7 @@ import {
   planTrainingHeadRoleChange,
 } from './training-head-role-policy';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { assertCanSetClassTeacherPay } from 'src/common/class-teacher-pay-access';
 import {
   assertActorNotEditingOwnCompensation,
   assertNotEditingOwnCompensation,
@@ -5637,18 +5638,13 @@ export class StaffService {
       auditActor?: ActionHistoryActor;
     },
   ) {
-    const canPatchOperatingDeduction =
-      actor.roleType === UserRole.admin ||
-      (actor.staffRoles ?? []).some(
-        (role) =>
-          role === StaffRole.admin || role === StaffRole.accountant_expense,
-      );
-
-    if (!canPatchOperatingDeduction) {
-      throw new ForbiddenException(
-        'Chỉ admin hoặc kế toán chi được chỉnh % khấu trừ vận hành theo lớp.',
-      );
-    }
+    // Follow-up grill 13/11: Kế toán chi chỉ xem lương gia sư theo lớp — sửa
+    // cần Admin / Trưởng ban Đào tạo / Quản lý lớp của lớp (hợp quyền).
+    await assertCanSetClassTeacherPay(
+      this.prisma,
+      { userId: actor.auditActor?.userId, roleType: actor.roleType },
+      classId,
+    );
     await assertActorNotEditingOwnCompensation(this.prisma, actor.auditActor, [
       staffId,
     ]);

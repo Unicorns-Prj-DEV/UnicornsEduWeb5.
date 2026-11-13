@@ -67,6 +67,7 @@ import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
 } from "@/lib/admin-shell-paths";
+import { canSetClassTeacherPay } from "@/lib/class-teacher-pay-access";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { resolveClassWriteAccess } from "@/lib/class-write-access";
 import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
@@ -235,8 +236,6 @@ export default function AdminClassDetailPage() {
   /** Học phí lớp (PATCH /class/:id/tuition): Admin + Trưởng phòng. */
   const canEditClassTuition = isAdmin || isSaleCsHead;
   const canEditTeacherRoster = isAdmin;
-  const canEditTeacherCompensation =
-    canEditTeacherRoster || adminAccess.isAccountantExpense;
   /** POST /sessions chỉ Admin trên route admin; giữ CTA khớp backend. */
   const canCreateSession = isAdmin;
   const canManageSurveys = isAdmin;
@@ -283,6 +282,21 @@ export default function AdminClassDetailPage() {
     queryFn: () => classApi.getClassById(id),
     enabled: !!id,
   });
+
+  /**
+   * Follow-up grill 13/11: Kế toán chi chỉ xem lương gia sư theo lớp; sửa khi
+   * kiêm Trưởng ban Đào tạo / Quản lý lớp của lớp này (hợp quyền, khớp backend).
+   */
+  const canEditTeacherCompensation =
+    canEditTeacherRoster ||
+    (adminAccess.isAccountantExpense &&
+      canSetClassTeacherPay({
+        isAdmin,
+        staffRoles: adminAccess.staffRoles,
+        viewerStaffId: fullProfile?.staffInfo?.id ?? null,
+        classTrainingManagerStaffId:
+          classDetail?.trainingManager?.id ?? classDetail?.trainingManagerStaffId ?? null,
+      }));
 
   const queryClient = useQueryClient();
   const missedAlertsQueryKey = useMemo(
@@ -817,6 +831,7 @@ export default function AdminClassDetailPage() {
           }}
           classDetail={classDetail}
           requiredBeforeFirstStudent={tuitionRequiredForFirstStudent}
+          hasActiveStudents={activeClassStudents.length > 0}
           onSaved={
             tuitionRequiredForFirstStudent
               ? () => {
@@ -835,7 +850,7 @@ export default function AdminClassDetailPage() {
         />
       ) : (
         <EditClassTeacherCompensationPopup
-          open={teachersPopupOpen && adminAccess.isAccountantExpense}
+          open={teachersPopupOpen && canEditTeacherCompensation}
           onClose={() => setTeachersPopupOpen(false)}
           classDetail={classDetail}
         />

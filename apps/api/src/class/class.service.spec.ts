@@ -2704,6 +2704,167 @@ describe('ClassService', () => {
       expect(mockTx.class.update).not.toHaveBeenCalled();
     });
 
+    describe('gói trống của lớp bán một lần (follow-up grill 13/11)', () => {
+      const oneTimeCourse = {
+        id: 'course-thptqg',
+        name: 'THPTQG',
+        isOneTime: true,
+        defaultDurationDays: null,
+      };
+      const mockActiveRoster = (activeClassIds: string[]) => {
+        mockTx.studentClass.findMany.mockImplementation((args: any) =>
+          Promise.resolve(
+            args?.where?.OR
+              ? activeClassIds.map((classId) => ({ classId }))
+              : [],
+          ),
+        );
+      };
+
+      it('tạo lớp bán một lần với gói trống → cho tạo (điền gói sau)', async () => {
+        mockTx.course.findUnique.mockResolvedValue(oneTimeCourse);
+        mockTx.class.findUnique.mockResolvedValue({
+          id: 'class-1',
+          name: 'THPTQG 2027',
+          courseId: oneTimeCourse.id,
+          status: ClassStatus.running,
+          pricingMode: ClassPricingMode.one_time,
+          schedule: [],
+          tuitionPackageTotal: null,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        });
+        mockActiveRoster([]);
+
+        await service.createClass({
+          name: 'THPTQG 2027',
+          course_id: oneTimeCourse.id,
+          status: ClassStatus.running,
+        });
+
+        expect(mockTx.class.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              pricingMode: ClassPricingMode.one_time,
+              tuitionPackageTotal: undefined,
+            }),
+          }),
+        );
+      });
+
+      it('tạo lớp bán một lần gói 0đ → 400', async () => {
+        mockTx.course.findUnique.mockResolvedValue(oneTimeCourse);
+        await expect(
+          service.createClass({
+            name: 'THPTQG 2027',
+            course_id: oneTimeCourse.id,
+            status: ClassStatus.running,
+            tuition_package_total: 0,
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(mockTx.class.create).not.toHaveBeenCalled();
+      });
+
+      it('tạo lớp bán một lần gói trống kèm học sinh → 400 trước khi ghi roster', async () => {
+        mockTx.course.findUnique.mockResolvedValue(oneTimeCourse);
+        mockTx.class.findMany.mockResolvedValue([
+          {
+            id: 'class-1',
+            name: 'THPTQG 2027',
+            pricingMode: ClassPricingMode.one_time,
+            studentTuitionPerSession: null,
+            studentTuitionPerBlock: null,
+            tuitionPackageTotal: null,
+            tuitionPackageSession: null,
+          },
+        ]);
+        await expect(
+          service.createClass({
+            name: 'THPTQG 2027',
+            course_id: oneTimeCourse.id,
+            status: ClassStatus.running,
+            student_ids: ['student-1'],
+          }),
+        ).rejects.toThrow(/Tổng gói lớn hơn 0đ/);
+        expect(mockTx.studentClass.createMany).not.toHaveBeenCalled();
+      });
+
+      it('sửa lớp bán một lần còn trống mà gói vẫn trống → cho lưu', async () => {
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: oneTimeCourse.id,
+          tuitionPackageTotal: null,
+          course: { isOneTime: true },
+        });
+        mockActiveRoster([]);
+        await service.updateClassBasicInfo('class-1', { name: 'Tên mới' });
+        expect(mockTx.class.update).toHaveBeenCalled();
+      });
+
+      it('xoá gói lớp bán một lần đang có học sinh học → 400', async () => {
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: oneTimeCourse.id,
+          tuitionPackageTotal: 1600000,
+          course: { isOneTime: true },
+        });
+        mockActiveRoster(['class-1']);
+        await expect(
+          service.updateClassTuition('class-1', {
+            tuition_package_total: null,
+          } as never),
+        ).rejects.toThrow(/đang có học sinh/);
+        expect(mockTx.class.update).not.toHaveBeenCalled();
+      });
+
+      it('lớp bán một lần đang có học sinh mà gói trống (dữ liệu cũ) → mọi lần sửa đều bắt điền gói', async () => {
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: oneTimeCourse.id,
+          tuitionPackageTotal: null,
+          course: { isOneTime: true },
+        });
+        mockActiveRoster(['class-1']);
+        await expect(
+          service.updateClassBasicInfo('class-1', { name: 'Tên mới' }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('đổi sang khoá bán một lần khác khi lớp trống, gói trống → cho đổi', async () => {
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: oneTimeCourse.id,
+          tuitionPackageTotal: null,
+          course: { isOneTime: true },
+        });
+        mockTx.course.findUnique.mockResolvedValue({
+          ...oneTimeCourse,
+          id: 'course-prevoi',
+          name: 'PREVOI',
+        });
+        mockActiveRoster([]);
+        await service.updateClassBasicInfo('class-1', {
+          course_id: 'course-prevoi',
+        });
+        expect(mockTx.class.update).toHaveBeenCalled();
+      });
+
+      it('đổi sang khoá bán một lần khác khi lớp có học sinh mà gói trống → 400', async () => {
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: oneTimeCourse.id,
+          tuitionPackageTotal: null,
+          course: { isOneTime: true },
+        });
+        mockTx.course.findUnique.mockResolvedValue({
+          ...oneTimeCourse,
+          id: 'course-prevoi',
+          name: 'PREVOI',
+        });
+        mockActiveRoster(['class-1']);
+        await expect(
+          service.updateClassBasicInfo('class-1', {
+            course_id: 'course-prevoi',
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+    });
+
     it('không bật/tắt one_time trên từng lớp', async () => {
       await expect(
         service.updateClassPricingMode('class-1', {

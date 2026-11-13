@@ -696,7 +696,7 @@ export class StaffController {
   @ApiOperation({
     summary: 'Update operating deduction rate for a staff-class assignment',
     description:
-      'Updates operating deduction on session allowance for a staff-class assignment. Restricted to admin users and accountant_expense staff.',
+      'Updates operating deduction on session allowance for a staff-class assignment. Follow-up grill 13/11: Admin, Trưởng ban Đào tạo hoặc Quản lý lớp của lớp sửa; Kế toán chi chỉ xem (403) trừ khi kiêm một role trên (hợp quyền). Không sửa % của chính mình (#265).',
   })
   @ApiParam({ name: 'id', description: 'Staff id (teacher)' })
   @ApiParam({ name: 'classId', description: 'Class id' })
@@ -707,7 +707,11 @@ export class StaffController {
       'Full staff profile after update (same shape as GET /staff/:id).',
   })
   @ApiResponse({ status: 400, description: 'Validation error.' })
-  @ApiResponse({ status: 403, description: 'Not allowed.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Kế toán chi không kiêm Trưởng ban Đào tạo / Quản lý lớp của lớp, hoặc sửa % của chính mình.',
+  })
   @ApiResponse({
     status: 404,
     description: 'Staff or class–teacher row not found.',

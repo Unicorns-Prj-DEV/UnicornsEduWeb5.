@@ -51,8 +51,11 @@ describe("hasClassTuitionForPricingMode (#273)", () => {
       hasClassTuitionForPricingMode({ ...empty, pricingMode: "one_time", studentTuitionPerSession: 1 }),
     ).toBe(false);
     expect(hasClassTuitionForPricingMode({ ...empty, pricingMode: "one_time", tuitionPackageTotal: 0 })).toBe(
-      true,
+      false,
     );
+    expect(
+      hasClassTuitionForPricingMode({ ...empty, pricingMode: "one_time", tuitionPackageTotal: 1_600_000 }),
+    ).toBe(true);
   });
 });
 

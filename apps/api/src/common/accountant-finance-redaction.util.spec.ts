@@ -1,10 +1,12 @@
 import { StaffRole, UserRole } from 'generated/enums';
 import {
+  canSeeClassStudentWalletOnAdminRoutes,
   redactClassForAccountantView,
   redactClassForTrainingManagerView,
   redactClassStudentWalletBalances,
   redactOtherTeachersIncome,
   redactOtherTeachersSessions,
+  redactStudentClassRowsWalletBalance,
   resolveAccountantFinanceView,
   resolveAdminClassFinanceView,
 } from './accountant-finance-redaction.util';
@@ -332,5 +334,55 @@ describe('#272 resolveAdminClassFinanceView (route admin của lớp)', () => {
       teachers: [{ id: 'teacher-1', fullName: 'Gia sư A' }],
       students: classDetail.students,
     });
+  });
+});
+
+describe('số dư ví trên route admin của lớp (follow-up grill 13/11)', () => {
+  it('Admin, Trưởng phòng Sale & CSKH, Kế toán thu/chi xem được', () => {
+    expect(canSeeClassStudentWalletOnAdminRoutes(UserRole.admin, [])).toBe(
+      true,
+    );
+    for (const role of [
+      StaffRole.admin,
+      StaffRole.sale_customer_care_head,
+      StaffRole.accountant_income,
+      StaffRole.accountant_expense,
+    ]) {
+      expect(
+        canSeeClassStudentWalletOnAdminRoutes(UserRole.staff, [role]),
+      ).toBe(true);
+    }
+  });
+
+  it('Trưởng ban Đào tạo / Ban Đào tạo / gia sư không xem; kiêm role xem được thì xem', () => {
+    for (const roles of [
+      [StaffRole.training_head],
+      [StaffRole.training],
+      [StaffRole.teacher],
+    ]) {
+      expect(canSeeClassStudentWalletOnAdminRoutes(UserRole.staff, roles)).toBe(
+        false,
+      );
+    }
+    expect(
+      canSeeClassStudentWalletOnAdminRoutes(UserRole.staff, [
+        StaffRole.training_head,
+        StaffRole.accountant_expense,
+      ]),
+    ).toBe(true);
+  });
+
+  it('bỏ accountBalance cả phẳng lẫn lồng trong student', () => {
+    const rows = [
+      {
+        studentId: 's-1',
+        accountBalance: 1,
+        student: { id: 's-1', fullName: 'HS', accountBalance: 500000 },
+      },
+    ];
+    expect(redactStudentClassRowsWalletBalance(rows, false)).toEqual([
+      { studentId: 's-1', student: { id: 's-1', fullName: 'HS' } },
+    ]);
+    expect(redactStudentClassRowsWalletBalance(rows, true)).toBe(rows);
   });
 });

@@ -151,6 +151,11 @@ export class StaffOpsSessionController {
     description: 'Missed teaching explanation saved.',
     type: MissedTeachingExplanationResponseDto,
   })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Admin / Quản lý lớp / gia sư của lớp, hoặc gia sư giải trình buổi của gia sư khác (follow-up grill 13/11: cùng quyền xếp lịch bù #275).',
+  })
   async createMissedTeachingExplanationByClassId(
     @CurrentUser() user: JwtPayload,
     @Param('classId', new ParseClassIdPipe()) classId: string,
@@ -180,6 +185,12 @@ export class StaffOpsSessionController {
     description: 'Missed teaching explanation updated.',
     type: MissedTeachingExplanationResponseDto,
   })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Admin / Quản lý lớp / gia sư của lớp của giải trình, hoặc gia sư sửa giải trình của gia sư khác (follow-up grill 13/11).',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy giải trình vắng.' })
   async updateMissedTeachingExplanation(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) id: string,

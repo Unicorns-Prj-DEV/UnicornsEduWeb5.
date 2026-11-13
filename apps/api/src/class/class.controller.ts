@@ -62,12 +62,34 @@ import { ClassService } from './class.service';
 import { ClassSurveyService } from './class-survey.service';
 import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-context';
 import {
+  canSeeClassStudentWalletOnAdminRoutes,
   redactClassForAccountantView,
   redactClassListForAccountantView,
   redactClassStudentWalletBalances,
   redactStudentClassRowsForAccountantView,
+  redactStudentClassRowsWalletBalance,
   resolveAdminClassFinanceView,
 } from 'src/common/accountant-finance-redaction.util';
+import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
+
+/**
+ * Response route admin của lớp theo người xem: bỏ học phí / lương gia sư
+ * (#272/#274) và bỏ số dư ví học sinh với role không được xem (follow-up grill
+ * 13/11 — Trưởng ban Đào tạo không xem; Kế toán chi vẫn xem).
+ */
+function redactAdminClassResponse<T>(
+  classRecord: T,
+  roleType: UserRole,
+  staffRoles: readonly StaffRole[],
+): T {
+  const redacted = redactClassForAccountantView(
+    classRecord,
+    resolveAdminClassFinanceView(roleType, staffRoles),
+  );
+  return canSeeClassStudentWalletOnAdminRoutes(roleType, staffRoles)
+    ? redacted
+    : redactClassStudentWalletBalances(redacted, { mode: 'none' });
+}
 
 /**
  * #272: role được XEM lớp ở route admin. Trưởng phòng Sale & CSKH thấy mọi
@@ -94,6 +116,7 @@ export class ClassController {
     private readonly classService: ClassService,
     private readonly classSurveyService: ClassSurveyService,
     private readonly calendarService: CalendarService,
+    private readonly staffOperationsAccess: StaffOperationsAccessService,
   ) {}
 
   @Get()
@@ -166,7 +189,11 @@ export class ClassController {
     description: 'Get list of students enrolled in the class.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
-  @ApiResponse({ status: 200, description: 'List of students in the class.' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'List of students in the class. Trưởng ban Đào tạo: không có số dư ví học sinh (`accountBalance`, kể cả `student.accountBalance`); Admin, Trưởng phòng Sale & CSKH, Kế toán thu/chi giữ (follow-up grill 13/11).',
+  })
   @ApiResponse({ status: 403, description: 'Role không được xem lớp.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   @AllowStaffRolesOnAdminRoutes(...CLASS_VIEWER_STAFF_ROLES)
@@ -176,9 +203,13 @@ export class ClassController {
     @Param('id', new ParseClassIdPipe()) id: string,
   ) {
     const students = await this.classService.getStudentsByClassId(id);
-    return redactStudentClassRowsForAccountantView(
-      students,
-      resolveAdminClassFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+    const staffRoles = req.resolvedStaffRoles ?? [];
+    return redactStudentClassRowsWalletBalance(
+      redactStudentClassRowsForAccountantView(
+        students,
+        resolveAdminClassFinanceView(user.roleType, staffRoles),
+      ),
+      canSeeClassStudentWalletOnAdminRoutes(user.roleType, staffRoles),
     );
   }
 
@@ -228,9 +259,10 @@ export class ClassController {
       userEmail: user.email,
       roleType: user.roleType,
     });
-    return redactClassForAccountantView(
+    return redactAdminClassResponse(
       updated,
-      resolveAdminClassFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+      user.roleType,
+      req.resolvedStaffRoles ?? [],
     );
   }
 
@@ -264,9 +296,10 @@ export class ClassController {
       userEmail: user.email,
       roleType: user.roleType,
     });
-    return redactClassForAccountantView(
+    return redactAdminClassResponse(
       classDetail,
-      resolveAdminClassFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+      user.roleType,
+      req.resolvedStaffRoles ?? [],
     );
   }
 
@@ -324,11 +357,14 @@ export class ClassController {
   }
 
   @Patch(':id/teacher-compensation')
+  // Follow-up grill 13/11: Kế toán chi chỉ xem lương gia sư theo lớp. Route
+  // giữ allowlist để người kiêm Kế toán chi + Trưởng ban Đào tạo / Quản lý
+  // lớp của lớp vào được; quyền sửa kiểm ở handler (hợp quyền).
   @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Update class teacher compensation',
     description:
-      'Update custom allowance and/or operating deduction rate for existing class teachers only. Send only teachers and fields that changed; omit a field to leave it unchanged; send custom_allowance null to inherit the class default.',
+      'Update custom allowance and/or operating deduction rate for existing class teachers only. Send only teachers and fields that changed; omit a field to leave it unchanged; send custom_allowance null to inherit the class default. Follow-up grill 13/11: Admin sửa; Kế toán chi chỉ xem (403), trừ khi kiêm Trưởng ban Đào tạo hoặc Quản lý lớp của lớp này. Không sửa lương của chính mình (#265). Response bỏ học phí / số dư ví theo người xem.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: UpdateClassTeacherCompensationDto })
@@ -337,17 +373,38 @@ export class ClassController {
     description: 'Class teacher compensation updated.',
   })
   @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Kế toán chi không kiêm Trưởng ban Đào tạo / Quản lý lớp của lớp (chỉ xem lương gia sư theo lớp), hoặc sửa lương của chính mình (#265).',
+  })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   async updateClassTeacherCompensation(
     @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassTeacherCompensationDto,
   ) {
-    return this.classService.updateClassTeacherCompensation(id, dto, {
-      userId: user.id,
-      userEmail: user.email,
-      roleType: user.roleType,
-    });
+    // Admin / Trưởng ban Đào tạo / Quản lý lớp của lớp; Kế toán chi thuần → 403.
+    await this.staffOperationsAccess.resolveClassTeacherManagerScope(
+      user.id,
+      user.roleType,
+      id,
+    );
+    const updated = await this.classService.updateClassTeacherCompensation(
+      id,
+      dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
+    return redactAdminClassResponse(
+      updated,
+      user.roleType,
+      req.resolvedStaffRoles ?? [],
+    );
   }
 
   @Patch(':id/schedule')
@@ -519,9 +576,10 @@ export class ClassController {
         roleType: user.roleType,
       },
     );
-    return redactClassForAccountantView(
+    return redactAdminClassResponse(
       classDetail,
-      resolveAdminClassFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+      user.roleType,
+      req.resolvedStaffRoles ?? [],
     );
   }
 
@@ -637,7 +695,7 @@ export class ClassController {
   @ApiResponse({
     status: 200,
     description:
-      'Class found. Trưởng phòng Sale & CSKH / Kế toán thu: không có lương gia sư; Kế toán chi: không có học phí (#272). Trưởng ban Đào tạo: không có học phí, không số dư ví học sinh (#274/#277).',
+      'Class found. Trưởng phòng Sale & CSKH / Kế toán thu: không có lương gia sư; Kế toán chi: không có học phí nhưng giữ số dư ví học sinh (#272). Trưởng ban Đào tạo: không có học phí, không số dư ví học sinh (#274/#277); kiêm role xem được ví thì thấy ví (follow-up grill 13/11).',
   })
   @ApiResponse({ status: 403, description: 'Role không được xem lớp.' })
   @ApiResponse({ status: 404, description: 'Class not found.' })
@@ -648,17 +706,13 @@ export class ClassController {
     @Param('id', new ParseClassIdPipe()) id: string,
   ) {
     const classDetail = await this.classService.getClassById(id);
-    const staffRoles = req.resolvedStaffRoles ?? [];
-    const financeView = resolveAdminClassFinanceView(user.roleType, staffRoles);
-    const redacted = redactClassForAccountantView(classDetail, financeView);
-    // #277: Trưởng ban Đào tạo không thấy học phí → bỏ cả số dư ví học sinh.
-    if (
-      financeView === 'expense' &&
-      staffRoles.includes(StaffRole.training_head)
-    ) {
-      return redactClassStudentWalletBalances(redacted, { mode: 'none' });
-    }
-    return redacted;
+    // #277 + follow-up grill 13/11: Trưởng ban Đào tạo không thấy số dư ví;
+    // kiêm Kế toán chi / Kế toán thu / Trưởng phòng thì thấy (hợp quyền).
+    return redactAdminClassResponse(
+      classDetail,
+      user.roleType,
+      req.resolvedStaffRoles ?? [],
+    );
   }
 
   @Post()
@@ -691,9 +745,10 @@ export class ClassController {
       userEmail: user.email,
       roleType: user.roleType,
     });
-    return redactClassForAccountantView(
+    return redactAdminClassResponse(
       created,
-      resolveAdminClassFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+      user.roleType,
+      req.resolvedStaffRoles ?? [],
     );
   }
 

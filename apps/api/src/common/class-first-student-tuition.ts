@@ -18,6 +18,9 @@ import { resolveDerivedTuitionPerSession } from './student-class-tuition.util';
 export const CLASS_TUITION_REQUIRED_MESSAGE =
   'Lớp chưa có học phí. Hãy điền Học phí lớp trước khi thêm học sinh đầu tiên.';
 
+export const ONE_TIME_CLASS_TUITION_REQUIRED_MESSAGE =
+  'Lớp bán một lần chưa có Tổng gói. Hãy điền Tổng gói lớn hơn 0đ trước khi thêm học sinh đầu tiên.';
+
 export type ClassTuitionSnapshot = {
   pricingMode?: string | null;
   studentTuitionPerSession?: number | null;
@@ -36,13 +39,16 @@ function isFilledMoney(value: number | null | undefined): boolean {
  *   suy ra được học phí / buổi (tổng gói + số buổi; gói 0đ = miễn phí).
  * - `per_block` (theo 30 phút): học phí / 30 phút, hoặc chuỗi theo buổi ở trên
  *   (charge buổi fallback về chuỗi này khi thiếu đơn giá block).
- * - `one_time` (trọn gói): tổng gói của lớp.
+ * - `one_time` (bán một lần): tổng gói của lớp **lớn hơn 0đ** — lớp bán một
+ *   lần được tạo với gói trống, điều kiện > 0đ dời sang lúc nhận học sinh
+ *   đầu tiên (follow-up grill 13/11). `0đ` không tính là đã điền ở chế độ này.
  */
 export function hasClassTuitionForPricingMode(
   classRow: ClassTuitionSnapshot,
 ): boolean {
   if (isOneTimePricingMode(classRow.pricingMode)) {
-    return isFilledMoney(classRow.tuitionPackageTotal);
+    const total = classRow.tuitionPackageTotal;
+    return isFilledMoney(total) && (total as number) > 0;
   }
 
   const hasPerSessionChain =
@@ -126,7 +132,11 @@ export async function assertClassTuitionBeforeFirstStudent(
   }
 
   if (uniqueIds.length === 1) {
-    throw new BadRequestException(CLASS_TUITION_REQUIRED_MESSAGE);
+    throw new BadRequestException(
+      isOneTimePricingMode(missing[0].pricingMode)
+        ? ONE_TIME_CLASS_TUITION_REQUIRED_MESSAGE
+        : CLASS_TUITION_REQUIRED_MESSAGE,
+    );
   }
   const names = missing.map((classRow) => `«${classRow.name}»`).join(', ');
   throw new BadRequestException(

@@ -8,7 +8,7 @@ import type { ClassDetail } from "@/dtos/class.dto";
  *
  * - Theo buổi / theo gói buổi: học phí / buổi, hoặc gói lớp suy ra được học phí / buổi.
  * - Theo 30 phút: học phí / 30 phút, hoặc chuỗi theo buổi ở trên.
- * - Trọn gói: tổng gói.
+ * - Trọn gói (bán một lần): tổng gói > 0đ.
  *
  * `0` là đã điền; `null`/`undefined` là chưa điền.
  */
@@ -38,7 +38,8 @@ function hasDerivedPackageTuition(
 
 export function hasClassTuitionForPricingMode(classDetail: ClassTuitionFields): boolean {
   if (classDetail.pricingMode === "one_time") {
-    return isFilledMoney(classDetail.tuitionPackageTotal);
+    // Gói bán một lần là khoản thu ở buổi đầu: phải > 0đ (follow-up grill 13/11).
+    return isFilledMoney(classDetail.tuitionPackageTotal) && classDetail.tuitionPackageTotal > 0;
   }
 
   const hasPerSessionChain =

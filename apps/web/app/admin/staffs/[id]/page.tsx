@@ -61,6 +61,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import MonthNav from "@/components/admin/MonthNav";
 import { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
 import { resolveAdminShellAccess, resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
+import { canSetClassTeacherPay } from "@/lib/class-teacher-pay-access";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import UserAvatar from "@/components/ui/UserAvatar";
@@ -355,7 +356,7 @@ export default function AdminStaffDetailPage({
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAccountant, isAccountantExpense } =
+  const { isAdmin, isAccountant, isAccountantExpense, staffRoles: viewerStaffRoles } =
     resolveAdminShellAccess(fullProfile);
   const { canManageUsers } = resolveUserAdminCapabilities(fullProfile, routeBase);
   const ownStaffId = fullProfile?.staffInfo?.id;
@@ -640,7 +641,15 @@ export default function AdminStaffDetailPage({
     [incomeSummary?.classMonthlySummaries],
   );
   const showClassOperatingColumn = isAdmin || isAccountantExpense;
-  const canEditClassOperatingDeduction = isAdmin || isAccountantExpense;
+  /**
+   * Follow-up grill 13/11: Kế toán chi chỉ xem % vận hành theo lớp; sửa khi kiêm
+   * Trưởng ban Đào tạo. (Kiêm Quản lý lớp: backend cho sửa lớp mình, trang này
+   * không có Quản lý lớp từng dòng nên không mở ô — sửa ở trang lớp.)
+   */
+  const canEditClassOperatingDeduction =
+    isAdmin ||
+    (isAccountantExpense &&
+      canSetClassTeacherPay({ isAdmin, staffRoles: viewerStaffRoles }));
   const operatingPercentByClassId = useMemo(() => {
     const m = new Map<string, number>();
     for (const row of staff?.classTeachers ?? []) {

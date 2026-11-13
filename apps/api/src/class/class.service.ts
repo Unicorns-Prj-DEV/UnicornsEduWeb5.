@@ -1535,8 +1535,10 @@ export class ClassService {
   }
 
   /**
-   * Luật khoá bán một lần khi sửa lớp: chỉ đổi sang khoá cùng chế độ, và lớp
-   * bán một lần luôn giữ Tổng gói > 0đ.
+   * Luật khoá bán một lần khi sửa lớp: chỉ đổi sang khoá cùng chế độ. Lớp bán
+   * một lần đang có học sinh học phải giữ Tổng gói > 0đ (không xoá gói được);
+   * lớp còn trống được để trống gói (follow-up grill 13/11) — điều kiện > 0đ
+   * kiểm lúc nhận học sinh đầu tiên.
    */
   private async assertClassSaleModeRules(
     db: Prisma.TransactionClient | PrismaService,
@@ -1564,12 +1566,18 @@ export class ClassService {
         toCourseIsOneTime,
       });
     }
+    if (!toCourseIsOneTime) {
+      return;
+    }
+    const hasActiveStudents =
+      (await findClassIdsWithoutActiveStudents(db, [classId])).length === 0;
     assertOneTimePackageTotal({
       isOneTime: toCourseIsOneTime,
       tuitionPackageTotal:
         next.tuitionPackageTotal !== undefined
           ? next.tuitionPackageTotal
           : current.tuitionPackageTotal,
+      hasActiveStudents,
     });
   }
 
@@ -1617,9 +1625,12 @@ export class ClassService {
       if (isBlockPricingMode(pricingMode)) {
         assertCanEnableBlockPricing(standardBlockCount);
       }
+      // Lớp mới luôn trống: được để trống gói bán một lần; có `student_ids`
+      // thì `assertClassTuitionBeforeFirstStudent` bên dưới bắt gói > 0đ.
       assertOneTimePackageTotal({
         isOneTime: resolved.courseIsOneTime,
         tuitionPackageTotal: data.tuition_package_total,
+        hasActiveStudents: false,
       });
 
       // #274: giao Quản lý lớp ngay khi tạo (cùng kiểm tra với

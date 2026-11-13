@@ -20,21 +20,9 @@ import { SessionScheduleRulesService } from './session-schedule-rules.service';
 import { MissedTeachingExplanationService } from './missed-teaching-explanation.service';
 import {
   StaffOperationsAccessService,
+  canWorkOnAllClassSessions,
   seesClassAsTrainingManager,
 } from '../staff-ops/staff-operations-access.service';
-import { StaffRole } from '../../generated/enums';
-
-const ELEVATED_CLASS_ACCESS_ROLES: StaffRole[] = [
-  StaffRole.accountant_income,
-  StaffRole.accountant_expense,
-];
-
-function isTeacherScopedActor(roles: StaffRole[]) {
-  return (
-    roles.includes(StaffRole.teacher) &&
-    !roles.some((role) => ELEVATED_CLASS_ACCESS_ROLES.includes(role))
-  );
-}
 
 @Injectable()
 export class SessionService {
@@ -240,28 +228,19 @@ export class SessionService {
     dto: CreateMissedTeachingExplanationDto,
     actor?: ActionHistoryActor,
   ): Promise<MissedTeachingExplanationResponseDto> {
-    const resolvedActor = await this.staffOperationsAccess.resolveActor(
+    // Follow-up grill 13/11 — glossary «Giải trình vắng»: ai xếp được lịch bù
+    // trên lớp thì mới giải trình được (cùng predicate #275). Admin / Quản lý
+    // lớp: mọi gia sư của lớp; gia sư: chỉ buổi của mình; lớp khác → 403.
+    const restrictTeacherId = await this.resolveMissedTeachingRestriction(
       userId,
       roleType,
+      classId,
     );
-
-    if (isTeacherScopedActor(resolvedActor.roles)) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(
-        resolvedActor.id,
-        classId,
-      );
-      return this.missedTeachingExplanationService.createExplanationForClass(
-        classId,
-        dto,
-        actor,
-        { restrictTeacherId: resolvedActor.id },
-      );
-    }
-
     return this.missedTeachingExplanationService.createExplanationForClass(
       classId,
       dto,
       actor,
+      restrictTeacherId ? { restrictTeacherId } : undefined,
     );
   }
 
@@ -284,18 +263,39 @@ export class SessionService {
     dto: UpdateMissedTeachingExplanationDto,
     actor?: ActionHistoryActor,
   ): Promise<MissedTeachingExplanationResponseDto> {
-    const resolvedActor = await this.staffOperationsAccess.resolveActor(
+    const classId =
+      await this.missedTeachingExplanationService.getExplanationClassId(id);
+    const restrictTeacherId = await this.resolveMissedTeachingRestriction(
       userId,
       roleType,
+      classId,
     );
-
     return this.missedTeachingExplanationService.updateExplanation(
       id,
       dto,
       actor,
-      isTeacherScopedActor(resolvedActor.roles)
-        ? { restrictTeacherId: resolvedActor.id }
-        : undefined,
+      restrictTeacherId ? { restrictTeacherId } : undefined,
     );
+  }
+
+  /**
+   * Quyền giải trình vắng trên lớp = quyền xếp lịch bù (`resolveClassWorkAccess`,
+   * #275). Trả `staffId` gia sư bị giới hạn, hoặc `null` khi làm được cho mọi
+   * gia sư của lớp. Không thuộc lớp → 403.
+   */
+  private async resolveMissedTeachingRestriction(
+    userId: string,
+    roleType: UserRole,
+    classId: string,
+  ): Promise<string | null> {
+    const access = await this.staffOperationsAccess.resolveClassWorkAccess(
+      userId,
+      roleType,
+      classId,
+    );
+    if (canWorkOnAllClassSessions(access)) {
+      return null;
+    }
+    return access.staffId;
   }
 }

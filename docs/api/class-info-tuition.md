@@ -16,7 +16,8 @@ Lớp chia thành hai phần sửa riêng:
 | `PATCH /class/:id/tuition` (Học phí lớp) | sửa | 403 | sửa | 403 | 403 |
 | `PATCH /class/:id/student-tuition` (học phí riêng học sinh) | sửa | 403 | sửa | sửa | 403 |
 | `PATCH /class/:id/students` (thêm/bớt học sinh, #273) | sửa | 403 | sửa | 403 | 403 |
-| `PATCH /class/:id/pricing-mode`, `.../teacher-compensation`, lịch | sửa | 403 | 403 | 403 | 403 |
+| `PATCH /class/:id/pricing-mode`, lịch | sửa | 403 | 403 | 403 | 403 |
+| `PATCH /class/:id/teacher-compensation` (lương gia sư theo lớp, follow-up 13/11) | sửa | 403 ở route admin (dùng `PATCH /staff-ops/classes/:id/teacher-pay`) | 403 | 403 | 403 (chỉ xem; kiêm Trưởng ban Đào tạo / Quản lý lớp của lớp → sửa) |
 | `POST /class/:id/end` (kết thúc lớp), `DELETE /class/:id` (xoá lớp) | ✓ | 403 | 403 | 403 | 403 |
 | `GET /staff/options` (tìm gia sư khi tạo lớp) | ✓ | ✓ (#274) | 403 | 403 | ✓ |
 
@@ -53,7 +54,7 @@ Policy: `apps/api/src/class/class-write-field-policy.ts` (`assertCreateClassAllo
 | Kế toán thu | `income` | như trên |
 | Kế toán chi | `expense` | học phí lớp + học phí riêng học sinh |
 | Trưởng phòng kiêm Kế toán chi | `full` | — (hợp quyền) |
-| Trưởng ban Đào tạo (#274) | `expense` | học phí lớp + học phí riêng học sinh; #277: thêm số dư ví học sinh (`GET /class/:id`) |
+| Trưởng ban Đào tạo (#274) | `expense` | học phí lớp + học phí riêng học sinh + số dư ví học sinh (follow-up 13/11 bỏ quyền xem ví #277) |
 | Trưởng ban Đào tạo kiêm Trưởng phòng / Kế toán thu | `full` | — (hợp quyền) |
 
 Route staff-ops (gia sư / quản lý lớp) vẫn dùng `resolveAccountantFinanceView`. Riêng `GET /staff-ops/classes/:id` (#276): **Quản lý lớp** của lớp — thuần hoặc kiêm gia sư lớp — không nhận học phí lớp (`studentTuitionPerSession`, `studentTuitionPerBlock`, `tuitionPackageTotal`, `tuitionPackageSession`, `sessionTuitionTotal`) và học phí riêng / số dư của học sinh (`redactClassForTrainingManagerView`). Gia sư thuần, CSKH, Admin, Kế toán giữ nguyên.
@@ -108,3 +109,21 @@ Lớp **chưa có học sinh đang học** (`student_classes.status` = `active` 
 - Lớp đã có học sinh đang học: không áp. Bớt học sinh: không áp.
 - Kiểm ở service (`apps/api/src/common/class-first-student-tuition.ts`), áp cho `updateClassStudents`, `updateClass`, `createClass`, `StudentService.updateStudentClasses` (thêm mới + kích hoạt lại), `UserService.createStudentUser`. Với `POST /class` / `PATCH /class`, kiểm **sau** khi ghi dòng lớp trong cùng transaction nên học phí gửi cùng payload được tính.
 - Web `/admin/classes/:id`: bấm **Chỉnh sửa** danh sách học sinh khi lớp trống chưa có học phí → toast + mở popup **Học phí lớp** (nút «Lưu và thêm học sinh», lưu khi chưa điền gì → toast lỗi); lưu xong mới mở popup thêm học sinh. Các màn khác (sửa lớp của học sinh, thêm lớp, tạo học sinh) hiện lỗi `400` qua toast Sonner.
+
+## Follow-up grill 13/11 (Nhóm 1)
+
+**Tổng gói lớp bán một lần.** `assertOneTimePackageTotal({ isOneTime, tuitionPackageTotal, hasActiveStudents })`:
+
+| Tình huống | Gói trống | Gói `0đ` / âm | Gói > 0 |
+|---|---|---|---|
+| Tạo lớp (`POST /class`, `/staff-ops/classes`) không kèm học sinh | được | `400` | được |
+| Sửa lớp / Học phí lớp / đổi khoá, lớp chưa có học sinh học | được | `400` | được |
+| Sửa lớp / Học phí lớp / đổi khoá, lớp đang có học sinh học | `400` | `400` | được |
+| Nhận học sinh đầu tiên (`class-first-student-tuition`) | `400` | `400` | được |
+| Bật `is_one_time` cho khoá (`PATCH /courses/:id`) | lớp trống được; lớp có học sinh → `400` | `400` | được |
+
+**Lương gia sư theo lớp.** Mọi đường ghi định mức lương gia sư theo lớp (trợ cấp/HS, scale, % vận hành, trần, mức riêng gia sư) chỉ cho Admin, Trưởng ban Đào tạo, Quản lý lớp của lớp: `PATCH /class/:id/teacher-compensation` (`resolveClassTeacherManagerScope`), `PATCH /staff/:id/class-teachers/:classId/operating-deduction` (`assertCanSetClassTeacherPay`), `/staff-ops/classes/:id/teacher-pay`. Kế toán chi giữ trên allowlist route để người kiêm role vào được, nhưng thuần Kế toán chi → `403` «Chỉ Admin, Trưởng ban Đào tạo hoặc Quản lý lớp của lớp này mới được sửa lương gia sư theo lớp. Kế toán chi chỉ xem.». Không tự sửa lương của chính mình (`assertActorNotEditingOwnCompensation`) giữ nguyên.
+
+**Số dư ví học sinh.** Trên route `/class`, `accountBalance` của học sinh (cấp dòng và `student.accountBalance`) chỉ trả cho Admin, Trưởng phòng Sale & CSKH, Kế toán thu, Kế toán chi (hợp quyền). Trưởng ban Đào tạo / Ban Đào tạo không nhận — áp `GET /class/:id`, `GET /class/:id/students` và response của các route ghi lớp. Route staff-ops giữ luật cũ (teacher / training_manager / training_head bỏ ví).
+
+**Giải trình vắng (staff-ops).** Tạo/sửa giải trình dùng `resolveClassWorkAccess` như xếp lịch bù; Quản lý lớp và Admin giải trình cho mọi gia sư của lớp, gia sư chỉ cho buổi của mình; còn lại `403`.
