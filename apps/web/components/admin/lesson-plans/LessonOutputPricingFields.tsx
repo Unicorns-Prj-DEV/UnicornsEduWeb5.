@@ -38,6 +38,13 @@ type Props = {
   /** `level` của output — nguồn giá Bài giảng lý thuyết. */
   level: string;
   storedCost: number;
+  /**
+   * `true` = chỉ xem bậc độ khó / hạng mục. Tự khai chi phí giáo án: người nhận
+   * thanh toán, Trưởng ban Chuyên môn và Admin cài khi output chưa thanh toán.
+   */
+  pricingLocked?: boolean;
+  /** Lý do khoá hiển thị dưới «Hạng mục đã làm». */
+  pricingLockedMessage?: string;
   selectButtonClassName: string;
   selectMenuClassName: string;
   linkInputClassName: string;
@@ -59,6 +66,8 @@ export default function LessonOutputPricingFields({
   theoryLectureLinks,
   level,
   storedCost,
+  pricingLocked = false,
+  pricingLockedMessage = "Chỉ người nhận thanh toán output, Trưởng ban Chuyên môn và Admin cài bậc độ khó, level và hạng mục.",
   selectButtonClassName,
   selectMenuClassName,
   linkInputClassName,
@@ -105,6 +114,7 @@ export default function LessonOutputPricingFields({
           options={DIFFICULTY_OPTIONS}
           ariaLabel="Bậc độ khó giáo án"
           placeholder="Chọn bậc độ khó"
+          disabled={pricingLocked}
           buttonClassName={`${selectButtonClassName} flex items-center justify-between text-left`}
           menuClassName={selectMenuClassName}
         />
@@ -115,12 +125,16 @@ export default function LessonOutputPricingFields({
 
       <fieldset className="space-y-2">
         <legend className={labelClass}>Hạng mục đã làm</legend>
+        {pricingLocked ? (
+          <p className="text-xs text-text-muted">{pricingLockedMessage}</p>
+        ) : null}
         <div className="flex flex-col gap-2 pt-1">
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-text-primary">
             <input
               type="checkbox"
               checked={includesTest}
               onChange={(event) => onIncludesTestChange(event.target.checked)}
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             Sinh test
@@ -130,6 +144,7 @@ export default function LessonOutputPricingFields({
               type="checkbox"
               checked={includesSolution}
               onChange={(event) => onIncludesSolutionChange(event.target.checked)}
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             Lời giải
@@ -141,6 +156,7 @@ export default function LessonOutputPricingFields({
               onChange={(event) =>
                 onIncludesLectureVideoChange(event.target.checked)
               }
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             Bài giảng video
@@ -152,6 +168,7 @@ export default function LessonOutputPricingFields({
               onChange={(event) =>
                 onIncludesTheoryLectureChange(event.target.checked)
               }
+              disabled={pricingLocked}
               className={checkboxClass}
             />
             <span>

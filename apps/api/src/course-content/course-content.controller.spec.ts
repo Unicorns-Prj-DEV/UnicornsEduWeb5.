@@ -50,8 +50,8 @@ describe('LessonQuizController.getLessonQuizzes', () => {
       ALLOW_STAFF_ROLES_ON_ADMIN_KEY,
       getHandler(LessonQuizController, 'getLessonQuizzes'),
     );
+    // #267: Trợ lí không còn trong nhóm soạn nội dung khoá.
     expect(staffRoles).toEqual([
-      StaffRole.assistant,
       StaffRole.teacher,
       StaffRole.lesson_plan,
       StaffRole.lesson_plan_head,

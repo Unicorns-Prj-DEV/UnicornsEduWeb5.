@@ -22,10 +22,10 @@ describe('CourseService – lesson_plan_head scope', () => {
     roles: ['lesson_plan_head'],
     isAdminUser: false,
   };
-  const assistant: CourseActor = {
-    userId: 'user-assistant',
-    staffId: 'UNISTAFF-assistant',
-    roles: ['assistant'],
+  const staffAdmin: CourseActor = {
+    userId: 'user-staff-admin',
+    staffId: 'UNISTAFF-staff-admin',
+    roles: ['admin'],
     isAdminUser: false,
   };
   const course = { id: 'course-x', name: 'Khoá X' };
@@ -56,7 +56,7 @@ describe('CourseService – lesson_plan_head scope', () => {
   });
 
   it('does not add managers to the team when they create a course', async () => {
-    await service.create(assistant, { name: 'Khoá mới' } as never);
+    await service.create(staffAdmin, { name: 'Khoá mới' } as never);
     expect(prisma.course.create).toHaveBeenCalledWith({
       data: {
         name: 'Khoá mới',
@@ -127,12 +127,31 @@ describe('CourseService – lesson_plan_head scope', () => {
       expect(prisma.class.updateMany).not.toHaveBeenCalled();
     });
 
-    it('chặn bật khi còn lớp chưa có tổng gói', async () => {
+    it('chặn bật khi còn lớp đang có học sinh mà chưa có tổng gói', async () => {
       prisma.class.count.mockResolvedValue(1);
       await expect(
         service.update(admin, course.id, { is_one_time: true } as never),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.course.update).not.toHaveBeenCalled();
+    });
+
+    it('lớp còn trống được để trống gói khi bật bán một lần (follow-up 13/11)', async () => {
+      await service.update(admin, course.id, { is_one_time: true } as never);
+      expect(prisma.class.count).toHaveBeenCalledWith({
+        where: {
+          courseId: course.id,
+          OR: [
+            { tuitionPackageTotal: { lte: 0 } },
+            {
+              tuitionPackageTotal: null,
+              students: {
+                some: { OR: [{ status: null }, { status: 'active' }] },
+              },
+            },
+          ],
+        },
+      });
+      expect(prisma.course.update).toHaveBeenCalled();
     });
 
     it('tắt luôn được và đưa lớp về per_session', async () => {
@@ -149,7 +168,7 @@ describe('CourseService – lesson_plan_head scope', () => {
       });
     });
 
-    it('không cho trưởng chuyên môn đổi cài đặt bán một lần', async () => {
+    it('không cho trưởng ban Chuyên môn đổi cài đặt bán một lần', async () => {
       prisma.courseLessonPlanMember.findUnique.mockResolvedValue({ id: 'm1' });
       await expect(
         service.update(head, course.id, { is_one_time: true } as never),

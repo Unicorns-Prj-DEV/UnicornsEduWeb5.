@@ -632,8 +632,7 @@ export default function AddSessionPopup({
   const canViewTuitionHeader =
     fullProfile?.roleType === "admin" ||
     (fullProfile?.roleType === "staff" &&
-      ((fullProfile.staffInfo?.roles ?? []).includes("accountant") ||
-        (fullProfile.staffInfo?.roles ?? []).includes("accountant_income")));
+      (fullProfile.staffInfo?.roles ?? []).includes("accountant_income"));
   const headerTuitionDisplay = useMemo(() => {
     if (!canViewTuitionHeader) return null;
     return `Học phí: ${formatCurrency(resolvedSessionTuitionTotal)}`;

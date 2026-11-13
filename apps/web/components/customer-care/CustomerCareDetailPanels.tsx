@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -328,17 +329,15 @@ export default function CustomerCareDetailPanels({
     staleTime: 60_000,
   });
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  // #267: thanh toán hoa hồng CSKH là trả lương → Trợ lí không còn quyền.
   const canEditCommissionPaymentStatus =
     fullProfile?.roleType === "admin" ||
-    staffRoles.includes("assistant") ||
-    staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
-    staffRoles.includes("accountant") ||
     staffRoles.includes("admin");
   const canEditProfitPercent =
     fullProfile?.roleType === "admin" ||
     staffRoles.includes("admin") ||
-    staffRoles.includes("assistant");
+    hasSaleCsHeadAccess(staffRoles);
 
   const {
     data: studentListPages,
@@ -1804,6 +1803,14 @@ export default function CustomerCareDetailPanels({
             <div className="rounded-[1.5rem] border border-border-default bg-bg-surface p-6 text-center text-sm text-text-muted shadow-sm">
               {`Không có hoa hồng trong ${commissionMonthLabel}.`}
             </div>
+          )}
+          {commissionList?.amountsVisible === false && (
+            // #270: hoa hồng là thu nhập cá nhân — chỉ Admin, Kế toán chi, chính CSKH thấy số tiền.
+            <p className="text-xs text-text-muted">
+              Số tiền hoa hồng là thu nhập cá nhân, chỉ Admin, Kế toán chi và
+              chính nhân sự CSKH được xem. Bạn vẫn xem được danh sách và trạng
+              thái thanh toán.
+            </p>
           )}
           {!commissionsLoading && !commissionsError && commissions.length > 0 && (
             <div className="space-y-2">

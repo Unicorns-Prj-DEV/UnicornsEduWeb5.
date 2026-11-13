@@ -110,7 +110,7 @@ export class AdminCreateUserDto {
 
   @ApiPropertyOptional({
     example: true,
-    description: 'Xác thực email ngay khi tạo user từ admin/trợ lí',
+    description: 'Xác thực email ngay khi tạo user từ admin',
   })
   @IsOptional()
   @Type(() => Boolean)
@@ -167,7 +167,8 @@ export class AdminCreateStudentUserDto extends CreateUserDto {
 
   @ApiPropertyOptional({
     example: true,
-    description: 'Xác thực email ngay khi tạo học sinh từ admin/trợ lí',
+    description:
+      'Xác thực email ngay khi tạo học sinh từ admin/Trưởng phòng Sale & CSKH',
   })
   @IsOptional()
   @Type(() => Boolean)

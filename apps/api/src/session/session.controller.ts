@@ -71,7 +71,6 @@ export class SessionController {
 
   @Post()
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Tạo session',
     description:
@@ -93,11 +92,8 @@ export class SessionController {
 
   @Put(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_income,
-    StaffRole.accountant_expense,
-  )
+  // #275: Kế toán thu không sửa buổi; giữ Admin + Kế toán chi.
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Cập nhật session',
     description:
@@ -107,13 +103,18 @@ export class SessionController {
   @ApiBody({ type: SessionUpdateDto, description: 'Session update payload' })
   @ApiResponse({ status: 200, description: 'Session đã được cập nhật.' })
   @ApiResponse({ status: 400, description: 'Lỗi khi cập nhật session.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Chỉ Admin và Kế toán chi (#275: Kế toán thu bị từ chối); Kế toán chi không tự sửa trợ cấp / hệ số / thanh toán buổi của chính mình (#265).',
+  })
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
   async updateSession(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() data: SessionUpdateDto,
   ) {
-    // Route chỉ mở cho admin/trợ lí/kế toán → được lưu khi Nhận xét buổi học còn trống
+    // Route chỉ mở cho Admin + Kế toán chi → được lưu khi Nhận xét buổi học còn trống
     // field bắt buộc. Gia sư sửa buổi qua staff-ops vẫn bị kiểm tra đủ.
     return this.sessionService.updateSession(
       { ...data, id },
@@ -128,11 +129,9 @@ export class SessionController {
 
   @Patch('payment-status/bulk')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_income,
-    StaffRole.accountant_expense,
-  )
+  // #275: trạng thái thanh toán trợ cấp buổi do Kế toán chi làm (biên bản 12/11);
+  // Kế toán thu bị 403.
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Cập nhật trạng thái thanh toán cho nhiều session',
     description:
@@ -150,6 +149,11 @@ export class SessionController {
   @ApiResponse({
     status: 400,
     description: 'Payload không hợp lệ hoặc thiếu sessionIds.',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Chỉ Admin và Kế toán chi (#275: Kế toán thu bị từ chối); không tự đổi trạng thái thanh toán buổi của chính mình (#265).',
   })
   @ApiResponse({
     status: 404,
@@ -189,10 +193,7 @@ export class SessionController {
 
   @Get('/staff/:staffId/unpaid')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary:
       'Lấy tổng phụ cấp session chưa nhận theo staff trong N ngày gần nhất',
@@ -239,10 +240,7 @@ export class SessionController {
 
   @Get('/staff/:staffId/missed-teaching-alerts')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Lấy cảnh báo chưa dạy theo nhân sự',
   })
@@ -275,10 +273,7 @@ export class SessionController {
 
   @Get('/staff/:staffId')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({ summary: 'Lấy session theo staff + tháng/năm' })
   @ApiParam({
     name: 'staffId',
@@ -293,17 +288,27 @@ export class SessionController {
   })
   @ApiResponse({ status: 400, description: 'month/year không hợp lệ.' })
   async getSessionsByTeacherId(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Param('staffId', new ParseStaffIdPipe()) teacherId: string,
     @Query('month') month: string,
     @Query('year') year: string,
   ) {
-    return this.sessionService.getSessionsByTeacherId(teacherId, month, year);
+    const sessions = await this.sessionService.getSessionsByTeacherId(
+      teacherId,
+      month,
+      year,
+    );
+    // Kế toán chi xem buổi để tính lương, không thấy học phí (biên bản 2026-11-12 mục 3).
+    return redactSessionsForAccountantView(
+      sessions,
+      resolveAccountantFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+    );
   }
 
   @Get('/class/:classId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )
@@ -341,7 +346,6 @@ export class SessionController {
   @Get('/class/:classId/next-ordinal')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )
@@ -367,10 +371,7 @@ export class SessionController {
 
   @Get('/class/:classId/missed-teaching-alerts')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({
     summary: 'Lấy cảnh báo chưa dạy theo lớp',
   })
@@ -402,7 +403,6 @@ export class SessionController {
   }
 
   @Post('/class/:classId/missed-teaching-explanations')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Lưu giải trình vắng cho buổi học gốc',
   })
@@ -434,7 +434,6 @@ export class SessionController {
   }
 
   @Patch('/missed-teaching-explanations/:id')
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
   @ApiOperation({
     summary: 'Cập nhật giải trình vắng',
   })

@@ -16,7 +16,7 @@ Cho phép người dùng đăng nhập bằng email/password hoặc Google OAuth
 - Redirect theo role:
   - `admin` -> `/admin/dashboard`
   - `student` -> `/student` khi đã có linked student profile; nếu chưa có profile -> `/user-profile`
-  - mọi staff role không phải `roleType=admin`, kể cả `staff.admin`, `staff.assistant`, `staff.accountant_income`, `staff.accountant_expense`, `staff.lesson_plan_head`, và multi-role như `teacher + lesson_plan`, -> `/staff` khi đã có linked staff profile; nếu chưa có profile -> `/user-profile`
+  - mọi staff role không phải `roleType=admin`, kể cả `staff.admin`, `staff.sale_customer_care_head`, `staff.accountant_income`, `staff.accountant_expense`, `staff.lesson_plan_head`, và multi-role như `teacher + lesson_plan`, -> `/staff` khi đã có linked staff profile; nếu chưa có profile -> `/user-profile`
   - linked `studentInfo` -> `/student` khi user không có linked staff profile
   - fallback -> `/`
 - Trường hợp query `error=google_no_user`: hiển thị `toast.error`.

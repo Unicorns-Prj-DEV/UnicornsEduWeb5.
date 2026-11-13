@@ -474,16 +474,15 @@ export default function TrainingManagerClassesTabPanel({
     staleTime: 60_000,
   });
   const staffRoles = fullProfile?.staffInfo?.roles ?? [];
+  // Khớp BE bulkUpdatePaymentStatus: chỉ Admin + Kế toán chi.
   const canEditPaymentStatus =
     fullProfile?.roleType === "admin" ||
-    staffRoles.includes("assistant") ||
-    staffRoles.includes("accountant_income") ||
     staffRoles.includes("accountant_expense") ||
-    staffRoles.includes("accountant") ||
     staffRoles.includes("admin");
-  // Khớp quyền BE `assertCanEditTrainingManager`: chỉ admin hoặc trợ lí.
+  // #276: % trợ cấp quản lý lớp chỉ Admin sửa (BE
+  // `assertCanEditClassManagerAllowanceRate`).
   const canEditRate =
-    fullProfile?.roleType === "admin" || staffRoles.includes("assistant");
+    fullProfile?.roleType === "admin" || staffRoles.includes("admin");
   const [rateEditTarget, setRateEditTarget] =
     useState<SessionRateEditTarget | null>(null);
 

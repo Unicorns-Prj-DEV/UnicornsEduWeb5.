@@ -222,6 +222,8 @@ export interface CreateClassPayload {
     /** Teachers with optional custom allowance. Takes precedence over teacher_ids when both sent. */
     teachers?: ClassTeacherPayload[];
     student_ids?: string[];
+    /** #274: Quản lý lớp giao ngay khi tạo lớp (Admin / Trưởng ban Đào tạo). */
+    training_manager_staff_id?: string;
 }
 
 export interface UpdateClassPayload {
@@ -253,6 +255,13 @@ export interface UpdateClassBasicInfoPayload {
     allowance_per_session_per_student?: number;
     max_allowance_per_session?: number | null;
     scale_amount?: number;
+}
+
+/**
+ * Payload for PATCH /class/:id/tuition — **Học phí lớp** (#272).
+ * Admin và Trưởng phòng Sale & CSKH sửa; Thông tin lớp không còn nhận học phí.
+ */
+export interface UpdateClassTuitionPayload {
     student_tuition_per_session?: number;
     student_tuition_per_block?: number | null;
     tuition_package_total?: number;

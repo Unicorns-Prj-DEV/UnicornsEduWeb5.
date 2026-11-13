@@ -114,7 +114,7 @@ describe('AuthService', () => {
       preferredRedirect?: string;
       adminTier?:
         | 'full'
-        | 'assistant'
+        | 'sale_customer_care_head'
         | 'accountant'
         | 'lesson_plan_head'
         | null;
@@ -1374,7 +1374,7 @@ describe('AuthService', () => {
     it('lets assistant set password of a student', async () => {
       mockTarget({ roleType: UserRole.student });
       mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
-        roles: [StaffRole.assistant],
+        roles: [StaffRole.sale_customer_care_head],
       });
 
       await expect(
@@ -1387,12 +1387,25 @@ describe('AuthService', () => {
       ['staff admin', { roleType: UserRole.staff, roles: [StaffRole.admin] }],
       [
         'other assistant',
-        { roleType: UserRole.staff, roles: [StaffRole.assistant] },
+        {
+          roleType: UserRole.staff,
+          roles: [StaffRole.sale_customer_care_head],
+        },
       ],
+      // #267: Trợ lí chỉ còn đặt mật khẩu cho học sinh, kể cả staff thường.
+      [
+        'teacher staff',
+        { roleType: UserRole.staff, roles: [StaffRole.teacher] },
+      ],
+      [
+        'accountant staff',
+        { roleType: UserRole.staff, roles: [StaffRole.accountant_income] },
+      ],
+      ['guest user', { roleType: UserRole.guest }],
     ])('forbids assistant from targeting %s', async (_label, target) => {
       mockTarget(target);
       mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
-        roles: [StaffRole.assistant],
+        roles: [StaffRole.sale_customer_care_head],
       });
 
       await expect(

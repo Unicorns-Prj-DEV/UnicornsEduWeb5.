@@ -79,6 +79,7 @@ describe('StaffService', () => {
     },
     class: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
     },
     classScheduleEntry: {
@@ -567,7 +568,7 @@ describe('StaffService', () => {
     };
     const updatedStaff = {
       ...existingStaff,
-      roles: [StaffRole.teacher, StaffRole.assistant],
+      roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
     };
 
     mockPrisma.staffInfo.findUnique
@@ -578,13 +579,18 @@ describe('StaffService', () => {
       .spyOn(service, 'getStaffById')
       .mockResolvedValue(updatedStaff as never);
 
+    // Policy #265 tra actor trước: actor là Admin hệ thống.
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      roleType: 'admin',
+      staffInfo: null,
+    });
     await service.updateStaffWithFixedSalaryOverrides(
       'staff-1',
       {
-        roles: [StaffRole.teacher, StaffRole.assistant],
+        roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
         roleFixedSalaryOverrides: [
           {
-            roleType: StaffRole.assistant,
+            roleType: StaffRole.sale_customer_care_head,
             amount: 0,
             operatingRatePercent: null,
           },
@@ -600,10 +606,10 @@ describe('StaffService', () => {
     expect(
       fixedSalarySettingsService.assertStaffOverrideItems,
     ).toHaveBeenCalledWith(
-      [StaffRole.teacher, StaffRole.assistant],
+      [StaffRole.teacher, StaffRole.sale_customer_care_head],
       [
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           amount: 0,
           operatingRatePercent: null,
         },
@@ -612,7 +618,7 @@ describe('StaffService', () => {
     expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          roles: [StaffRole.teacher, StaffRole.assistant],
+          roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
         }),
       }),
     );
@@ -622,7 +628,7 @@ describe('StaffService', () => {
       mockPrisma,
       expect.objectContaining({
         staffId: 'staff-1',
-        nextRoles: [StaffRole.teacher, StaffRole.assistant],
+        nextRoles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
       }),
     );
     const updateOrder = mockPrisma.staffInfo.update.mock.invocationCallOrder[0];
@@ -632,11 +638,74 @@ describe('StaffService', () => {
     expect(syncOrder).toBeGreaterThan(updateOrder);
   });
 
+  describe('tắt role CSKH qua Admin sửa nhân sự (follow-up 13/11 mục 2.1)', () => {
+    const buildCareStaff = (roles: StaffRole[]) => ({
+      id: 'staff-care',
+      userId: 'user-care',
+      roles,
+      status: 'active',
+      customerCareManagedByStaffId: null,
+      user: { id: 'user-care', first_name: 'Chăm', last_name: 'Sóc' },
+      classTeachers: [],
+    });
+
+    async function adminUpdateRoles(
+      previousRoles: StaffRole[],
+      nextRoles: StaffRole[],
+    ) {
+      mockPrisma.staffInfo.findUnique
+        .mockResolvedValueOnce(buildCareStaff(previousRoles))
+        .mockResolvedValue(buildCareStaff(nextRoles));
+      mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-care' });
+      jest
+        .spyOn(service, 'getStaffById')
+        .mockResolvedValue(buildCareStaff(nextRoles) as never);
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        roleType: 'admin',
+        staffInfo: null,
+      });
+      await service.updateStaffWithFixedSalaryOverrides(
+        'staff-care',
+        { roles: nextRoles, roleFixedSalaryOverrides: [] },
+        {
+          userId: 'admin-1',
+          userEmail: 'admin@example.com',
+          roleType: 'admin',
+        },
+      );
+    }
+
+    it('gỡ gán mọi học sinh của CSKH sau khi ghi role, cùng transaction', async () => {
+      await adminUpdateRoles(
+        [StaffRole.customer_care, StaffRole.teacher],
+        [StaffRole.teacher],
+      );
+
+      expect(mockPrisma.customerCareService.deleteMany).toHaveBeenCalledWith({
+        where: { staffId: 'staff-care' },
+      });
+      expect(
+        mockPrisma.customerCareService.deleteMany.mock.invocationCallOrder[0],
+      ).toBeGreaterThan(
+        mockPrisma.staffInfo.update.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('giữ role CSKH thì không gỡ học sinh', async () => {
+      await adminUpdateRoles(
+        [StaffRole.customer_care],
+        [StaffRole.customer_care, StaffRole.teacher],
+      );
+
+      expect(mockPrisma.customerCareService.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
   it('syncs remaining roles after a role is removed, still in the same transaction', async () => {
     const existingStaff = {
       id: 'staff-1',
       userId: 'user-1',
-      roles: [StaffRole.teacher, StaffRole.assistant],
+      roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
       status: 'active',
       customerCareManagedByStaffId: null,
       user: { id: 'user-1' },
@@ -655,6 +724,11 @@ describe('StaffService', () => {
       .spyOn(service, 'getStaffById')
       .mockResolvedValue(updatedStaff as never);
 
+    // Policy #265 tra actor trước: actor là Admin hệ thống.
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      roleType: 'admin',
+      staffInfo: null,
+    });
     await service.updateStaffWithFixedSalaryOverrides(
       'staff-1',
       {
@@ -698,10 +772,10 @@ describe('StaffService', () => {
 
     await expect(
       service.updateStaffWithFixedSalaryOverrides('staff-1', {
-        roles: [StaffRole.teacher, StaffRole.assistant],
+        roles: [StaffRole.teacher, StaffRole.sale_customer_care_head],
         roleFixedSalaryOverrides: [
           {
-            roleType: StaffRole.assistant,
+            roleType: StaffRole.sale_customer_care_head,
             operatingRatePercent: 120,
           },
         ],
@@ -898,7 +972,7 @@ describe('StaffService', () => {
       },
       {
         role: StaffRole.lesson_plan,
-        label: 'Chuyên môn',
+        label: 'Ban Chuyên môn',
         total: 100000,
         paid: 80000,
         unpaid: 20000,
@@ -909,7 +983,7 @@ describe('StaffService', () => {
   it('aggregates extra allowances for assistant and communication into other-role summaries', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant, StaffRole.communication],
+      roles: [StaffRole.sale_customer_care_head, StaffRole.communication],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -919,13 +993,13 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.findMany
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.paid,
           amount: 25000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.pending,
           amount: 10000,
           taxDeductionRatePercent: 0,
@@ -939,13 +1013,13 @@ describe('StaffService', () => {
       ])
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.paid,
           amount: 25000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.assistant,
+          roleType: StaffRole.sale_customer_care_head,
           status: PaymentStatus.pending,
           amount: 10000,
           taxDeductionRatePercent: 0,
@@ -995,7 +1069,7 @@ describe('StaffService', () => {
       ]);
 
     mockOtherRoleUnpaidByRole([
-      [StaffRole.assistant, 13000],
+      [StaffRole.sale_customer_care_head, 13000],
       [StaffRole.communication, 15000],
     ]);
 
@@ -1013,8 +1087,8 @@ describe('StaffService', () => {
     expect(result.yearIncomeTotal).toBe(64000);
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.assistant,
-        label: 'Trợ lí',
+        role: StaffRole.sale_customer_care_head,
+        label: 'Trưởng phòng Sale & CSKH',
         total: 44000,
         paid: 31000,
         unpaid: 13000,
@@ -1109,10 +1183,10 @@ describe('StaffService', () => {
     ]);
   });
 
-  it('aggregates extra allowances for accountant into other-role summaries', async () => {
+  it('aggregates extra allowances for income accountant into other-role summaries', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.accountant_income],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -1122,13 +1196,13 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.findMany
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 7000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.pending,
           amount: 3000,
           taxDeductionRatePercent: 0,
@@ -1136,26 +1210,26 @@ describe('StaffService', () => {
       ])
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 7000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.pending,
           amount: 3000,
           taxDeductionRatePercent: 0,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 2000,
           taxDeductionRatePercent: 0,
         },
       ]);
 
-    mockOtherRoleUnpaidByRole([[StaffRole.accountant, 3000]]);
+    mockOtherRoleUnpaidByRole([[StaffRole.accountant_income, 3000]]);
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -1171,8 +1245,8 @@ describe('StaffService', () => {
     expect(result.yearIncomeTotal).toBe(12000);
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.accountant,
-        label: 'Kế toán',
+        role: StaffRole.accountant_income,
+        label: 'Kế toán thu',
         total: 10000,
         paid: 7000,
         unpaid: 3000,
@@ -1183,7 +1257,7 @@ describe('StaffService', () => {
   it('calculates tax on aggregated extra-allowance source totals instead of per item', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.accountant],
+      roles: [StaffRole.accountant_income],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -1193,13 +1267,13 @@ describe('StaffService', () => {
     mockPrisma.extraAllowance.findMany
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
@@ -1207,13 +1281,13 @@ describe('StaffService', () => {
       ])
       .mockResolvedValueOnce([
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
         },
         {
-          roleType: StaffRole.accountant,
+          roleType: StaffRole.accountant_income,
           status: PaymentStatus.paid,
           amount: 5,
           taxDeductionRatePercent: 10,
@@ -1234,8 +1308,8 @@ describe('StaffService', () => {
     });
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.accountant,
-        label: 'Kế toán',
+        role: StaffRole.accountant_income,
+        label: 'Kế toán thu',
         total: 9,
         paid: 9,
         unpaid: 0,
@@ -1360,7 +1434,7 @@ describe('StaffService', () => {
   it('includes assistant 3% tuition share in income summary for assistant role', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
       classTeachers: [],
     });
     mockPrisma.bonus.findMany
@@ -1401,7 +1475,7 @@ describe('StaffService', () => {
         },
       ]);
 
-    mockOtherRoleUnpaidByRole([[StaffRole.assistant, 6000]]);
+    mockOtherRoleUnpaidByRole([[StaffRole.sale_customer_care_head, 6000]]);
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -1417,8 +1491,8 @@ describe('StaffService', () => {
     expect(result.yearIncomeTotal).toBe(48000);
     expect(result.otherRoleSummaries).toEqual([
       {
-        role: StaffRole.assistant,
-        label: 'Trợ lí',
+        role: StaffRole.sale_customer_care_head,
+        label: 'Trưởng phòng Sale & CSKH',
         total: 15000,
         paid: 9000,
         unpaid: 6000,
@@ -1493,7 +1567,7 @@ describe('StaffService', () => {
     expect(result.otherRoleSummaries).toEqual([
       {
         role: StaffRole.lesson_plan_head,
-        label: 'Trưởng chuyên môn',
+        label: 'Trưởng ban Chuyên môn',
         total: 252933,
         paid: 52320,
         unpaid: 200613,
@@ -2469,7 +2543,7 @@ describe('StaffService', () => {
           },
           {
             id: 'allowance-1',
-            role: StaffRole.assistant,
+            role: StaffRole.sale_customer_care_head,
             sourceType: 'extra_allowance',
             sourceLabel: 'Trợ cấp thêm',
             label: 'Phụ cấp trợ lí',
@@ -3098,7 +3172,187 @@ describe('StaffService', () => {
     });
   });
 
-  it('lets expense accountants update class operating deduction rates', async () => {
+  describe('sensitive staff fields (#270)', () => {
+    function mockStaffDetail() {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-1',
+        status: 'active',
+        roles: [StaffRole.teacher],
+        cccdNumber: '001200000001',
+        birthDate: new Date('2000-01-01'),
+        currentAddress: '1 Phố Huế',
+        gender: 'male',
+        bankAccount: '0123456789',
+        bankQrLink: 'https://qr.example/1',
+        university: 'ĐHBK',
+        user: {
+          first_name: 'A',
+          last_name: 'Teacher',
+          accountHandle: 'teacher-a',
+          email: 'teacher@example.com',
+          phone: '0901234567',
+          province: 'Hanoi',
+          avatarPath: null,
+        },
+        classTeachers: [],
+        monthlyStats: [],
+        customerCareManagedBy: null,
+      });
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
+    }
+
+    function mockViewer(staffId: string, roles: StaffRole[]) {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: { id: staffId, roles },
+      });
+    }
+
+    it('Admin thấy đủ CCCD, liên hệ, ngân hàng, thu nhập', async () => {
+      mockStaffDetail();
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.admin,
+        staffInfo: null,
+      });
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'admin-user',
+        roleType: UserRole.admin,
+      });
+
+      expect(result).toMatchObject({
+        cccdNumber: '001200000001',
+        bankAccount: '0123456789',
+        sensitiveView: { personal: true, bank: true, income: true },
+      });
+      expect(result).toHaveProperty('monthlyStats');
+      expect(result.user).toMatchObject({
+        email: 'teacher@example.com',
+        phone: '0901234567',
+      });
+    });
+
+    it('Kế toán chi thấy ngân hàng + thu nhập, không thấy thông tin cá nhân', async () => {
+      mockStaffDetail();
+      mockViewer('accountant-staff', [StaffRole.accountant_expense]);
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'accountant-user',
+        roleType: UserRole.staff,
+      });
+
+      expect(result).toMatchObject({
+        bankAccount: '0123456789',
+        bankQrLink: 'https://qr.example/1',
+        university: 'ĐHBK',
+        sensitiveView: { personal: false, bank: true, income: true },
+      });
+      expect(result).toHaveProperty('monthlyStats');
+      for (const key of [
+        'cccdNumber',
+        'birthDate',
+        'currentAddress',
+        'gender',
+      ]) {
+        expect(result).not.toHaveProperty(key);
+      }
+      expect(result.user).not.toHaveProperty('email');
+      expect(result.user).not.toHaveProperty('phone');
+    });
+
+    it('nhân sự khác (Kế toán thu) không thấy thông tin cá nhân, ngân hàng, thu nhập', async () => {
+      mockStaffDetail();
+      mockViewer('income-staff', [StaffRole.accountant_income]);
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'income-user',
+        roleType: UserRole.staff,
+      });
+
+      expect(result.sensitiveView).toEqual({
+        personal: false,
+        bank: false,
+        income: false,
+      });
+      for (const key of [
+        'cccdNumber',
+        'bankAccount',
+        'bankQrLink',
+        'monthlyStats',
+        'classAllowance',
+      ]) {
+        expect(result).not.toHaveProperty(key);
+      }
+    });
+
+    it('chính chủ thấy đủ hồ sơ của mình', async () => {
+      mockStaffDetail();
+      mockViewer('staff-1', [StaffRole.teacher]);
+
+      const result = await service.getStaffById('staff-1', {
+        userId: 'teacher-user',
+        roleType: UserRole.staff,
+      });
+
+      expect(result).toMatchObject({
+        cccdNumber: '001200000001',
+        bankAccount: '0123456789',
+        sensitiveView: { personal: true, bank: true, income: true },
+      });
+    });
+
+    it('danh sách nhân sự bỏ unpaidAmountTotal và email với người không được xem', async () => {
+      mockPrisma.staffInfo.count.mockResolvedValue(1);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([
+        {
+          id: 'staff-1',
+          status: 'active',
+          roles: [StaffRole.teacher],
+          cccdNumber: '001200000001',
+          bankAccount: '0123456789',
+          user: {
+            first_name: 'A',
+            last_name: 'Teacher',
+            email: 'teacher@example.com',
+            phone: '0901234567',
+            province: 'Hanoi',
+            avatarPath: null,
+          },
+          classTeachers: [],
+          _count: { achievements: 0 },
+        },
+      ]);
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { staffId: 'staff-1', totalUnpaid: 345000 },
+      ]);
+      mockViewer('income-staff', [StaffRole.accountant_income]);
+
+      const result = await service.getStaff(
+        { page: 1, limit: 20 },
+        { userId: 'income-user', roleType: UserRole.staff },
+      );
+      const [row] = result.data as unknown as Record<string, unknown>[];
+
+      expect(row).not.toHaveProperty('unpaidAmountTotal');
+      expect(row).not.toHaveProperty('cccdNumber');
+      expect(row).not.toHaveProperty('bankAccount');
+      expect(row.user).not.toHaveProperty('email');
+      expect(row.sensitiveView).toEqual({
+        personal: false,
+        bank: false,
+        income: false,
+      });
+    });
+  });
+
+  it('Kế toán chi kiêm Trưởng ban Đào tạo sửa % vận hành theo lớp được (hợp quyền, follow-up 13/11)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      roleType: UserRole.staff,
+      staffInfo: {
+        id: 'staff-head',
+        roles: [StaffRole.accountant_expense, StaffRole.training_head],
+      },
+    });
     mockPrisma.classTeacher.findUnique.mockResolvedValue({
       id: 'assignment-1',
       operatingDeductionRatePercent: 5,
@@ -3113,11 +3367,11 @@ describe('StaffService', () => {
       { operating_deduction_rate_percent: 12.5 },
       {
         roleType: UserRole.staff,
-        staffRoles: [StaffRole.accountant_expense],
+        staffRoles: [StaffRole.accountant_expense, StaffRole.training_head],
         auditActor: {
           userId: 'admin-1',
           userEmail: 'admin@example.com',
-          roleType: UserRole.admin,
+          roleType: UserRole.staff,
         },
       },
     );
@@ -3137,7 +3391,7 @@ describe('StaffService', () => {
       actor: {
         userId: 'admin-1',
         userEmail: 'admin@example.com',
-        roleType: UserRole.admin,
+        roleType: UserRole.staff,
       },
       entityType: 'class_teacher',
       entityId: 'assignment-1',
@@ -3155,6 +3409,85 @@ describe('StaffService', () => {
     });
   });
 
+  describe('% vận hành theo lớp — Kế toán chi chỉ xem (follow-up grill 13/11)', () => {
+    const patch = (
+      staffRoles: StaffRole[],
+      roleType: UserRole = UserRole.staff,
+    ) =>
+      service.patchStaffClassTeacherOperatingDeduction(
+        'staff-1',
+        'class-1',
+        { operating_deduction_rate_percent: 12.5 },
+        {
+          roleType,
+          staffRoles,
+          auditActor: {
+            userId: 'actor-user',
+            userEmail: 'actor@example.com',
+            roleType,
+          },
+        },
+      );
+
+    beforeEach(() => {
+      mockPrisma.classTeacher.findUnique.mockResolvedValue({
+        id: 'assignment-1',
+        operatingDeductionRatePercent: 5,
+      });
+      jest
+        .spyOn(service, 'getStaffById')
+        .mockResolvedValue({ id: 'staff-1' } as never);
+    });
+
+    it('Kế toán chi thuần → 403, không ghi', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: { id: 'staff-acc', roles: [StaffRole.accountant_expense] },
+      });
+      await expect(
+        patch([StaffRole.accountant_expense]),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.classTeacher.update).not.toHaveBeenCalled();
+    });
+
+    it('Kế toán chi kiêm Ban Đào tạo nhưng không quản lý lớp này → 403', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: {
+          id: 'staff-acc',
+          roles: [StaffRole.accountant_expense, StaffRole.training],
+        },
+      });
+      mockPrisma.class.findFirst.mockResolvedValue(null);
+      await expect(
+        patch([StaffRole.accountant_expense, StaffRole.training]),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.classTeacher.update).not.toHaveBeenCalled();
+    });
+
+    it('Kế toán chi kiêm Quản lý lớp của lớp này → được sửa', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        roleType: UserRole.staff,
+        staffInfo: {
+          id: 'staff-acc',
+          roles: [StaffRole.accountant_expense, StaffRole.training],
+        },
+      });
+      mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1' });
+      await patch([StaffRole.accountant_expense, StaffRole.training]);
+      expect(mockPrisma.class.findFirst).toHaveBeenCalledWith({
+        where: { id: 'class-1', trainingManagerStaffId: 'staff-acc' },
+        select: { id: true },
+      });
+      expect(mockPrisma.classTeacher.update).toHaveBeenCalled();
+    });
+
+    it('Admin → được sửa', async () => {
+      await patch([], UserRole.admin);
+      expect(mockPrisma.classTeacher.update).toHaveBeenCalled();
+    });
+  });
+
   it('returns sanitized staff landing profiles with default teacher/active filters', async () => {
     mockPrisma.staffInfo.count.mockResolvedValue(1);
     mockPrisma.staffInfo.findMany.mockResolvedValue([
@@ -3163,7 +3496,7 @@ describe('StaffService', () => {
         university: 'HCMUS',
         specialization: 'Computer Science',
         status: 'active',
-        roles: ['teacher', 'assistant'],
+        roles: ['teacher', 'sale_customer_care_head'],
         achievements: [
           {
             id: 'ach-1',
@@ -3195,7 +3528,7 @@ describe('StaffService', () => {
           id: 'teacher-1',
           name: 'Van A Nguyen',
           status: 'active',
-          roles: ['teacher', 'assistant'],
+          roles: ['teacher', 'sale_customer_care_head'],
           avatarUrl: 'public:avatars-public:users/user-1/avatar.jpg',
           avatarPath: 'users/user-1/avatar.jpg',
           university: 'HCMUS',
@@ -3241,8 +3574,13 @@ describe('StaffService', () => {
     mockPrisma.staffInfo.findMany.mockResolvedValue([]);
     const where = { roles: { has: StaffRole.teacher } };
 
-    await expect(service.getLandingProfiles({}, true)).resolves.toEqual({ data: [], total: 125 });
-    await expect(service.getLandingTutorCount()).resolves.toEqual({ total: 125 });
+    await expect(service.getLandingProfiles({}, true)).resolves.toEqual({
+      data: [],
+      total: 125,
+    });
+    await expect(service.getLandingTutorCount()).resolves.toEqual({
+      total: 125,
+    });
     expect(mockPrisma.staffInfo.count).toHaveBeenCalledWith({ where });
     const args = mockPrisma.staffInfo.findMany.mock.calls.at(-1)?.[0];
     expect(args).toEqual(expect.objectContaining({ where }));
@@ -3296,10 +3634,10 @@ describe('StaffService', () => {
         records: [
           {
             id: 'fs-1',
-            role: StaffRole.assistant,
+            role: StaffRole.sale_customer_care_head,
             sourceType: 'fixed_salary',
             sourceLabel: 'Lương cứng',
-            label: 'Lương cứng Trợ lí',
+            label: 'Lương cứng Trưởng phòng Sale & CSKH',
             secondaryLabel: '2026-09',
             date: null,
             currentStatus: PaymentStatus.pending,
@@ -3399,7 +3737,7 @@ describe('StaffService', () => {
   it('keeps fixed salary as a separate income-summary line per role', async () => {
     mockPrisma.staffInfo.findUnique.mockResolvedValue({
       id: 'staff-1',
-      roles: [StaffRole.assistant],
+      roles: [StaffRole.sale_customer_care_head],
       classTeachers: [],
     });
     mockEmptyTeacherIncome();
@@ -3409,7 +3747,7 @@ describe('StaffService', () => {
       {
         id: 'fs-1',
         staffId: 'staff-1',
-        roleType: StaffRole.assistant,
+        roleType: StaffRole.sale_customer_care_head,
         month: '2026-03',
         status: PaymentStatus.pending,
         note: null,
@@ -3421,7 +3759,7 @@ describe('StaffService', () => {
         netAmount: 900_000,
       },
     ]);
-    mockOtherRoleUnpaidByRole([[StaffRole.assistant, 0]]);
+    mockOtherRoleUnpaidByRole([[StaffRole.sale_customer_care_head, 0]]);
 
     const result = await service.getIncomeSummary('staff-1', {
       month: '03',
@@ -3430,8 +3768,8 @@ describe('StaffService', () => {
 
     expect(result.fixedSalaryRoleSummaries).toEqual([
       expect.objectContaining({
-        role: StaffRole.assistant,
-        label: 'Lương cứng · Trợ lí',
+        role: StaffRole.sale_customer_care_head,
+        label: 'Lương cứng · Trưởng phòng Sale & CSKH',
         total: 900000,
         unpaid: 900000,
         paid: 0,
@@ -3580,7 +3918,11 @@ describe('StaffService', () => {
       );
 
       const nextRoles = [StaffRole.teacher, StaffRole.sale, StaffRole.training];
-      expect(result).toEqual({ id: 'T1', roles: nextRoles });
+      // #278: response chỉ gồm ba role Trưởng ban quản lý (ẩn role khác).
+      expect(result).toEqual({
+        id: 'T1',
+        roles: [StaffRole.teacher, StaffRole.training],
+      });
       expect(mockPrisma.staffInfo.update).toHaveBeenCalledWith({
         where: { id: 'T1' },
         data: { roles: nextRoles },
@@ -3625,6 +3967,80 @@ describe('StaffService', () => {
       expect(
         fixedSalarySettingsService.syncStaffRoleOverridesInTx,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('assertCanRegenerateMeetLink (#278)', () => {
+    const staffActor = { userId: 'u1', roleType: UserRole.staff };
+
+    it('Admin (roleType) được phép, không cần tra staff', async () => {
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', {
+          userId: 'admin',
+          roleType: UserRole.admin,
+        }),
+      ).resolves.toBeUndefined();
+      expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('chính nhân sự được phép', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'T1',
+        roles: [StaffRole.teacher],
+        status: StaffStatus.active,
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).resolves.toBeUndefined();
+    });
+
+    it('Trưởng ban Đào tạo được phép với cấp dưới', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'HEAD',
+        roles: [StaffRole.training_head],
+        status: StaffStatus.active,
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
+        id: 'T1',
+        roles: [StaffRole.teacher, StaffRole.sale],
+        user: { roleType: UserRole.staff },
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).resolves.toBeUndefined();
+    });
+
+    it.each([
+      [
+        'người mang role trưởng',
+        [StaffRole.teacher, StaffRole.lesson_plan_head],
+      ],
+      ['ngoài ba nhóm', [StaffRole.sale]],
+    ])('Trưởng ban Đào tạo bị từ chối với %s', async (_label, roles) => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'HEAD',
+        roles: [StaffRole.training_head],
+        status: StaffStatus.active,
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValueOnce({
+        id: 'T1',
+        roles,
+        user: { roleType: UserRole.staff },
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('nhân sự khác (không phải Trưởng ban) bị từ chối', async () => {
+      mockPrisma.staffInfo.findFirst.mockResolvedValueOnce({
+        id: 'S2',
+        roles: [StaffRole.training, StaffRole.teacher],
+        status: StaffStatus.active,
+      });
+      await expect(
+        service.assertCanRegenerateMeetLink('T1', staffActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

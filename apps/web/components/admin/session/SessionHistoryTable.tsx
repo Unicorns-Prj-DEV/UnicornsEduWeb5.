@@ -171,6 +171,11 @@ type Props = {
   skipRequiredReviewValidation?: boolean;
   /** Hiện toggle Dạy thử (coefficient = 0) khi sửa buổi — admin, trợ lí và gia sư. */
   allowTrialTeachingToggle?: boolean;
+  /**
+   * Thu hẹp toggle Dạy thử theo từng buổi (#275: Quản lý lớp không đổi hệ số /
+   * Dạy thử trên buổi của gia sư khác). Bỏ trống = theo `allowTrialTeachingToggle`.
+   */
+  canToggleTrialForSession?: (session: SessionItem) => boolean;
   showTrainingManagerAllowance?: boolean;
   updateSessionFn?: (
     id: string,
@@ -910,6 +915,7 @@ export default function SessionHistoryTable({
   isReviewOnlySession,
   skipRequiredReviewValidation = false,
   allowTrialTeachingToggle = false,
+  canToggleTrialForSession,
   showTrainingManagerAllowance = false,
   updateSessionFn = sessionApi.updateSession,
   deleteSessionFn = sessionApi.deleteSession,
@@ -961,7 +967,11 @@ export default function SessionHistoryTable({
   const isSavedTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
   const [editIsTrialLesson, setEditIsTrialLesson] = useState(false);
   const showTrialLessonToggle =
-    allowTrialTeachingToggle && !readOnlySessionDetails;
+    allowTrialTeachingToggle &&
+    !readOnlySessionDetails &&
+    (!editingSession ||
+      !canToggleTrialForSession ||
+      canToggleTrialForSession(editingSession));
   // Không có toggle (read-only): giữ đúng trạng thái Dạy thử đã lưu.
   const isTrialLesson = showTrialLessonToggle
     ? editIsTrialLesson

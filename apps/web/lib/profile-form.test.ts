@@ -123,7 +123,7 @@ describe("validateProfileForm", () => {
         achievementCount: 1,
         hasHighlightAchievement: true,
       },
-      { ...completeStaff, roles: ["accountant"], achievementCount: 0 },
+      { ...completeStaff, roles: ["accountant_income"], achievementCount: 0 },
     ]) {
       const profile = makeProfile({ staffInfo });
       expect(

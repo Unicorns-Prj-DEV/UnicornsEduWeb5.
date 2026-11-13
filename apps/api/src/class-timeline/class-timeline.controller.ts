@@ -34,11 +34,9 @@ export class ClassTimelineController {
   @Get()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.teacher,
     StaffRole.customer_care,
     ...TRAINING_ACCESS_ROLES,
-    StaffRole.accountant,
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
   )

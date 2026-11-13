@@ -31,7 +31,7 @@ type Props = {
   defaultAllowancePerStudent?: number | null;
   /** Class `scale_amount` (VNĐ / buổi). Used when teacher has no custom scale. */
   defaultScaleAmount?: number | null;
-  /** Admin, accountant, assistant only — shows per-teacher Trợ cấp + Vận hành. */
+  /** Admin, Kế toán thu/chi, Trưởng phòng Sale & CSKH only — shows per-teacher Trợ cấp + Vận hành. */
   showTeacherCompensation?: boolean;
   /**
    * Gia sư tự xem lớp: chỉ dòng của gia sư này hiện trợ cấp / scale / vận hành

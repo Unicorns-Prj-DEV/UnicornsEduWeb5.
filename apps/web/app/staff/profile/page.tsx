@@ -1,5 +1,6 @@
 "use client";
 
+import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -255,12 +256,11 @@ function getOtherRoleDetailHref(role: string) {
     return "/staff/customer-care-detail";
   }
 
-  if (role === "assistant") {
+  if (role === SALE_CS_HEAD_ROLE) {
     return "/staff/assistant-detail";
   }
 
   if (
-    role === "accountant" ||
     role === "accountant_income" ||
     role === "accountant_expense"
   ) {
@@ -357,14 +357,12 @@ export default function StaffSelfDetailPage() {
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
       ((profile.staffInfo?.roles ?? []).includes("teacher") ||
-        (profile.staffInfo?.roles ?? []).includes("accountant") ||
         (profile.staffInfo?.roles ?? []).includes("accountant_income") ||
         (profile.staffInfo?.roles ?? []).includes("accountant_expense")));
   const canViewBeforeDeduction =
     profile?.roleType === "admin" ||
     (profile?.roleType === "staff" &&
-      ((profile.staffInfo?.roles ?? []).includes("accountant") ||
-        (profile.staffInfo?.roles ?? []).includes("accountant_expense")));
+      (profile.staffInfo?.roles ?? []).includes("accountant_expense"));
 
   const {
     data: staff,
@@ -837,7 +835,7 @@ export default function StaffSelfDetailPage() {
   const fixedSalaryPayables = incomeSummary?.fixedSalaryPayables ?? [];
   const showAssistantDualRoleHelper =
     hasAssistantAndCustomerCareRoles(staff?.roles) &&
-    otherRoleSummaries.some((item) => item.role === "assistant");
+    otherRoleSummaries.some((item) => item.role === SALE_CS_HEAD_ROLE);
   const staffDisplayName =
     resolveCanonicalUserName(profile, staff.user?.fullName || staff.fullName) ||
     profile.email ||

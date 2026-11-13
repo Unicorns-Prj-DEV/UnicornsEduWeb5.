@@ -1,4 +1,9 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  PartialType,
+} from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -419,6 +424,15 @@ export class StaffOpsAttendanceDto extends AttendanceReviewFieldsDto {
 }
 
 export class CreateStaffOpsSessionDto extends SessionReviewFieldsDto {
+  @ApiPropertyOptional({
+    description:
+      'Gia sư dạy buổi (#275). Admin / Quản lý lớp chọn bất kỳ gia sư nào của lớp; gia sư chỉ được để trống hoặc gửi chính mình. Bỏ trống: gia sư = chính người tạo (nếu là gia sư của lớp) hoặc gia sư duy nhất của lớp.',
+    example: 'UNISTAFF-c3d4e5f6a7',
+  })
+  @IsOptional()
+  @IsStaffId()
+  teacherId?: string;
+
   @ApiProperty({
     description: 'Session date YYYY-MM-DD',
     example: '2026-03-18',
@@ -504,7 +518,7 @@ export class CreateStaffOpsSessionDto extends SessionReviewFieldsDto {
 
   @ApiPropertyOptional({
     description:
-      'Coefficient for this session, from 0.0 to 1.0. Staff ops may edit this, but not allowance or tuition overrides.',
+      'Coefficient for this session, from 0.0 to 1.0 (0 = Dạy thử). Chỉ Admin hoặc gia sư trên buổi do chính mình dạy được đổi; Quản lý lớp gửi giá trị khác hệ số hiện tại trên buổi của gia sư khác → 403 (#275). Không nhận allowance hay tuition override.',
     example: 1.0,
   })
   @IsOptional()
@@ -527,5 +541,5 @@ export class CreateStaffOpsSessionDto extends SessionReviewFieldsDto {
 }
 
 export class UpdateStaffOpsSessionDto extends PartialType(
-  CreateStaffOpsSessionDto,
+  OmitType(CreateStaffOpsSessionDto, ['teacherId'] as const),
 ) {}

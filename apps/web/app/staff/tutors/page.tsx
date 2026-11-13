@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import {
   keepPreviousData,
   useQuery,
@@ -13,6 +13,7 @@ import StaffAchievementsDialog, {
 } from "@/components/shared/achievement/StaffAchievementsDialog";
 import EditTrainingRolesButton from "@/components/staff/tutors/EditTrainingRolesButton";
 import EditTrainingRolesDialog from "@/components/staff/tutors/EditTrainingRolesDialog";
+import TrainingRoleCandidatePicker from "@/components/staff/tutors/TrainingRoleCandidatePicker";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
@@ -34,11 +35,12 @@ import {
   trainingTutorKeys,
 } from "@/lib/apis/training-tutor.api";
 import { pickAvatarUrl } from "@/lib/avatar";
-import {
-  canTrainingHeadEditRoles,
-  formatStaffRoleLabels,
-} from "@/lib/training-head-roles";
+import { formatStaffRoleLabels } from "@/lib/training-head-roles";
 import { ROLE_LABELS } from "@/lib/staff.constants";
+
+type EditTrainingRolesTarget = ComponentProps<
+  typeof EditTrainingRolesDialog
+>["staff"];
 
 const PAGE_SIZE = 20;
 const TH_CLASS =
@@ -53,7 +55,7 @@ const STATUS_OPTIONS = [
 ];
 const SCOPE_OPTIONS = [
   { value: "tutors", label: "Gia sư" },
-  { value: "all", label: "Tất cả nhân sự" },
+  { value: "all", label: "Nhân sự ba nhóm" },
 ];
 
 export default function StaffTutorsPage() {
@@ -66,18 +68,17 @@ export default function StaffTutorsPage() {
   const queryClient = useQueryClient();
   const [achievementsTarget, setAchievementsTarget] =
     useState<TrainingTutorListItem | null>(null);
-  const [roleTarget, setRoleTarget] = useState<TrainingTutorListItem | null>(
+  const [roleTarget, setRoleTarget] = useState<EditTrainingRolesTarget | null>(
     null,
   );
+  // Follow-up 13/11 mục 2.2: chọn nhân sự thường ngoài ba nhóm để bật role.
+  const [pickingCandidate, setPickingCandidate] = useState(false);
   const rowLink = useRowLink();
+  // #278: cờ quyền do backend tính (cấp dưới, role trưởng, chính mình).
   const canEditRoles = (tutor: TrainingTutorListItem) =>
-    canTrainingHeadEditRoles({
-      viewerStaffId: viewer.staffId,
-      viewerRoles: viewer.roles,
-      target: tutor,
-    });
+    tutor.management?.permissions.canEditRoles ?? false;
 
-  // Chỉ Trưởng ban được chọn «Tất cả nhân sự»; người khác luôn xem gia sư.
+  // Chỉ Trưởng ban được chọn «Nhân sự ba nhóm»; người khác luôn xem gia sư.
   const scope: TrainingTutorScope = viewer.isTrainingHead
     ? scopeChoice
     : "tutors";
@@ -98,15 +99,26 @@ export default function StaffTutorsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 bg-bg-primary p-4 pb-8 sm:p-6">
-      <header>
-        <h1 className="text-xl font-semibold text-text-primary">
-          {isAllScope ? "Tất cả nhân sự" : "Gia sư"}
-        </h1>
-        <p className="text-sm text-text-muted">
-          {isAllScope
-            ? "Hồ sơ mọi nhân sự ở mức hồ sơ gia sư (không liên hệ, giấy tờ, tiền), gồm cả người đã ngừng hoạt động."
-            : "Hồ sơ gia sư cho Ban Đào Tạo, gồm cả gia sư đã ngừng hoạt động."}
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-text-primary">
+            {isAllScope ? "Nhân sự ba nhóm" : "Gia sư"}
+          </h1>
+          <p className="text-sm text-text-muted">
+            {isAllScope
+              ? "Gia sư, Ban Chuyên môn, Đào tạo ở mức hồ sơ chuyên môn (không liên hệ, giấy tờ, thu nhập), gồm cả người đã ngừng hoạt động. Chỉ hiện ba role này."
+              : "Hồ sơ gia sư cho Ban Đào Tạo, gồm cả gia sư đã ngừng hoạt động."}
+          </p>
+        </div>
+        {viewer.isTrainingHead ? (
+          <button
+            type="button"
+            onClick={() => setPickingCandidate(true)}
+            className="min-h-11 shrink-0 rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          >
+            Bật role cho nhân sự khác
+          </button>
+        ) : null}
       </header>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -294,6 +306,16 @@ export default function StaffTutorsPage() {
             void queryClient.invalidateQueries({
               queryKey: trainingTutorKeys.all,
             });
+          }}
+        />
+      ) : null}
+
+      {pickingCandidate ? (
+        <TrainingRoleCandidatePicker
+          onClose={() => setPickingCandidate(false)}
+          onPick={(candidate) => {
+            setPickingCandidate(false);
+            setRoleTarget(candidate);
           }}
         />
       ) : null}

@@ -8,6 +8,7 @@ import {
   AttendanceStatus,
   ClassPricingMode,
   Prisma,
+  StudentClassStatus,
 } from '../../generated/client';
 import { assertCanEnableOneTimeCourse } from 'src/common/class-pricing-mode.util';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -112,7 +113,7 @@ export class CourseService {
   }
 
   async create(actor: CourseActor, dto: CreateCourseDto) {
-    // Trưởng giáo án chỉ thấy khoá được gán: tự gán người tạo để khoá không "biến mất".
+    // Trưởng ban Chuyên môn chỉ thấy khoá được gán: tự gán người tạo để khoá không "biến mất".
     const creatorStaffId =
       !this.courseAccess.isManager(actor) && actor.staffId
         ? actor.staffId
@@ -158,18 +159,31 @@ export class CourseService {
           },
         });
         assertCanEnableOneTimeCourse(chargedAttendanceCount);
+        // Follow-up grill 13/11: chỉ lớp đang có học sinh học mới bắt buộc
+        // gói > 0đ; lớp còn trống được để trống (điền trước học sinh đầu tiên).
+        // Gói 0đ / âm luôn bị chặn vì không phải gói bán một lần hợp lệ.
         const missingPackageCount = await tx.class.count({
           where: {
             courseId: id,
             OR: [
-              { tuitionPackageTotal: null },
               { tuitionPackageTotal: { lte: 0 } },
+              {
+                tuitionPackageTotal: null,
+                students: {
+                  some: {
+                    OR: [
+                      { status: null },
+                      { status: StudentClassStatus.active },
+                    ],
+                  },
+                },
+              },
             ],
           },
         });
         if (missingPackageCount > 0) {
           throw new BadRequestException(
-            `Còn ${missingPackageCount} lớp của khoá chưa có Tổng gói > 0đ. Nhập gói cho các lớp đó trước khi bật bán một lần.`,
+            `Còn ${missingPackageCount} lớp của khoá đang có học sinh học hoặc có Tổng gói 0đ mà chưa có Tổng gói > 0đ. Nhập gói cho các lớp đó trước khi bật bán một lần.`,
           );
         }
       }
@@ -206,11 +220,11 @@ export class CourseService {
     });
   }
 
-  /** Bán một lần đụng tới học phí: chỉ admin/trợ lí, không cho trưởng giáo án. */
+  /** Bán một lần đụng tới học phí: chỉ admin, không cho trưởng ban Chuyên môn. */
   private assertCanChangeSaleMode(actor: CourseActor) {
     if (!this.courseAccess.isManager(actor)) {
       throw new ForbiddenException(
-        'Chỉ admin hoặc trợ lí được đổi cài đặt bán một lần của khoá.',
+        'Chỉ admin được đổi cài đặt bán một lần của khoá.',
       );
     }
   }

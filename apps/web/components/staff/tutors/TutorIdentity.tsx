@@ -13,7 +13,7 @@ export default function TutorIdentity({
 }: {
   tutor: TrainingTutorSummary;
   size?: "md" | "lg";
-  /** Hiện role nhân sự (Trưởng Ban Đào Tạo xem «Tất cả nhân sự»). */
+  /** Hiện role nhân sự (Trưởng ban Đào tạo xem «Nhân sự ba nhóm»). */
   showRoles?: boolean;
 }) {
   const name = tutor.fullName.trim() || "Gia sư";

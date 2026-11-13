@@ -43,7 +43,6 @@ export class CourseExamLibraryController {
   @Get()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -76,7 +75,6 @@ export class CourseExamLibraryController {
   @Post()
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -103,7 +101,6 @@ export class CourseExamLibraryController {
   @Patch(':lessonId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -130,7 +127,6 @@ export class CourseExamLibraryController {
   @Delete(':lessonId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )
@@ -159,7 +155,6 @@ export class CourseExamLibraryController {
   @Post('reorder')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan,
     StaffRole.lesson_plan_head,
   )

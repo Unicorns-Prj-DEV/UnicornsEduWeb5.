@@ -21,10 +21,9 @@ import { PrismaService } from 'src/prisma/prisma.service';
 const STAFF_ROLE_AUDIENCE_MAP: Record<StaffRole, RegulationAudience> = {
   admin: RegulationAudience.staff_admin,
   teacher: RegulationAudience.staff_teacher,
-  assistant: RegulationAudience.staff_assistant,
+  sale_customer_care_head: RegulationAudience.staff_sale_customer_care_head,
   lesson_plan: RegulationAudience.staff_lesson_plan,
   lesson_plan_head: RegulationAudience.staff_lesson_plan_head,
-  accountant: RegulationAudience.staff_accountant,
   accountant_income: RegulationAudience.staff_accountant_income,
   accountant_expense: RegulationAudience.staff_accountant_expense,
   communication: RegulationAudience.staff_communication,
@@ -275,10 +274,11 @@ export class RegulationService {
     const staffRoles = staff?.roles ?? [];
 
     return {
-      canManageAll: staffRoles.includes(StaffRole.assistant),
+      // #267: quản lý quy định chỉ Admin.
+      canManageAll: staffRoles.includes(StaffRole.admin),
       visibleAudiences: [
         ...staffRoles.map((role) => STAFF_ROLE_AUDIENCE_MAP[role]),
-        // Trưởng Ban Đào Tạo có mọi quyền của Ban Đào Tạo, kể cả quy định gửi Đào Tạo.
+        // Trưởng ban Đào tạo có mọi quyền của Ban Đào Tạo, kể cả quy định gửi Đào Tạo.
         ...(hasTrainingAccess(staffRoles)
           ? [RegulationAudience.staff_training]
           : []),

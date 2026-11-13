@@ -1,19 +1,19 @@
 import { StaffRole, UserRole } from 'generated/enums';
 import {
+  canSeeClassStudentWalletOnAdminRoutes,
+  redactClassForAccountantView,
   redactClassForTrainingManagerView,
   redactClassStudentWalletBalances,
   redactOtherTeachersIncome,
   redactOtherTeachersSessions,
+  redactSessionForTrainingManagerView,
+  redactSessionsForAccountantView,
+  redactStudentClassRowsWalletBalance,
   resolveAccountantFinanceView,
+  resolveAdminClassFinanceView,
 } from './accountant-finance-redaction.util';
 
 describe('resolveAccountantFinanceView', () => {
-  it('treats legacy accountant as income finance view', () => {
-    expect(
-      resolveAccountantFinanceView(UserRole.staff, [StaffRole.accountant]),
-    ).toBe('income');
-  });
-
   it('resolves split accountant roles independently', () => {
     expect(
       resolveAccountantFinanceView(UserRole.staff, [
@@ -39,7 +39,9 @@ describe('resolveAccountantFinanceView', () => {
   it('keeps admin and assistant on full finance view', () => {
     expect(resolveAccountantFinanceView(UserRole.admin, [])).toBe('full');
     expect(
-      resolveAccountantFinanceView(UserRole.staff, [StaffRole.assistant]),
+      resolveAccountantFinanceView(UserRole.staff, [
+        StaffRole.sale_customer_care_head,
+      ]),
     ).toBe('full');
   });
 });
@@ -247,5 +249,235 @@ describe('redactOtherTeachersSessions', () => {
         student: { id: 'student-1', fullName: 'Học sinh A' },
       },
     ]);
+  });
+});
+
+describe('#272 resolveAdminClassFinanceView (route admin của lớp)', () => {
+  const head = StaffRole.sale_customer_care_head;
+
+  it.each([
+    [UserRole.admin, [] as StaffRole[], 'full'],
+    [UserRole.staff, [StaffRole.admin], 'full'],
+    [UserRole.staff, [head], 'income'],
+    [UserRole.staff, [head, StaffRole.accountant_income], 'income'],
+    [UserRole.staff, [head, StaffRole.accountant_expense], 'full'],
+    [UserRole.staff, [StaffRole.accountant_income], 'income'],
+    [UserRole.staff, [StaffRole.accountant_expense], 'expense'],
+    [
+      UserRole.staff,
+      [StaffRole.accountant_income, StaffRole.accountant_expense],
+      'full',
+    ],
+    // #274: Trưởng ban Đào tạo thấy lương gia sư, không thấy học phí.
+    [UserRole.staff, [StaffRole.training_head], 'expense'],
+    [UserRole.staff, [StaffRole.training_head, head], 'full'],
+    [
+      UserRole.staff,
+      [StaffRole.training_head, StaffRole.accountant_income],
+      'full',
+    ],
+    [
+      UserRole.staff,
+      [StaffRole.training_head, StaffRole.accountant_expense],
+      'expense',
+    ],
+  ])('%s %j → %s', (roleType, staffRoles, expected) => {
+    expect(resolveAdminClassFinanceView(roleType, staffRoles)).toBe(expected);
+  });
+
+  it('không đổi góc nhìn staff-ops: Trưởng phòng vẫn full ở resolver cũ', () => {
+    expect(resolveAccountantFinanceView(UserRole.staff, [head])).toBe('full');
+  });
+
+  it('Trưởng phòng xem chi tiết lớp: còn Học phí lớp, mất lương gia sư', () => {
+    const classDetail = {
+      id: 'class-1',
+      name: 'Toán 9',
+      studentTuitionPerSession: 180000,
+      studentTuitionPerBlock: 60000,
+      tuitionPackageTotal: 2000000,
+      tuitionPackageSession: 10,
+      allowancePerSessionPerStudent: 90000,
+      allowancePerBlockPerStudent: 30000,
+      maxAllowancePerSession: 300000,
+      maxAllowancePerBlock: 100000,
+      scaleAmount: 10000,
+      trainingManagerRatePercent: 5,
+      teachers: [
+        {
+          id: 'teacher-1',
+          fullName: 'Gia sư A',
+          customAllowance: 100000,
+          customAllowancePerSession: 100000,
+          customScaleAmount: 5000,
+          operatingDeductionRatePercent: 10,
+          taxRatePercent: 10,
+        },
+      ],
+      students: [
+        {
+          id: 'student-1',
+          customTuitionPerSession: 150000,
+          effectiveTuitionPerSession: 150000,
+        },
+      ],
+    };
+
+    const view = resolveAdminClassFinanceView(UserRole.staff, [head]);
+    const redacted = redactClassForAccountantView(classDetail, view);
+
+    expect(redacted).toEqual({
+      id: 'class-1',
+      name: 'Toán 9',
+      studentTuitionPerSession: 180000,
+      studentTuitionPerBlock: 60000,
+      tuitionPackageTotal: 2000000,
+      tuitionPackageSession: 10,
+      teachers: [{ id: 'teacher-1', fullName: 'Gia sư A' }],
+      students: classDetail.students,
+    });
+  });
+});
+
+describe('số dư ví trên route admin của lớp (follow-up grill 13/11)', () => {
+  it('Admin, Trưởng phòng Sale & CSKH, Kế toán thu/chi xem được', () => {
+    expect(canSeeClassStudentWalletOnAdminRoutes(UserRole.admin, [])).toBe(
+      true,
+    );
+    for (const role of [
+      StaffRole.admin,
+      StaffRole.sale_customer_care_head,
+      StaffRole.accountant_income,
+      StaffRole.accountant_expense,
+    ]) {
+      expect(
+        canSeeClassStudentWalletOnAdminRoutes(UserRole.staff, [role]),
+      ).toBe(true);
+    }
+  });
+
+  it('Trưởng ban Đào tạo / Ban Đào tạo / gia sư không xem; kiêm role xem được thì xem', () => {
+    for (const roles of [
+      [StaffRole.training_head],
+      [StaffRole.training],
+      [StaffRole.teacher],
+    ]) {
+      expect(canSeeClassStudentWalletOnAdminRoutes(UserRole.staff, roles)).toBe(
+        false,
+      );
+    }
+    expect(
+      canSeeClassStudentWalletOnAdminRoutes(UserRole.staff, [
+        StaffRole.training_head,
+        StaffRole.accountant_expense,
+      ]),
+    ).toBe(true);
+  });
+
+  it('bỏ accountBalance cả phẳng lẫn lồng trong student', () => {
+    const rows = [
+      {
+        studentId: 's-1',
+        accountBalance: 1,
+        student: { id: 's-1', fullName: 'HS', accountBalance: 500000 },
+      },
+    ];
+    expect(redactStudentClassRowsWalletBalance(rows, false)).toEqual([
+      { studentId: 's-1', student: { id: 's-1', fullName: 'HS' } },
+    ]);
+    expect(redactStudentClassRowsWalletBalance(rows, true)).toBe(rows);
+  });
+});
+
+describe('học phí trong attendance của buổi (kiểm thử role 13/11)', () => {
+  const session = {
+    id: 's1',
+    allowanceAmount: 200000,
+    tuitionFee: 300000,
+    attendance: [
+      {
+        studentId: 'st1',
+        tuitionFee: 150000,
+        payrollBasisTuitionFee: 150000,
+        trialCatchUpFee: 50000,
+      },
+    ],
+  };
+
+  it('Kế toán chi không thấy học phí, học phí chốt hoa hồng, phần thu bù học thử', () => {
+    const [redacted] = redactSessionsForAccountantView([session], 'expense');
+    expect(redacted.allowanceAmount).toBe(200000);
+    expect(redacted).not.toHaveProperty('tuitionFee');
+    expect(redacted.attendance[0]).toEqual({ studentId: 'st1' });
+  });
+
+  it('Quản lý lớp cũng không thấy các trường học phí đó', () => {
+    const redacted = redactSessionForTrainingManagerView(session);
+    expect(redacted.attendance[0]).toEqual({ studentId: 'st1' });
+  });
+});
+
+describe('hoa hồng CSKH/trưởng phòng trên dòng điểm danh (kiểm thử role 13/11)', () => {
+  const session = {
+    id: 's1',
+    allowanceAmount: 200000,
+    attendance: [
+      {
+        studentId: 'st1',
+        customerCareStaffId: 'cc-1',
+        customerCareCoef: 0.1,
+        customerCarePaymentStatus: 'unpaid',
+        customerCareTaxDeductionRatePercent: 10,
+        saleCsHeadStaffId: 'head-1',
+        saleCsHeadPaymentStatus: 'unpaid',
+        saleCsHeadTaxDeductionRatePercent: 10,
+      },
+    ],
+  };
+  const withoutCommission = {
+    studentId: 'st1',
+    customerCareStaffId: 'cc-1',
+    saleCsHeadStaffId: 'head-1',
+  };
+
+  it('Kế toán thu không thấy hoa hồng trên dòng điểm danh', () => {
+    const [redacted] = redactSessionsForAccountantView([session], 'income');
+    expect(redacted.attendance[0]).toEqual(withoutCommission);
+  });
+
+  it('Quản lý lớp / Trưởng ban Đào tạo không thấy hoa hồng trên dòng điểm danh', () => {
+    const redacted = redactSessionForTrainingManagerView(session);
+    expect(redacted.attendance[0]).toEqual(withoutCommission);
+  });
+
+  it('Kế toán chi vẫn thấy để trả hoa hồng', () => {
+    const [redacted] = redactSessionsForAccountantView([session], 'expense');
+    expect(redacted.attendance[0]).toEqual(session.attendance[0]);
+  });
+});
+
+describe('Kế toán thu không thấy khoản chi nhân sự trên buổi (kiểm thử role 13/11)', () => {
+  it('bỏ trợ cấp gia sư, snapshot, vận hành, thuế, trợ cấp Quản lý lớp; giữ học phí', () => {
+    const session = {
+      id: 's1',
+      tuitionFee: 300000,
+      allowanceAmount: 200000,
+      teacherPaymentStatus: 'unpaid',
+      snapshotPerStudentAllowance: 50000,
+      snapshotScaleAmount: 0,
+      teacherOperatingDeductionRatePercent: 10,
+      teacherTaxDeductionRatePercent: 10,
+      trainingManagerStaffId: 'tm-1',
+      trainingManagerRatePercent: 3,
+      trainingManagerAllowanceAmount: 6000,
+      trainingManagerPaymentStatus: 'unpaid',
+      trainingManagerTaxDeductionRatePercent: 10,
+    };
+    const [redacted] = redactSessionsForAccountantView([session], 'income');
+    expect(redacted).toEqual({
+      id: 's1',
+      tuitionFee: 300000,
+      trainingManagerStaffId: 'tm-1',
+    });
   });
 });

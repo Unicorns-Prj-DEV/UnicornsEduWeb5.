@@ -14,6 +14,9 @@ import StaffAchievementsDialog, {
 } from "@/components/shared/achievement/StaffAchievementsDialog";
 import EditTrainingRolesButton from "@/components/staff/tutors/EditTrainingRolesButton";
 import EditTrainingRolesDialog from "@/components/staff/tutors/EditTrainingRolesDialog";
+import TrainingTutorBonusesSection from "@/components/staff/tutors/TrainingTutorBonusesSection";
+import TrainingTutorProfileDialog from "@/components/staff/tutors/TrainingTutorProfileDialog";
+import TrainingTutorWorkSection from "@/components/staff/tutors/TrainingTutorWorkSection";
 import TutorClassChips from "@/components/staff/tutors/TutorClassChips";
 import TutorIdentity from "@/components/staff/tutors/TutorIdentity";
 import TutorPager from "@/components/staff/tutors/TutorPager";
@@ -30,7 +33,6 @@ import {
   formatTutorSessionDate,
   formatTutorSessionTimeRange,
 } from "@/lib/training-tutor";
-import { canTrainingHeadEditRoles } from "@/lib/training-head-roles";
 
 const SESSION_PAGE_SIZE = 20;
 
@@ -39,6 +41,7 @@ export default function StaffTutorDetailPage() {
   const tutorId = decodeURIComponent(params.id ?? "");
   const [showAchievements, setShowAchievements] = useState(false);
   const [showRoleEditor, setShowRoleEditor] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
   const viewer = useStaffViewer();
   const queryClient = useQueryClient();
 
@@ -83,17 +86,25 @@ export default function StaffTutorDetailPage() {
                 editable={tutor.id !== viewer.staffId}
                 onOpen={() => setShowAchievements(true)}
               />
-              {canTrainingHeadEditRoles({
-                viewerStaffId: viewer.staffId,
-                viewerRoles: viewer.roles,
-                target: tutor,
-              }) ? (
+              {/* #278: cờ quyền do backend tính (cấp dưới, role trưởng, chính mình). */}
+              {tutor.management?.permissions.canEditRoles ? (
                 <EditTrainingRolesButton
                   onOpen={() => setShowRoleEditor(true)}
                 />
               ) : null}
+              {tutor.management?.permissions.canEditProfile ? (
+                <button
+                  type="button"
+                  onClick={() => setShowProfileEditor(true)}
+                  className="inline-flex min-h-10 items-center rounded-md text-sm font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  Sửa hồ sơ chuyên môn
+                </button>
+              ) : null}
             </div>
           </section>
+
+          <TrainingTutorWorkSection tutor={tutor} />
 
           <div className="grid gap-4 md:grid-cols-2">
             <TutorClassList
@@ -107,6 +118,10 @@ export default function StaffTutorDetailPage() {
             tutorId={tutor.id}
             total={tutor.taughtSessionCount}
           />
+
+          {tutor.management?.permissions.canViewBonuses ? (
+            <TrainingTutorBonusesSection staffId={tutor.id} />
+          ) : null}
 
           {showAchievements ? (
             <StaffAchievementsDialog
@@ -128,6 +143,13 @@ export default function StaffTutorDetailPage() {
             <EditTrainingRolesDialog
               staff={tutor}
               onClose={() => setShowRoleEditor(false)}
+            />
+          ) : null}
+
+          {showProfileEditor ? (
+            <TrainingTutorProfileDialog
+              tutor={tutor}
+              onClose={() => setShowProfileEditor(false)}
             />
           ) : null}
         </>

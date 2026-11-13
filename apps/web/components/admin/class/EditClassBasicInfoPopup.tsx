@@ -4,6 +4,12 @@ import { useMemo, useState, type SyntheticEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  ResponsiveActionFooter,
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+} from "@/components/ui/ResponsiveDialog";
 import { Switch } from "@/components/ui/switch";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import type { ClassDetail, ClassPricingMode, ClassStatus, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
@@ -13,36 +19,25 @@ import { runBackgroundSave, toastWarnings } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import {
   buildEndClassConfirmMessage,
-  compactTuitionPerSessionLine,
-  computeStudentTuitionPerSessionFromPackage,
   maxAllowanceInputInitialFromServer,
   parseMaxAllowancePerSessionInput,
-  parseTuitionPackageInputs,
 } from "@/lib/class.helpers";
 import {
   classRateFieldLabels,
-  compactTuitionChargeLine,
   convertDisplayedRateInput,
   displayedClassRate,
   explainMissingStandardBlocks,
   formatSessionEquivalentLine,
-  perSessionToPerBlock,
   standardBlockCountFromClassSchedule,
-  toPerBlockTuitionForApi,
   toPerSessionAmountForApi,
   toPerSessionMaxAllowanceForApi,
-  oneTimePackageError,
 } from "@/lib/class-pricing-mode";
 import {
   moneyInputInitialFromNumber,
   parseOptionalMoneyInt,
 } from "@/lib/money-input.helpers";
+import { ADMIN_CLASS_WRITE_ACCESS, type ClassWriteAccess } from "@/lib/class-write-access";
 import {
-  classEditorModalBodyClassName,
-  classEditorModalClassName,
-  classEditorModalCloseButtonClassName,
-  classEditorModalFooterClassName,
-  classEditorModalHeaderClassName,
   classEditorModalPrimaryButtonClassName,
   classEditorModalSecondaryButtonClassName,
   classEditorModalTitleClassName,
@@ -53,7 +48,17 @@ type Props = {
   open: boolean;
   onClose: () => void;
   classDetail: ClassDetail;
+  /**
+   * #274: Admin sửa mọi trường; Trưởng ban Đào tạo / Trưởng phòng chỉ sửa tên,
+   * khoá học (môn/loại lớp) và sĩ số. Mặc định Admin.
+   */
+  access?: ClassWriteAccess;
+  /** Gọi sau khi lưu thành công (trang dùng query key riêng, vd staff-ops). */
+  onSaved?: () => void | Promise<void>;
 };
+
+const TITLE_ID = "edit-class-basic-title";
+const DESCRIPTION_ID = "edit-class-basic-description";
 
 const STATUS_OPTIONS: { value: ClassStatus; label: string }[] = [
   { value: "running", label: "Đang chạy" },
@@ -72,8 +77,6 @@ function basicInfoFieldsChanged(
   classDetail: ClassDetail,
   next: Omit<UpdateClassBasicInfoPayload, "status">,
 ): boolean {
-  const currentTuitionTotal = classDetail.tuitionPackageTotal ?? undefined;
-  const currentTuitionSessions = classDetail.tuitionPackageSession ?? undefined;
   return (
     (classDetail.name ?? "") !== (next.name ?? "") ||
     classDetail.courseId !== next.course_id ||
@@ -82,24 +85,38 @@ function basicInfoFieldsChanged(
     (classDetail.allowancePerSessionPerStudent ?? undefined) !==
       next.allowance_per_session_per_student ||
     (classDetail.maxAllowancePerSession ?? undefined) !== next.max_allowance_per_session ||
-    (classDetail.scaleAmount ?? undefined) !== next.scale_amount ||
-    (classDetail.studentTuitionPerSession ?? undefined) !== next.student_tuition_per_session ||
-    (next.student_tuition_per_block !== undefined &&
-      (classDetail.studentTuitionPerBlock ?? null) !== next.student_tuition_per_block) ||
-    currentTuitionTotal !== next.tuition_package_total ||
-    currentTuitionSessions !== next.tuition_package_session
+    (classDetail.scaleAmount ?? undefined) !== next.scale_amount
   );
 }
 
-export default function EditClassBasicInfoPopup({ open, onClose, classDetail }: Props) {
+export default function EditClassBasicInfoPopup({
+  open,
+  onClose,
+  classDetail,
+  access = ADMIN_CLASS_WRITE_ACCESS,
+  onSaved,
+}: Props) {
   if (!open) return null;
 
-  return <EditClassBasicInfoDialog onClose={onClose} classDetail={classDetail} />;
+  return (
+    <EditClassBasicInfoDialog
+      onClose={onClose}
+      classDetail={classDetail}
+      access={access}
+      onSaved={onSaved}
+    />
+  );
 }
 
-function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">) {
+function EditClassBasicInfoDialog({
+  onClose,
+  classDetail,
+  access = ADMIN_CLASS_WRITE_ACCESS,
+  onSaved,
+}: Omit<Props, "open">) {
   const queryClient = useQueryClient();
-  const formId = "edit-class-basic-info-form";
+  /** Trưởng ban/Trưởng phòng: chỉ tên, khoá học, sĩ số. */
+  const headsMode = !access.isAdmin;
   const [name, setName] = useState(classDetail.name ?? "");
   const [courseId, setCourseId] = useState(classDetail.courseId);
   const [status, setStatus] = useState<ClassStatus>(classDetail.status);
@@ -136,25 +153,14 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
   const [scaleAmountInput, setScaleAmountInput] = useState(() =>
     moneyInputInitialFromNumber(classDetail.scaleAmount),
   );
-  const [tuitionPackageTotalInput, setTuitionPackageTotalInput] = useState(() =>
-    moneyInputInitialFromNumber(classDetail.tuitionPackageTotal),
-  );
-  const [tuitionPackageSessionInput, setTuitionPackageSessionInput] = useState(
-    classDetail.tuitionPackageSession == null ? "" : String(classDetail.tuitionPackageSession),
-  );
   const [noAttendance, setNoAttendance] = useState(classDetail.noAttendance ?? false);
-  const [tuitionPerBlockInput, setTuitionPerBlockInput] = useState(() =>
-    moneyInputInitialFromNumber(
-      displayedClassRate({
-        mode: "per_block",
-        perSession: classDetail.studentTuitionPerSession,
-        perBlock: classDetail.studentTuitionPerBlock,
-        standardBlockCount: standardBlockCountFromClassSchedule(classDetail.schedule),
-      }),
-    ),
-  );
 
-  const willEndClass = classDetail.status === "running" && status === "ended";
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [endReason, setEndReason] = useState("");
+
+  const willEndClass =
+    !headsMode && classDetail.status === "running" && status === "ended";
 
   const handleStatusChange = (nextValue: string) => {
     setStatus(nextValue as ClassStatus);
@@ -166,35 +172,27 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
       queryClient.invalidateQueries({ queryKey: ["class", "list"] }),
       invalidateCalendarScopedQueries(queryClient),
     ]);
+    await onSaved?.();
   };
 
-  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  /** Kiểm tra form; trả về payload Thông tin lớp (chưa gồm status) hoặc null. */
+  const buildBasicInfoWithoutStatus = (): Omit<UpdateClassBasicInfoPayload, "status"> | null => {
     const trimmedName = name.trim();
     if (!trimmedName) {
       toast.error("Tên lớp là bắt buộc.");
-      return;
+      return null;
     }
     const maxStudents = parseOptionalInt(maxStudentsInput);
     if (maxStudents !== undefined && maxStudents < 1) {
       toast.error("Sĩ số tối đa phải lớn hơn hoặc bằng 1.");
-      return;
+      return null;
     }
-    const tuitionPkg = parseTuitionPackageInputs(tuitionPackageTotalInput, tuitionPackageSessionInput);
-    if (!tuitionPkg.ok) {
-      toast.error(tuitionPkg.message);
-      return;
-    }
-    const oneTimePkgError = oneTimePackageError(
-      pricingMode,
-      tuitionPkg.mode === "empty" ? undefined : tuitionPkg.total,
-    );
-    if (oneTimePkgError) {
-      toast.error(oneTimePkgError);
-      return;
+    if (headsMode) {
+      // #274: role trưởng chỉ gửi 3 trường — backend 403 nếu gửi thêm.
+      return { name: trimmedName, course_id: courseId, max_students: maxStudents };
     }
     // Chỉ chặn khi admin thực sự BẬT chế độ block. Lớp đã ở per_block mà lịch
-    // sau đó đổi thành không hợp lệ vẫn phải sửa được học phí / sĩ số / tên lớp,
+    // sau đó đổi thành không hợp lệ vẫn phải sửa được sĩ số / tên lớp,
     // đúng như backend: updateClassBasicInfo không gọi assertCanEnableBlockPricing.
     const pricingModeChanged = pricingMode !== (classDetail.pricingMode ?? "per_session");
     if (
@@ -203,18 +201,10 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
       (standardBlockCount == null || standardBlockCount <= 0)
     ) {
       toast.error(missingBlockReason);
-      return;
+      return null;
     }
-    const studentTuitionPerSession =
-      tuitionPkg.mode === "empty"
-        ? undefined
-        : computeStudentTuitionPerSessionFromPackage(tuitionPkg.total, tuitionPkg.sessions);
-    const studentTuitionPerBlock = toPerBlockTuitionForApi({
-      mode: pricingMode,
-      displayedAmount: parseOptionalMoneyInt(tuitionPerBlockInput),
-    });
 
-    const basicInfoWithoutStatus: Omit<UpdateClassBasicInfoPayload, "status"> = {
+    return {
       name: trimmedName,
       course_id: courseId,
       max_students: maxStudents,
@@ -233,68 +223,83 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
         standardBlockCount,
       }),
       scale_amount: parseOptionalMoneyInt(scaleAmountInput),
-      student_tuition_per_session: studentTuitionPerSession,
-      ...(studentTuitionPerBlock === undefined
-        ? {}
-        : { student_tuition_per_block: studentTuitionPerBlock }),
-      tuition_package_total: tuitionPkg.mode === "empty" ? undefined : tuitionPkg.total,
-      tuition_package_session: tuitionPkg.mode === "empty" ? undefined : tuitionPkg.sessions,
     };
+  };
+
+  const savePricingModeIfChanged = async () => {
+    if (headsMode) return;
+    const currentMode = classDetail.pricingMode ?? "per_session";
+    if (pricingMode !== currentMode) {
+      await classApi.updateClassPricingMode(classDetail.id, {
+        pricing_mode: pricingMode,
+      });
+    }
+  };
+
+  const headsFieldsChanged = (next: Omit<UpdateClassBasicInfoPayload, "status">) =>
+    (classDetail.name ?? "") !== (next.name ?? "") ||
+    classDetail.courseId !== next.course_id ||
+    (classDetail.maxStudents ?? undefined) !== next.max_students;
+
+  const handleConfirmEndClass = () => {
+    const basicInfoWithoutStatus = buildBasicInfoWithoutStatus();
+    if (!basicInfoWithoutStatus) {
+      setEndConfirmOpen(false);
+      return;
+    }
+    const reason = endReason.trim() || undefined;
+    const shouldUpdateBasicInfo = basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus);
+
+    setEndConfirmOpen(false);
+    onClose();
+    runBackgroundSave({
+      loadingMessage: shouldUpdateBasicInfo
+        ? "Đang lưu thông tin và kết thúc lớp..."
+        : "Đang kết thúc lớp...",
+      successMessage: "Đã kết thúc lớp.",
+      errorMessage: "Không thể kết thúc lớp.",
+      action: async () => {
+        await savePricingModeIfChanged();
+        if (shouldUpdateBasicInfo) {
+          await classApi.updateClassBasicInfo(classDetail.id, basicInfoWithoutStatus);
+        }
+        return classApi.endClass(classDetail.id, { reason });
+      },
+      onSuccess: async (result) => {
+        toastWarnings(result.calendarSyncWarnings);
+        await invalidateClassQueries();
+      },
+      // Bước trước có thể đã lưu (basic-info/pricing) hoặc DB đã đổi trước khi lỗi.
+      onError: invalidateClassQueries,
+    });
+  };
+
+  const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const basicInfoWithoutStatus = buildBasicInfoWithoutStatus();
+    if (!basicInfoWithoutStatus) return;
 
     if (willEndClass) {
-      const confirmed = window.confirm(
-        buildEndClassConfirmMessage(classDetail.endClassEligibility?.unpaidSessionCount),
-      );
-      if (!confirmed) return;
-      const reason = window.prompt("Lý do (không bắt buộc)") ?? undefined;
-      const shouldUpdateBasicInfo = basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus);
-
-      onClose();
-      runBackgroundSave({
-        loadingMessage: shouldUpdateBasicInfo
-          ? "Đang lưu thông tin và kết thúc lớp..."
-          : "Đang kết thúc lớp...",
-        successMessage: "Đã kết thúc lớp.",
-        errorMessage: "Không thể kết thúc lớp.",
-        action: async () => {
-          const currentMode = classDetail.pricingMode ?? "per_session";
-          if (pricingMode !== currentMode) {
-            await classApi.updateClassPricingMode(classDetail.id, {
-              pricing_mode: pricingMode,
-            });
-          }
-          if (shouldUpdateBasicInfo) {
-            await classApi.updateClassBasicInfo(classDetail.id, basicInfoWithoutStatus);
-          }
-          return classApi.endClass(classDetail.id, { reason });
-        },
-        onSuccess: async (result) => {
-          toastWarnings(result.calendarSyncWarnings);
-          await invalidateClassQueries();
-        },
-        // Bước trước có thể đã lưu (basic-info/pricing) hoặc DB đã đổi trước khi lỗi.
-        onError: invalidateClassQueries,
-      });
+      setEndReason("");
+      setEndConfirmOpen(true);
       return;
     }
 
-    const payload: UpdateClassBasicInfoPayload = {
-      ...basicInfoWithoutStatus,
-      status,
-    };
+    const shouldSave = headsMode
+      ? headsFieldsChanged(basicInfoWithoutStatus)
+      : basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus) ||
+        status !== classDetail.status;
+    const payload: UpdateClassBasicInfoPayload = headsMode
+      ? basicInfoWithoutStatus
+      : { ...basicInfoWithoutStatus, status };
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu thông tin lớp...",
       successMessage: "Đã lưu thông tin lớp.",
       errorMessage: "Không thể cập nhật thông tin lớp.",
       action: async () => {
-        const currentMode = classDetail.pricingMode ?? "per_session";
-        if (pricingMode !== currentMode) {
-          await classApi.updateClassPricingMode(classDetail.id, {
-            pricing_mode: pricingMode,
-          });
-        }
-        if (basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus) || status !== classDetail.status) {
+        await savePricingModeIfChanged();
+        if (shouldSave) {
           await classApi.updateClassBasicInfo(classDetail.id, payload);
         }
       },
@@ -303,13 +308,6 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
   };
 
   const rateLabels = classRateFieldLabels(pricingMode);
-  const tuitionBrief = compactTuitionChargeLine({
-    mode: pricingMode,
-    totalInput: tuitionPackageTotalInput,
-    sessionsInput: tuitionPackageSessionInput,
-    standardBlockCount,
-    perSessionLine: compactTuitionPerSessionLine(tuitionPackageTotalInput, tuitionPackageSessionInput),
-  });
   const previewLines = useMemo(() => {
     if (pricingMode !== "per_block" || standardBlockCount == null) return [];
     const lines: string[] = [];
@@ -321,15 +319,10 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
     if (maxAllowance != null) {
       lines.push(formatSessionEquivalentLine("Trợ cấp tối đa", maxAllowance, standardBlockCount));
     }
-    const tuitionPerBlock = parseOptionalMoneyInt(tuitionPerBlockInput);
-    if (tuitionPerBlock != null) {
-      lines.push(formatSessionEquivalentLine("Học phí / HV", tuitionPerBlock, standardBlockCount));
-    }
     return lines;
   }, [
     allowancePerSessionInput,
     maxAllowancePerSessionInput,
-    tuitionPerBlockInput,
     pricingMode,
     standardBlockCount,
   ]);
@@ -351,206 +344,223 @@ function EditClassBasicInfoDialog({ onClose, classDetail }: Omit<Props, "open">)
         standardBlockCount,
       }),
     );
-    if (next === "per_block") {
-      setTuitionPerBlockInput((prev) => {
-        if (prev.trim()) return prev;
-        const pkg = parseTuitionPackageInputs(tuitionPackageTotalInput, tuitionPackageSessionInput);
-        if (pkg.ok && pkg.mode !== "empty") {
-          const perSession = computeStudentTuitionPerSessionFromPackage(pkg.total, pkg.sessions);
-          const perBlock = perSessionToPerBlock(perSession, standardBlockCount);
-          if (perBlock != null) return moneyInputInitialFromNumber(perBlock);
-        }
-        return moneyInputInitialFromNumber(
-          displayedClassRate({
-            mode: "per_block",
-            perSession: classDetail.studentTuitionPerSession,
-            perBlock: classDetail.studentTuitionPerBlock,
-            standardBlockCount,
-          }),
-        );
-      });
-    }
     setPricingMode(next);
   };
 
+  /** Giá trị hiển thị ban đầu của các ô tiền (đã quy đổi theo cách thu). */
+  const [initialRateInputs] = useState(() => ({
+    allowance: allowancePerSessionInput,
+    maxAllowance: maxAllowancePerSessionInput,
+    scale: scaleAmountInput,
+  }));
+  const isDirty =
+    name !== (classDetail.name ?? "") ||
+    courseId !== classDetail.courseId ||
+    maxStudentsInput !== String(classDetail.maxStudents ?? "") ||
+    status !== classDetail.status ||
+    pricingMode !== (classDetail.pricingMode ?? "per_session") ||
+    noAttendance !== (classDetail.noAttendance ?? false) ||
+    allowancePerSessionInput !== initialRateInputs.allowance ||
+    maxAllowancePerSessionInput !== initialRateInputs.maxAllowance ||
+    scaleAmountInput !== initialRateInputs.scale;
+
+  const requestClose = () => {
+    if (isDirty) {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    onClose();
+  };
+
+  const fieldClassName =
+    "rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus";
+
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-bg-primary/75" aria-hidden onClick={onClose} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-class-basic-title"
-        className={classEditorModalClassName}
+      <ResponsiveDialog
+        size="2xl"
+        labelledBy={TITLE_ID}
+        describedBy={DESCRIPTION_ID}
+        onBackdropClick={requestClose}
       >
-        <div className={classEditorModalHeaderClassName}>
-          <h2 id="edit-class-basic-title" className={classEditorModalTitleClassName}>
-            Thông tin lớp
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className={classEditorModalCloseButtonClassName}
-            aria-label="Đóng"
-          >
-            <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <form id={formId} onSubmit={handleSubmit} className={`${classEditorModalBodyClassName} pr-0 sm:pr-1`}>
-          <section className="rounded-lg border border-border-default bg-bg-secondary/50 p-3 sm:p-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm text-text-secondary sm:col-span-2">
-                <span>Tên lớp</span>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Khoá học</span>
-                <CourseSelect
-                  name="edit-class-basic-info-type"
-                  value={courseId}
-                  onValueChange={setCourseId}
-                  isOneTime={classDetail.pricingMode === "one_time"}
-                  buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-              </label>
-              <div className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Trạng thái</span>
-                <UpgradedSelect
-                  name="edit-class-basic-info-status"
-                  value={status}
-                  onValueChange={handleStatusChange}
-                  options={STATUS_OPTIONS}
-                  buttonClassName="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-                {willEndClass ? (
-                  <p className="text-xs text-text-muted">
-                    Lưu sẽ gọi kết thúc lớp: gỡ gia sư, đóng roster, xóa lịch cố định và lịch bù tương lai.
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-col gap-1 text-sm md:col-span-2">
-                <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-surface px-3 py-2">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-text-primary">Không cần điểm danh</span>
-                    <span className="text-xs text-text-muted">
-                      Lớp quá đông — hệ thống tự sinh Attendance present cho mọi học sinh.
-                    </span>
-                  </div>
-                  <Switch
-                    checked={noAttendance}
-                    onCheckedChange={setNoAttendance}
-                  />
-                </div>
-              </div>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Sĩ số tối đa</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={maxStudentsInput}
-                  onChange={(e) => setMaxStudentsInput(e.target.value)}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>{rateLabels.allowance}</span>
-                <MoneyInput
-                  value={allowancePerSessionInput}
-                  onValueChange={setAllowancePerSessionInput}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="VNĐ"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>{rateLabels.maxAllowance}</span>
-                <MoneyInput
-                  value={maxAllowancePerSessionInput}
-                  onValueChange={setMaxAllowancePerSessionInput}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="Để trống = không giới hạn"
-                />
-              </label>
-              {pricingMode === "per_block" ? (
-                <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                  <span>{rateLabels.tuition}</span>
-                  <MoneyInput
-                    value={tuitionPerBlockInput}
-                    onValueChange={setTuitionPerBlockInput}
-                    className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                    placeholder="Để trống = suy từ gói"
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+          <ResponsiveDialogBody className="space-y-4">
+            <div>
+              <h2 id={TITLE_ID} className={classEditorModalTitleClassName}>
+                Thông tin lớp
+              </h2>
+              <p id={DESCRIPTION_ID} className="mt-1 text-sm text-text-secondary">
+                {headsMode
+                  ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp) và sĩ số. Các mục khác do Admin chỉnh."
+                  : "Tên, khoá học, trạng thái, sĩ số, trợ cấp gia sư và cách thu học phí."}
+              </p>
+            </div>
+            <section className="rounded-lg border border-border-default bg-bg-secondary/50 p-3 sm:p-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm text-text-secondary md:col-span-2">
+                  <span>Tên lớp</span>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className={fieldClassName}
+                    required
                   />
                 </label>
-              ) : null}
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Scales</span>
-                <MoneyInput
-                  value={scaleAmountInput}
-                  onValueChange={setScaleAmountInput}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Tổng gói</span>
-                <MoneyInput
-                  value={tuitionPackageTotalInput}
-                  onValueChange={setTuitionPackageTotalInput}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="VNĐ"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                <span>Số buổi</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={tuitionPackageSessionInput}
-                  onChange={(e) => setTuitionPackageSessionInput(e.target.value)}
-                  className="rounded-md border border-border-default bg-bg-surface px-3 py-2 text-text-primary focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  placeholder="Số buổi"
-                />
-              </label>
-              {tuitionBrief ? (
-                <p className="text-xs tabular-nums text-text-muted md:col-span-2">{tuitionBrief}</p>
-              ) : null}
-              <div className="md:col-span-2">
-                <ClassPricingModeField
-                  value={pricingMode}
-                  onChange={handlePricingModeChange}
-                  standardBlockCount={standardBlockCount}
-                  missingReason={missingBlockReason}
-                  requireConfirm
-                  previewLines={previewLines}
-                />
+                <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                  <span>Khoá học</span>
+                  <CourseSelect
+                    name="edit-class-basic-info-type"
+                    value={courseId}
+                    onValueChange={setCourseId}
+                    isOneTime={classDetail.pricingMode === "one_time"}
+                    buttonClassName={fieldClassName}
+                  />
+                </label>
+                {headsMode ? null : (
+                  <div className="flex flex-col gap-1 text-sm text-text-secondary">
+                    <span>Trạng thái</span>
+                    <UpgradedSelect
+                      name="edit-class-basic-info-status"
+                      value={status}
+                      onValueChange={handleStatusChange}
+                      options={STATUS_OPTIONS}
+                      buttonClassName={fieldClassName}
+                    />
+                    {willEndClass ? (
+                      <p className="text-xs text-text-muted">
+                        Lưu sẽ gọi kết thúc lớp: gỡ gia sư, đóng roster, xóa lịch cố định và lịch bù tương lai.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+                {headsMode ? null : (
+                  <div className="flex flex-col gap-1 text-sm md:col-span-2">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-surface px-3 py-2">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-text-primary">Không cần điểm danh</span>
+                        <span className="text-xs text-text-muted">
+                          Lớp quá đông — hệ thống tự sinh Attendance present cho mọi học sinh.
+                        </span>
+                      </div>
+                      <Switch checked={noAttendance} onCheckedChange={setNoAttendance} />
+                    </div>
+                  </div>
+                )}
+                <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                  <span>Sĩ số tối đa</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={maxStudentsInput}
+                    onChange={(e) => setMaxStudentsInput(e.target.value)}
+                    className={fieldClassName}
+                  />
+                </label>
+                {headsMode ? null : (
+                  <>
+                    <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                      <span>{rateLabels.allowance}</span>
+                      <MoneyInput
+                        value={allowancePerSessionInput}
+                        onValueChange={setAllowancePerSessionInput}
+                        className={fieldClassName}
+                        placeholder="VNĐ"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                      <span>{rateLabels.maxAllowance}</span>
+                      <MoneyInput
+                        value={maxAllowancePerSessionInput}
+                        onValueChange={setMaxAllowancePerSessionInput}
+                        className={fieldClassName}
+                        placeholder="Để trống = không giới hạn"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm text-text-secondary">
+                      <span>Scales</span>
+                      <MoneyInput
+                        value={scaleAmountInput}
+                        onValueChange={setScaleAmountInput}
+                        className={fieldClassName}
+                      />
+                    </label>
+                    <div className="md:col-span-2">
+                      <ClassPricingModeField
+                        value={pricingMode}
+                        onChange={handlePricingModeChange}
+                        standardBlockCount={standardBlockCount}
+                        missingReason={missingBlockReason}
+                        requireConfirm
+                        previewLines={previewLines}
+                      />
+                      <p className="mt-2 text-xs text-text-muted">
+                        Học phí lớp sửa riêng ở mục «Học phí lớp».
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          </section>
+            </section>
+          </ResponsiveDialogBody>
 
+          <ResponsiveActionFooter>
+            <button
+              type="button"
+              onClick={requestClose}
+              className={classEditorModalSecondaryButtonClassName}
+            >
+              Hủy
+            </button>
+            <button type="submit" className={classEditorModalPrimaryButtonClassName}>
+              Lưu
+            </button>
+          </ResponsiveActionFooter>
         </form>
+      </ResponsiveDialog>
 
-        <div className={classEditorModalFooterClassName}>
-          <button
-            type="button"
-            onClick={onClose}
-            className={classEditorModalSecondaryButtonClassName}
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        title="Bỏ thay đổi thông tin lớp?"
+        description="Thông tin lớp vừa sửa chưa được lưu."
+        confirmLabel="Bỏ"
+        cancelLabel="Tiếp tục sửa"
+        variant="destructive"
+        onConfirm={() => {
+          setConfirmDiscardOpen(false);
+          onClose();
+        }}
+      />
+
+      <ConfirmDialog
+        open={endConfirmOpen}
+        onOpenChange={setEndConfirmOpen}
+        title="Kết thúc lớp?"
+        description={
+          <span className="whitespace-pre-line">
+            {buildEndClassConfirmMessage(classDetail.endClassEligibility?.unpaidSessionCount)}
+          </span>
+        }
+        confirmLabel="Kết thúc lớp"
+        variant="destructive"
+        onConfirm={handleConfirmEndClass}
+      >
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="edit-class-end-reason"
+            className="text-xs font-medium text-text-secondary"
           >
-            Hủy
-          </button>
-          <button
-            type="submit"
-            form={formId}
-            className={classEditorModalPrimaryButtonClassName}
-          >
-            Lưu
-          </button>
+            Lý do (không bắt buộc)
+          </label>
+          <textarea
+            id="edit-class-end-reason"
+            value={endReason}
+            onChange={(event) => setEndReason(event.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/30"
+          />
         </div>
-      </div>
+      </ConfirmDialog>
     </>
   );
 }

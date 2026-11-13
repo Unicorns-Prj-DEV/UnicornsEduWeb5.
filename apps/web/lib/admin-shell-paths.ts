@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 export type AdminLikeRouteBase = "/admin" | "/staff";
 
 export function resolveAdminLikeRouteBase(
@@ -26,12 +27,11 @@ export function buildStaffRoleDetailHref(
       return `/staff/customer-care-detail/${normalizedStaffId}`;
     }
 
-    if (role === "assistant") {
+    if (role === SALE_CS_HEAD_ROLE) {
       return `/staff/assistant-detail?staffId=${normalizedStaffId}`;
     }
 
     if (
-      role === "accountant" ||
       role === "accountant_income" ||
       role === "accountant_expense"
     ) {
@@ -69,12 +69,11 @@ export function buildStaffRoleDetailHref(
     return `/admin/customer_care_detail/${normalizedStaffId}`;
   }
 
-  if (role === "assistant") {
+  if (role === SALE_CS_HEAD_ROLE) {
     return `/admin/assistant_detail?staffId=${normalizedStaffId}`;
   }
 
   if (
-    role === "accountant" ||
     role === "accountant_income" ||
     role === "accountant_expense"
   ) {

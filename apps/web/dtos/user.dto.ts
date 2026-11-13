@@ -5,10 +5,9 @@ export type UserRoleType = "admin" | "staff" | "student" | "guest";
 export type StaffRole =
   | "admin"
   | "teacher"
-  | "assistant"
+  | "sale_customer_care_head"
   | "lesson_plan"
   | "lesson_plan_head"
-  | "accountant"
   | "accountant_income"
   | "accountant_expense"
   | "communication"

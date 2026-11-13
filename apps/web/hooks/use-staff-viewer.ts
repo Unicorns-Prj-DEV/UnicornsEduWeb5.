@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getFullProfile } from "@/lib/apis/auth.api";
 
-/** StaffId + roles của người đang đăng nhập (dùng chung cache full-profile). */
+/** StaffId + roles + cờ Admin của người đang đăng nhập (dùng chung cache full-profile). */
 export function useStaffViewer() {
   const { data: profile } = useQuery({
     queryKey: ["auth", "full-profile"],
@@ -16,5 +16,6 @@ export function useStaffViewer() {
     staffId: profile?.staffInfo?.id ?? null,
     roles,
     isTrainingHead: roles.includes("training_head"),
+    isAdmin: profile?.roleType === "admin" || roles.includes("admin"),
   };
 }

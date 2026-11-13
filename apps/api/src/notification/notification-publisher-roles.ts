@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import { StaffRole } from 'generated/enums';
 import { TRAINING_ACCESS_ROLES } from 'src/common/training-access';
 
@@ -6,10 +7,9 @@ import { TRAINING_ACCESS_ROLES } from 'src/common/training-access';
  * Gia sư (`teacher`) và CSKH (`customer_care`) chỉ nhận nên không có ở đây.
  */
 export const NOTIFICATION_PUBLISHER_STAFF_ROLES: StaffRole[] = [
-  StaffRole.assistant,
+  SALE_CS_HEAD_ROLE,
   StaffRole.lesson_plan,
   StaffRole.lesson_plan_head,
-  StaffRole.accountant,
   StaffRole.accountant_income,
   StaffRole.accountant_expense,
   StaffRole.communication,

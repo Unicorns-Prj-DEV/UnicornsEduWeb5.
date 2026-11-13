@@ -10,21 +10,23 @@ Nguồn sự thật cho guard controller. Tầng service (`CourseAccessService`)
 
 ## CRUD khoá (`CourseController`)
 
-| Endpoint | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` |
+> #267 (ADR `docs/adr/2026-11-12-admin-deny-by-default.md`): Trưởng phòng Sale & CSKH (`sale_customer_care_head`) không còn quản lý khoá học, nội dung khoá, ngân hàng câu hỏi hay nội dung lớp — mọi route admin dưới đây chỉ Admin + role được liệt kê tường minh. Cột `sale_customer_care_head` giữ lại để thấy rõ thay đổi.
+
+| Endpoint | admin | `sale_customer_care_head` | `lesson_plan_head` | `lesson_plan` | `teacher` |
 | --- | --- | --- | --- | --- | --- |
-| `GET /courses` | ✅ (class-level `admin` + `staff`) | ✅ | ✅ chỉ khoá được gán | ✅ chỉ khoá được gán | ✅ |
-| `GET /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | ❌ |
-| `POST /courses` | ✅ | ✅ | ✅ (tự gán người tạo vào đội chuyên môn) | ❌ | ❌ |
-| `PATCH /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
-| `DELETE /courses/:id` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
-| `GET/POST/PATCH/DELETE` difficulty-levels | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | ❌ |
-| `GET /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | ❌ |
-| `PUT /courses/:id/lesson-plan-members` | ✅ | ✅ | ✅ khoá được gán | ❌ | ❌ |
-| `GET /courses/lesson-plan-staff` | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `GET /courses` | ✅ (class-level `admin` + `staff`) | ✅ chỉ đọc danh sách (`@Roles` có `staff`) | ✅ chỉ khoá được gán | ✅ chỉ khoá được gán | ✅ |
+| `GET /courses/:id` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | ❌ |
+| `POST /courses` | ✅ | ❌ (#267) | ✅ (tự gán người tạo vào đội chuyên môn) | ❌ | ❌ |
+| `PATCH /courses/:id` | ✅ | ❌ (#267) | ✅ khoá được gán | ❌ | ❌ |
+| `DELETE /courses/:id` | ✅ | ❌ (#267) | ✅ khoá được gán | ❌ | ❌ |
+| `GET/POST/PATCH/DELETE` difficulty-levels | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán | ❌ |
+| `GET /courses/:id/lesson-plan-members` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán | ❌ |
+| `PUT /courses/:id/lesson-plan-members` | ✅ | ❌ (#267) | ✅ khoá được gán | ❌ | ❌ |
+| `GET /courses/lesson-plan-staff` | ✅ | ❌ (#267) | ✅ | ❌ | ❌ |
 
-`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng chuyên môn sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng chuyên môn) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng chuyên môn **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng chuyên môn không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng chuyên môn tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/trợ lí hoặc trưởng chuyên môn khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
+`POST` / `PATCH` / `DELETE` khoá: controller resolve actor rồi truyền xuống `CourseService.create/update/remove(actor, …)`. `update` / `remove` gọi `assertCanManageCourse` sau check 404 — trưởng ban Chuyên môn sửa/xoá khoá không được gán → `403`. `create` do người không phải manager (trưởng ban Chuyên môn) gọi thì tự thêm người tạo vào `course_lesson_plan_members`, để khoá vừa tạo không biến mất khỏi danh sách của họ. Trưởng ban Chuyên môn **không** còn trong `COURSE_MANAGER_STAFF_ROLES` (ticket 20); hoa hồng trưởng ban Chuyên môn không phụ thuộc gán khoá. `PUT .../lesson-plan-members` không chặn trưởng ban Chuyên môn tự gỡ mình khỏi đội — gỡ xong mất quyền khoá ngay, cần admin/Trưởng phòng Sale & CSKH hoặc trưởng ban Chuyên môn khác của khoá gán lại. Lịch sử quyết định: `docs/adr/2026-09-10-course-workspace.md`.
 
-**Bán một lần (`is_one_time`):** `POST`/`PATCH /courses` nhận `is_one_time?: boolean`. Đổi giá trị (hoặc tạo với `true`) chỉ admin/trợ lí; trưởng chuyên môn → `403`. Bật trả `400` nếu lớp nào của khoá đã có điểm danh present/excused mang học phí > 0, hoặc còn lớp có Tổng gói null/≤ 0. Tắt luôn được. Mọi lớp của khoá đổi `pricing_mode` theo (`one_time` / `per_session`) trong cùng transaction, không tính lại buổi nào. Response khoá có `isOneTime`. Chi tiết: `docs/Database Schema.md` mục 4.4.0-cat và ADR `docs/adr/2026-10-04-one-time-course-setting.md`.
+**Bán một lần (`is_one_time`):** `POST`/`PATCH /courses` nhận `is_one_time?: boolean`. Đổi giá trị (hoặc tạo với `true`) chỉ Admin (#267); trưởng ban Chuyên môn → `403`. Bật trả `400` nếu lớp nào của khoá đã có điểm danh present/excused mang học phí > 0, hoặc còn lớp có Tổng gói ≤ 0, hoặc lớp đang có học sinh học mà Tổng gói null (follow-up 13/11: lớp còn trống được để trống gói). Tắt luôn được. Mọi lớp của khoá đổi `pricing_mode` theo (`one_time` / `per_session`) trong cùng transaction, không tính lại buổi nào. Response khoá có `isOneTime`. Chi tiết: `docs/Database Schema.md` mục 4.4.0-cat và ADR `docs/adr/2026-10-04-one-time-course-setting.md`.
 
 `DELETE /courses/:id` trả `400` khi còn lớp dùng khoá, message:
 
@@ -46,8 +48,8 @@ Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi g�
 
 | Actor | Kết quả list |
 | --- | --- |
-| Đội chuyên môn thuần (`lesson_plan` và/hoặc `lesson_plan_head`, không kèm `admin` / `assistant`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
-| `admin`, `assistant`, `training`, `accountant_income`, `accountant_expense`, `teacher`, `customer_care` | Tất cả khoá (không đổi so với trước) |
+| Đội chuyên môn thuần (`lesson_plan` và/hoặc `lesson_plan_head`, không kèm `admin`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
+| `admin`, `sale_customer_care_head` (chỉ danh sách), `training`, `accountant_income`, `accountant_expense`, `teacher`, `customer_care` | Tất cả khoá (không đổi so với trước) |
 | User đã auth nhưng không có staff profile, và không phải `lesson_plan` thuần | Tất cả khoá; không crash |
 
 `resolveListableCourseIds` trả `null` = mọi khoá, trả mảng = chỉ các id đó. **Không** dùng `resolveViewableCourseIds` cho endpoint này: hàm kia là phạm vi *quản lý nội dung* và sẽ trả mảng rỗng cho training/giáo viên/kế toán (dropdown khoá trống khi tạo lớp).
@@ -56,12 +58,12 @@ Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi g�
 
 Controller: `apps/api/src/course-content/` — `course-module.controller.ts`, `course-lesson.controller.ts`, `lesson-quiz.controller.ts`. Module Nest: `CourseContentModule` (không đụng `apps/api/src/lesson/` — đó là giáo án nhân sự).
 
-| Endpoint nhóm | admin | `assistant` | `lesson_plan_head` | `lesson_plan` | `teacher` (decorator) |
+| Endpoint nhóm | admin | `sale_customer_care_head` | `lesson_plan_head` | `lesson_plan` | `teacher` (decorator) |
 | --- | --- | --- | --- | --- | --- |
-| Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội chuyên môn |
-| Tiết học: `GET/POST/PATCH/DELETE /course/:courseId/modules/:moduleId/lessons` + `POST .../reorder` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
-| Quiz ôn nhẹ: `GET/POST/DELETE /lessons/:lessonId/quizzes` | ✅ | ✅ | ✅ khoá được gán | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
-| Câu hỏi tiết thực hành: `GET/POST/PATCH/DELETE /lessons/:lessonId/questions` | ✅ | ✅ | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
+| Chuyên đề: `GET/POST/PATCH/DELETE /course/:courseId/modules` + `POST .../reorder` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán (`assertCanManageCourse`) | Có trên decorator; service 403 nếu không thuộc đội chuyên môn |
+| Tiết học: `GET/POST/PATCH/DELETE /course/:courseId/modules/:moduleId/lessons` + `POST .../reorder` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
+| Quiz ôn nhẹ: `GET/POST/DELETE /lessons/:lessonId/quizzes` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ | Có trên decorator; service vẫn `assertCanManageCourse` |
+| Câu hỏi tiết thực hành: `GET/POST/PATCH/DELETE /lessons/:lessonId/questions` | ✅ | ❌ (#267) | ✅ khoá được gán | ✅ khoá được gán | Cùng quy tắc `teacher` |
 
 Tạo chuyên đề: body `POST /course/:courseId/modules` là `{ "title": "..." }`. `courseId` lấy từ path; gửi thêm trong body cũng được, controller ghi đè bằng param.
 
@@ -73,7 +75,7 @@ Tạo tiết ở khoá **không** tự thêm vào lớp nào (ADR `docs/adr/2026
 
 ## Chuyên đề của lớp (`/class/:classId/modules`)
 
-Controller: `class-course-module.controller.ts` (`ClassCourseModuleService`). Quyền: admin + staff `assistant`/`teacher` (cùng `validateStaffClassAccess` với nội dung lớp).
+Controller: `class-course-module.controller.ts` (`ClassCourseModuleService`). Quyền: admin + staff `teacher` (Trưởng phòng Sale & CSKH bỏ từ #267) (cùng `validateStaffClassAccess` với nội dung lớp).
 
 | Method | Path | Body | Kết quả |
 | --- | --- | --- | --- |
@@ -92,11 +94,11 @@ Liên quan nội dung lớp (`/class/:classId/content`):
 - `POST` thêm lẻ **một tiết** (lý thuyết hoặc thực hành) có sẵn của khoá, body `{ lessonId, openAt?, closeAt?, shuffleQuestions? }` (#231). Tiết thuộc **bất kỳ** chuyên đề nào của khoá: lớp chưa có dòng `class_modules` cho chuyên đề đó thì tạo với `sortOrder = min − 1` → nhóm mới đứng **đầu**. Tiết thực hành thành **lần giao** (thời lượng đọc từ tiết, #228); tiết lý thuyết bỏ qua `openAt`/`closeAt`/`shuffleQuestions` (lưu `null`). Thiếu `lessonId` → `400` (không tạo tiết riêng). Tiết đã lưu trữ → `404`. Tiết khoá khác / tiết riêng lớp → `400` *«Tiết học không thuộc khoá của lớp.»* Tiết đã có trong lớp → `400`; đang Ẩn tay → `400` *«…Hãy khôi phục thay vì thêm lại.»* Tiết từng **gỡ** (`removedAt`, #233) → đưa item cũ trở lại (giữ lượt xem/attempt; tiết thực hành nhận lịch của lần thêm này; từng Ẩn tay thì vẫn ẩn), không tạo trùng.
 - Hạn làm bài (#229): `closeAt` (ISO) trên `POST` (bỏ qua = `classes.contentAccessExpiresAt`, `null` = không hạn) và `PATCH /class/:classId/content/:itemId` (bỏ qua = giữ). `closeAt ≤ openAt` → `400` *«Hạn làm bài phải sau thời điểm mở bài.»* Response nội dung lớp có `closeAt`. Sau hạn `start` → `403`; điểm/đáp án hiện ngay khi nộp.
 - `POST .../:itemId/restore` (bỏ Ẩn) item đã gỡ khỏi lớp → `400` *«Tiết đã gỡ khỏi lớp. Hãy thêm lại tiết thay vì khôi phục.»*; tiết đã lưu trữ → `400`. Ẩn tay (`DELETE /class/:classId/content/:itemId`) ghi `hiddenReason = manual`; khôi phục xoá lý do. Item đã gỡ → `DELETE` `404`.
-- **Gỡ một tiết khỏi lớp** (#233, admin + staff `assistant`/`teacher`): `POST /class/:classId/content/:itemId/remove` — khác Ẩn: item nhận `removedAt`, biến mất ở mọi phía (kể cả item đang Ẩn); item đang hiện ẩn kèm `hiddenReason = module_removed` + dòng timeline. Bài làm, điểm, lượt xem giữ nguyên. Gỡ tiết cuối của chuyên đề → xoá dòng `class_modules` (nhóm biến mất). Trả danh sách nội dung lớp mới. `404` item không có / khác lớp / đã gỡ. Thêm lại tiết bằng `POST /class/:classId/content`.
+- **Gỡ một tiết khỏi lớp** (#233, admin + staff `teacher`): `POST /class/:classId/content/:itemId/remove` — khác Ẩn: item nhận `removedAt`, biến mất ở mọi phía (kể cả item đang Ẩn); item đang hiện ẩn kèm `hiddenReason = module_removed` + dòng timeline. Bài làm, điểm, lượt xem giữ nguyên. Gỡ tiết cuối của chuyên đề → xoá dòng `class_modules` (nhóm biến mất). Trả danh sách nội dung lớp mới. `404` item không có / khác lớp / đã gỡ. Thêm lại tiết bằng `POST /class/:classId/content`.
 - `GET /class/:classId/content/:itemId/removal-impact` → `ClassContentItemRemovalImpactDto` `{ itemId, ungradedEssayCount, inProgressStudentCount }` (cùng cách đếm với chuyên đề; tiết lý thuyết = 0). Chỉ cảnh báo, không chặn.
 - `GET /class/:classId/content/course-lessons` trả **mọi tiết** (lý thuyết + thực hành) chưa lưu trữ của khoá (không gồm tiết riêng lớp), theo thứ tự chuyên đề → `order` tiết: `{ id, title, kind, moduleId, moduleTitle, alreadyAdded }`. Tiết đã gỡ khỏi lớp có `alreadyAdded = false` (#231).
 - Tiết đã lưu trữ (`lessons.archived_at`) không hiện ở màn nào: `GET` nội dung lớp + timeline (staff, kể cả item đang ẩn; học sinh) bỏ item/dòng của tiết đó. Học sinh mở tiết/lần giao đó (`/users/me/student-classes/:classId/lessons/:lessonId`, `/view`, attempt) và staff xem tiến độ lý thuyết, hàng đợi chấm tự luận, thống kê lần giao → `404`. `POST /class/:classId/content/reorder` không cần (và không nhận, `400`) id của tiết đã lưu trữ. Dữ liệu giữ nguyên trong DB.
-- `GET /class/:classId/content/groups` (admin + staff `assistant`/`teacher`, #153): `ClassContentModuleGroupDto[]` — `{ moduleId, title, added, theoryItems, practiceItems }`. Nhóm lấy từ **tập tiết của lớp** (ADR 2026-10-18): một nhóm cho mỗi chuyên đề lớp có ít nhất một item chưa gỡ (`removedAt = null`; chuyên đề không có tiết nào không có nhóm), theo thứ tự nhóm của lớp (`class_modules.sort_order`, nhóm chưa có thứ tự đứng đầu); trong nhóm lý thuyết theo `order` tiết, thực hành theo `sortOrder` item. Item không thuộc chuyên đề → nhóm cuối `moduleId: null`, `title: "Ngoài chuyên đề"`. Cùng bộ lọc với `GET` nội dung lớp (gồm item đang ẩn, bỏ tiết đã lưu trữ). Item có thêm `moduleId` và `hiddenReason` (`manual` / `module_removed` / `null`). Tạo tiết mới ở khoá không tự thêm vào lớp.
+- `GET /class/:classId/content/groups` (admin + staff `teacher`, #153): `ClassContentModuleGroupDto[]` — `{ moduleId, title, added, theoryItems, practiceItems }`. Nhóm lấy từ **tập tiết của lớp** (ADR 2026-10-18): một nhóm cho mỗi chuyên đề lớp có ít nhất một item chưa gỡ (`removedAt = null`; chuyên đề không có tiết nào không có nhóm), theo thứ tự nhóm của lớp (`class_modules.sort_order`, nhóm chưa có thứ tự đứng đầu); trong nhóm lý thuyết theo `order` tiết, thực hành theo `sortOrder` item. Item không thuộc chuyên đề → nhóm cuối `moduleId: null`, `title: "Ngoài chuyên đề"`. Cùng bộ lọc với `GET` nội dung lớp (gồm item đang ẩn, bỏ tiết đã lưu trữ). Item có thêm `moduleId` và `hiddenReason` (`manual` / `module_removed` / `null`). Tạo tiết mới ở khoá không tự thêm vào lớp.
 - `GET /class/:classId/content/student/groups` (học sinh, #156): cùng shape và cách gom như `/content/groups`, nhưng chỉ item học sinh thấy (bỏ item `hiddenAt`, tiết đã lưu trữ — cùng lọc `GET /content/student`), cùng thứ tự nhóm của lớp. Tiết thực hành chưa tới `openAt` vẫn trả về với `isOpen=false`. `403` khi không học lớp hoặc lớp hết hạn xem nội dung; `404` khi tài khoản không có hồ sơ học sinh.
 - `GET` danh sách nội dung (staff + học sinh) sắp theo `sortOrder` chuyên đề → trong chuyên đề: lý thuyết theo `order`, rồi thực hành theo `sortOrder` item; item không có chuyên đề ở cuối.
 
@@ -132,8 +134,8 @@ Thuật ngữ: `CONTEXT.md` (**Đề in**). `GET /public/app-config` có `examPr
 
 | Method | Path | Ghi chú |
 | --- | --- | --- |
-| `GET` | `/lessons/:lessonId/print.pdf?answers=true\|false` | Tiết thực hành cấp khoá. Quyền như đọc câu hỏi của tiết (`GET /lessons/:lessonId/questions`): admin/trợ lí, đội chuyên môn của khoá. |
-| `GET` | `/staff-ops/classes/:classId/assignments/:assignmentId/print.pdf?answers=true\|false` | Lần giao trên lớp. Admin/trợ lí + gia sư phụ trách lớp (`resolveClassViewAccessMode` = `admin` \| `teacher`); CSKH/đào tạo → `403`. Thời gian làm bài lấy từ lần giao. |
+| `GET` | `/lessons/:lessonId/print.pdf?answers=true\|false` | Tiết thực hành cấp khoá. Quyền như đọc câu hỏi của tiết (`GET /lessons/:lessonId/questions`): Admin, đội chuyên môn của khoá. |
+| `GET` | `/staff-ops/classes/:classId/assignments/:assignmentId/print.pdf?answers=true\|false` | Lần giao trên lớp. Admin + gia sư phụ trách lớp (`resolveClassViewAccessMode` = `admin` \| `teacher`); CSKH/đào tạo → `403`. Thời gian làm bài lấy từ lần giao. |
 | `GET` | `/users/me/student-classes/:classId/assignments/:assignmentId/print.pdf` | Học sinh của lớp; luôn bản **Đề** (bỏ qua `answers`). Cùng điều kiện thấy lần giao như lobby: lần giao ẩn → `404`, chưa tới `openAt` → `403`, lần giao không có thời lượng → `400`. Không cần đã bắt đầu làm bài. |
 
 - Nội dung: câu `single_choice` (Phần I) + `true_false_group` (Phần II, Bắt buộc → Tự chọn 1 → Tự chọn 2) theo **thứ tự gốc** của tiết, không đảo câu/phương án, không mã đề. Phần I đánh số từ Câu 1; Phần II đánh lại từ Câu 1, liên tục qua hai nhóm tự chọn. Câu loại khác bị bỏ qua. Tiết không có câu in được → `400` *Tiết chưa có câu hỏi để in.*; không phải tiết thực hành → `400`; tiết lưu trữ → `404`.

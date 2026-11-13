@@ -53,7 +53,7 @@ export interface UserInfoDto {
   access?: {
     admin?: {
       canAccess: boolean;
-      tier: "full" | "assistant" | "accountant" | "lesson_plan_head" | null;
+      tier: "full" | "sale_customer_care_head" | "accountant" | "lesson_plan_head" | null;
     };
     staff?: {
       canAccess: boolean;

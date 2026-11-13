@@ -1,3 +1,5 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
+import { assertNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 import {
   BadRequestException,
   ForbiddenException,
@@ -24,6 +26,10 @@ import {
   WalletTransactionType,
 } from 'generated/enums';
 import { Prisma } from '../../generated/client';
+import {
+  assertClassTuitionBeforeFirstStudent,
+  findClassIdsWithoutActiveStudents,
+} from 'src/common/class-first-student-tuition';
 import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
 import {
   CreateStudentSePayTopUpOrderDto,
@@ -826,8 +832,7 @@ export class StudentService {
     }
 
     if (
-      staff.roles.includes(StaffRole.assistant) ||
-      staff.roles.includes(StaffRole.accountant) ||
+      hasSaleCsHeadAccess(staff.roles) ||
       staff.roles.includes(StaffRole.accountant_income)
     ) {
       return;
@@ -868,9 +873,10 @@ export class StudentService {
   }
 
   /**
-   * Ensures the actor may mutate the student profile (admin, assistant, or
-   * assigned customer_care). Only admin/assistant can change profit percent
-   * or transfer the student to another customer care staff.
+   * Ensures the actor may mutate the student profile (admin, Trưởng phòng Sale
+   * & CSKH, or assigned customer_care). Chỉ Admin / Trưởng phòng được giao,
+   * chuyển CSKH hoặc đổi % CSKH của học sinh (#271); Trưởng phòng không tự đổi %
+   * khi CSKH của học sinh là chính mình (luật #265).
    */
   private async assertCanMutateStudentProfile(
     studentId: string,
@@ -909,19 +915,29 @@ export class StudentService {
 
     const staff = await this.prisma.staffInfo.findUnique({
       where: { userId: actor.userId },
-      select: { roles: true },
+      select: { id: true, roles: true },
     });
 
-    const canManageCustomerCareAssignment = Boolean(
-      staff?.roles.includes(StaffRole.admin) ||
-      staff?.roles.includes(StaffRole.assistant),
-    );
+    const isStaffAdmin = Boolean(staff?.roles.includes(StaffRole.admin));
+    const canManageCustomerCareAssignment =
+      isStaffAdmin || hasSaleCsHeadAccess(staff?.roles);
 
     if (!canManageCustomerCareAssignment) {
       throw new ForbiddenException(
         changesCustomerCareStaff
-          ? 'Only admin or assistant staff can transfer the student to another customer care staff'
-          : 'Only admin or assistant staff can change customer care profit percent',
+          ? 'Chỉ Admin hoặc Trưởng phòng Sale & CSKH được giao / chuyển CSKH của học sinh.'
+          : 'Chỉ Admin hoặc Trưởng phòng Sale & CSKH được đổi % CSKH của học sinh.',
+      );
+    }
+
+    if (changesProfitPercent && staff) {
+      const resultingCustomerCareStaffId =
+        dto?.customer_care_staff_id !== undefined
+          ? (dto.customer_care_staff_id ?? null)
+          : await this.getAssignedCustomerCareStaffId(studentId);
+      assertNotEditingOwnCompensation(
+        { isAdmin: isStaffAdmin, staffId: staff.id, roles: staff.roles },
+        [resultingCustomerCareStaffId],
       );
     }
   }
@@ -1770,7 +1786,7 @@ export class StudentService {
       );
     }
 
-    if (staff.roles.includes(StaffRole.assistant)) {
+    if (hasSaleCsHeadAccess(staff.roles)) {
       return { staffRoles: staff.roles };
     }
 
@@ -2803,9 +2819,7 @@ export class StudentService {
     // (không reset học phí riêng mỗi lần lưu danh sách lớp).
     const activeClassIds = new Set(
       existingMemberships
-        .filter(
-          (membership) => membership.status === StudentClassStatus.active,
-        )
+        .filter((membership) => membership.status === StudentClassStatus.active)
         .map((membership) => membership.classId),
     );
     const classIdsToActivate = classIds.filter(
@@ -2814,6 +2828,15 @@ export class StudentService {
     );
     const classIdsToAdd = classIds.filter(
       (classId) => !existingClassIds.has(classId),
+    );
+    // #273: lớp đang trống nhận học sinh đầu tiên → lớp phải có học phí.
+    // Thao tác này không ghi học phí lớp nên kiểm trước transaction.
+    await assertClassTuitionBeforeFirstStudent(
+      this.prisma,
+      await findClassIdsWithoutActiveStudents(this.prisma, [
+        ...classIdsToAdd,
+        ...classIdsToActivate,
+      ]),
     );
 
     const beforeValue = auditActor
@@ -2991,12 +3014,7 @@ export class StudentService {
     }
 
     return this.withEntityIdRetry(() =>
-      this.createStudentOnce(
-        data,
-        auditActor,
-        user,
-        trimmedFullName,
-      ),
+      this.createStudentOnce(data, auditActor, user, trimmedFullName),
     );
   }
 

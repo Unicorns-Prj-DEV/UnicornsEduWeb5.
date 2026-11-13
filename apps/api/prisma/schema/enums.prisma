@@ -16,7 +16,6 @@ enum StaffRole {
   teacher
   lesson_plan
   lesson_plan_head
-  accountant
   accountant_income
   accountant_expense
   communication
@@ -24,7 +23,7 @@ enum StaffRole {
   customer_care
   training
   training_head
-  assistant
+  sale_customer_care_head
   sale
 }
 
@@ -140,10 +139,9 @@ enum RegulationAudience {
   student
   staff_admin
   staff_teacher
-  staff_assistant
+  staff_sale_customer_care_head
   staff_lesson_plan
   staff_lesson_plan_head
-  staff_accountant
   staff_accountant_income
   staff_accountant_expense
   staff_communication

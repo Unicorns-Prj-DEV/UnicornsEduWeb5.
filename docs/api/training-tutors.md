@@ -11,7 +11,11 @@ Module: `apps/api/src/training-tutor/`. Controller `@Controller('training/tutors
 
 "Gia sư" = `staff_info.roles` có `teacher`, mọi trạng thái. Với Ban Đào Tạo thường, staff chỉ có role vận hành (không `teacher`) → `404` ở endpoint chi tiết, không xuất hiện ở danh sách.
 
-**Phạm vi Trưởng Ban Đào Tạo** (`resolveTrainingViewer` → `canViewAllStaff`): staff có `training_head` (và admin) mở được `GET /training/tutors/:id`, `/sessions`, `/achievements` của **mọi nhân sự**, và dùng `scope=all` ở danh sách. Cùng allowlist field — không thêm dữ liệu nhạy cảm.
+**Phạm vi Trưởng ban Đào tạo** (#278, `resolveTrainingViewer` → `canViewAllStaff`): staff có `training_head` (và admin) mở được `GET /training/tutors/:id`, `/sessions`, `/achievements` của **nhân sự ba nhóm** — người mang ít nhất một role `teacher`, `lesson_plan` hoặc `training` (`TRAINING_TEAM_WHERE`) — và dùng `scope=all` ở danh sách. Nhân sự ngoài ba nhóm → `404`. Cùng allowlist field — không thêm thông tin cá nhân hay thu nhập.
+
+**Role trả về:** với người xem không phải admin, `roles` chỉ gồm `teacher` / `lesson_plan` / `training` (`pickTrainingTeamRoles`); role khác của người kiêm nhiệm bị lọc khỏi response. Admin vẫn thấy đủ role.
+
+**Cấp dưới** (`isTrainingHeadSubordinate` trong `staff/training-head-role-policy.ts`): thuộc ba nhóm, không phải chính Trưởng ban, không phải tài khoản `role_type=admin`, không mang `admin` hay role trưởng nào (`PRIVILEGED_STAFF_ROLES`: `sale_customer_care_head`, `training_head`, `lesson_plan_head`). Người ba nhóm kiêm role trưởng vẫn hiện trong danh sách nhưng chỉ đọc.
 
 ## Field allowlist
 
@@ -21,13 +25,40 @@ Service dùng `select` tường minh (`TUTOR_SUMMARY_SELECT`), không `include`,
 | --- | --- |
 | `id`, `fullName`, `status`, `roles` (role nhân sự, không phải PII), `avatarUrl` (signed 1h), `university`, `highSchool`, `achievementCount` | `email`, `phone`, CCCD (số/ngày/nơi cấp), `ethnicity`, `gender`, `birthDate`, `currentAddress`, `bankAccount`, `bankQrLink`, `googleMeetLink`, `revenueSharePercent`, mọi field tiền / trạng thái thanh toán |
 
+Ngoại lệ có kiểm soát cho Trưởng ban (#278): chi tiết của **cấp dưới** thêm `management.lastName`, `management.firstName` (để sửa họ tên) và `management.googleMeetLink` (xem + tạo lại). Không cấp dưới → không có các field này.
+
+### `management` (chỉ khi người xem là Trưởng ban Đào tạo)
+
+`buildTrainingHeadManagement` gắn vào mỗi dòng danh sách và chi tiết:
+
+```json
+{
+  "isSubordinate": true,
+  "hasOtherRoles": false,
+  "accountLocked": false,
+  "permissions": {
+    "canEditRoles": true,
+    "canEditProfile": true,
+    "canChangeStatus": true,
+    "canLockAccount": true,
+    "canManageMeetLink": true,
+    "canViewBonuses": true
+  }
+}
+```
+
+- `hasOtherRoles`: target còn role ngoài ba nhóm (không lộ role đó là gì).
+- `accountLocked`: `users.status = inactive`; `null` khi không phải cấp dưới hoặc chưa có tài khoản.
+- `canChangeStatus` / `canLockAccount`: chỉ khi target **chỉ** mang role ba nhóm; `canLockAccount` cần thêm có tài khoản.
+- Admin hoặc Ban Đào Tạo thường: không có `management`.
+
 Test: `training-tutor.service.spec.ts` mock Prisma trả row có cả field nhạy cảm và khẳng định output + `select` không chứa chúng.
 
 ## Endpoints
 
 ### `GET /training/tutors`
 
-Query: `search?` (họ tên, tối đa 5 token), `status?` (`active|inactive`), `scope?` (`tutors` mặc định = staff có `teacher`; `all` = mọi nhân sự, chỉ Trưởng ban/admin — Ban Đào Tạo thường `403`), `page?` (mặc định 1), `limit?` (mặc định 20, tối đa 100).
+Query: `search?` (họ tên, tối đa 5 token), `status?` (`active|inactive`), `scope?` (`tutors` mặc định = staff có `teacher`; `all` = nhân sự ba nhóm `teacher`/`lesson_plan`/`training`, chỉ Trưởng ban/admin — Ban Đào Tạo thường `403`), `page?` (mặc định 1), `limit?` (mặc định 20, tối đa 100).
 
 ```json
 { "data": [TrainingTutorListItemDto], "meta": { "total": 0, "page": 1, "limit": 20 } }
@@ -56,7 +87,7 @@ Danh sách thành tích theo thứ tự hồ sơ — thành tích nổi bật (`
 
 ### Sửa thành tích (Ban Đào Tạo)
 
-ADR `docs/adr/2026-11-11-staff-achievement-star-first.md`. Cùng phạm vi với xem: `training` sửa gia sư (`teacher`), `training_head` / admin sửa mọi nhân sự; ngoài phạm vi → `404`. Target là hồ sơ của chính người gọi → `403` (sửa ở `/users/me/achievements`). Không bị ràng buộc minh chứng (giống admin). Mọi thay đổi trừ reorder ghi `action_history` `entityType=staff_achievement`.
+ADR `docs/adr/2026-11-11-staff-achievement-star-first.md`. Cùng phạm vi với xem: `training` sửa gia sư (`teacher`), `training_head` / admin sửa nhân sự ba nhóm (#278); ngoài phạm vi → `404`. Target là hồ sơ của chính người gọi → `403` (sửa ở `/users/me/achievements`). Không bị ràng buộc minh chứng (giống admin). Mọi thay đổi trừ reorder ghi `action_history` `entityType=staff_achievement`.
 
 | Method | Path | Body | Ghi chú |
 | --- | --- | --- | --- |
@@ -70,7 +101,7 @@ ADR `docs/adr/2026-11-11-staff-achievement-star-first.md`. Cùng phạm vi với
 
 Trả về giống `/staff/:staffId/achievements/*` (`AchievementDto` / danh sách). Web: `StaffAchievementsDialog` `editable` (tắt khi target là chính người xem) → `AchievementListEditor` `mode="training"`.
 
-## Chỉnh role nhân sự (Trưởng Ban Đào Tạo)
+## Chỉnh role nhân sự (Trưởng ban Đào tạo)
 
 ### `PATCH /staff/:id/training-roles`
 
@@ -82,7 +113,7 @@ Policy thuần `planTrainingHeadRoleChange` (`staff/training-head-role-policy.ts
 | --- | --- |
 | Người gọi không phải staff `active` có `training_head` | `403` |
 | Target là chính người gọi | `403` |
-| Target có `admin`, `assistant` hoặc `training_head`, hoặc là tài khoản `users.role_type = admin` | `403` |
+| Target có `admin`, `sale_customer_care_head`, `training_head` hoặc `lesson_plan_head`, hoặc là tài khoản `users.role_type = admin` | `403` |
 | Body chứa role ngoài 3 role trên | `403` |
 | Kết quả không còn role nào | `400` |
 | Target không tồn tại | `404` |
@@ -92,4 +123,44 @@ Policy thuần `planTrainingHeadRoleChange` (`staff/training-head-role-policy.ts
 - Trong 1 transaction: cập nhật `staff_info.roles`, ghi `action_history` (`entityType=staff`, before/after `{ roles }`). Có role bị tắt → `FixedSalarySettingsService.syncStaffRoleOverridesInTx` xoá **mức đè lương cứng** của role đó (ghi lịch sử riêng). Không cascade sang lớp / buổi / phân công.
 - Sau commit: invalidate cache auth identity của user target để quyền mới có hiệu lực ngay.
 
-Web: `updateStaffTrainingRoles` trong `lib/apis/training-tutor.api.ts`; điều kiện hiện nút ở `lib/training-head-roles.ts` (`canTrainingHeadEditRoles`), khớp policy backend.
+Trả `{ id, roles }` với `roles` chỉ gồm ba role nhóm (#278).
+
+Web: `updateStaffTrainingRoles` trong `lib/apis/training-tutor.api.ts`; nút hiện theo `management.permissions.canEditRoles` từ backend; `lib/training-head-roles.ts` giữ helper khớp policy (`lesson_plan_head` là role được bảo vệ; `hasAnyRoleAfterChange` tính cả `hasOtherRoles`).
+
+### `GET /training/tutors/role-candidates` (follow-up 13/11 mục 2.2)
+
+Ứng viên để Trưởng ban Đào tạo bật role cho nhân sự **ngoài ba nhóm** (vd CSKH thuần). `TrainingTutorController.listRoleCandidates`, khai báo trước `:id`. Query: `page`, `limit`, `search` (tên).
+
+| Điều kiện | Kết quả |
+| --- | --- |
+| Người gọi không phải staff `active` có `training_head` (kể cả Admin không mang role này) | `403` |
+| Còn lại | `200 { data: [{ id, fullName, roles }], meta: { total, page, limit } }` |
+
+- Lọc: `staff_info.status = active`; không mang `teacher` / `lesson_plan` / `training`; không mang `admin` / role trưởng (`sale_customer_care_head`, `training_head`, `lesson_plan_head`); tài khoản không phải `role_type = admin`; không phải chính người gọi. Sắp theo tên.
+- Chỉ trả họ tên + **mọi role hiện có** (để Trưởng ban biết người đó đang làm gì); không email, SĐT, ảnh, giấy tờ, thu nhập.
+- Bật role vẫn qua `PATCH /staff/:id/training-roles` (policy không yêu cầu đích thuộc ba nhóm).
+- Đối xứng: Trưởng phòng Sale & CSKH dùng `GET /sale-cs-team/members?scope=candidates` (#271).
+
+Web: `listTrainingRoleCandidates` (`lib/apis/training-tutor.api.ts`, key `trainingTutorKeys.roleCandidates`), popup `TrainingRoleCandidatePicker`.
+
+## Trưởng ban Đào tạo quản lý cấp dưới (#278)
+
+Chỉ staff `active` có `training_head` (`resolveHead`); admin không mang role này → `403` (dùng route admin). Target không tồn tại → `404`. Mọi route kiểm tra policy trong `staff/training-head-role-policy.ts`; không mở route admin nào.
+
+| Method | Path | Body / Query | Policy | Ghi chú |
+| --- | --- | --- | --- | --- |
+| `GET` | `/training/tutors/:id/bonuses` | `month?` (`YYYY-MM`) | `assertTrainingHeadSubordinate` | **Chỉ xem**: `{ id, workType, amount, status, note, month, date }[]`, mới nhất trước. Không có route tạo/sửa/xoá thưởng |
+| `PATCH` | `/training/tutors/:id/professional-profile` | `{ lastName?, firstName?, university?, highSchool? }` | `assertTrainingHeadSubordinate` | Tên rỗng → `400`; đổi họ tên cần tài khoản (`400`). Ghi `action_history` |
+| `POST` | `/training/tutors/:id/avatar` | multipart `avatar` (JPG/PNG/WebP ≤ 5 MB) | `assertTrainingHeadSubordinate` | Thay ảnh đại diện |
+| `PATCH` | `/training/tutors/:id/status` | `{ status: "active" \| "inactive", reason? }` | `assertTrainingHeadCanChangeStatus` | Qua `StaffService.updateStaffStatus` (cùng hiệu ứng với admin: gỡ lịch dạy sắp tới khi nghỉ) |
+| `PATCH` | `/training/tutors/:id/account-status` | `{ locked: boolean }` | `assertTrainingHeadCanLockAccount` | Đổi `users.status`; chưa có tài khoản → `400`; ghi `action_history`; invalidate cache auth |
+
+Từ chối (`403`): target là chính mình; target là Admin / tài khoản admin / mang role trưởng; target ngoài ba nhóm. Đổi trạng thái và khoá tài khoản thêm điều kiện target **chỉ** mang role ba nhóm — kiêm `sale`, `customer_care`… → `403`.
+
+Không có route sửa thông tin cá nhân (liên hệ, CCCD, ngân hàng) hay xem thu nhập cá nhân; lịch sử buổi giữ nguyên `GET /training/tutors/:id/sessions` (không tiền). Lớp phụ trách = `currentClasses` / `pastClasses`.
+
+### Link Meet
+
+`POST /staff/:id/regenerate-meet-link` (`StaffService.assertCanRegenerateMeetLink`): được gọi bởi admin (`role_type` hoặc staff role `admin`), chính nhân sự đó, hoặc Trưởng ban Đào tạo `active` trên cấp dưới. Còn lại `403` (trước #278 mọi staff gọi được); target không có → `404`. Link hiện tại đọc từ `management.googleMeetLink` của chi tiết.
+
+Web: `TrainingTutorWorkSection` (trạng thái, khoá tài khoản, link Meet, có `ConfirmDialog`), `TrainingTutorProfileDialog` (họ tên, trường, ảnh), `TrainingTutorBonusesSection` (thưởng chỉ đọc) trên `/staff/tutors/[id]`, hiện theo `management.permissions`.

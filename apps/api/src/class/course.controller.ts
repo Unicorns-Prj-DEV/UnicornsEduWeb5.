@@ -51,7 +51,7 @@ export class CourseController {
   @ApiOperation({
     summary: 'List courses',
     description:
-      'Danh sách khoá học (VIP, Basic, Advance, Hardcore, THPT Basic, ...). Dùng cho dropdown chọn khoá khi tạo/sửa lớp. Lọc phía server theo người gọi: đội chuyên môn (`lesson_plan`, `lesson_plan_head`) không kèm admin/trợ lí chỉ nhận khoá được gán vào đội chuyên môn; mọi role khác (training, giáo viên, kế toán) nhận toàn bộ danh sách. Không nhận cờ lọc từ client.',
+      'Danh sách khoá học (VIP, Basic, Advance, Hardcore, THPT Basic, ...). Dùng cho dropdown chọn khoá khi tạo/sửa lớp. Lọc phía server theo người gọi: đội chuyên môn (`lesson_plan`, `lesson_plan_head`) không kèm admin chỉ nhận khoá được gán vào đội chuyên môn; mọi role khác (training, giáo viên, kế toán) nhận toàn bộ danh sách. Không nhận cờ lọc từ client.',
   })
   @ApiQuery({
     name: 'includeInactive',
@@ -83,7 +83,7 @@ export class CourseController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'List of lesson-plan staff.' })
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   async searchLessonPlanStaff(
     @Query('search') search?: string,
     @Query('limit') limit?: string,
@@ -99,14 +99,13 @@ export class CourseController {
   @ApiOperation({
     summary: 'Get a course detail',
     description:
-      'Chi tiết khoá học kèm thang mức độ khó và đội chuyên môn. Admin/trợ lí xem mọi khoá; lesson_plan và trưởng chuyên môn chỉ xem khoá mình được gán.',
+      'Chi tiết khoá học kèm thang mức độ khó và đội chuyên môn. Admin xem mọi khoá; lesson_plan và trưởng ban Chuyên môn chỉ xem khoá mình được gán.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiResponse({ status: 200, description: 'Course detail.' })
   @ApiResponse({ status: 403, description: 'Không có quyền xem khoá này.' })
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -121,11 +120,11 @@ export class CourseController {
 
   @Post()
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Create a new course',
     description:
-      'Tạo khoá học. Mở cho admin, trợ lí, trưởng chuyên môn; trưởng chuyên môn tạo khoá thì tự được gán vào đội chuyên môn của khoá đó. default_duration_days để trống nghĩa là vô hạn.',
+      'Tạo khoá học. Mở cho admin, trưởng ban Chuyên môn; trưởng ban Chuyên môn tạo khoá thì tự được gán vào đội chuyên môn của khoá đó. default_duration_days để trống nghĩa là vô hạn.',
   })
   @ApiBody({ type: CreateCourseDto })
   @ApiResponse({ status: 201, description: 'Course created.' })
@@ -136,11 +135,11 @@ export class CourseController {
 
   @Patch(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Update a course',
     description:
-      'Cập nhật khoá học (kể cả bật/tắt is_active). Mở cho admin, trợ lí; trưởng chuyên môn chỉ sửa khoá mình được gán. default_duration_days truyền null để chuyển về vô hạn.',
+      'Cập nhật khoá học (kể cả bật/tắt is_active). Mở cho admin; trưởng ban Chuyên môn chỉ sửa khoá mình được gán. default_duration_days truyền null để chuyển về vô hạn.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiBody({ type: UpdateCourseDto })
@@ -157,11 +156,11 @@ export class CourseController {
 
   @Delete(':id')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Delete a course',
     description:
-      'Mở cho admin, trợ lí; trưởng chuyên môn chỉ xoá khoá mình được gán. Chỉ xoá được khi không còn lớp nào dùng khoá học này. Nếu muốn ẩn tạm thời, dùng PATCH với is_active=false.',
+      'Mở cho admin; trưởng ban Chuyên môn chỉ xoá khoá mình được gán. Chỉ xoá được khi không còn lớp nào dùng khoá học này. Nếu muốn ẩn tạm thời, dùng PATCH với is_active=false.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiResponse({ status: 200, description: 'Course deleted.' })
@@ -192,7 +191,6 @@ export class CourseController {
   @ApiResponse({ status: 200, description: 'List of difficulty levels.' })
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -212,7 +210,6 @@ export class CourseController {
   @Post(':id/difficulty-levels')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -232,7 +229,6 @@ export class CourseController {
   @Patch(':id/difficulty-levels/reorder')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -252,7 +248,6 @@ export class CourseController {
   @Patch(':id/difficulty-levels/:levelId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -274,7 +269,6 @@ export class CourseController {
   @Delete(':id/difficulty-levels/:levelId')
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -299,7 +293,6 @@ export class CourseController {
   @ApiResponse({ status: 200, description: 'List of lesson plan members.' })
   @Roles(UserRole.admin)
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
     StaffRole.lesson_plan_head,
     StaffRole.lesson_plan,
   )
@@ -314,11 +307,11 @@ export class CourseController {
 
   @Put(':id/lesson-plan-members')
   @Roles(UserRole.admin)
-  @AllowStaffRolesOnAdminRoutes(StaffRole.assistant, StaffRole.lesson_plan_head)
+  @AllowStaffRolesOnAdminRoutes(StaffRole.lesson_plan_head)
   @ApiOperation({
     summary: 'Assign lesson plan members to a course',
     description:
-      'Thay thế toàn bộ đội chuyên môn của khoá. Chỉ admin, trợ lí, hoặc trưởng chuyên môn đã được gán vào khoá được gán; chỉ gán được nhân sự active có vai trò lesson_plan/lesson_plan_head.',
+      'Thay thế toàn bộ đội chuyên môn của khoá. Chỉ admin hoặc trưởng ban Chuyên môn đã được gán vào khoá được gán; chỉ gán được nhân sự active có vai trò lesson_plan/lesson_plan_head.',
   })
   @ApiParam({ name: 'id', description: 'Course id' })
   @ApiBody({ type: AssignCourseLessonPlanMembersDto })

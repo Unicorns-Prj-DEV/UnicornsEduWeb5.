@@ -77,6 +77,13 @@ export type StaffIdentityOverviewProps = {
   allowQrEdit?: boolean;
   /** When false, achievements render read-only. Default follows allowQrEdit. */
   allowAchievementEdit?: boolean;
+  /**
+   * #270: false → ẩn email, SĐT, ngày sinh, dân tộc, giới tính, CCCD, địa chỉ
+   * (backend đã không trả các trường này). Mặc định true.
+   */
+  showPersonalInfo?: boolean;
+  /** #270: false → ẩn số tài khoản + QR ngân hàng. Mặc định true. */
+  showBankInfo?: boolean;
 };
 
 function getGenderLabel(gender?: string | null): string {
@@ -107,6 +114,8 @@ export default function StaffIdentityOverview({
   onQrEdit,
   allowQrEdit = true,
   allowAchievementEdit,
+  showPersonalInfo = true,
+  showBankInfo = true,
 }: StaffIdentityOverviewProps) {
   const sectionTitleId = useId();
   const achievementsTitleId = useId();
@@ -122,21 +131,27 @@ export default function StaffIdentityOverview({
         <h2 id={sectionTitleId} className={`min-w-0 flex-1 ${SECTION_HEADING}`}>
           Hồ sơ nhân sự
         </h2>
-        <StaffQrCard
-          qrLink={qrLink}
-          onEditClick={onQrEdit}
-          size="minimal"
-          embedded
-          className="shrink-0"
-          allowEdit={allowQrEdit}
-        />
+        {showBankInfo ? (
+          <StaffQrCard
+            qrLink={qrLink}
+            onEditClick={onQrEdit}
+            size="minimal"
+            embedded
+            className="shrink-0"
+            allowEdit={allowQrEdit}
+          />
+        ) : null}
       </div>
 
       <div className="mt-3 space-y-2">
         <FactRow
           items={[
-            { label: "Email", value: email?.trim() },
-            { label: "SĐT", value: phone?.trim() },
+            ...(showPersonalInfo
+              ? [
+                  { label: "Email", value: email?.trim() },
+                  { label: "SĐT", value: phone?.trim() },
+                ]
+              : []),
             {
               label: "Handle",
               value: accountHandle?.trim()
@@ -146,28 +161,44 @@ export default function StaffIdentityOverview({
           ]}
         />
         <FactRow
-          items={[
-            { label: "Ngày sinh", value: birthDateLabel },
-            { label: "Tỉnh / TP", value: province },
-            { label: "Dân tộc", value: ethnicity?.trim() },
-            { label: "Giới tính", value: getGenderLabel(gender) },
-          ]}
+          items={
+            showPersonalInfo
+              ? [
+                  { label: "Ngày sinh", value: birthDateLabel },
+                  { label: "Tỉnh / TP", value: province },
+                  { label: "Dân tộc", value: ethnicity?.trim() },
+                  { label: "Giới tính", value: getGenderLabel(gender) },
+                ]
+              : [{ label: "Tỉnh / TP", value: province }]
+          }
         />
-        <FactRow
-          items={[
-            { label: "Số CCCD", value: cccdNumber?.trim() },
-            { label: "Ngày cấp", value: cccdIssuedDateLabel },
-            { label: "Nơi cấp", value: cccdIssuedPlace?.trim() },
-          ]}
-        />
+        {showPersonalInfo ? (
+          <FactRow
+            items={[
+              { label: "Số CCCD", value: cccdNumber?.trim() },
+              { label: "Ngày cấp", value: cccdIssuedDateLabel },
+              { label: "Nơi cấp", value: cccdIssuedPlace?.trim() },
+            ]}
+          />
+        ) : null}
         <FactRow
           items={[
             { label: "Trường ĐH", value: university?.trim() },
             { label: "Trường THPT", value: highSchool?.trim() },
           ]}
         />
-        <InlineFact label="Địa chỉ hiện tại" value={currentAddress?.trim()} />
-        <InlineFact label="Số tài khoản" value={bankAccount?.trim()} />
+        {showPersonalInfo ? (
+          <InlineFact label="Địa chỉ hiện tại" value={currentAddress?.trim()} />
+        ) : null}
+        {showBankInfo ? (
+          <InlineFact label="Số tài khoản" value={bankAccount?.trim()} />
+        ) : null}
+        {!showPersonalInfo ? (
+          <p className="text-xs text-text-muted">
+            Thông tin cá nhân (CCCD, liên hệ, địa chỉ, ngày sinh) chỉ Admin và
+            chính nhân sự được xem.
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-4 flex flex-col gap-2 border-t border-border-default pt-4 sm:flex-row sm:items-center sm:justify-between">

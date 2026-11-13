@@ -37,6 +37,7 @@ describe('UserService', () => {
     },
     customerCareService: {
       upsert: jest.fn(),
+      deleteMany: jest.fn(),
     },
     studentInfo: {
       create: jest.fn(),
@@ -258,13 +259,76 @@ describe('UserService', () => {
     it('does not auto-assign customer care when an assistant creates a student', async () => {
       mockPrisma.staffInfo.findUnique.mockResolvedValue({
         id: 'staff-assistant-1',
-        roles: [StaffRole.assistant, StaffRole.customer_care],
+        roles: [StaffRole.sale_customer_care_head, StaffRole.customer_care],
         customerCareDefaultProfitPercent: 0.15,
       });
 
       await service.createStudentUser(payload, customerCareActor);
 
       expect(mockPrisma.customerCareService.upsert).not.toHaveBeenCalled();
+    });
+
+    describe('#273 xếp lớp khi tạo học sinh', () => {
+      const adminActor = {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: UserRole.admin,
+      };
+      const classRow = (overrides: Record<string, unknown> = {}) => ({
+        id: 'class-1',
+        name: 'Toán 10A',
+        pricingMode: 'per_session',
+        studentTuitionPerSession: null,
+        studentTuitionPerBlock: null,
+        tuitionPackageTotal: null,
+        tuitionPackageSession: null,
+        ...overrides,
+      });
+
+      it('lớp trống chưa có học phí → 400, không tạo tài khoản', async () => {
+        mockPrisma.class.findMany.mockResolvedValue([classRow()]);
+        mockPrisma.studentClass.findMany.mockResolvedValue([]);
+
+        await expect(
+          service.createStudentUser(
+            { ...payload, class_ids: ['class-1'] },
+            adminActor,
+          ),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(
+          authService.createPendingUserWithVerificationEmail,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('lớp trống có học phí 0đ → tạo được', async () => {
+        mockPrisma.class.findMany.mockResolvedValue([
+          classRow({ studentTuitionPerSession: 0 }),
+        ]);
+        mockPrisma.studentClass.findMany.mockResolvedValue([]);
+
+        await service.createStudentUser(
+          { ...payload, class_ids: ['class-1'] },
+          adminActor,
+        );
+        expect(
+          authService.createPendingUserWithVerificationEmail,
+        ).toHaveBeenCalled();
+      });
+
+      it('lớp đã có học sinh đang học → không áp quy tắc', async () => {
+        mockPrisma.class.findMany.mockResolvedValue([classRow()]);
+        mockPrisma.studentClass.findMany.mockResolvedValue([
+          { classId: 'class-1' },
+        ]);
+
+        await service.createStudentUser(
+          { ...payload, class_ids: ['class-1'] },
+          adminActor,
+        );
+        expect(
+          authService.createPendingUserWithVerificationEmail,
+        ).toHaveBeenCalled();
+      });
     });
 
     it('does not look up staff when an admin creates a student', async () => {
@@ -450,6 +514,65 @@ describe('UserService', () => {
     expect(authService.invalidateAuthIdentityCache).toHaveBeenCalledWith(
       'user-1',
     );
+  });
+
+  describe('tắt role CSKH từ tab phân quyền user (follow-up 13/11 mục 2.1)', () => {
+    function mockStaffUser(roles: string[]) {
+      const user = {
+        id: 'user-1',
+        email: 'care@example.com',
+        phone: null,
+        passwordHash: 'hashed-password',
+        refreshToken: null,
+        first_name: 'Chăm',
+        last_name: 'Sóc',
+        roleType: UserRole.staff,
+        province: null,
+        accountHandle: 'care',
+        createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-20T10:00:00.000Z'),
+        staffInfo: { id: 'staff-care', fullName: 'Chăm Sóc', roles },
+        studentInfo: null,
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(user);
+      mockPrisma.user.update.mockResolvedValue(user);
+      mockPrisma.staffInfo.update.mockResolvedValue({ id: 'staff-care' });
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care',
+        roles,
+        userId: 'user-1',
+        status: 'active',
+      });
+      mockPrisma.customerCareService.deleteMany.mockResolvedValue({
+        count: 3,
+      });
+    }
+
+    it('bỏ customer_care thì gỡ gán học sinh trong cùng transaction', async () => {
+      mockStaffUser(['customer_care', 'teacher']);
+
+      await service.updateUser({
+        id: 'user-1',
+        roleType: UserRole.staff,
+        staffRoles: ['teacher'],
+      });
+
+      expect(mockPrisma.customerCareService.deleteMany).toHaveBeenCalledWith({
+        where: { staffId: 'staff-care' },
+      });
+    });
+
+    it('giữ customer_care thì không gỡ học sinh', async () => {
+      mockStaffUser(['customer_care']);
+
+      await service.updateUser({
+        id: 'user-1',
+        roleType: UserRole.staff,
+        staffRoles: ['customer_care', 'teacher'],
+      });
+
+      expect(mockPrisma.customerCareService.deleteMany).not.toHaveBeenCalled();
+    });
   });
 
   it('auto-creates a student profile when roleType is changed to student', async () => {

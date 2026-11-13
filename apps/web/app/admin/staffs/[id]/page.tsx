@@ -1,5 +1,6 @@
 "use client";
 
+import { SALE_CS_HEAD_ROLE } from "@/lib/sale-cs-head-access";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   keepPreviousData,
@@ -60,6 +61,7 @@ import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable"
 import MonthNav from "@/components/admin/MonthNav";
 import { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
 import { resolveAdminShellAccess, resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
+import { canSetClassTeacherPay } from "@/lib/class-teacher-pay-access";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import PreviewableUserAvatar from "@/components/ui/PreviewableUserAvatar";
 import UserAvatar from "@/components/ui/UserAvatar";
@@ -354,7 +356,7 @@ export default function AdminStaffDetailPage({
     retry: false,
     staleTime: 60_000,
   });
-  const { isAdmin, isAssistant, isAccountant, isAccountantExpense, isAccountantIncome } =
+  const { isAdmin, isAccountant, isAccountantExpense, staffRoles: viewerStaffRoles } =
     resolveAdminShellAccess(fullProfile);
   const { canManageUsers } = resolveUserAdminCapabilities(fullProfile, routeBase);
   const ownStaffId = fullProfile?.staffInfo?.id;
@@ -362,18 +364,18 @@ export default function AdminStaffDetailPage({
   const viewingOwnStaffRecordOnStaffShell =
     routeBase === "/staff" && viewingOwnStaffRecord;
   const canViewBeforeDeduction = isAdmin || isAccountant;
-  const canCreateBonus = isAdmin || isAssistant || isAccountantExpense;
+  const canCreateBonus = isAdmin || isAccountantExpense;
   const canDeleteBonus = canCreateBonus;
-  const canEditTaxSettings = isAdmin || isAssistant || isAccountantExpense;
-  const canPayAll = isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
-  const canEditSessionDetails = isAdmin || isAssistant;
+  const canEditTaxSettings = isAdmin || isAccountantExpense;
+  // #275: Kế toán thu không còn chốt thanh toán buổi (BE chỉ Admin + Kế toán chi).
+  const canPayAll = isAdmin || isAccountantExpense;
+  const canEditSessionDetails = isAdmin;
   // Khớp quyền `PUT /sessions/:id`: được lưu khi Nhận xét buổi học còn trống field bắt buộc.
-  const canSkipRequiredSessionReview = isAdmin || isAssistant || isAccountant;
-  const canEditSessionPaymentStatus =
-    isAdmin || isAssistant || isAccountantExpense || isAccountantIncome;
-  const canManageMissedTeachingAlerts = isAdmin || isAssistant;
+  const canSkipRequiredSessionReview = isAdmin || isAccountantExpense;
+  const canEditSessionPaymentStatus = isAdmin || isAccountantExpense;
+  const canManageMissedTeachingAlerts = isAdmin;
   const canEditStaffProfile =
-    (isAdmin || isAssistant) && !viewingOwnStaffRecordOnStaffShell;
+    isAdmin && !viewingOwnStaffRecordOnStaffShell;
 
   const {
     data: staff,
@@ -639,7 +641,38 @@ export default function AdminStaffDetailPage({
     [incomeSummary?.classMonthlySummaries],
   );
   const showClassOperatingColumn = isAdmin || isAccountantExpense;
-  const canEditClassOperatingDeduction = isAdmin || isAccountantExpense;
+  /**
+   * Follow-up grill 13/11: Kế toán chi chỉ xem % vận hành theo lớp; sửa khi kiêm
+   * Trưởng ban Đào tạo (mọi lớp) hoặc Quản lý lớp của lớp đó (từng dòng, theo
+   * `class.trainingManagerStaffId`) — hợp quyền, khớp backend.
+   */
+  const editableOperatingClassIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isAdmin && !isAccountantExpense) return ids;
+    for (const row of staff?.classTeachers ?? []) {
+      const classId = row.class?.id;
+      if (!classId) continue;
+      if (
+        isAdmin ||
+        canSetClassTeacherPay({
+          isAdmin,
+          staffRoles: viewerStaffRoles,
+          viewerStaffId: ownStaffId,
+          classTrainingManagerStaffId: row.class.trainingManagerStaffId,
+        })
+      ) {
+        ids.add(classId);
+      }
+    }
+    return ids;
+  }, [
+    isAdmin,
+    isAccountantExpense,
+    staff?.classTeachers,
+    viewerStaffRoles,
+    ownStaffId,
+  ]);
+  const canEditClassOperatingDeduction = editableOperatingClassIds.size > 0;
   const operatingPercentByClassId = useMemo(() => {
     const m = new Map<string, number>();
     for (const row of staff?.classTeachers ?? []) {
@@ -681,7 +714,7 @@ export default function AdminStaffDetailPage({
         const hasRow = detail.classTeachers?.some(
           (ct) => ct.class?.id === classId,
         );
-        if (!hasRow) continue;
+        if (!hasRow || !editableOperatingClassIds.has(classId)) continue;
 
         const baseline = baselineForClass(classId);
         const draft = draftSnapshot[classId];
@@ -737,7 +770,7 @@ export default function AdminStaffDetailPage({
       const hasRow = staff.classTeachers?.some(
         (ct) => ct.class?.id === classId,
       );
-      if (!hasRow) continue;
+      if (!hasRow || !editableOperatingClassIds.has(classId)) continue;
       const baseline = operatingPercentByClassId.get(classId) ?? 0;
       const draft = classOperatingDraft[classId];
       const inputStr =
@@ -753,6 +786,7 @@ export default function AdminStaffDetailPage({
     return false;
   }, [
     canEditClassOperatingDeduction,
+    editableOperatingClassIds,
     staff,
     classMonthlySummaries,
     operatingPercentByClassId,
@@ -781,7 +815,7 @@ export default function AdminStaffDetailPage({
   const fixedSalaryPayables = incomeSummary?.fixedSalaryPayables ?? [];
   const showAssistantDualRoleHelper =
     hasAssistantAndCustomerCareRoles(staff?.roles) &&
-    otherRoleSummaries.some((item) => item.role === "assistant");
+    otherRoleSummaries.some((item) => item.role === SALE_CS_HEAD_ROLE);
   const beforeDeductionCards = useMemo(() => {
     if (!incomeSummary) {
       return [] as { key: string; label: string; value: number }[];
@@ -1867,8 +1901,11 @@ export default function AdminStaffDetailPage({
           allowQrEdit={!viewingOwnStaffRecordOnStaffShell}
           // Thành tích của chính mình sửa ở hồ sơ cá nhân (API trả 403 ở mọi shell).
           allowAchievementEdit={
-            (isAdmin || isAssistant) && !viewingOwnStaffRecord
+            isAdmin && !viewingOwnStaffRecord
           }
+          // #270: backend đã bỏ trường người xem không được thấy; ẩn luôn ô trống.
+          showPersonalInfo={staff.sensitiveView?.personal ?? true}
+          showBankInfo={staff.sensitiveView?.bank ?? true}
         />
 
         <section
@@ -2075,7 +2112,7 @@ export default function AdminStaffDetailPage({
                                 <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                                   KH vận hành (%)
                                 </p>
-                                {canEditClassOperatingDeduction &&
+                                {editableOperatingClassIds.has(item.classId) &&
                                 hasClassTeacherRow ? (
                                   <div className="mt-1 flex min-w-0 max-w-full items-center gap-1.5">
                                     <input
@@ -2223,8 +2260,9 @@ export default function AdminStaffDetailPage({
                                     onClick={(e) => e.stopPropagation()}
                                     onKeyDown={(e) => e.stopPropagation()}
                                   >
-                                    {canEditClassOperatingDeduction &&
-                                    hasClassTeacherRow ? (
+                                    {editableOperatingClassIds.has(
+                                      item.classId,
+                                    ) && hasClassTeacherRow ? (
                                       <div className="flex items-center justify-end gap-1.5">
                                         <input
                                           type="number"

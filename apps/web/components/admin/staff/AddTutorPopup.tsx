@@ -44,7 +44,7 @@ const USER_STATUS_LABELS: Record<string, string> = {
 
 const STAFF_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "teacher", label: "Giáo viên" },
-  { value: "assistant", label: "Trợ lí" },
+  { value: "sale_customer_care_head", label: "Trưởng phòng Sale & CSKH" },
   { value: "lesson_plan", label: LESSON_PLAN_ROLE_LABEL },
   { value: "lesson_plan_head", label: LESSON_PLAN_HEAD_ROLE_LABEL },
   { value: "accountant_income", label: "Kế toán thu" },

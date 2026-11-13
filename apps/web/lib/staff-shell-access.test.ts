@@ -12,7 +12,7 @@ function staffProfile(staffRoles: string[]): UserInfoDto {
   } as unknown as UserInfoDto;
 }
 
-describe("route thu nhập Đào Tạo / Trưởng ban đào tạo", () => {
+describe("route thu nhập Đào Tạo / Trưởng ban Đào tạo", () => {
   it("training_head thuần vào /staff/training-head-detail, không vào /staff/training-detail", () => {
     const profile = staffProfile(["training_head"]);
     expect(
@@ -52,5 +52,157 @@ describe("route thu nhập Đào Tạo / Trưởng ban đào tạo", () => {
     expect(buildStaffRoleDetailHref("/staff", "training_head", "S1")).toBe(
       "/staff/training-head-detail?staffId=S1",
     );
+  });
+});
+
+describe("Báo cáo tháng / Thống kê học sinh chỉ Admin (#269)", () => {
+  const REPORT_ROUTES = ["/staff/monthly-report", "/staff/student-statistics"];
+
+  it.each([
+    ["Trợ lí / TP Sale & CSKH", ["sale_customer_care_head"]],
+    ["Kế toán thu", ["accountant_income"]],
+    ["Kế toán chi", ["accountant_expense"]],
+    ["Trợ lí kiêm Kế toán thu", ["sale_customer_care_head", "accountant_income"]],
+    ["CSKH", ["customer_care"]],
+  ])("từ chối %s", (_label, roles) => {
+    const profile = staffProfile(roles);
+    for (const route of REPORT_ROUTES) {
+      expect(resolveStaffShellRouteAccess(profile, route).isAllowed).toBe(
+        false,
+      );
+    }
+  });
+
+  it("cho phép staff có role admin", () => {
+    const profile = staffProfile(["admin"]);
+    for (const route of REPORT_ROUTES) {
+      expect(resolveStaffShellRouteAccess(profile, route).isAllowed).toBe(true);
+    }
+  });
+});
+
+describe("Trợ lí trong staff shell chỉ còn Học sinh và Thông báo (#267)", () => {
+  const ASSISTANT_ALLOWED_ROUTES = [
+    "/staff",
+    "/staff/profile",
+    "/staff/students",
+    "/staff/students/student-1",
+    "/staff/notification",
+    "/staff/notification/manage",
+    "/staff/assistant-detail",
+  ];
+  const ASSISTANT_DENIED_ROUTES = [
+    "/staff/dashboard",
+    "/staff/users",
+    "/staff/staffs",
+    "/staff/staffs/staff-1",
+    "/staff/classes",
+    "/staff/classes/class-1",
+    "/staff/system-settings",
+    "/staff/deductions",
+    "/staff/costs",
+    "/staff/history",
+    "/staff/calendar",
+    "/staff/surveys",
+    "/staff/courses",
+    "/staff/lesson-plans",
+    "/staff/lesson-plans/tasks/task-1",
+    "/staff/lesson-manage-details",
+    "/staff/lesson-plan-detail/staff-1",
+    "/staff/accountant-detail",
+    "/staff/communication-detail",
+    "/staff/technical-detail",
+    "/staff/training-detail",
+    "/staff/training-head-detail",
+    "/staff/sale-detail",
+  ];
+
+  it("cho Trợ lí vào Học sinh, Thông báo và trang cá nhân", () => {
+    const profile = staffProfile(["sale_customer_care_head"]);
+    for (const route of ASSISTANT_ALLOWED_ROUTES) {
+      expect(
+        resolveStaffShellRouteAccess(profile, route).isAllowed,
+        route,
+      ).toBe(true);
+    }
+  });
+
+  it("từ chối Trợ lí ở mọi màn quản trị khác", () => {
+    const profile = staffProfile(["sale_customer_care_head"]);
+    for (const route of ASSISTANT_DENIED_ROUTES) {
+      expect(
+        resolveStaffShellRouteAccess(profile, route).isAllowed,
+        route,
+      ).toBe(false);
+    }
+  });
+
+  it("staff có role admin vẫn vào được các màn đó", () => {
+    const profile = staffProfile(["admin"]);
+    for (const route of ASSISTANT_DENIED_ROUTES) {
+      expect(
+        resolveStaffShellRouteAccess(profile, route).isAllowed,
+        route,
+      ).toBe(true);
+    }
+  });
+
+  it("Kế toán chi vẫn giữ Chi phí / Nhân sự", () => {
+    const profile = staffProfile(["accountant_expense"]);
+    expect(
+      resolveStaffShellRouteAccess(profile, "/staff/costs").isAllowed,
+    ).toBe(true);
+    expect(
+      resolveStaffShellRouteAccess(profile, "/staff/staffs").isAllowed,
+    ).toBe(true);
+  });
+
+  it("Trợ lí kiêm role khác giữ quyền của role đó", () => {
+    const profile = staffProfile(["sale_customer_care_head", "accountant_income"]);
+    expect(
+      resolveStaffShellRouteAccess(profile, "/staff/classes").isAllowed,
+    ).toBe(true);
+    expect(
+      resolveStaffShellRouteAccess(profile, "/staff/accountant-detail")
+        .isAllowed,
+    ).toBe(true);
+    expect(
+      resolveStaffShellRouteAccess(profile, "/staff/costs").isAllowed,
+    ).toBe(false);
+  });
+});
+
+describe("Đội Sale & CSKH chỉ Trưởng phòng Sale & CSKH (#271)", () => {
+  const TEAM_ROUTES = ["/staff/sale-cs-team", "/staff/sale-cs-team/UNISTAFF-1"];
+
+  it.each(TEAM_ROUTES)("Trưởng phòng vào được %s", (route) => {
+    expect(
+      resolveStaffShellRouteAccess(
+        staffProfile(["sale_customer_care_head"]),
+        route,
+      ).isAllowed,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["customer_care"],
+    ["sale"],
+    ["accountant_expense"],
+    ["training_head"],
+  ])("role %s không vào được", (role) => {
+    for (const route of TEAM_ROUTES) {
+      expect(
+        resolveStaffShellRouteAccess(staffProfile([role]), route).isAllowed,
+      ).toBe(false);
+    }
+  });
+
+  it("Trưởng phòng vẫn mở được chi tiết CSKH của thành viên", () => {
+    expect(
+      resolveStaffShellRouteAccess(
+        staffProfile(["sale_customer_care_head"]),
+        "/staff/customer-care-detail/UNISTAFF-1",
+      ).isAllowed,
+    ).toBe(true);
   });
 });

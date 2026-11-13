@@ -249,7 +249,7 @@ function AdminWalletDirectTopUpRequestsPageContent() {
               Duyệt nạp ví học sinh
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-              Theo dõi yêu cầu nạp thẳng từ CSKH, kế toán và trợ lí; admin duyệt thì ví học sinh mới được cộng.
+              Theo dõi yêu cầu nạp thẳng từ CSKH, kế toán và Trưởng phòng Sale & CSKH; admin duyệt thì ví học sinh mới được cộng.
             </p>
           </div>
           <div className="rounded-lg border border-border-default bg-bg-surface px-4 py-3 text-sm">

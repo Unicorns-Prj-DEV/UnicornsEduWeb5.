@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import { Injectable } from '@nestjs/common';
 import {
   StaffRole,
@@ -20,7 +21,7 @@ import { STAFF_DATA_CONSENT_VERSION } from './constants';
 export type AuthWorkspace = 'admin' | 'staff' | 'student';
 export type AdminAccessTier =
   | 'full'
-  | 'assistant'
+  | 'sale_customer_care_head'
   | 'accountant'
   | 'lesson_plan_head'
   | null;
@@ -155,12 +156,11 @@ function resolveAdminTier(
     return 'full';
   }
 
-  if (staffRoles.includes(StaffRole.assistant)) {
-    return 'assistant';
+  if (hasSaleCsHeadAccess(staffRoles)) {
+    return 'sale_customer_care_head';
   }
 
   if (
-    staffRoles.includes(StaffRole.accountant) ||
     staffRoles.includes(StaffRole.accountant_income) ||
     staffRoles.includes(StaffRole.accountant_expense)
   ) {

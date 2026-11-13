@@ -28,6 +28,8 @@ import {
   ClassStatusActionDto,
   ScheduleSlotDto,
   UpdateClassBasicInfoDto,
+  UpdateClassTuitionDto,
+  CLASS_TUITION_FIELDS,
   UpdateClassDto,
   UpdateClassPricingModeDto,
   UpdateClassScheduleDto,
@@ -39,7 +41,25 @@ import {
 } from 'src/dtos/class.dto';
 import { Prisma } from '../../generated/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { StaffOperationsAccessService } from 'src/staff-ops/staff-operations-access.service';
+import {
+  assertActorNotEditingOwnCompensation,
+  assertNotEditingOwnCompensation,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
+import {
+  grantTrainingRoleForManager,
+  resolveTrainingManagerAssignment,
+} from 'src/training-manager/training-manager-assignment';
+import {
+  assertCreateClassAllowed,
+  assertUpdateClassBasicInfoAllowed,
+} from './class-write-field-policy';
+import { assertTeacherPayUpdateExcludesOwnPay } from './class-teacher-pay-policy';
+import {
+  StaffOperationsAccessService,
+  isTrainingHeadActor,
+  seesClassAsTrainingManager,
+} from 'src/staff-ops/staff-operations-access.service';
 import { CalendarService } from 'src/calendar/calendar.service';
 import { Logger } from '@nestjs/common';
 import { getUserFullNameFromParts } from 'src/common/user-name.util';
@@ -71,6 +91,10 @@ import {
 } from 'src/common/class-pricing-mode.util';
 import { findOneTimeChargedStudentIds } from 'src/common/one-time-charge.util';
 import {
+  assertClassTuitionBeforeFirstStudent,
+  findClassIdsWithoutActiveStudents,
+} from 'src/common/class-first-student-tuition';
+import {
   dualWritePerBlockClassFields,
   perSessionToPerBlock,
   presentCustomAllowanceAsPerSession,
@@ -83,6 +107,7 @@ import {
 } from './class-teacher-allowance.util';
 import {
   redactClassForAccountantView,
+  redactClassForCustomerCareView,
   redactClassForTrainingManagerView,
   redactClassListForAccountantView,
   redactClassListForTrainingManagerView,
@@ -297,8 +322,6 @@ export class ClassService {
   private hasElevatedClassAccess(roles: string[]) {
     return (
       roles.includes(StaffRole.admin) ||
-      roles.includes(StaffRole.assistant) ||
-      roles.includes(StaffRole.accountant) ||
       roles.includes(StaffRole.accountant_income) ||
       roles.includes(StaffRole.accountant_expense)
     );
@@ -311,9 +334,7 @@ export class ClassService {
   }
 
   private shouldScopeStaffClassesToTrainingManager(roles: string[]) {
-    return (
-      hasTrainingAccess(roles) && !this.hasElevatedClassAccess(roles)
-    );
+    return hasTrainingAccess(roles) && !this.hasElevatedClassAccess(roles);
   }
 
   /**
@@ -1228,12 +1249,23 @@ export class ClassService {
     const scopeToTrainingManager =
       this.shouldScopeStaffClassesToTrainingManager(actor.roles);
     const managedOnly = scope === 'managed' && scopeToTrainingManager;
+    // #277: Trưởng ban Đào tạo thấy **mọi lớp** (không học phí); `managed`
+    // vẫn lọc về lớp mình quản lý.
+    const seesAllClasses =
+      scopeToTrainingManager && isTrainingHeadActor(actor.roles);
     const classes = await this.getClasses({
       ...listQuery,
-      ...(!managedOnly && this.shouldScopeStaffClassesToTeacher(actor.roles)
-        ? { teacherId: actor.id }
-        : {}),
-      ...(scopeToTrainingManager ? { trainingManagerStaffId: actor.id } : {}),
+      ...(seesAllClasses && !managedOnly
+        ? {}
+        : {
+            ...(!managedOnly &&
+            this.shouldScopeStaffClassesToTeacher(actor.roles)
+              ? { teacherId: actor.id }
+              : {}),
+            ...(scopeToTrainingManager
+              ? { trainingManagerStaffId: actor.id }
+              : {}),
+          }),
     });
 
     const financeView = resolveAccountantFinanceView(roleType, actor.roles);
@@ -1242,11 +1274,26 @@ export class ClassService {
       financeView,
     );
 
-    if (scopeToTrainingManager) {
-      return redactClassListForTrainingManagerView(accountantScoped);
+    const isTeacherScoped = this.shouldScopeStaffClassesToTeacher(actor.roles);
+    if (!scopeToTrainingManager && !isTeacherScoped) {
+      return accountantScoped;
     }
 
-    return accountantScoped;
+    // Quyết định 13/11: gia sư không thấy học phí lớp; lương gia sư khác chỉ
+    // hiện ở lớp mình quản lý (hoặc mọi lớp với Trưởng ban Đào tạo).
+    const tuitionHidden =
+      redactClassListForTrainingManagerView(accountantScoped);
+    if (seesAllClasses) {
+      return tuitionHidden;
+    }
+    return {
+      ...tuitionHidden,
+      data: tuitionHidden.data.map((item) =>
+        item.trainingManagerStaffId === actor.id
+          ? item
+          : redactOtherTeachersIncome(item, actor.id),
+      ),
+    };
   }
 
   async getClassByIdForStaff(userId: string, roleType: UserRole, id: string) {
@@ -1254,14 +1301,28 @@ export class ClassService {
       userId,
       roleType,
     );
-    const accessMode =
-      await this.staffOperationsAccess.resolveClassViewAccessMode(actor, id);
+    const access = await this.staffOperationsAccess.resolveClassAccess(
+      actor,
+      id,
+    );
+    const accessMode = access.mode;
 
     const classDetail = await this.getClassById(id);
     const financeView = resolveAccountantFinanceView(roleType, actor.roles);
     let result = redactClassForAccountantView(classDetail, financeView);
 
-    if (accessMode === 'training_manager') {
+    // #276: Quản lý lớp không thấy học phí lớp / học phí từng học sinh — kể
+    // cả khi kiêm gia sư của lớp (mode `teacher`). Tổng học phí buổi vẫn hiện
+    // trên dòng thu nhập của chính họ (lịch sử buổi / trợ cấp quản lý lớp).
+    // Role xem được học phí (Admin, Kế toán, CSKH của học sinh) giữ nguyên.
+    // #277: Trưởng ban Đào tạo (mọi lớp) cùng góc nhìn: không học phí.
+    // Quyết định 13/11: gia sư (kể cả chỉ dạy) cũng không thấy học phí lớp.
+    const managerView = seesClassAsTrainingManager(access);
+    if (
+      accessMode === 'training_manager' ||
+      accessMode === 'training_head' ||
+      accessMode === 'teacher'
+    ) {
       result = redactClassForTrainingManagerView(result);
     }
 
@@ -1270,17 +1331,15 @@ export class ClassService {
     }
 
     if (accessMode === 'teacher') {
-      // Kiêm quản lý lớp này: thấy lương mọi gia sư để chỉnh (trừ dòng của mình ở FE/BE write).
-      const managesClass =
-        hasTrainingAccess(actor.roles) &&
-        classDetail.trainingManager?.id === actor.id;
+      // Kiêm quản lý lớp này / Trưởng ban Đào tạo: thấy lương mọi gia sư để
+      // chỉnh (trừ dòng của mình ở FE/BE write).
       return redactClassStudentWalletBalances(
-        managesClass ? result : redactOtherTeachersIncome(result, actor.id),
+        managerView ? result : redactOtherTeachersIncome(result, actor.id),
         { mode: 'none' },
       );
     }
 
-    if (accessMode === 'training_manager') {
+    if (accessMode === 'training_manager' || accessMode === 'training_head') {
       return redactClassStudentWalletBalances(result, { mode: 'none' });
     }
 
@@ -1296,12 +1355,18 @@ export class ClassService {
         },
         select: { studentId: true },
       });
-      return redactClassStudentWalletBalances(result, {
-        mode: 'allowlist',
-        allowedStudentIds: new Set(
-          assignedStudents.map((row) => row.studentId),
+      const assignedStudentIds = new Set(
+        assignedStudents.map((row) => row.studentId),
+      );
+      // Quyết định 13/11: CSKH chỉ thấy học phí của học sinh mình chăm sóc,
+      // không thấy học phí lớp và lương gia sư.
+      return redactClassStudentWalletBalances(
+        redactOtherTeachersIncome(
+          redactClassForCustomerCareView(result, assignedStudentIds),
+          actor.id,
         ),
-      });
+        { mode: 'allowlist', allowedStudentIds: assignedStudentIds },
+      );
     }
 
     return redactClassStudentWalletBalances(result, { mode: 'none' });
@@ -1321,6 +1386,8 @@ export class ClassService {
       throw new ForbiddenException('Giáo viên không được phép tạo lớp học.');
     }
 
+    // #274: createClass áp chính sách role — chỉ Admin + hai role trưởng, và
+    // lịch học (schedule) chỉ Admin được gửi.
     return this.createClass(
       {
         name: dto.name,
@@ -1339,16 +1406,24 @@ export class ClassService {
     dto: UpdateClassScheduleDto,
     auditActor?: ActionHistoryActor,
   ) {
-    const actor = await this.staffOperationsAccess.resolveActor(
+    // #275: Admin + Quản lý lớp sửa mọi slot của lớp; gia sư chỉ slot của
+    // mình; lớp không được giao → 403.
+    const access = await this.staffOperationsAccess.resolveClassWorkAccess(
       userId,
       roleType,
+      id,
     );
-    if (this.isTeacherActor(actor.roles)) {
-      await this.staffOperationsAccess.assertTeacherAssignedToClass(
-        actor.id,
-        id,
-      );
-      await this.assertTeacherOnlyOwnScheduleEntries(actor.id, id, dto);
+    if (!access.isAdmin && access.isClassManager) {
+      // Quản lý lớp không backdate ngày hiệu lực (chỉ Admin).
+      dto = {
+        ...dto,
+        schedule: dto.schedule.map((entry) => ({
+          ...entry,
+          effectiveFrom: undefined,
+        })),
+      };
+    } else if (!access.isAdmin && access.isClassTeacher && access.staffId) {
+      await this.assertTeacherOnlyOwnScheduleEntries(access.staffId, id, dto);
       // Chỉ Admin/Trợ lý được backdate ngày hiệu lực; gia sư tự sửa lịch của
       // chính mình luôn dùng now() -- bỏ qua effectiveFrom nếu có gửi lên,
       // tránh gia sư tự backdate qua gọi thẳng API (bypass UI).
@@ -1400,6 +1475,13 @@ export class ClassService {
   }
 
   async createClass(data: CreateClassDto, auditActor?: ActionHistoryActor) {
+    // #274: Admin mọi trường; Trưởng ban Đào tạo / Trưởng phòng Sale & CSKH chỉ
+    // các trường thuộc quyền (gửi ngoài quyền → 403). Áp cho cả POST /class
+    // lẫn POST /staff-ops/classes.
+    assertCreateClassAllowed(
+      await resolveStaffPolicyActor(this.prisma, auditActor),
+      data,
+    );
     return this.withEntityIdRetry(() => this.createClassOnce(data, auditActor));
   }
 
@@ -1476,8 +1558,10 @@ export class ClassService {
   }
 
   /**
-   * Luật khoá bán một lần khi sửa lớp: chỉ đổi sang khoá cùng chế độ, và lớp
-   * bán một lần luôn giữ Tổng gói > 0đ.
+   * Luật khoá bán một lần khi sửa lớp: chỉ đổi sang khoá cùng chế độ. Lớp bán
+   * một lần đang có học sinh học phải giữ Tổng gói > 0đ (không xoá gói được);
+   * lớp còn trống được để trống gói (follow-up grill 13/11) — điều kiện > 0đ
+   * kiểm lúc nhận học sinh đầu tiên.
    */
   private async assertClassSaleModeRules(
     db: Prisma.TransactionClient | PrismaService,
@@ -1505,12 +1589,18 @@ export class ClassService {
         toCourseIsOneTime,
       });
     }
+    if (!toCourseIsOneTime) {
+      return;
+    }
+    const hasActiveStudents =
+      (await findClassIdsWithoutActiveStudents(db, [classId])).length === 0;
     assertOneTimePackageTotal({
       isOneTime: toCourseIsOneTime,
       tuitionPackageTotal:
         next.tuitionPackageTotal !== undefined
           ? next.tuitionPackageTotal
           : current.tuitionPackageTotal,
+      hasActiveStudents,
     });
   }
 
@@ -1558,14 +1648,25 @@ export class ClassService {
       if (isBlockPricingMode(pricingMode)) {
         assertCanEnableBlockPricing(standardBlockCount);
       }
+      // Lớp mới luôn trống: được để trống gói bán một lần; có `student_ids`
+      // thì `assertClassTuitionBeforeFirstStudent` bên dưới bắt gói > 0đ.
       assertOneTimePackageTotal({
         isOneTime: resolved.courseIsOneTime,
         tuitionPackageTotal: data.tuition_package_total,
+        hasActiveStudents: false,
       });
+
+      // #274: giao Quản lý lớp ngay khi tạo (cùng kiểm tra với
+      // PATCH /class/:id/training-manager); % trợ cấp quản lý vẫn chỉ Admin.
+      const trainingManagerStaffId = data.training_manager_staff_id ?? null;
+      const trainingManagerAssignment = trainingManagerStaffId
+        ? await resolveTrainingManagerAssignment(tx, trainingManagerStaffId)
+        : null;
 
       const createdClass = await tx.class.create({
         data: {
           id: generateClassId(),
+          ...(trainingManagerStaffId ? { trainingManagerStaffId } : {}),
           name: data.name,
           courseId: resolved.courseId,
           status: data.status,
@@ -1585,6 +1686,11 @@ export class ClassService {
           ...perBlockFields,
         },
       });
+
+      await grantTrainingRoleForManager(
+        tx,
+        trainingManagerAssignment?.grantTrainingRoleToStaffId ?? null,
+      );
 
       if (hasSchedule) {
         const scheduleEntries = data.schedule as unknown as ScheduleSlotDto[];
@@ -1629,6 +1735,9 @@ export class ClassService {
       }
 
       if (data.student_ids && data.student_ids.length > 0) {
+        // #273: lớp mới luôn trống → học sinh đầu tiên cần học phí lớp (điền
+        // ngay trong payload tạo lớp cũng được).
+        await assertClassTuitionBeforeFirstStudent(tx, [createdClass.id]);
         await tx.studentClass.createMany({
           data: data.student_ids.map((studentId) => ({
             classId: createdClass.id,
@@ -1722,6 +1831,12 @@ export class ClassService {
       let removedScheduleEntries = 0;
       let oldSchedule: StoredClassScheduleEntry[] = [];
       let removedTeacherIds: string[] = [];
+      // #273: lớp đang trống mà payload thêm học sinh → kiểm học phí sau khi
+      // ghi lớp (học phí gửi cùng payload được tính).
+      const firstStudentClassIds =
+        data.student_ids !== undefined && data.student_ids.length > 0
+          ? await findClassIdsWithoutActiveStudents(tx, [data.id])
+          : [];
 
       if (teacherPayload !== null) {
         await this.assertActiveStaffIds(
@@ -1891,6 +2006,7 @@ export class ClassService {
           }),
         },
       });
+      await assertClassTuitionBeforeFirstStudent(tx, firstStudentClassIds);
 
       const classRecord = await tx.classTeacher.findMany({
         where: {
@@ -1959,9 +2075,55 @@ export class ClassService {
     return result.response;
   }
 
+  /** **Thông tin lớp** + lương gia sư mặc định của lớp (không học phí, #272). */
   async updateClassBasicInfo(
     id: string,
     dto: UpdateClassBasicInfoDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    // #274: role trưởng chỉ sửa tên, khoá học, sĩ số; còn lại chỉ Admin.
+    assertUpdateClassBasicInfoAllowed(
+      await resolveStaffPolicyActor(this.prisma, auditActor),
+      dto,
+    );
+    // #272: Thông tin lớp không ghi học phí — kể cả khi payload lọt qua
+    // ValidationPipe (gọi nội bộ); học phí đi PATCH /class/:id/tuition.
+    const infoOnly: Record<string, unknown> = { ...dto };
+    for (const field of CLASS_TUITION_FIELDS) {
+      delete infoOnly[field];
+    }
+    return this.applyClassFieldsUpdate(
+      id,
+      infoOnly as UpdateClassBasicInfoDto,
+      'Cập nhật thông tin cơ bản lớp học',
+      auditActor,
+    );
+  }
+
+  /** **Học phí lớp** (#272): chỉ các trường giá/học phí của lớp. */
+  async updateClassTuition(
+    id: string,
+    dto: UpdateClassTuitionDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const tuitionOnly: UpdateClassTuitionDto = {};
+    for (const field of CLASS_TUITION_FIELDS) {
+      if (dto[field] !== undefined) {
+        (tuitionOnly as Record<string, unknown>)[field] = dto[field];
+      }
+    }
+    return this.applyClassFieldsUpdate(
+      id,
+      tuitionOnly,
+      'Cập nhật học phí lớp',
+      auditActor,
+    );
+  }
+
+  private async applyClassFieldsUpdate(
+    id: string,
+    dto: UpdateClassBasicInfoDto & UpdateClassTuitionDto,
+    auditDescription: string,
     auditActor?: ActionHistoryActor,
   ) {
     const existing = await this.prisma.class.findUnique({
@@ -2072,7 +2234,7 @@ export class ClassService {
           actor: auditActor,
           entityType: 'class',
           entityId: id,
-          description: 'Cập nhật thông tin cơ bản lớp học',
+          description: auditDescription,
           beforeValue,
           afterValue,
         });
@@ -2447,6 +2609,39 @@ export class ClassService {
         ),
       }));
 
+      // Luật 1 (#265): tự gán mình vào lớp hoặc đổi lương/% vận hành dòng của
+      // mình = tự sửa lương. Gỡ mình khỏi lớp thì vẫn được.
+      const policyActor = await resolveStaffPolicyActor(tx, auditActor);
+      const ownPayload = policyActor.staffId
+        ? teacherPayload.find((t) => t.teacherId === policyActor.staffId)
+        : undefined;
+      if (ownPayload) {
+        const ownExisting = existingTeachers.find(
+          (t) => t.teacherId === ownPayload.teacherId,
+        );
+        const same = (
+          a: number | { toString(): string } | null | undefined,
+          b: number | { toString(): string } | null | undefined,
+        ) =>
+          (a == null ? null : a.toString()) ===
+          (b == null ? null : b.toString());
+        const changed =
+          !ownExisting ||
+          !same(ownPayload.customAllowance, ownExisting.customAllowance) ||
+          !same(
+            ownPayload.customAllowancePerSession,
+            ownExisting.customAllowancePerSession,
+          ) ||
+          !same(ownPayload.customScaleAmount, ownExisting.customScaleAmount) ||
+          !same(
+            ownPayload.operatingDeductionRatePercent,
+            normalizeRatePercent(ownExisting.operatingDeductionRatePercent),
+          );
+        if (changed) {
+          assertNotEditingOwnCompensation(policyActor, [ownPayload.teacherId]);
+        }
+      }
+
       const nextTeacherIds = new Set(
         teacherPayload.map((teacher) => teacher.teacherId),
       );
@@ -2518,6 +2713,11 @@ export class ClassService {
     auditActor?: ActionHistoryActor,
   ) {
     const teacherIds = dto.teachers.map((teacher) => teacher.teacher_id);
+    await assertActorNotEditingOwnCompensation(
+      this.prisma,
+      auditActor,
+      teacherIds,
+    );
     const existing = await this.prisma.class.findUnique({
       where: { id },
       select: {
@@ -2644,7 +2844,9 @@ export class ClassService {
   /**
    * Ban Đào Tạo (quản lý lớp): chỉnh mức trợ cấp/scale mặc định của lớp và
    * trợ cấp/scale/% vận hành của gia sư đã có trong lớp, trong 1 transaction.
-   * `lockedTeacherId` = staff id của quản lý lớp — không được sửa dòng của chính mình.
+   * `lockedTeacherId` = staff id của quản lý lớp — không được sửa phần lương
+   * của chính mình (#276: dòng của mình + mức mặc định lớp mà mình đang kế
+   * thừa, xem `class-teacher-pay-policy.ts`).
    * Không đụng tới buổi đã tạo (buổi snapshot tiền lúc tạo).
    */
   async updateClassTeacherPay(
@@ -2661,6 +2863,10 @@ export class ClassService {
           select: {
             teacherId: true,
             operatingDeductionRatePercent: true,
+            customAllowance: true,
+            customAllowancePerSession: true,
+            customScaleAmount: true,
+            status: true,
           },
         },
       },
@@ -2680,14 +2886,15 @@ export class ClassService {
     }
 
     const lockedTeacherId = options.lockedTeacherId ?? null;
-    if (
-      lockedTeacherId &&
-      teachers.some((teacher) => teacher.teacher_id === lockedTeacherId)
-    ) {
-      throw new ForbiddenException(
-        'Quản lý lớp không được tự chỉnh lương của chính mình.',
-      );
-    }
+    assertTeacherPayUpdateExcludesOwnPay(
+      dto,
+      lockedTeacherId,
+      lockedTeacherId
+        ? existing.teachers.find(
+            (teacher) => teacher.teacherId === lockedTeacherId,
+          )
+        : null,
+    );
 
     const existingRateByTeacherId = new Map(
       existing.teachers.map((teacher) => [
@@ -2782,6 +2989,9 @@ export class ClassService {
     teacherId: string,
     auditActor?: ActionHistoryActor,
   ) {
+    await assertActorNotEditingOwnCompensation(this.prisma, auditActor, [
+      teacherId,
+    ]);
     await this.prisma.$transaction(async (tx) => {
       const beforeValue = await this.getClassAuditSnapshot(tx, classId);
       if (!beforeValue) {
@@ -3214,6 +3424,13 @@ export class ClassService {
         : null;
       const standardBlockCount = await this.loadStandardBlockCount(tx, id);
       await this.assertActiveStudentIds(tx, normalizedStudentIds);
+      // #273: học sinh đầu tiên (kể cả có học phí riêng) cần học phí lớp.
+      if (normalizedStudentIds.length > 0) {
+        await assertClassTuitionBeforeFirstStudent(
+          tx,
+          await findClassIdsWithoutActiveStudents(tx, [id]),
+        );
+      }
 
       const existingStudentClasses = await tx.studentClass.findMany({
         where: { classId: id },

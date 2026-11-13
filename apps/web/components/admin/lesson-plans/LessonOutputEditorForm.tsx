@@ -55,8 +55,15 @@ type Props = {
   allowTasklessOutput?: boolean;
   /** Khi `false`, ẩn dropdown thanh toán và giữ `paymentStatus` hiện tại. */
   allowPaymentStatusEdit?: boolean;
-  /** Deprecated: ô chi phí luôn read-only; backend tự tính từ bậc + tick. */
+  /**
+   * `false` = khoá bậc độ khó / level / hạng mục (quyết định chi phí). Tự khai
+   * chi phí giáo án: người nhận thanh toán, Trưởng ban Chuyên môn và Admin cài
+   * khi output chưa thanh toán (`lib/lesson-output-pricing-access.ts`). Ô chi
+   * phí luôn read-only.
+   */
   allowCostEdit?: boolean;
+  /** Lý do khoá bậc độ khó / level / hạng mục (khi `allowCostEdit = false`). */
+  pricingLockedMessage?: string;
   isSubmitting?: boolean;
   onCancel?: () => void;
   onSubmit: (payload: CreateLessonOutputPayload) => Promise<void> | void;
@@ -331,6 +338,8 @@ export default function LessonOutputEditorForm({
   forceSharedLayout = false,
   allowTasklessOutput = false,
   allowPaymentStatusEdit = true,
+  allowCostEdit = true,
+  pricingLockedMessage,
   isSubmitting = false,
   onCancel,
   onSubmit,
@@ -642,6 +651,7 @@ export default function LessonOutputEditorForm({
                   options={LEVEL_OPTIONS}
                   ariaLabel="Level"
                   placeholder="Chọn level"
+                  disabled={!allowCostEdit}
                   buttonClassName={`${selectButtonClass()} flex items-center justify-between text-left`}
                   menuClassName={selectMenuClass()}
                 />
@@ -693,7 +703,9 @@ export default function LessonOutputEditorForm({
               includesTheoryLecture={includesTheoryLecture}
               theoryLectureLinks={theoryLectureLinks}
               level={level}
-              storedCost={initialData?.cost ?? 0}
+              storedCost={initialData ? initialData.cost : 0}
+              pricingLocked={!allowCostEdit}
+              pricingLockedMessage={pricingLockedMessage}
               selectButtonClassName={selectButtonClass()}
               selectMenuClassName={selectMenuClass()}
               linkInputClassName={fieldInputClass()}
@@ -906,7 +918,9 @@ export default function LessonOutputEditorForm({
                 includesTheoryLecture={includesTheoryLecture}
                 theoryLectureLinks={theoryLectureLinks}
                 level={level}
-                storedCost={initialData?.cost ?? 0}
+                storedCost={initialData ? initialData.cost : 0}
+                pricingLocked={!allowCostEdit}
+                pricingLockedMessage={pricingLockedMessage}
                 selectButtonClassName={selectButtonClass()}
                 selectMenuClassName={selectMenuClass()}
                 linkInputClassName={fieldInputClass()}
@@ -928,6 +942,7 @@ export default function LessonOutputEditorForm({
                 options={LEVEL_OPTIONS}
                 ariaLabel="Level lesson output"
                 placeholder="Chọn level"
+                disabled={!allowCostEdit}
                 buttonClassName={`${selectButtonClass()} flex items-center justify-between text-left`}
                 menuClassName={selectMenuClass()}
               />

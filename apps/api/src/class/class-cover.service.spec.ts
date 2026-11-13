@@ -62,7 +62,7 @@ describe('ClassCoverService', () => {
       expect(mockPrisma.staffInfo.findFirst).not.toHaveBeenCalled();
     });
 
-    it.each([StaffRole.admin, StaffRole.assistant])(
+    it.each([StaffRole.admin])(
       'allows staff role %s for every class without ownership',
       async (role) => {
         asStaff([role]);
@@ -94,7 +94,9 @@ describe('ClassCoverService', () => {
       [StaffRole.teacher],
       [StaffRole.training],
       [StaffRole.customer_care],
-      [StaffRole.accountant],
+      [StaffRole.accountant_income],
+      // #267: Trợ lí không còn quản lý lớp.
+      [StaffRole.sale_customer_care_head],
     ])('rejects %s staff who do not own the class', async (role) => {
       asStaff([role], false);
       await expect(
@@ -219,12 +221,12 @@ describe('ClassCoverService', () => {
     it('requires class view access for staff and reports canManage', async () => {
       staffOperationsAccess.resolveClassViewerActor.mockResolvedValue({
         id: 'staff-1',
-        roles: [StaffRole.accountant],
+        roles: [StaffRole.accountant_income],
       });
       staffOperationsAccess.resolveClassViewAccessMode.mockResolvedValue(
         'admin',
       );
-      asStaff([StaffRole.accountant], false);
+      asStaff([StaffRole.accountant_income], false);
 
       await expect(
         service.getCover('u1', UserRole.staff, 'class-1'),
@@ -232,7 +234,7 @@ describe('ClassCoverService', () => {
       expect(
         staffOperationsAccess.resolveClassViewAccessMode,
       ).toHaveBeenCalledWith(
-        { id: 'staff-1', roles: [StaffRole.accountant] },
+        { id: 'staff-1', roles: [StaffRole.accountant_income] },
         'class-1',
       );
     });

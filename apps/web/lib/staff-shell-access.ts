@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
 import { Role, type UserInfoDto } from "@/dtos/Auth.dto";
 import type { FullProfileDto } from "@/dtos/profile.dto";
@@ -42,10 +43,14 @@ export type StaffShellRouteFlags = {
   isStaffLessonPlansTaskDetailRoute: boolean;
   isLessonPlanManageDetailsRoute: boolean;
   isAssistantAdminLikeRoute: boolean;
+  /** Báo cáo tháng, Thống kê học sinh — chỉ Admin (#269). */
+  isAdminOnlyReportRoute: boolean;
   isStaffCalendarRoute: boolean;
   isStaffSurveysRoute: boolean;
   isStaffCoursesRoute: boolean;
   isStaffTutorsRoute: boolean;
+  /** Đội Sale & CSKH — chỉ Trưởng phòng Sale & CSKH (#271). */
+  isSaleCsTeamRoute: boolean;
 };
 
 export type StaffShellAccessContext = {
@@ -186,7 +191,7 @@ function resolveStaffShellContext(
   const isTraining = hasTrainingAccess(staffRoles);
   const isTrainingRole = staffRoles.includes("training");
   const isTrainingHead = staffRoles.includes("training_head");
-  const isAssistant = staffRoles.includes("assistant");
+  const isAssistant = hasSaleCsHeadAccess(staffRoles);
   const isAccountantIncome =
     staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
   const isAccountantExpense = staffRoles.includes("accountant_expense");
@@ -244,12 +249,11 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffStudentsListRoute = pathname === "/staff/students";
   const isStaffStudentDetailRoute = pathname.startsWith("/staff/students/");
   const isAssistantHistoryRoute = pathname.startsWith("/staff/history");
-  const isAssistantMonthlyReportRoute = pathname.startsWith(
-    "/staff/monthly-report",
-  );
-  const isAssistantStudentStatisticsRoute = pathname.startsWith(
-    "/staff/student-statistics",
-  );
+  // #269: Báo cáo tháng, Thống kê học sinh chỉ Admin; Trợ lí / Kế toán thu
+  // và mọi staff role khác bị chặn.
+  const isAdminOnlyReportRoute =
+    pathname.startsWith("/staff/monthly-report") ||
+    pathname.startsWith("/staff/student-statistics");
   const isStaffNotificationRoute = pathname.startsWith("/staff/notification");
   const isStaffNotificationManageRoute = pathname.startsWith(
     "/staff/notification/manage",
@@ -292,14 +296,13 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffSurveysRoute = pathname.startsWith("/staff/surveys");
   const isStaffCoursesRoute = pathname.startsWith("/staff/courses");
   const isStaffTutorsRoute = pathname.startsWith("/staff/tutors");
+  const isSaleCsTeamRoute = pathname.startsWith("/staff/sale-cs-team");
   const isAssistantAdminLikeRoute =
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
     isAssistantStaffsRoute ||
     isStaffStudentsListRoute ||
-    isAssistantHistoryRoute ||
-    isAssistantMonthlyReportRoute ||
-    isAssistantStudentStatisticsRoute;
+    isAssistantHistoryRoute;
 
   return {
     isDashboardRoute,
@@ -336,10 +339,12 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffLessonPlansTaskDetailRoute,
     isLessonPlanManageDetailsRoute,
     isAssistantAdminLikeRoute,
+    isAdminOnlyReportRoute,
     isStaffCalendarRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
     isStaffTutorsRoute,
+    isSaleCsTeamRoute,
   };
 }
 
@@ -386,16 +391,19 @@ export function resolveStaffShellRouteAccess(
       ? hasStaffWorkspaceAccess && isStaffOrAdmin
       : hasStaffWorkspaceAccess && isStaffOrAdmin && isAdmin
         ? true
+        : flags.isAdminOnlyReportRoute
+          ? false
                     : flags.isStaffCalendarRoute
             ? hasStaffWorkspaceAccess &&
-              (isAdmin || isAssistantStaff || isTeacher || isTraining)
+              (isAdmin || isTeacher || isTraining)
           : flags.isStaffTutorsRoute
             ? hasStaffWorkspaceAccess && isStaffOrAdmin && isTraining
+          : flags.isSaleCsTeamRoute
+            ? isAssistantStaff
           : flags.isStaffSurveysRoute
             ? hasStaffWorkspaceAccess &&
               isStaffOrAdmin &&
               (isAdmin ||
-                isAssistantStaff ||
                 lessonWorkspace.isLessonPlan ||
                 lessonWorkspace.isLessonPlanHead)
           : flags.isStaffCoursesRoute
@@ -403,15 +411,14 @@ export function resolveStaffShellRouteAccess(
               isStaffOrAdmin &&
               (lessonWorkspace.isLessonPlan || lessonWorkspace.isLessonPlanHead)
           : flags.isStaffClassesRoute
-            ? isAssistantStaff ||
-              (hasStaffWorkspaceAccess &&
+            ? (hasStaffWorkspaceAccess &&
                 isStaffOrAdmin &&
                 (isAccountantIncome || isAccountantExpense || isTraining)) ||
               (flags.isStaffClassDetailRoute &&
                 hasStaffWorkspaceAccess &&
                 (isAdmin || isTeacher || isCustomerCare || isTraining))
             : flags.isStaffDeductionsRoute
-              ? isAssistantStaff
+              ? false
               : flags.isStaffStudentsRoute
                 ? isAssistantStaff ||
                   (hasStaffWorkspaceAccess &&
@@ -421,8 +428,7 @@ export function resolveStaffShellRouteAccess(
                     hasStaffWorkspaceAccess &&
                     isCustomerCare)
                 : flags.isStaffCostsRoute
-                  ? isAssistantStaff ||
-                    (hasStaffWorkspaceAccess &&
+                  ? (hasStaffWorkspaceAccess &&
                       isStaffOrAdmin &&
                       isAccountantExpense)
                   : flags.isStaffLessonPlansHomeRoute
@@ -431,12 +437,11 @@ export function resolveStaffShellRouteAccess(
                       (lessonWorkspace.canAccessWorkspace ||
                         isAccountantExpense)
                     : flags.isAssistantStaffsRoute
-                      ? isAssistantStaff ||
-                        (hasStaffWorkspaceAccess &&
+                      ? (hasStaffWorkspaceAccess &&
                           isStaffOrAdmin &&
                           isAccountantExpense)
                       : flags.isAssistantAdminLikeRoute
-                        ? isAssistantStaff
+                        ? false
                         : flags.isCustomerCareSelfRoute
                           ? flags.isCustomerCareAdminRoute
                             ? isAssistantStaff ||
@@ -456,37 +461,31 @@ export function resolveStaffShellRouteAccess(
                               ? hasStaffWorkspaceAccess &&
                                 isStaffOrAdmin &&
                                 (isAccountant ||
-                                  isAssistantStaff ||
                                   isAccountantExpense)
                               : flags.isCommunicationSelfRoute
                                 ? hasStaffWorkspaceAccess &&
                                   isStaffOrAdmin &&
                                   (isCommunication ||
-                                    isAssistantStaff ||
                                     isAccountantExpense)
                                 : flags.isTechnicalSelfRoute
                                   ? hasStaffWorkspaceAccess &&
                                     isStaffOrAdmin &&
                                     (isTechnical ||
-                                      isAssistantStaff ||
                                       isAccountantExpense)
                                   : flags.isTrainingSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
                                       (isTrainingRole ||
-                                        isAssistantStaff ||
                                         isAccountantExpense)
                                   : flags.isTrainingHeadSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
                                       (isTrainingHead ||
-                                        isAssistantStaff ||
                                         isAccountantExpense)
                                     : flags.isSaleSelfRoute
                                     ? hasStaffWorkspaceAccess &&
                                       isStaffOrAdmin &&
                                       (isSale ||
-                                        isAssistantStaff ||
                                         isAccountantExpense)
                                     : flags.isLessonPlanLegacyRoute
                                       ? hasStaffWorkspaceAccess &&
@@ -506,10 +505,8 @@ export function resolveStaffShellRouteAccess(
                                             ? hasStaffWorkspaceAccess &&
                                               isStaffOrAdmin &&
                                               (flags.isLessonPlanAdminDetailRoute
-                                                ? isAssistantStaff ||
-                                                  isAccountantExpense
-                                                : isLessonPlanner ||
-                                                  isAssistantStaff)
+                                                ? isAccountantExpense
+                                                : isLessonPlanner)
                                             : false;
 
   const redirectHref = isAllowed

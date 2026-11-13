@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/client';
 import {
@@ -85,6 +86,8 @@ import {
 } from '../dtos/dashboard.dto';
 import { DashboardCacheService } from '../cache/dashboard-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { hasAnyStaffRole } from '../common/staff-role-policy';
+import { redactAccountantSectionStaffPayouts } from './accountant-section-redaction.util';
 import { getUserFullNameFromParts } from '../common/user-name.util';
 import {
   aggregateStudentDemographics,
@@ -719,7 +722,7 @@ export function buildPersonnelCostBreakdown(
     },
     {
       key: 'assistant-cost',
-      label: 'Trợ lí',
+      label: 'Hoa hồng trưởng phòng',
       value: row.assistantAmount,
       sign: 1,
     },
@@ -834,7 +837,11 @@ export function buildStaffPendingPayrollSources(
       label: 'Lương cứng',
       value: row.fixedSalaryAmount,
     },
-    { key: 'pending-assistant', label: 'Trợ lí', value: row.assistantAmount },
+    {
+      key: 'pending-assistant',
+      label: 'Hoa hồng trưởng phòng',
+      value: row.assistantAmount,
+    },
     {
       key: 'pending-training-manager',
       label: 'QL lớp',
@@ -873,7 +880,9 @@ function buildStaffUnpaidSourceLabel(row: StaffUnpaidAlertSqlRow) {
     normalizeMoneyAmount(row.lessonAmount) > 0 ? 'giáo án' : null,
     normalizeMoneyAmount(row.extraAllowanceAmount) > 0 ? 'trợ cấp' : null,
     normalizeMoneyAmount(row.fixedSalaryAmount) > 0 ? 'lương cứng' : null,
-    normalizeMoneyAmount(row.assistantAmount) > 0 ? 'trợ lí' : null,
+    normalizeMoneyAmount(row.assistantAmount) > 0
+      ? 'hoa hồng trưởng phòng'
+      : null,
     normalizeMoneyAmount(row.trainingManagerAmount) > 0 ? 'QL lớp' : null,
     normalizeMoneyAmount(row.lessonPlanHeadAmount) > 0 ? 'hoa hồng TGA' : null,
   ].filter((value): value is string => value != null);
@@ -4093,10 +4102,13 @@ export class DashboardService {
     };
   }
 
-  private async getAccountantSection(range: {
-    month: string;
-    year: string;
-  }): Promise<StaffDashboardAccountantSectionDto> {
+  private async getAccountantSection(
+    range: {
+      month: string;
+      year: string;
+    },
+    options: { canViewStaffPayouts: boolean },
+  ): Promise<StaffDashboardAccountantSectionDto> {
     const builtRange = buildDashboardRange(range.month, range.year);
     const dashboardMonthPeriod = {
       monthStart: builtRange.monthStart,
@@ -4135,10 +4147,14 @@ export class DashboardService {
       }),
     );
 
-    return {
+    const section: StaffDashboardAccountantSectionDto = {
       unpaidStaff,
       financialOverview,
+      staffPayoutsVisible: true,
     };
+    return options.canViewStaffPayouts
+      ? section
+      : redactAccountantSectionStaffPayouts(section);
   }
 
   private async getExpenseMonthlySummary(period: {
@@ -4405,7 +4421,7 @@ export class DashboardService {
         },
         {
           key: 'assistantCost',
-          label: 'Trợ lí',
+          label: 'Hoa hồng trưởng phòng',
           amount: normalizeMoneyAmount(summaryRow?.assistantCost),
         },
         {
@@ -4603,7 +4619,7 @@ export class DashboardService {
                 weekEnd: weekRange.end,
               })
             : Promise.resolve(undefined),
-          normalizedRoles.includes(StaffRole.assistant)
+          hasSaleCsHeadAccess(normalizedRoles)
             ? this.getAssistantSection(
                 {
                   month: range.month,
@@ -4623,12 +4639,21 @@ export class DashboardService {
                 monthEnd: range.monthEnd,
               })
             : Promise.resolve(undefined),
-          normalizedRoles.includes(StaffRole.accountant) ||
           normalizedRoles.includes(StaffRole.accountant_income)
-            ? this.getAccountantSection({
-                month: range.month,
-                year: range.year,
-              })
+            ? this.getAccountantSection(
+                {
+                  month: range.month,
+                  year: range.year,
+                },
+                {
+                  // #270: Kế toán thu không thấy khoản chi nhân sự; kiêm Kế toán
+                  // chi / Admin thì hợp quyền → thấy đủ.
+                  canViewStaffPayouts: hasAnyStaffRole(normalizedRoles, [
+                    StaffRole.admin,
+                    StaffRole.accountant_expense,
+                  ]),
+                },
+              )
             : Promise.resolve(undefined),
           normalizedRoles.includes(StaffRole.accountant_expense)
             ? this.getAccountantExpenseSection({
@@ -4803,7 +4828,7 @@ export class DashboardService {
               },
               {
                 key: 'assistantCost',
-                label: 'Trợ cấp trợ lí',
+                label: 'Hoa hồng trưởng phòng',
                 kind: 'expense',
                 amount: rangeTotals.assistantCost,
               },
@@ -4815,7 +4840,7 @@ export class DashboardService {
               },
               {
                 key: 'lessonPlanHeadCost',
-                label: 'Hoa hồng Trưởng chuyên môn',
+                label: 'Hoa hồng Trưởng ban Chuyên môn',
                 kind: 'expense',
                 amount: rangeTotals.lessonPlanHeadCost,
               },
@@ -5009,7 +5034,7 @@ export class DashboardService {
             },
             {
               key: 'assistantCost',
-              label: 'Trợ cấp trợ lí',
+              label: 'Hoa hồng trưởng phòng',
               kind: 'expense',
               amount: selectedMonthTrend.assistantCost,
             },
@@ -5021,7 +5046,7 @@ export class DashboardService {
             },
             {
               key: 'lessonPlanHeadCost',
-              label: 'Hoa hồng Trưởng chuyên môn',
+              label: 'Hoa hồng Trưởng ban Chuyên môn',
               kind: 'expense',
               amount: selectedMonthTrend.lessonPlanHeadCost,
             },
@@ -5674,9 +5699,9 @@ export class DashboardService {
                 },
                 {
                   key: 'pending-assistant',
-                  label: 'Trợ cấp trợ lí chưa thanh toán',
+                  label: 'Hoa hồng trưởng phòng chưa thanh toán',
                   amount: totalAssistantAmount,
-                  note: 'Trợ cấp trợ lí quản lí CSKH ở trạng thái chưa chi trả.',
+                  note: 'Hoa hồng trưởng phòng (Trưởng phòng Sale & CSKH quản lí CSKH) ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
                 {
@@ -5688,9 +5713,9 @@ export class DashboardService {
                 },
                 {
                   key: 'pending-lesson-plan-head',
-                  label: 'Hoa hồng Trưởng chuyên môn chưa thanh toán',
+                  label: 'Hoa hồng Trưởng ban Chuyên môn chưa thanh toán',
                   amount: totalLessonPlanHeadAmount,
-                  note: 'Hoa hồng % doanh thu của Trưởng chuyên môn ở trạng thái chưa chi trả.',
+                  note: 'Hoa hồng % doanh thu của Trưởng ban Chuyên môn ở trạng thái chưa chi trả.',
                   tone: 'negative',
                 },
               ]),
@@ -5808,9 +5833,9 @@ export class DashboardService {
                   },
                   {
                     key: 'assistant-cost',
-                    label: 'Trợ cấp trợ lí',
+                    label: 'Hoa hồng trưởng phòng',
                     amount: selectedMonthTrend.assistantCost,
-                    note: 'Trợ cấp trợ lí quản lí CSKH theo quan hệ trợ lí–học sinh.',
+                    note: 'Hoa hồng trưởng phòng trên nhóm CSKH do Trưởng phòng Sale & CSKH quản lí.',
                     tone: 'negative',
                   },
                   {
@@ -5822,9 +5847,9 @@ export class DashboardService {
                   },
                   {
                     key: 'lesson-plan-head-cost',
-                    label: 'Hoa hồng Trưởng chuyên môn',
+                    label: 'Hoa hồng Trưởng ban Chuyên môn',
                     amount: selectedMonthTrend.lessonPlanHeadCost,
-                    note: 'Hoa hồng % doanh thu của Trưởng chuyên môn theo buổi học trong kỳ.',
+                    note: 'Hoa hồng % doanh thu của Trưởng ban Chuyên môn theo buổi học trong kỳ.',
                     tone: 'negative',
                   },
                 ],

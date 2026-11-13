@@ -1,3 +1,4 @@
+import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
   ForbiddenException,
@@ -7,6 +8,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/client';
+import {
+  assertClassTuitionBeforeFirstStudent,
+  findClassIdsWithoutActiveStudents,
+} from 'src/common/class-first-student-tuition';
 import {
   generateStudentId,
   generateStaffId,
@@ -32,6 +37,11 @@ import {
   UpdateUserDto,
 } from 'src/dtos/user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  assertStaffRoleChangeAllowed,
+  assertUserRoleTypeChangeAllowed,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
 import type {
   StudentClassCardDto,
   StudentClassDetailDto,
@@ -63,6 +73,7 @@ import {
   getPreferredUserFullName,
   splitFullName,
 } from 'src/common/user-name.util';
+import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from 'src/customer-care/customer-care-role-release';
 
 type UserAuditClient = Prisma.TransactionClient | PrismaService;
 const AVATAR_STORAGE_PATH_SEGMENT = 'avatar';
@@ -439,6 +450,16 @@ export class UserService {
       throw new BadRequestException('Vui lòng nhập tên học sinh.');
     }
 
+    // Chặn trước khi tạo user pending, tránh tạo xong mới 403.
+    await this.assertRoleWriteAllowed(auditActor, {
+      targetStaffId: null,
+      previousRoleType: null,
+      nextRoleType,
+      previousStaffRoles: [],
+      nextStaffRoles:
+        nextRoleType === UserRole.staff ? (data.staffRoles ?? []) : [],
+    });
+
     const response =
       await this.authService.createPendingUserWithVerificationEmail(data, {
         auditActor,
@@ -503,7 +524,7 @@ export class UserService {
     if (
       !staff?.roles.includes(StaffRole.customer_care) ||
       staff.roles.includes(StaffRole.admin) ||
-      staff.roles.includes(StaffRole.assistant)
+      hasSaleCsHeadAccess(staff.roles)
     ) {
       return null;
     }
@@ -521,7 +542,7 @@ export class UserService {
       await this.resolveCreatorCustomerCareStaff(auditActor);
     if (creatorCustomerCareStaff && classIds.length > 0) {
       throw new ForbiddenException(
-        'CSKH không được xếp lớp khi tạo học sinh. Nhờ admin/trợ lí xếp lớp sau.',
+        'CSKH không được xếp lớp khi tạo học sinh. Nhờ admin/Trưởng phòng Sale & CSKH xếp lớp sau.',
       );
     }
     if (classIds.length > 0) {
@@ -532,6 +553,11 @@ export class UserService {
       if (classes.length !== classIds.length) {
         throw new NotFoundException('One or more classes not found');
       }
+      // #273: xếp vào lớp đang trống = học sinh đầu tiên → lớp phải có học phí.
+      await assertClassTuitionBeforeFirstStudent(
+        this.prisma,
+        await findClassIdsWithoutActiveStudents(this.prisma, classIds),
+      );
     }
 
     const response =
@@ -730,6 +756,26 @@ export class UserService {
     return response;
   }
 
+  /** Luật 2 (#265): chỉ Admin cấp/thu hồi role trưởng, Admin; không tự thêm role. */
+  private async assertRoleWriteAllowed(
+    auditActor: ActionHistoryActor | undefined,
+    change: {
+      targetStaffId: string | null;
+      previousRoleType: UserRole | null;
+      nextRoleType: UserRole;
+      previousStaffRoles: readonly StaffRole[];
+      nextStaffRoles: readonly StaffRole[];
+    },
+  ) {
+    const policyActor = await resolveStaffPolicyActor(this.prisma, auditActor);
+    assertUserRoleTypeChangeAllowed(policyActor, change);
+    assertStaffRoleChangeAllowed(policyActor, {
+      targetStaffId: change.targetStaffId,
+      previousRoles: change.previousStaffRoles,
+      nextRoles: change.nextStaffRoles,
+    });
+  }
+
   async updateUser(data: UpdateUserDto, auditActor?: ActionHistoryActor) {
     const existingUser = await this.getUserAuditSnapshot(this.prisma, data.id);
 
@@ -739,6 +785,17 @@ export class UserService {
 
     const nextRoleType = data.roleType ?? existingUser.roleType;
     const normalizedStaffRoles = this.normalizeStaffRoles(data.staffRoles);
+    const previousStaffRoles = existingUser.staffInfo?.roles ?? [];
+    await this.assertRoleWriteAllowed(auditActor, {
+      targetStaffId: existingUser.staffInfo?.id ?? null,
+      previousRoleType: existingUser.roleType,
+      nextRoleType,
+      previousStaffRoles,
+      nextStaffRoles:
+        nextRoleType === UserRole.staff
+          ? (normalizedStaffRoles ?? previousStaffRoles)
+          : previousStaffRoles,
+    });
     const updateData: Prisma.UserUpdateInput = {};
 
     if (data.email !== undefined) {
@@ -806,6 +863,13 @@ export class UserService {
                 data: {
                   roles: normalizedStaffRoles,
                 },
+              });
+
+              // Follow-up 13/11 mục 2.1: tắt CSKH → học sinh mất Người chăm sóc ngay.
+              await releaseCustomerCareAssignmentsOnRoleRemovalInTx(tx, {
+                staffId: existingUser.staffInfo.id,
+                previousRoles: existingUser.staffInfo.roles,
+                nextRoles: normalizedStaffRoles,
               });
 
               if (auditActor) {

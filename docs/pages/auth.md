@@ -27,7 +27,7 @@
   - `roleType=admin` -> `/admin/dashboard`
   - `roleType=student` -> `/student` khi session contract xác nhận `hasStudentProfile=true`; nếu chưa có profile thì fallback `/user-profile`
   - staff admin đầy đủ (`roleType=admin`, `staff.admin`, hoặc `access.admin.tier=full`) bypass staff profile completion khi vào staff/admin support shell
-  - mọi staff role vận hành không phải admin (`teacher`, `lesson_plan`, `lesson_plan_head`, `assistant`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, kể cả multi-role như `teacher + lesson_plan`) -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true` và `staffProfileComplete=true` / `access.staff.profileComplete=true`; nếu thiếu profile, thiếu field bắt buộc, hoặc chưa đồng ý phiên bản data-consent hiện hành thì fallback `/user-profile?profile_required=1&from=/staff`
+  - mọi staff role vận hành không phải admin (`teacher`, `lesson_plan`, `lesson_plan_head`, `sale_customer_care_head`, `accountant_income`, `accountant_expense`, `communication`, `technical`, `customer_care`, `training`, kể cả multi-role như `teacher + lesson_plan`) -> `/staff` chỉ khi session contract xác nhận `hasStaffProfile=true` và `staffProfileComplete=true` / `access.staff.profileComplete=true`; nếu thiếu profile, thiếu field bắt buộc, hoặc chưa đồng ý phiên bản data-consent hiện hành thì fallback `/user-profile?profile_required=1&from=/staff`
   - linked `studentInfo` -> `/student` khi user không có linked staff profile
   - `guest -> /`
 - Google OAuth thành công (chỉ khi email **đã tồn tại** trong hệ thống):
@@ -185,7 +185,7 @@ Không dùng chữ "session" cho phiên đăng nhập: `Session` = Buổi học;
   - Response: `{ message }`.
 
 - `POST /auth/admin/students/:id/force-logout`
-  - Admin/CSKH/assistant buộc đăng xuất học sinh.
+  - Admin/CSKH/Trưởng phòng Sale & CSKH buộc đăng xuất học sinh.
   - Xóa mọi device records, invalidate refresh token, ghi audit trail.
   - Request kế tiếp (access token còn hạn) → **401** `NO_ACTIVE_DEVICE`.
   - Không ghi `devices_superseded_at` → máy bị buộc đăng xuất thấy «phiên hết hạn», không phải «đăng nhập ở thiết bị khác».

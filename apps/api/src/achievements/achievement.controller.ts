@@ -1,3 +1,4 @@
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
 import {
   Body,
   Controller,
@@ -54,7 +55,6 @@ const imageUploadInterceptor = achievementImageUploadInterceptor;
 @ApiCookieAuth('access_token')
 @Controller('staff/:staffId/achievements')
 @Roles(UserRole.admin)
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
 export class StaffAchievementController {
   constructor(private readonly achievementService: AchievementService) {}
 
@@ -69,10 +69,7 @@ export class StaffAchievementController {
   @Get()
   // Viewing must match whoever can view the staff profile itself
   // (GET staff/:id allows assistant + accountant_expense on admin routes).
-  @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
-    StaffRole.accountant_expense,
-  )
+  @AllowStaffRolesOnAdminRoutes(StaffRole.accountant_expense)
   @ApiOperation({ summary: 'List staff achievements' })
   @ApiParam({ name: 'staffId', description: 'Staff id (UNISTAFF-…)' })
   @ApiResponse({
@@ -278,17 +275,16 @@ export class StaffAchievementController {
 @Roles(UserRole.admin)
 // Mutations (create/update/delete/upload/reorder) stay admin + assistant only;
 // customer_care/accountant/accountant_income can view (see the `list()` override) but not edit.
-@AllowStaffRolesOnAdminRoutes(StaffRole.assistant)
+@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
 export class StudentAchievementController {
   constructor(private readonly achievementService: AchievementService) {}
 
   @Get()
   // Viewing must match whoever can view the student profile itself
-  // (GET student/:id also allows accountant + accountant_income on admin routes).
+  // (GET student/:id also allows accountant_income on admin routes).
   @AllowStaffRolesOnAdminRoutes(
-    StaffRole.assistant,
+    SALE_CS_HEAD_ROLE,
     StaffRole.customer_care,
-    StaffRole.accountant,
     StaffRole.accountant_income,
   )
   @ApiOperation({ summary: 'List student achievements' })

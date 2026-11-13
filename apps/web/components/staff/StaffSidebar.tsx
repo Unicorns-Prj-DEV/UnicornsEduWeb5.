@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSaleCsHeadAccess } from "@/lib/sale-cs-head-access";
 import { hasTrainingAccess } from "@/lib/training-access";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -40,6 +41,8 @@ type MenuVisibility = {
   hasManagedClasses: boolean;
   isAccountant: boolean;
   isAccountantIncome: boolean;
+  /** Trợ lí (#267): chỉ Học sinh (kèm ví) và Soạn thông báo. */
+  isAssistant: boolean;
   isAccountantExpense: boolean;
   isCommunication: boolean;
   isTechnical: boolean;
@@ -117,15 +120,17 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconClasses />,
       isActive: (pathname) =>
         pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
-      isVisible: ({ isAccountant, isTraining, hasManagedClasses }) =>
-        isAccountant || (isTraining && hasManagedClasses),
+      // #277: Trưởng ban Đào tạo thấy mọi lớp, không cần đang quản lý lớp nào.
+      isVisible: ({ isAccountant, isTraining, isTrainingHead, hasManagedClasses }) =>
+        isAccountant || isTrainingHead || (isTraining && hasManagedClasses),
     },
     {
       href: "/staff/students",
       label: "Học sinh",
       icon: <IconStudents />,
       isActive: (pathname) => pathname.startsWith("/staff/students"),
-      isVisible: ({ isAccountantIncome }) => isAccountantIncome,
+      isVisible: ({ isAccountantIncome, isAssistant }) =>
+        isAccountantIncome || isAssistant,
     },
     {
       href: "/staff/calendar",
@@ -191,6 +196,20 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isVisible: ({ canComposeNotifications }) => canComposeNotifications,
     },
     {
+      href: "/staff/sale-cs-team",
+      label: "Đội Sale & CSKH",
+      icon: <IconUsers />,
+      isActive: (pathname) => pathname.startsWith("/staff/sale-cs-team"),
+      isVisible: ({ isAssistant }) => isAssistant,
+    },
+    {
+      href: "/staff/assistant-detail",
+      label: "Hoa hồng trưởng phòng",
+      icon: <IconOperations />,
+      isActive: (pathname) => pathname.startsWith("/staff/assistant-detail"),
+      isVisible: ({ isAssistant }) => isAssistant,
+    },
+    {
       href: "/staff/communication-detail",
       label: "Truyền thông",
       icon: <IconCommunication />,
@@ -234,7 +253,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     },
   ];
 
-function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
+function buildAdminMirrorMenuItems(ownStaffId: string): MenuItem[] {
   const ownStaffDetailHref = ownStaffId
     ? `/staff/staffs/${encodeURIComponent(ownStaffId)}`
     : "";
@@ -245,20 +264,6 @@ function buildAssistantMenuItems(ownStaffId: string): MenuItem[] {
       label: "Dashboard",
       icon: <IconHome />,
       isActive: (pathname) => pathname === "/staff",
-      isVisible: () => true,
-    },
-    {
-      href: "/staff/monthly-report",
-      label: "Báo cáo tháng",
-      icon: <IconMonthlyReport />,
-      isActive: (pathname) => pathname.startsWith("/staff/monthly-report"),
-      isVisible: () => true,
-    },
-    {
-      href: "/staff/student-statistics",
-      label: "Thống kê học sinh",
-      icon: <IconMonthlyReport />,
-      isActive: (pathname) => pathname.startsWith("/staff/student-statistics"),
       isVisible: () => true,
     },
     {
@@ -528,13 +533,6 @@ function IconCommunication() {
   );
 }
 
-function IconMonthlyReport() {
-  return (
-    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-  );
-}
 function IconHistory() {
   return (
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -586,7 +584,7 @@ export default function StaffSidebar() {
   const hasStaffProfile = Boolean(fullProfile?.staffInfo?.id);
   const isFullAdmin =
     fullProfile?.roleType === "admin" || staffRoles.includes("admin");
-  const isAssistant = hasStaffProfile && staffRoles.includes("assistant");
+  const isAssistant = hasStaffProfile && hasSaleCsHeadAccess(staffRoles);
   const canAccessClassWorkspace =
     fullProfile?.roleType === "admin" || staffRoles.includes("teacher");
   const isTraining = hasTrainingAccess(staffRoles);
@@ -612,7 +610,6 @@ export default function StaffSidebar() {
     lessonWorkspace.isLessonPlan || lessonWorkspace.isLessonPlanHead;
   const canAccessSurveys =
     isFullAdmin ||
-    isAssistant ||
     lessonWorkspace.isLessonPlan ||
     lessonWorkspace.isLessonPlanHead;
   const isCommunication = staffRoles.includes("communication");
@@ -624,9 +621,10 @@ export default function StaffSidebar() {
     staffRoles,
     isFullAdmin,
   );
-  const baseMenuItems = isFullAdmin || isAssistant
+  // #267: chỉ Admin còn menu mirror quản trị; Trợ lí dùng menu staff mặc định.
+  const baseMenuItems = isFullAdmin
     ? [
-        ...buildAssistantMenuItems(fullProfile?.staffInfo?.id ?? ""),
+        ...buildAdminMirrorMenuItems(fullProfile?.staffInfo?.id ?? ""),
         ...DEFAULT_MENU_ITEMS.filter((item) => item.href !== "/staff/profile"),
       ]
     : DEFAULT_MENU_ITEMS;
@@ -645,6 +643,7 @@ export default function StaffSidebar() {
     isAccountant,
     isAccountantIncome,
     isAccountantExpense,
+    isAssistant,
     isCommunication,
     isTechnical,
     isSale,
