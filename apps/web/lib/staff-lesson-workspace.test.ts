@@ -55,7 +55,7 @@ describe("giáo án / trợ cấp nhân sự khác chỉ Admin (#267)", () => {
 });
 
 describe("khu giáo án học sinh giỏi: xoá + cài đặt (#279)", () => {
-  it("Admin và Trưởng ban Chuyên môn được xoá và cài bậc độ khó / level / hạng mục", () => {
+  it("Admin và Trưởng ban Chuyên môn được xoá và sửa bậc độ khó / level / hạng mục output người khác", () => {
     for (const roles of [["admin"], ["lesson_plan_head"], ["lesson_plan", "lesson_plan_head"]]) {
       const access = resolveStaffLessonWorkspace(staffProfile(roles));
       expect(access.canDeleteLessonWork).toBe(true);
@@ -63,7 +63,7 @@ describe("khu giáo án học sinh giỏi: xoá + cài đặt (#279)", () => {
     }
   });
 
-  it("Ban Chuyên môn thường, Kế toán chi và Trợ lí bị từ chối", () => {
+  it("Ban Chuyên môn thường, Kế toán chi và Trợ lí bị từ chối xoá và sửa chi phí output người khác", () => {
     for (const roles of [["lesson_plan"], ["accountant_expense"], ["sale_customer_care_head"]]) {
       const access = resolveStaffLessonWorkspace(staffProfile(roles));
       expect(access.canDeleteLessonWork).toBe(false);

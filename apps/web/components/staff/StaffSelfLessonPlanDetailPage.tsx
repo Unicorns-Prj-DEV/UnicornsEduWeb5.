@@ -45,8 +45,7 @@ function PaymentPill({
   cost,
 }: {
   paymentStatus: LessonWorkOutputItem["paymentStatus"];
-  /** `null` = chi phí bị ẩn với người xem (#279). */
-  cost: number | null;
+  cost: number;
 }) {
   return (
     <span
@@ -54,7 +53,7 @@ function PaymentPill({
         paymentStatus,
       )}`}
     >
-      {paymentStatus === "pending" && cost != null
+      {paymentStatus === "pending"
         ? `${LESSON_PAYMENT_STATUS_LABELS[paymentStatus]} · ${formatCurrency(cost)}đ`
         : LESSON_PAYMENT_STATUS_LABELS[paymentStatus]}
     </span>

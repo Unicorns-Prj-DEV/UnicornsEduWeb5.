@@ -37,13 +37,14 @@ type Props = {
   theoryLectureLinks: string[];
   /** `level` của output — nguồn giá Bài giảng lý thuyết. */
   level: string;
-  /** `null` = backend ẩn chi phí (sản phẩm của người khác, #279/#270). */
-  storedCost: number | null;
+  storedCost: number;
   /**
-   * #279: `true` = chỉ xem bậc độ khó / hạng mục (Ban Chuyên môn thường, Kế toán chi).
-   * Chỉ Admin và Trưởng ban Chuyên môn cài đặt.
+   * `true` = chỉ xem bậc độ khó / hạng mục. Tự khai chi phí giáo án: người nhận
+   * thanh toán, Trưởng ban Chuyên môn và Admin cài khi output chưa thanh toán.
    */
   pricingLocked?: boolean;
+  /** Lý do khoá hiển thị dưới «Hạng mục đã làm». */
+  pricingLockedMessage?: string;
   selectButtonClassName: string;
   selectMenuClassName: string;
   linkInputClassName: string;
@@ -66,6 +67,7 @@ export default function LessonOutputPricingFields({
   level,
   storedCost,
   pricingLocked = false,
+  pricingLockedMessage = "Chỉ người nhận thanh toán output, Trưởng ban Chuyên môn và Admin cài bậc độ khó, level và hạng mục.",
   selectButtonClassName,
   selectMenuClassName,
   linkInputClassName,
@@ -92,8 +94,7 @@ export default function LessonOutputPricingFields({
       ? "giá theo level — chọn Level 0–5"
       : `${formatCurrency(LESSON_OUTPUT_THEORY_LECTURE_PRICES[parsedLevel])} đ theo Level ${parsedLevel}`;
   const isLegacyRate = computedCost == null;
-  const isCostHidden = storedCost === null;
-  const displayCost = isLegacyRate ? (storedCost ?? 0) : computedCost;
+  const displayCost = isLegacyRate ? storedCost : computedCost;
   const labelClass = compact
     ? "text-sm text-text-secondary"
     : "text-sm text-text-secondary";
@@ -125,9 +126,7 @@ export default function LessonOutputPricingFields({
       <fieldset className="space-y-2">
         <legend className={labelClass}>Hạng mục đã làm</legend>
         {pricingLocked ? (
-          <p className="text-xs text-text-muted">
-            Bậc độ khó, level và hạng mục do Trưởng ban Chuyên môn cài đặt.
-          </p>
+          <p className="text-xs text-text-muted">{pricingLockedMessage}</p>
         ) : null}
         <div className="flex flex-col gap-2 pt-1">
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-text-primary">
@@ -194,33 +193,26 @@ export default function LessonOutputPricingFields({
         </div>
       ) : null}
 
-      {isCostHidden ? (
-        <p className={`sm:col-span-2 ${labelClass}`}>
-          Chi phí: chỉ người làm sản phẩm, Trưởng ban Chuyên môn, Admin và Kế toán
-          chi được xem.
-        </p>
-      ) : (
-        <label className={`flex flex-col gap-1.5 sm:col-span-2 ${labelClass}`}>
-          <span>Chi phí</span>
-          <MoneyInput
-            value={moneyInputInitialFromNumber(displayCost)}
-            onValueChange={() => {
-              /* Chi phí luôn read-only; backend là nguồn sự thật. */
-            }}
-            readOnly
-            aria-readonly
-            className="min-h-11 cursor-not-allowed rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2.5 text-text-muted shadow-sm focus:outline-none"
-          />
-          <span className="text-sm font-semibold text-text-primary">
-            {formatCurrency(displayCost)} đ
-          </span>
-          <span className="text-xs text-text-muted">
-            {isLegacyRate
-              ? "Mức cũ — output chưa có bậc độ khó, số tiền đã lưu được giữ nguyên."
-              : "Chi phí do hệ thống tính từ bậc, level và hạng mục đã tick; không sửa tay được."}
-          </span>
-        </label>
-      )}
+      <label className={`flex flex-col gap-1.5 sm:col-span-2 ${labelClass}`}>
+        <span>Chi phí</span>
+        <MoneyInput
+          value={moneyInputInitialFromNumber(displayCost)}
+          onValueChange={() => {
+            /* Chi phí luôn read-only; backend là nguồn sự thật. */
+          }}
+          readOnly
+          aria-readonly
+          className="min-h-11 cursor-not-allowed rounded-xl border border-border-default bg-bg-secondary/55 px-3 py-2.5 text-text-muted shadow-sm focus:outline-none"
+        />
+        <span className="text-sm font-semibold text-text-primary">
+          {formatCurrency(displayCost)} đ
+        </span>
+        <span className="text-xs text-text-muted">
+          {isLegacyRate
+            ? "Mức cũ — output chưa có bậc độ khó, số tiền đã lưu được giữ nguyên."
+            : "Chi phí do hệ thống tính từ bậc, level và hạng mục đã tick; không sửa tay được."}
+        </span>
+      </label>
     </div>
   );
 }

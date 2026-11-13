@@ -164,8 +164,8 @@ export interface LessonWorkOutputItem extends LessonOutputListItem {
   link: string | null;
   /** Link gốc — fallback khi `link` trống (copy / mở ngoài) */
   originalLink: string | null;
-  /** `null` khi người xem không được thấy chi phí sản phẩm người khác (#279). */
-  cost: number | null;
+  /** Chi phí output — công khai với mọi nhân sự giáo án (glossary «Thu nhập cá nhân»). */
+  cost: number;
 }
 
 export interface LessonWorkResponse {
@@ -181,7 +181,11 @@ export interface LessonOutputStaffStatsSummary {
   pendingOutputCount: number;
   completedOutputCount: number;
   cancelledOutputCount: number;
-  unpaidCostTotal: number;
+  /**
+   * Tổng chi phí chưa thanh toán = thu nhập cá nhân (#270): `null` khi người
+   * xem không được xem thu nhập của nhân sự này.
+   */
+  unpaidCostTotal: number | null;
 }
 
 export interface LessonOutputStaffStatsResponse {
@@ -289,8 +293,8 @@ export interface LessonOutputItem {
   /** Link video bàn giao của Bài giảng lý thuyết. */
   theoryLectureLinks: string[];
   tags: string[];
-  /** `null` khi người xem không được thấy chi phí sản phẩm người khác (#279). */
-  cost: number | null;
+  /** Chi phí output — công khai với mọi nhân sự giáo án (glossary «Thu nhập cá nhân»). */
+  cost: number;
   date: string;
   contestUploaded: string | null;
   link: string | null;

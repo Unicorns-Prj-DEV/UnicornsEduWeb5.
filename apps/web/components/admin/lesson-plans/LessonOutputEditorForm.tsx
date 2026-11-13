@@ -56,10 +56,14 @@ type Props = {
   /** Khi `false`, ẩn dropdown thanh toán và giữ `paymentStatus` hiện tại. */
   allowPaymentStatusEdit?: boolean;
   /**
-   * #279: `false` = khoá bậc độ khó / level / hạng mục (quyết định chi phí).
-   * Chỉ Admin và Trưởng ban Chuyên môn cài đặt; ô chi phí luôn read-only.
+   * `false` = khoá bậc độ khó / level / hạng mục (quyết định chi phí). Tự khai
+   * chi phí giáo án: người nhận thanh toán, Trưởng ban Chuyên môn và Admin cài
+   * khi output chưa thanh toán (`lib/lesson-output-pricing-access.ts`). Ô chi
+   * phí luôn read-only.
    */
   allowCostEdit?: boolean;
+  /** Lý do khoá bậc độ khó / level / hạng mục (khi `allowCostEdit = false`). */
+  pricingLockedMessage?: string;
   isSubmitting?: boolean;
   onCancel?: () => void;
   onSubmit: (payload: CreateLessonOutputPayload) => Promise<void> | void;
@@ -335,6 +339,7 @@ export default function LessonOutputEditorForm({
   allowTasklessOutput = false,
   allowPaymentStatusEdit = true,
   allowCostEdit = true,
+  pricingLockedMessage,
   isSubmitting = false,
   onCancel,
   onSubmit,
@@ -700,6 +705,7 @@ export default function LessonOutputEditorForm({
               level={level}
               storedCost={initialData ? initialData.cost : 0}
               pricingLocked={!allowCostEdit}
+              pricingLockedMessage={pricingLockedMessage}
               selectButtonClassName={selectButtonClass()}
               selectMenuClassName={selectMenuClass()}
               linkInputClassName={fieldInputClass()}
@@ -913,7 +919,8 @@ export default function LessonOutputEditorForm({
                 theoryLectureLinks={theoryLectureLinks}
                 level={level}
                 storedCost={initialData ? initialData.cost : 0}
-              pricingLocked={!allowCostEdit}
+                pricingLocked={!allowCostEdit}
+                pricingLockedMessage={pricingLockedMessage}
                 selectButtonClassName={selectButtonClass()}
                 selectMenuClassName={selectMenuClass()}
                 linkInputClassName={fieldInputClass()}

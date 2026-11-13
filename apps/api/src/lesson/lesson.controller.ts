@@ -77,7 +77,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Get lesson work board',
     description:
-      'Load the admin lesson work board with paginated lesson outputs and task context. `cost` của output người khác là `null` với Ban Chuyên môn thường; Admin, Trưởng ban Chuyên môn, Kế toán chi thấy hết (#279).',
+      'Load the admin lesson work board with paginated lesson outputs and task context. `cost` từng output công khai với mọi nhân sự giáo án (follow-up grill 13/11).',
   })
   @ApiResponse({
     status: 200,
@@ -158,7 +158,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Get lesson output stats by staff',
     description:
-      'Load aggregated lesson output statistics and recent outputs for one staff.',
+      'Load aggregated lesson output statistics and recent outputs for one staff. `summary.unpaidCostTotal` là thu nhập cá nhân (#270): `null` khi người xem không phải Admin, Kế toán chi hoặc chính nhân sự đó.',
   })
   @ApiParam({
     name: 'staffId',
@@ -201,7 +201,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Get lesson output detail',
     description:
-      'Load a single lesson output detail by id. Participant staff can only access outputs inside assigned lesson tasks; `cost` là `null` nếu output thuộc người khác (#279).',
+      'Load a single lesson output detail by id. Participant staff can only access outputs inside assigned lesson tasks; `cost` công khai với mọi nhân sự giáo án.',
   })
   @ApiParam({
     name: 'id',
@@ -280,6 +280,11 @@ export class LessonController {
   })
   @ApiResponse({ status: 200, description: 'Lesson resource updated.' })
   @ApiResponse({ status: 404, description: 'Lesson resource not found.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải người tạo tài nguyên, Trưởng ban Chuyên môn hoặc Admin.',
+  })
   async updateResource(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseLessonResourceIdPipe()) id: string,
@@ -301,7 +306,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Delete lesson resource',
     description:
-      'Delete a lesson resource by id. Admin và Trưởng ban Chuyên môn (`lesson_plan_head`, #279); Ban Chuyên môn thường 403 kể cả tài liệu tự tạo.',
+      'Delete a lesson resource by id. Người tạo tài nguyên xoá tài nguyên của chính mình; Admin và Trưởng ban Chuyên môn (`lesson_plan_head`) xoá mọi tài nguyên (follow-up grill 13/11).',
   })
   @ApiParam({
     name: 'id',
@@ -312,7 +317,8 @@ export class LessonController {
   @ApiResponse({ status: 404, description: 'Lesson resource not found.' })
   @ApiResponse({
     status: 403,
-    description: 'Không phải Admin hoặc Trưởng ban Chuyên môn.',
+    description:
+      'Không phải người tạo tài nguyên, Trưởng ban Chuyên môn hoặc Admin.',
   })
   async deleteResource(
     @CurrentUser() user: JwtPayload,
@@ -344,7 +350,7 @@ export class LessonController {
   @ApiResponse({
     status: 403,
     description:
-      'Ban Chuyên môn thường cài bậc độ khó/level/hạng mục; Trưởng ban cài cho sản phẩm của chính mình; hoặc người không phải Admin/Kế toán chi đặt `paymentStatus` khác `pending` (#279).',
+      'Cài bậc độ khó/level/hạng mục cho output của người khác khi không phải Trưởng ban Chuyên môn/Admin (người nhận thanh toán tự khai được); người không phải Admin/Kế toán chi đặt `paymentStatus` khác `pending` (#279); hoặc Kế toán chi đặt trạng thái thanh toán cho output của chính mình (#265).',
   })
   async createOutput(
     @CurrentUser() user: JwtPayload,
@@ -381,7 +387,7 @@ export class LessonController {
   @ApiResponse({
     status: 403,
     description:
-      'Sửa `paymentStatus` khi không phải Admin/Kế toán chi; Ban Chuyên môn thường đổi bậc độ khó/level/hạng mục; Trưởng ban đổi chi phí hoặc tự nhận sản phẩm của chính mình (#279).',
+      'Sửa `paymentStatus` khi không phải Admin/Kế toán chi; Kế toán chi đổi trạng thái thanh toán output mà chính mình là người nhận (#265); đổi bậc độ khó/level/hạng mục của output đã thanh toán (trừ Admin); Ban Chuyên môn thường đổi bậc độ khó/level/hạng mục của output người khác.',
   })
   async updateOutput(
     @CurrentUser() user: JwtPayload,
@@ -404,7 +410,7 @@ export class LessonController {
   @ApiOperation({
     summary: 'Bulk update lesson output payment status',
     description:
-      'Update payment status for multiple lesson outputs in a single request. Chỉ Admin và Kế toán chi; Trưởng ban Chuyên môn 403 (#279).',
+      'Update payment status for multiple lesson outputs in a single request. Chỉ Admin và Kế toán chi; Trưởng ban Chuyên môn 403 (#279). Kế toán chi 403 nếu danh sách có output mà chính mình là người nhận (#265).',
   })
   @ApiBody({
     type: BulkUpdateLessonOutputPaymentStatusDto,
@@ -422,7 +428,8 @@ export class LessonController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Không phải Admin hoặc Kế toán chi.',
+    description:
+      'Không phải Admin hoặc Kế toán chi; hoặc có output mà người gọi là người nhận thanh toán (#265).',
   })
   async bulkUpdateOutputPaymentStatus(
     @CurrentUser() user: JwtPayload,

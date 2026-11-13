@@ -143,14 +143,13 @@ function PaymentPill({
   staffDisplayName,
 }: {
   paymentStatus: LessonWorkOutputItem["paymentStatus"];
-  /** `null` = chi phí sản phẩm người khác bị ẩn (#279). */
-  cost: number | null;
+  cost: number;
   staffDisplayName?: string | null;
 }) {
   const statusLabel = LESSON_PAYMENT_STATUS_LABELS[paymentStatus];
   const recipient = staffDisplayName?.trim() || null;
   const pendingAmount =
-    paymentStatus === "pending" && cost != null
+    paymentStatus === "pending"
       ? `${formatCurrency(cost)}đ`
       : null;
   const fullLabel = [statusLabel, recipient, pendingAmount]
@@ -756,7 +755,7 @@ export default function LessonWorkTab({
           hideStaffFields
           forceSharedLayout
           allowPaymentStatusEdit={createAllowsPaymentStatusEdit}
-          allowCostEdit={createAccessMode === "manage"}
+          allowCostEdit={createAccessMode !== null}
           openAfterCreate={createOpenAfterCreate}
         />
       ) : null}

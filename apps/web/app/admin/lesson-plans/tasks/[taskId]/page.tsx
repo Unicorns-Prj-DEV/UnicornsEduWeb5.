@@ -779,7 +779,7 @@ export function LessonTaskDetailPage({
             }}
             hideStaffFields={participantMode}
             forceSharedLayout={participantMode}
-            allowCostEdit={!participantMode && !accountantMode}
+            allowCostEdit={!accountantMode}
             allowTasklessOutput={false}
             allowPaymentStatusEdit={allowPaymentStatusEdit}
             isSubmitting={createOutputMutation.isPending}

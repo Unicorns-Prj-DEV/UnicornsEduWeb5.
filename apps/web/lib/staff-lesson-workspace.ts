@@ -21,9 +21,16 @@ export type StaffLessonWorkspaceAccess = {
   canAccessManageDetails: boolean;
   workAccessMode: StaffLessonEndpointAccessMode | null;
   createOutputAccessMode: Exclude<StaffLessonEndpointAccessMode, "account"> | null;
-  /** #279: xoá đầu việc / sản phẩm / tài liệu — Admin + Trưởng ban Chuyên môn. */
+  /**
+   * #279: xoá đầu việc / sản phẩm và mọi tài liệu — Admin + Trưởng ban Chuyên môn.
+   * Người tạo tài liệu vẫn tự sửa/xoá tài liệu của mình (follow-up Nhóm 3).
+   */
   canDeleteLessonWork: boolean;
-  /** #279: cài bậc độ khó / level / hạng mục — Admin + Trưởng ban Chuyên môn. */
+  /**
+   * Sửa bậc độ khó / level / hạng mục của output **người khác** — Admin + Trưởng ban
+   * Chuyên môn. Output của chính mình: tự khai khi chưa thanh toán
+   * (`lib/lesson-output-pricing-access.ts`).
+   */
   canSetLessonOutputPricing: boolean;
   isAssistant: boolean;
   isAccountant: boolean;

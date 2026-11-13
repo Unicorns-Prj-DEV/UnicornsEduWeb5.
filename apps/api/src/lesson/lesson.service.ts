@@ -22,8 +22,9 @@ import {
 import {
   assertCanDeleteLessonWork,
   assertCanSetLessonOutputPricing,
+  canDeleteLessonResource,
   canEditLessonOutputPaymentStatus,
-  redactLessonOutputCost,
+  LESSON_RESOURCE_DELETE_FORBIDDEN_MESSAGE,
 } from './lesson-plan-head-policy';
 import {
   ActionHistoryActor,
@@ -70,6 +71,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { resolveTaxDeductionRate } from '../payroll/deduction-rates';
 import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
+import { computeStaffSensitiveView } from 'src/common/staff-sensitive-view';
 
 type LessonTaskRecord = {
   id: string;
@@ -505,9 +507,8 @@ export class LessonService {
         completedOutputCount,
         cancelledOutputCount,
       },
-      outputs: outputs.map((output) =>
-        redactLessonOutputCost(this.mapWorkOutputItem(output), access),
-      ),
+      // Follow-up grill 13/11: chi phí từng output công khai trong workspace.
+      outputs: outputs.map((output) => this.mapWorkOutputItem(output)),
       outputsMeta: outputMeta,
     };
   }
@@ -612,7 +613,11 @@ export class LessonService {
           outputGroups.find(
             (group) => group.status === LessonOutputStatus.cancelled,
           )?._count ?? 0,
-        unpaidCostTotal: outputCostAggregate._sum.cost ?? 0,
+        // Tổng chi phí giáo án của một người = thu nhập cá nhân (#270): chỉ
+        // Admin, Kế toán chi và chính người đó; Trưởng ban nhận `null`.
+        unpaidCostTotal: this.canViewLessonStaffIncome(access, staffId)
+          ? (outputCostAggregate._sum.cost ?? 0)
+          : null,
       },
       outputs: outputs.map((output) => this.mapWorkOutputItem(output)),
     };
@@ -780,10 +785,13 @@ export class LessonService {
       throw new NotFoundException('Lesson resource not found');
     }
 
-    // #279: xoá tài liệu chỉ Admin + Trưởng ban Chuyên môn (Ban Chuyên môn
-    // thường không xoá, kể cả tài liệu tự tạo).
-    if (access) {
-      assertCanDeleteLessonWork(access);
+    // Follow-up grill 13/11: người tạo xoá tài nguyên của mình; Admin +
+    // Trưởng ban Chuyên môn xoá mọi tài nguyên.
+    if (
+      access &&
+      !canDeleteLessonResource(access, existingResource.createdBy)
+    ) {
+      throw new ForbiddenException(LESSON_RESOURCE_DELETE_FORBIDDEN_MESSAGE);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -1076,6 +1084,14 @@ export class LessonService {
       if (access && setsPricing) {
         assertCanSetLessonOutputPricing(access, staffId);
       }
+      if (paymentStatus !== PaymentStatus.pending) {
+        // #265: Kế toán chi không tự đặt trạng thái thanh toán output của mình.
+        await assertActorNotEditingOwnCompensation(
+          tx,
+          this.toPolicyActor(actor),
+          [staffId],
+        );
+      }
       const outputDeductionSnapshot =
         await this.resolveLessonOutputDeductionSnapshot(tx, staffId, date);
 
@@ -1118,7 +1134,7 @@ export class LessonService {
         });
       }
 
-      return redactLessonOutputCost(this.mapOutput(createdOutput), access);
+      return this.mapOutput(createdOutput);
     });
   }
 
@@ -1306,6 +1322,9 @@ export class LessonService {
       updateData.cost = computedCost;
     }
 
+    const paymentStatusChanged =
+      data.paymentStatus !== undefined &&
+      data.paymentStatus !== existingOutput.paymentStatus;
     if (data.paymentStatus !== undefined) {
       if (!this.canEditOutputPaymentStatus(access)) {
         throw new ForbiddenException(
@@ -1352,8 +1371,9 @@ export class LessonService {
       updateData.status = data.status;
     }
 
-    // #279: bậc độ khó / level / hạng mục quyết định chi phí — chỉ Admin và
-    // Trưởng ban Chuyên môn cài (Trưởng ban không cài cho sản phẩm của mình).
+    // Tự khai chi phí giáo án: bậc độ khó / level / hạng mục quyết định chi
+    // phí — người nhận thanh toán tự cài, Trưởng ban sửa của người khác, khi
+    // output chưa thanh toán; đã thanh toán chỉ Admin.
     const pricingChanged =
       (data.difficultyBand !== undefined &&
         (data.difficultyBand ?? null) !==
@@ -1378,7 +1398,20 @@ export class LessonService {
       access?.staffId != null &&
       nextStaffId === access.staffId;
     if (access && (pricingChanged || assignsOutputToSelf)) {
-      assertCanSetLessonOutputPricing(access, nextStaffId);
+      assertCanSetLessonOutputPricing(
+        access,
+        nextStaffId,
+        existingOutput.paymentStatus,
+      );
+    }
+    if (paymentStatusChanged) {
+      // #265: Kế toán chi không đổi trạng thái thanh toán output mà chính mình
+      // là người nhận (trước hoặc sau khi đổi người nhận). Admin được.
+      await assertActorNotEditingOwnCompensation(
+        this.prisma,
+        this.toPolicyActor(actor),
+        [existingOutput.staffId, nextStaffId],
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -1412,7 +1445,7 @@ export class LessonService {
         });
       }
 
-      return redactLessonOutputCost(this.mapOutput(updatedOutput), access);
+      return this.mapOutput(updatedOutput);
     });
   }
 
@@ -1457,9 +1490,10 @@ export class LessonService {
         },
       });
 
+      // #265: Kế toán chi không đổi trạng thái output mà mình là người nhận.
       await assertActorNotEditingOwnCompensation(
         tx,
-        auditActor,
+        this.toPolicyActor(actor) ?? auditActor,
         existingOutputs.map((output) => output.staffId),
       );
 
@@ -1651,7 +1685,7 @@ export class LessonService {
       throw new NotFoundException('Lesson output not found');
     }
 
-    return redactLessonOutputCost(this.mapOutput(output), access);
+    return this.mapOutput(output);
   }
 
   async searchTaskStaffOptions(
@@ -2252,6 +2286,32 @@ export class LessonService {
     throw new ForbiddenException(
       `Tài khoản hiện tại không có quyền ${action}.`,
     );
+  }
+
+  private canViewLessonStaffIncome(
+    access: LessonActorContext | null,
+    targetStaffId: string,
+  ) {
+    if (!access) {
+      return true;
+    }
+    return computeStaffSensitiveView(
+      {
+        isAdmin:
+          access.roleType === UserRole.admin ||
+          access.staffRoles.includes(StaffRole.admin),
+        staffId: access.staffId,
+        roles: [...access.staffRoles],
+      },
+      targetStaffId,
+    ).income;
+  }
+
+  /** Actor cho `staff-role-policy` từ JWT (không có JWT → job nội bộ). */
+  private toPolicyActor(actor?: JwtPayload) {
+    return actor?.id
+      ? { userId: actor.id, roleType: actor.roleType }
+      : undefined;
   }
 
   private canEditOutputPaymentStatus(access: LessonActorContext | null) {
