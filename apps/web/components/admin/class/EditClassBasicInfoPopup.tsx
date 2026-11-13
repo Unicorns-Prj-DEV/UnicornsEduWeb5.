@@ -12,9 +12,18 @@ import {
 } from "@/components/ui/ResponsiveDialog";
 import { Switch } from "@/components/ui/switch";
 import { MoneyInput } from "@/components/ui/MoneyInput";
-import type { ClassDetail, ClassPricingMode, ClassStatus, UpdateClassBasicInfoPayload } from "@/dtos/class.dto";
+import type {
+  ClassDetail,
+  ClassPricingMode,
+  ClassStatus,
+  UpdateClassBasicInfoPayload,
+  UpdateClassTuitionPayload,
+} from "@/dtos/class.dto";
+import type { StaffOpsUpdateClassTeacherPayPayload } from "@/dtos/staff-ops.dto";
 import CourseSelect from "@/components/shared/class/CourseSelect";
 import * as classApi from "@/lib/apis/class.api";
+import * as staffOpsApi from "@/lib/apis/staff-ops.api";
+import { resolveOwnPayLockedClassDefaults } from "@/lib/class-teacher-own-pay";
 import { runBackgroundSave, toastWarnings } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
 import {
@@ -43,6 +52,7 @@ import {
   classEditorModalTitleClassName,
 } from "./classEditorModalStyles";
 import ClassPricingModeField from "./ClassPricingModeField";
+import ClassTuitionFields, { useClassTuitionForm } from "./ClassTuitionFields";
 
 type Props = {
   open: boolean;
@@ -53,6 +63,13 @@ type Props = {
    * khoá học (môn/loại lớp) và sĩ số. Mặc định Admin.
    */
   access?: ClassWriteAccess;
+  /**
+   * Hiện mục **Học phí lớp** trong dialog (`PATCH /class/:id/tuition`): Admin +
+   * Trưởng phòng Sale & CSKH. Thay card Học phí lớp trên trang (13/11).
+   */
+  canEditTuition?: boolean;
+  /** Lớp đang có học sinh học — lớp bán một lần còn trống được để trống Tổng gói. */
+  hasActiveStudents?: boolean;
   /** Gọi sau khi lưu thành công (trang dùng query key riêng, vd staff-ops). */
   onSaved?: () => void | Promise<void>;
 };
@@ -94,6 +111,8 @@ export default function EditClassBasicInfoPopup({
   onClose,
   classDetail,
   access = ADMIN_CLASS_WRITE_ACCESS,
+  canEditTuition = false,
+  hasActiveStudents = true,
   onSaved,
 }: Props) {
   if (!open) return null;
@@ -103,6 +122,8 @@ export default function EditClassBasicInfoPopup({
       onClose={onClose}
       classDetail={classDetail}
       access={access}
+      canEditTuition={canEditTuition}
+      hasActiveStudents={hasActiveStudents}
       onSaved={onSaved}
     />
   );
@@ -112,11 +133,25 @@ function EditClassBasicInfoDialog({
   onClose,
   classDetail,
   access = ADMIN_CLASS_WRITE_ACCESS,
+  canEditTuition = false,
+  hasActiveStudents = true,
   onSaved,
 }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
+  const tuitionForm = useClassTuitionForm(classDetail);
   /** Trưởng ban/Trưởng phòng: chỉ tên, khoá học, sĩ số. */
   const headsMode = !access.isAdmin;
+  /**
+   * Trưởng ban Đào tạo (#277): thêm trợ cấp / trần / scale mặc định của lớp.
+   * Lưu qua `PATCH /staff-ops/classes/:id/teacher-pay` (basic-info vẫn chỉ 3
+   * trường với role trưởng); mức lớp mà dòng của chính mình đang kế thừa bị
+   * khoá như backend (#276).
+   */
+  const headPayMode = headsMode && access.canEditTeachersAndPay;
+  const showClassPayFields = !headsMode || headPayMode;
+  const lockedClassDefaults = headPayMode
+    ? resolveOwnPayLockedClassDefaults(classDetail.teachers, access.staffId)
+    : { allowance: false, maxAllowance: false, scale: false };
   const [name, setName] = useState(classDetail.name ?? "");
   const [courseId, setCourseId] = useState(classDetail.courseId);
   const [status, setStatus] = useState<ClassStatus>(classDetail.status);
@@ -226,6 +261,21 @@ function EditClassBasicInfoDialog({
     };
   };
 
+  /**
+   * Học phí lớp: `undefined` = không đổi / không có quyền, `null` = form sai
+   * (đã toast), còn lại là payload `PATCH /class/:id/tuition`.
+   */
+  const buildTuitionPayload = (): UpdateClassTuitionPayload | null | undefined => {
+    if (!canEditTuition || !tuitionForm.isDirty(pricingMode)) return undefined;
+    return tuitionForm.buildPayload({ pricingMode, hasActiveStudents });
+  };
+
+  const saveTuitionIfChanged = async (payload: UpdateClassTuitionPayload | undefined) => {
+    if (payload) {
+      await classApi.updateClassTuition(classDetail.id, payload);
+    }
+  };
+
   const savePricingModeIfChanged = async () => {
     if (headsMode) return;
     const currentMode = classDetail.pricingMode ?? "per_session";
@@ -243,7 +293,8 @@ function EditClassBasicInfoDialog({
 
   const handleConfirmEndClass = () => {
     const basicInfoWithoutStatus = buildBasicInfoWithoutStatus();
-    if (!basicInfoWithoutStatus) {
+    const tuitionPayload = buildTuitionPayload();
+    if (!basicInfoWithoutStatus || tuitionPayload === null) {
       setEndConfirmOpen(false);
       return;
     }
@@ -263,6 +314,7 @@ function EditClassBasicInfoDialog({
         if (shouldUpdateBasicInfo) {
           await classApi.updateClassBasicInfo(classDetail.id, basicInfoWithoutStatus);
         }
+        await saveTuitionIfChanged(tuitionPayload);
         return classApi.endClass(classDetail.id, { reason });
       },
       onSuccess: async (result) => {
@@ -278,6 +330,8 @@ function EditClassBasicInfoDialog({
     event.preventDefault();
     const basicInfoWithoutStatus = buildBasicInfoWithoutStatus();
     if (!basicInfoWithoutStatus) return;
+    const tuitionPayload = buildTuitionPayload();
+    if (tuitionPayload === null) return;
 
     if (willEndClass) {
       setEndReason("");
@@ -292,18 +346,27 @@ function EditClassBasicInfoDialog({
     const payload: UpdateClassBasicInfoPayload = headsMode
       ? basicInfoWithoutStatus
       : { ...basicInfoWithoutStatus, status };
+    const classPayPayload = headPayMode ? buildHeadClassPayPayload() : undefined;
     onClose();
     runBackgroundSave({
       loadingMessage: "Đang lưu thông tin lớp...",
-      successMessage: "Đã lưu thông tin lớp.",
+      successMessage: classPayPayload
+        ? "Đã lưu thông tin lớp. Trợ cấp mới áp dụng cho các buổi tạo sau."
+        : "Đã lưu thông tin lớp.",
       errorMessage: "Không thể cập nhật thông tin lớp.",
       action: async () => {
         await savePricingModeIfChanged();
         if (shouldSave) {
           await classApi.updateClassBasicInfo(classDetail.id, payload);
         }
+        if (classPayPayload) {
+          await staffOpsApi.updateClassTeacherPay(classDetail.id, classPayPayload);
+        }
+        await saveTuitionIfChanged(tuitionPayload);
       },
       onSuccess: invalidateClassQueries,
+      // Basic-info có thể đã lưu trước khi teacher-pay lỗi → refetch cho khớp.
+      onError: invalidateClassQueries,
     });
   };
 
@@ -353,6 +416,40 @@ function EditClassBasicInfoDialog({
     maxAllowance: maxAllowancePerSessionInput,
     scale: scaleAmountInput,
   }));
+
+  /**
+   * Trưởng ban Đào tạo: chỉ gửi ô tiền đã đổi (backend chặn cả field gửi lại
+   * nếu chạm lương của chính mình). `undefined` = không có gì để lưu.
+   */
+  function buildHeadClassPayPayload(): StaffOpsUpdateClassTeacherPayPayload | undefined {
+    const next: StaffOpsUpdateClassTeacherPayPayload = {};
+    if (!lockedClassDefaults.allowance && allowancePerSessionInput !== initialRateInputs.allowance) {
+      next.allowance_per_session_per_student = toPerSessionAmountForApi({
+        mode: pricingMode,
+        displayedAmount: parseOptionalMoneyInt(allowancePerSessionInput),
+        standardBlockCount,
+      });
+    }
+    if (
+      !lockedClassDefaults.maxAllowance &&
+      maxAllowancePerSessionInput !== initialRateInputs.maxAllowance
+    ) {
+      next.max_allowance_per_session = toPerSessionMaxAllowanceForApi({
+        mode: pricingMode,
+        displayedAmount: parseMaxAllowancePerSessionInput(
+          maxAllowancePerSessionInput.trim(),
+          parseOptionalMoneyInt,
+        ),
+        standardBlockCount,
+      });
+    }
+    if (!lockedClassDefaults.scale && scaleAmountInput !== initialRateInputs.scale) {
+      next.scale_amount = parseOptionalMoneyInt(scaleAmountInput);
+    }
+    const hasChange = Object.values(next).some((value) => value !== undefined);
+    return hasChange ? next : undefined;
+  }
+
   const isDirty =
     name !== (classDetail.name ?? "") ||
     courseId !== classDetail.courseId ||
@@ -362,7 +459,8 @@ function EditClassBasicInfoDialog({
     noAttendance !== (classDetail.noAttendance ?? false) ||
     allowancePerSessionInput !== initialRateInputs.allowance ||
     maxAllowancePerSessionInput !== initialRateInputs.maxAllowance ||
-    scaleAmountInput !== initialRateInputs.scale;
+    scaleAmountInput !== initialRateInputs.scale ||
+    (canEditTuition && tuitionForm.isDirty(pricingMode));
 
   const requestClose = () => {
     if (isDirty) {
@@ -391,8 +489,16 @@ function EditClassBasicInfoDialog({
               </h2>
               <p id={DESCRIPTION_ID} className="mt-1 text-sm text-text-secondary">
                 {headsMode
-                  ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp) và sĩ số. Các mục khác do Admin chỉnh."
-                  : "Tên, khoá học, trạng thái, sĩ số, trợ cấp gia sư và cách thu học phí."}
+                  ? canEditTuition
+                    ? headPayMode
+                      ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số, trợ cấp mặc định của lớp và Học phí lớp. Các mục khác do Admin chỉnh."
+                      : "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số và Học phí lớp. Các mục khác do Admin chỉnh."
+                    : headPayMode
+                      ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số và trợ cấp mặc định của lớp (áp dụng cho buổi tạo sau). Các mục khác do Admin chỉnh."
+                      : "Bạn sửa được tên lớp, khoá học (môn/loại lớp) và sĩ số. Các mục khác do Admin chỉnh."
+                  : canEditTuition
+                    ? "Tên, khoá học, trạng thái, sĩ số, trợ cấp gia sư, cách thu và Học phí lớp."
+                    : "Tên, khoá học, trạng thái, sĩ số, trợ cấp gia sư và cách thu học phí."}
               </p>
             </div>
             <section className="rounded-lg border border-border-default bg-bg-secondary/50 p-3 sm:p-4">
@@ -456,34 +562,47 @@ function EditClassBasicInfoDialog({
                     className={fieldClassName}
                   />
                 </label>
+                {showClassPayFields ? (
+                  <>
+                    <ClassPayDefaultField
+                      label={rateLabels.allowance}
+                      value={allowancePerSessionInput}
+                      onValueChange={setAllowancePerSessionInput}
+                      className={fieldClassName}
+                      placeholder="VNĐ"
+                      lockedNote={
+                        lockedClassDefaults.allowance
+                          ? "Bạn đang hưởng mức này (không có trợ cấp riêng) — chỉ Admin sửa."
+                          : undefined
+                      }
+                    />
+                    <ClassPayDefaultField
+                      label={rateLabels.maxAllowance}
+                      value={maxAllowancePerSessionInput}
+                      onValueChange={setMaxAllowancePerSessionInput}
+                      className={fieldClassName}
+                      placeholder="Để trống = không giới hạn"
+                      lockedNote={
+                        lockedClassDefaults.maxAllowance
+                          ? "Trần áp cho cả phần của bạn — chỉ Admin sửa."
+                          : undefined
+                      }
+                    />
+                    <ClassPayDefaultField
+                      label="Scales"
+                      value={scaleAmountInput}
+                      onValueChange={setScaleAmountInput}
+                      className={fieldClassName}
+                      lockedNote={
+                        lockedClassDefaults.scale
+                          ? "Bạn đang hưởng mức này (không có scale riêng) — chỉ Admin sửa."
+                          : undefined
+                      }
+                    />
+                  </>
+                ) : null}
                 {headsMode ? null : (
                   <>
-                    <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                      <span>{rateLabels.allowance}</span>
-                      <MoneyInput
-                        value={allowancePerSessionInput}
-                        onValueChange={setAllowancePerSessionInput}
-                        className={fieldClassName}
-                        placeholder="VNĐ"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                      <span>{rateLabels.maxAllowance}</span>
-                      <MoneyInput
-                        value={maxAllowancePerSessionInput}
-                        onValueChange={setMaxAllowancePerSessionInput}
-                        className={fieldClassName}
-                        placeholder="Để trống = không giới hạn"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm text-text-secondary">
-                      <span>Scales</span>
-                      <MoneyInput
-                        value={scaleAmountInput}
-                        onValueChange={setScaleAmountInput}
-                        className={fieldClassName}
-                      />
-                    </label>
                     <div className="md:col-span-2">
                       <ClassPricingModeField
                         value={pricingMode}
@@ -493,14 +612,32 @@ function EditClassBasicInfoDialog({
                         requireConfirm
                         previewLines={previewLines}
                       />
-                      <p className="mt-2 text-xs text-text-muted">
-                        Học phí lớp sửa riêng ở mục «Học phí lớp».
-                      </p>
                     </div>
                   </>
                 )}
               </div>
             </section>
+            {canEditTuition ? (
+              <section
+                aria-labelledby="edit-class-basic-tuition-title"
+                className="rounded-lg border border-border-default bg-bg-secondary/50 p-3 sm:p-4"
+              >
+                <h3
+                  id="edit-class-basic-tuition-title"
+                  className="text-sm font-semibold text-text-primary"
+                >
+                  Học phí lớp
+                </h3>
+                <p className="mb-3 mt-0.5 text-xs text-text-muted">
+                  Học phí chung của lớp. Học sinh có học phí riêng giữ nguyên số riêng.
+                </p>
+                <ClassTuitionFields
+                  form={tuitionForm}
+                  pricingMode={pricingMode}
+                  inputClassName={`min-h-11 w-full ${fieldClassName}`}
+                />
+              </section>
+            ) : null}
           </ResponsiveDialogBody>
 
           <ResponsiveActionFooter>
@@ -562,5 +699,38 @@ function EditClassBasicInfoDialog({
         </div>
       </ConfirmDialog>
     </>
+  );
+}
+
+/** Một ô tiền mặc định của lớp; `lockedNote` có giá trị = khoá + ghi chú lý do. */
+function ClassPayDefaultField({
+  label,
+  value,
+  onValueChange,
+  className,
+  placeholder,
+  lockedNote,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  className: string;
+  placeholder?: string;
+  lockedNote?: string;
+}) {
+  const locked = Boolean(lockedNote);
+  return (
+    <label className="flex flex-col gap-1 text-sm text-text-secondary">
+      <span>{label}</span>
+      <MoneyInput
+        value={value}
+        onValueChange={onValueChange}
+        className={`${className} disabled:cursor-not-allowed disabled:opacity-60`}
+        placeholder={placeholder}
+        disabled={locked}
+        title={lockedNote}
+      />
+      {lockedNote ? <span className="text-xs text-text-muted">{lockedNote}</span> : null}
+    </label>
   );
 }

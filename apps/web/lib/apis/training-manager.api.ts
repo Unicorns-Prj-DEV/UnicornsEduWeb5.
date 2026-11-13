@@ -14,7 +14,7 @@ export async function getTrainingManagerOptions(params?: {
   limit?: number;
 }): Promise<TrainingManagerStaffOption[]> {
   const res = await api.get<TrainingManagerStaffOption[]>(
-    "/staff/training-manager-options",
+    "/training-manager/options",
     { params },
   );
   return Array.isArray(res.data) ? res.data : [];

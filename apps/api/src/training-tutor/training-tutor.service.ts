@@ -60,21 +60,12 @@ import {
   isTrainingHeadSubordinate,
   pickTrainingTeamRoles,
 } from 'src/staff/training-head-role-policy';
-import {
-  bakeDiagonalWatermark,
-  buildAvatarWatermarkedPath,
-} from 'src/storage/image-watermark';
-import {
-  AVATAR_PUBLIC_BUCKET,
-  AVATAR_STORAGE_BUCKET,
-} from 'src/storage/media-buckets';
+import { AVATAR_STORAGE_BUCKET } from 'src/storage/media-buckets';
 import {
   createSignedStorageUrl,
-  removeStorageObjects,
   type UploadableFile,
-  uploadStorageObject,
-  validateImageFile,
 } from 'src/storage/supabase-storage';
+import { uploadUserAvatarFiles } from 'src/storage/user-avatar-upload';
 
 const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
 const DEFAULT_LIMIT = 20;
@@ -194,7 +185,6 @@ const TARGET_SELECT = {
 
 type TargetRow = Prisma.StaffInfoGetPayload<{ select: typeof TARGET_SELECT }>;
 
-const AVATAR_STORAGE_PATH_SEGMENT = 'avatar';
 
 /** Người xem lấy thẳng từ JWT (`id`, `roleType`). */
 export type TrainingTutorViewer = Pick<JwtPayload, 'id' | 'roleType'>;
@@ -342,10 +332,16 @@ export class TrainingTutorService {
       );
     }
     const { page, limit, skip } = clampPaging(query);
+    // Lọc role chỉ trong ba nhóm (`scope=all`); `tutors` vốn chỉ gia sư. Gộp
+    // vào `AND` vì tìm theo tên cũng trả `AND`.
+    const andFilters: Prisma.StaffInfoWhereInput[] = [
+      buildNameSearchWhere(query.search),
+      ...(isAllScope && query.role ? [{ roles: { has: query.role } }] : []),
+    ];
     const where: Prisma.StaffInfoWhereInput = {
       ...(isAllScope ? TRAINING_TEAM_WHERE : TUTOR_WHERE),
       ...(query.status ? { status: query.status } : {}),
-      ...buildNameSearchWhere(query.search),
+      AND: andFilters,
     };
 
     const [total, rows] = await Promise.all([
@@ -726,35 +722,11 @@ export class TrainingTutorService {
     if (!file) {
       throw new BadRequestException('Vui lòng chọn ảnh đại diện để tải lên.');
     }
-    validateImageFile(file, 'Ảnh đại diện');
-
     const userId = target.userId;
-    const avatarPath = `users/${userId}/${AVATAR_STORAGE_PATH_SEGMENT}`;
-    const avatarWatermarkedPath = buildAvatarWatermarkedPath(userId);
-    const watermarked = await bakeDiagonalWatermark(file.buffer);
-
-    await uploadStorageObject({
-      bucket: AVATAR_STORAGE_BUCKET,
-      path: avatarPath,
-      body: file.buffer,
-      contentType: file.mimetype,
-      upsert: true,
-    });
-    try {
-      await uploadStorageObject({
-        bucket: AVATAR_PUBLIC_BUCKET,
-        path: avatarWatermarkedPath,
-        body: watermarked.buffer,
-        contentType: watermarked.contentType,
-        upsert: true,
-      });
-    } catch (error) {
-      await removeStorageObjects({
-        bucket: AVATAR_STORAGE_BUCKET,
-        paths: [avatarPath],
-      }).catch(() => undefined);
-      throw error;
-    }
+    const { avatarPath, avatarWatermarkedPath } = await uploadUserAvatarFiles(
+      userId,
+      file,
+    );
 
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({

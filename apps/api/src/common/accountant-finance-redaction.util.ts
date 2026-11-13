@@ -126,6 +126,93 @@ const STUDENT_WALLET_BALANCE_HIDDEN_FIELDS = [
   'account_balance',
 ] as const;
 
+/**
+ * Quyết định 13/11: Ban Đào Tạo (Trưởng ban, Quản lý lớp) và gia sư không liên
+ * hệ phụ huynh (việc của CSKH) → học sinh trong response lớp chỉ còn danh tính
+ * tối thiểu. Whitelist (không phải blacklist) để cột mới của `student_info`
+ * (liên hệ, hồ sơ) mặc định bị ẩn. Học phí / ví giữ trong whitelist vì đã có
+ * redaction riêng quyết định theo người xem.
+ */
+const CLASS_STUDENT_ROSTER_FIELDS = [
+  'id',
+  'fullName',
+  'status',
+  'customerCareStaff',
+  'totalAttendedSession',
+  ...STUDENT_EXPENSE_HIDDEN_FIELDS,
+  ...STUDENT_WALLET_BALANCE_HIDDEN_FIELDS,
+] as const;
+
+/** `student` lồng trong dòng `student_classes` (`GET /class/:id/students`). */
+const STUDENT_CLASS_ROW_STUDENT_FIELDS = [
+  'id',
+  'fullName',
+  'status',
+  ...STUDENT_WALLET_BALANCE_HIDDEN_FIELDS,
+] as const;
+
+/**
+ * Role xem được liên hệ / hồ sơ học sinh trên route admin của lớp: Admin,
+ * Trưởng phòng Sale & CSKH, Kế toán thu/chi (hợp quyền). Trưởng ban Đào tạo
+ * thuần → không (quyết định 13/11).
+ */
+export function canSeeClassStudentContactsOnAdminRoutes(
+  roleType: UserRole,
+  staffRoles: readonly StaffRole[],
+): boolean {
+  if (roleType === UserRole.admin) {
+    return true;
+  }
+  return hasAnyStaffRole(staffRoles, [
+    StaffRole.admin,
+    SALE_CS_HEAD_ROLE,
+    StaffRole.accountant_income,
+    StaffRole.accountant_expense,
+  ]);
+}
+
+/** Bỏ liên hệ / hồ sơ của học sinh trong `students[]` của chi tiết lớp. */
+export function redactClassStudentContacts<T>(classRecord: T): T {
+  if (!classRecord || typeof classRecord !== 'object') {
+    return classRecord;
+  }
+  const next = { ...(classRecord as Record<string, unknown>) };
+  if (Array.isArray(next.students)) {
+    next.students = (next.students as unknown[]).map((student) =>
+      student && typeof student === 'object'
+        ? pickFields(
+            student as Record<string, unknown>,
+            CLASS_STUDENT_ROSTER_FIELDS,
+          )
+        : student,
+    );
+  }
+  return next as T;
+}
+
+/** Như trên cho dòng `student_classes` có `include: { student }`. */
+export function redactStudentClassRowsContacts<T>(
+  rows: T[],
+  canSeeContacts: boolean,
+): T[] {
+  if (canSeeContacts) {
+    return rows;
+  }
+  return rows.map((row) => {
+    if (!row || typeof row !== 'object') {
+      return row;
+    }
+    const next = { ...(row as Record<string, unknown>) };
+    if (next.student && typeof next.student === 'object') {
+      next.student = pickFields(
+        next.student as Record<string, unknown>,
+        STUDENT_CLASS_ROW_STUDENT_FIELDS,
+      );
+    }
+    return next as T;
+  });
+}
+
 export type ClassStudentWalletVisibility =
   | { mode: 'full' }
   | { mode: 'none' }
@@ -455,7 +542,8 @@ export function redactClassForTrainingManagerView<T>(classRecord: T): T {
     );
   }
 
-  return next as T;
+  // Quyết định 13/11: Ban Đào Tạo / gia sư không thấy liên hệ phụ huynh.
+  return redactClassStudentContacts(next) as T;
 }
 
 /**

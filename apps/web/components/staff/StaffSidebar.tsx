@@ -112,7 +112,10 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       label: "Nhân sự",
       icon: <IconStaff />,
       isActive: (pathname) => pathname.startsWith("/staff/staffs"),
-      isVisible: ({ isAccountantExpense }) => isAccountantExpense,
+      // Trưởng phòng Sale & CSKH: đội Sale & CSKH; Ban Đào Tạo: gia sư (Trưởng
+      // ban thêm Ban Chuyên môn / Đào tạo) — bản giới hạn, thay `/staff/tutors`.
+      isVisible: ({ isAccountantExpense, isAssistant, isTraining }) =>
+        isAccountantExpense || isAssistant || isTraining,
     },
     {
       href: "/staff/classes",
@@ -121,8 +124,18 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isActive: (pathname) =>
         pathname === "/staff/classes" || pathname.startsWith("/staff/classes/"),
       // #277: Trưởng ban Đào tạo thấy mọi lớp, không cần đang quản lý lớp nào.
-      isVisible: ({ isAccountant, isTraining, isTrainingHead, hasManagedClasses }) =>
-        isAccountant || isTrainingHead || (isTraining && hasManagedClasses),
+      // #272: Trưởng phòng Sale & CSKH xem mọi lớp.
+      isVisible: ({
+        isAccountant,
+        isAssistant,
+        isTraining,
+        isTrainingHead,
+        hasManagedClasses,
+      }) =>
+        isAccountant ||
+        isAssistant ||
+        isTrainingHead ||
+        (isTraining && hasManagedClasses),
     },
     {
       href: "/staff/students",
@@ -140,13 +153,6 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
         pathname === "/staff/calendar" || pathname.startsWith("/staff/calendar/"),
       isVisible: ({ canAccessClassWorkspace, isTraining }) =>
         canAccessClassWorkspace || isTraining,
-    },
-    {
-      href: "/staff/tutors",
-      label: "Gia sư",
-      icon: <IconStaff />,
-      isActive: (pathname) => pathname.startsWith("/staff/tutors"),
-      isVisible: ({ isTraining }) => isTraining,
     },
     {
       href: "/staff/costs",
@@ -194,13 +200,6 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       icon: <IconNotificationComposer />,
       isActive: (pathname) => pathname.startsWith("/staff/notification/manage"),
       isVisible: ({ canComposeNotifications }) => canComposeNotifications,
-    },
-    {
-      href: "/staff/sale-cs-team",
-      label: "Đội Sale & CSKH",
-      icon: <IconUsers />,
-      isActive: (pathname) => pathname.startsWith("/staff/sale-cs-team"),
-      isVisible: ({ isAssistant }) => isAssistant,
     },
     {
       href: "/staff/assistant-detail",

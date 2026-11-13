@@ -307,6 +307,41 @@ describe('TrainingTutorService', () => {
       expect(args).toMatchObject({ skip: 10, take: 10 });
     });
 
+    it('scope=all + role: lọc một nhóm, giữ điều kiện tìm theo tên', async () => {
+      mockViewer([StaffRole.training_head]);
+      mockPrisma.staffInfo.count.mockResolvedValue(0);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+      await service.listTutors(trainingViewer, {
+        scope: 'all',
+        role: StaffRole.lesson_plan,
+        search: 'An',
+      });
+
+      const args = firstCallArg<StaffFindManyArgs>(
+        mockPrisma.staffInfo.findMany,
+      );
+      const and = args.where.AND as Array<Record<string, unknown>>;
+      expect(and).toContainEqual({
+        roles: { has: StaffRole.lesson_plan },
+      });
+      // Điều kiện tên vẫn còn (không bị đè bởi lọc role).
+      expect(JSON.stringify(and)).toContain('An');
+    });
+
+    it('role bị bỏ qua ở scope gia sư (mặc định)', async () => {
+      mockViewer([StaffRole.training]);
+      mockPrisma.staffInfo.count.mockResolvedValue(0);
+      mockPrisma.staffInfo.findMany.mockResolvedValue([]);
+
+      await service.listTutors(trainingViewer, { role: StaffRole.training });
+
+      const args = firstCallArg<StaffFindManyArgs>(
+        mockPrisma.staffInfo.findMany,
+      );
+      expect(JSON.stringify(args.where)).not.toContain('"has":"training"');
+    });
+
     it('forbids non-training staff before querying', async () => {
       mockViewer([StaffRole.customer_care]);
       await expect(

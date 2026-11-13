@@ -5,6 +5,10 @@ Lớp chia thành hai phần sửa riêng:
 - **Thông tin lớp**: tên, khoá, trạng thái, sĩ số tối đa, không điểm danh, hạn truy cập nội dung, lương gia sư mặc định của lớp.
 - **Học phí lớp**: tổng gói (`tuition_package_total`), số buổi (`tuition_package_session`), học phí / buổi (`student_tuition_per_session`), học phí / 30 phút (`student_tuition_per_block`, lớp theo block).
 
+Hai route API vẫn tách (quyền khác nhau), nhưng **web** (13/11) sửa cả hai trong **một dialog «Thông tin lớp»** (`EditClassBasicInfoPopup`): người được sửa Học phí lớp (Admin, Trưởng phòng Sale & CSKH) thấy thêm mục **Học phí lớp** cuối dialog; lưu gọi `PATCH /class/:id/basic-info` khi Thông tin lớp đổi rồi `PATCH /class/:id/tuition` khi học phí đổi. Trang chi tiết lớp **không còn** card Học phí lớp. Popup riêng `EditClassTuitionPopup` chỉ còn cho luồng bắt buộc điền trước học sinh đầu tiên (#273). Form học phí dùng chung `components/admin/class/ClassTuitionFields.tsx` (`useClassTuitionForm`).
+
+**Trưởng ban Đào tạo sửa trợ cấp mặc định của lớp trong dialog «Thông tin lớp» (13/11):** dialog hiện thêm **Trợ cấp / HV / buổi**, **Trợ cấp tối đa / buổi**, **Scales** (không có Cách thu học phí). `PATCH /class/:id/basic-info` vẫn chỉ nhận tên / khoá / sĩ số với role trưởng, nên web gửi phần tiền sang `PATCH /staff-ops/classes/:id/teacher-pay` — **chỉ ô đã đổi** (vd `{ "allowance_per_session_per_student": 45000 }`), áp dụng cho buổi tạo sau. Ô chạm lương của chính mình (đang dạy lớp: trợ cấp / HS khi không có trợ cấp riêng, scale khi không có scale riêng, trần luôn) bị khoá kèm ghi chú, khớp `findOwnPayFieldsInTeacherPayUpdate` (`lib/class-teacher-own-pay.ts`). Không có thay đổi backend.
+
 ## Quyền theo route
 
 | Route | Admin | Trưởng ban Đào tạo | Trưởng phòng Sale & CSKH | Kế toán thu | Kế toán chi |
@@ -56,6 +60,8 @@ Policy: `apps/api/src/class/class-write-field-policy.ts` (`assertCreateClassAllo
 | Trưởng phòng kiêm Kế toán chi | `full` | — (hợp quyền) |
 | Trưởng ban Đào tạo (#274) | `expense` | học phí lớp + học phí riêng học sinh + số dư ví học sinh (follow-up 13/11 bỏ quyền xem ví #277) |
 | Trưởng ban Đào tạo kiêm Trưởng phòng / Kế toán thu | `full` | — (hợp quyền) |
+
+**Liên hệ / hồ sơ học sinh (quyết định 13/11).** Ngoài bảng trên, Trưởng ban Đào tạo thuần (không kiêm Admin / Trưởng phòng / Kế toán thu/chi — `canSeeClassStudentContactsOnAdminRoutes`) nhận `students[]` chỉ gồm `id`, `fullName`, `status`, `customerCareStaff`, `totalAttendedSession` (whitelist `redactClassStudentContacts`: không email, SĐT, phụ huynh, trường, tỉnh, năm sinh, giới tính, mục tiêu, nguồn khách, lý do nghỉ, `userId`). Áp `GET /class/:id` và response các route ghi `/class`; `GET /class/:id/students` thì `student` lồng chỉ còn `id`, `fullName`, `status`. Route staff-ops áp cùng whitelist cho Trưởng ban Đào tạo, Quản lý lớp, gia sư.
 
 Route staff-ops (gia sư / quản lý lớp) vẫn dùng `resolveAccountantFinanceView`. Riêng `GET /staff-ops/classes/:id` (#276): **Quản lý lớp** của lớp — thuần hoặc kiêm gia sư lớp — không nhận học phí lớp (`studentTuitionPerSession`, `studentTuitionPerBlock`, `tuitionPackageTotal`, `tuitionPackageSession`, `sessionTuitionTotal`) và học phí riêng / số dư của học sinh (`redactClassForTrainingManagerView`). Gia sư thuần, CSKH, Admin, Kế toán giữ nguyên.
 

@@ -14,6 +14,8 @@ export type StaffShellRouteFlags = {
   isProfileRoute: boolean;
   isAssistantUsersRoute: boolean;
   isAssistantStaffsRoute: boolean;
+  /** `/staff/staffs/:id` — hồ sơ nhân sự (trưởng ban/phòng xem cấp dưới). */
+  isStaffDetailRoute: boolean;
   isStaffClassesRoute: boolean;
   isStaffClassDetailRoute: boolean;
   isStaffDeductionsRoute: boolean;
@@ -48,9 +50,6 @@ export type StaffShellRouteFlags = {
   isStaffCalendarRoute: boolean;
   isStaffSurveysRoute: boolean;
   isStaffCoursesRoute: boolean;
-  isStaffTutorsRoute: boolean;
-  /** Đội Sale & CSKH — chỉ Trưởng phòng Sale & CSKH (#271). */
-  isSaleCsTeamRoute: boolean;
 };
 
 export type StaffShellAccessContext = {
@@ -116,8 +115,9 @@ function isCompleteFullProfileStaffInfo(profile: FullProfileDto): boolean {
   const staffInfo = profile.staffInfo;
   if (!staffInfo) return false;
 
-  const avatarPath = (profile as FullProfileDto & { avatarPath?: string | null })
-    .avatarPath;
+  const avatarPath = (
+    profile as FullProfileDto & { avatarPath?: string | null }
+  ).avatarPath;
 
   return (
     hasText(profile.first_name) &&
@@ -193,7 +193,8 @@ function resolveStaffShellContext(
   const isTrainingHead = staffRoles.includes("training_head");
   const isAssistant = hasSaleCsHeadAccess(staffRoles);
   const isAccountantIncome =
-    staffRoles.includes("accountant_income") || staffRoles.includes("accountant");
+    staffRoles.includes("accountant_income") ||
+    staffRoles.includes("accountant");
   const isAccountantExpense = staffRoles.includes("accountant_expense");
   const isAccountant = isAccountantIncome || isAccountantExpense;
   const isCommunication = staffRoles.includes("communication");
@@ -208,9 +209,7 @@ function resolveStaffShellContext(
     canBypassStaffProfileRequirement: isAdmin,
     isStaffOrAdmin,
     shouldRedirectToUserProfile:
-      isStaffOrAdmin &&
-      !isAdmin &&
-      (!hasStaffProfile || !staffProfileComplete),
+      isStaffOrAdmin && !isAdmin && (!hasStaffProfile || !staffProfileComplete),
     isAdmin,
     isTeacher,
     isCustomerCare,
@@ -237,6 +236,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isProfileRoute = pathname === "/staff/profile";
   const isAssistantUsersRoute = pathname.startsWith("/staff/users");
   const isAssistantStaffsRoute = pathname.startsWith("/staff/staffs");
+  const isStaffDetailRoute = pathname.startsWith("/staff/staffs/");
   const isStaffClassesRoute = pathname.startsWith("/staff/classes");
   const isStaffClassDetailRoute = pathname.startsWith("/staff/classes/");
   const isStaffSystemSettingsRoute = pathname.startsWith(
@@ -295,8 +295,6 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffCalendarRoute = pathname.startsWith("/staff/calendar");
   const isStaffSurveysRoute = pathname.startsWith("/staff/surveys");
   const isStaffCoursesRoute = pathname.startsWith("/staff/courses");
-  const isStaffTutorsRoute = pathname.startsWith("/staff/tutors");
-  const isSaleCsTeamRoute = pathname.startsWith("/staff/sale-cs-team");
   const isAssistantAdminLikeRoute =
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
@@ -310,6 +308,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isProfileRoute,
     isAssistantUsersRoute,
     isAssistantStaffsRoute,
+    isStaffDetailRoute,
     isStaffClassesRoute,
     isStaffClassDetailRoute,
     isStaffDeductionsRoute,
@@ -343,8 +342,6 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffCalendarRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
-    isStaffTutorsRoute,
-    isSaleCsTeamRoute,
   };
 }
 
@@ -385,139 +382,149 @@ export function resolveStaffShellRouteAccess(
       isStaffOrAdmin &&
       canPublishNotifications(context.staffRoles, isAdmin)
     : flags.isDashboardRoute ||
-    flags.isProfileRoute ||
-    flags.isNotesSubjectRoute ||
-    flags.isStaffNotificationRoute
+        flags.isProfileRoute ||
+        flags.isNotesSubjectRoute ||
+        flags.isStaffNotificationRoute
       ? hasStaffWorkspaceAccess && isStaffOrAdmin
       : hasStaffWorkspaceAccess && isStaffOrAdmin && isAdmin
         ? true
         : flags.isAdminOnlyReportRoute
           ? false
-                    : flags.isStaffCalendarRoute
-            ? hasStaffWorkspaceAccess &&
-              (isAdmin || isTeacher || isTraining)
-          : flags.isStaffTutorsRoute
-            ? hasStaffWorkspaceAccess && isStaffOrAdmin && isTraining
-          : flags.isSaleCsTeamRoute
-            ? isAssistantStaff
-          : flags.isStaffSurveysRoute
-            ? hasStaffWorkspaceAccess &&
-              isStaffOrAdmin &&
-              (isAdmin ||
-                lessonWorkspace.isLessonPlan ||
-                lessonWorkspace.isLessonPlanHead)
-          : flags.isStaffCoursesRoute
-            ? hasStaffWorkspaceAccess &&
-              isStaffOrAdmin &&
-              (lessonWorkspace.isLessonPlan || lessonWorkspace.isLessonPlanHead)
-          : flags.isStaffClassesRoute
-            ? (hasStaffWorkspaceAccess &&
-                isStaffOrAdmin &&
-                (isAccountantIncome || isAccountantExpense || isTraining)) ||
-              (flags.isStaffClassDetailRoute &&
-                hasStaffWorkspaceAccess &&
-                (isAdmin || isTeacher || isCustomerCare || isTraining))
-            : flags.isStaffDeductionsRoute
-              ? false
-              : flags.isStaffStudentsRoute
-                ? isAssistantStaff ||
-                  (hasStaffWorkspaceAccess &&
+          : flags.isStaffCalendarRoute
+            ? hasStaffWorkspaceAccess && (isAdmin || isTeacher || isTraining)
+            : flags.isStaffSurveysRoute
+                  ? hasStaffWorkspaceAccess &&
                     isStaffOrAdmin &&
-                    isAccountantIncome) ||
-                  (flags.isStaffStudentDetailRoute &&
-                    hasStaffWorkspaceAccess &&
-                    isCustomerCare)
-                : flags.isStaffCostsRoute
-                  ? (hasStaffWorkspaceAccess &&
-                      isStaffOrAdmin &&
-                      isAccountantExpense)
-                  : flags.isStaffLessonPlansHomeRoute
+                    (isAdmin ||
+                      lessonWorkspace.isLessonPlan ||
+                      lessonWorkspace.isLessonPlanHead)
+                  : flags.isStaffCoursesRoute
                     ? hasStaffWorkspaceAccess &&
                       isStaffOrAdmin &&
-                      (lessonWorkspace.canAccessWorkspace ||
-                        isAccountantExpense)
-                    : flags.isAssistantStaffsRoute
+                      (lessonWorkspace.isLessonPlan ||
+                        lessonWorkspace.isLessonPlanHead)
+                    : flags.isStaffClassesRoute
                       ? (hasStaffWorkspaceAccess &&
                           isStaffOrAdmin &&
-                          isAccountantExpense)
-                      : flags.isAssistantAdminLikeRoute
+                          // #272: Trưởng phòng Sale & CSKH xem mọi lớp (không lương gia sư).
+                          (isAccountantIncome ||
+                            isAccountantExpense ||
+                            isTraining ||
+                            isAssistant)) ||
+                        (flags.isStaffClassDetailRoute &&
+                          hasStaffWorkspaceAccess &&
+                          (isAdmin ||
+                            isTeacher ||
+                            isCustomerCare ||
+                            isTraining))
+                      : flags.isStaffDeductionsRoute
                         ? false
-                        : flags.isCustomerCareSelfRoute
-                          ? flags.isCustomerCareAdminRoute
-                            ? isAssistantStaff ||
-                              (hasStaffWorkspaceAccess &&
-                                isStaffOrAdmin &&
-                                isAccountantExpense)
-                            : hasStaffWorkspaceAccess &&
+                        : flags.isStaffStudentsRoute
+                          ? isAssistantStaff ||
+                            (hasStaffWorkspaceAccess &&
                               isStaffOrAdmin &&
-                              isCustomerCare
-                          : flags.isAssistantSelfRoute
+                              isAccountantIncome) ||
+                            (flags.isStaffStudentDetailRoute &&
+                              hasStaffWorkspaceAccess &&
+                              isCustomerCare)
+                          : flags.isStaffCostsRoute
                             ? hasStaffWorkspaceAccess &&
                               isStaffOrAdmin &&
-                              (isAssistant ||
-                                isAssistantStaff ||
-                                isAccountantExpense)
-                            : flags.isAccountantSelfRoute
+                              isAccountantExpense
+                            : flags.isStaffLessonPlansHomeRoute
                               ? hasStaffWorkspaceAccess &&
                                 isStaffOrAdmin &&
-                                (isAccountant ||
+                                (lessonWorkspace.canAccessWorkspace ||
                                   isAccountantExpense)
-                              : flags.isCommunicationSelfRoute
-                                ? hasStaffWorkspaceAccess &&
-                                  isStaffOrAdmin &&
-                                  (isCommunication ||
-                                    isAccountantExpense)
-                                : flags.isTechnicalSelfRoute
-                                  ? hasStaffWorkspaceAccess &&
+                              : flags.isAssistantStaffsRoute
+                                ? (hasStaffWorkspaceAccess &&
                                     isStaffOrAdmin &&
-                                    (isTechnical ||
-                                      isAccountantExpense)
-                                  : flags.isTrainingSelfRoute
-                                    ? hasStaffWorkspaceAccess &&
-                                      isStaffOrAdmin &&
-                                      (isTrainingRole ||
-                                        isAccountantExpense)
-                                  : flags.isTrainingHeadSelfRoute
-                                    ? hasStaffWorkspaceAccess &&
-                                      isStaffOrAdmin &&
-                                      (isTrainingHead ||
-                                        isAccountantExpense)
-                                    : flags.isSaleSelfRoute
-                                    ? hasStaffWorkspaceAccess &&
-                                      isStaffOrAdmin &&
-                                      (isSale ||
-                                        isAccountantExpense)
-                                    : flags.isLessonPlanLegacyRoute
+                                    isAccountantExpense) ||
+                                  // Trưởng phòng Sale & CSKH: danh sách + hồ sơ đội
+                                  // Sale/CSKH (bản giới hạn). Ban Đào Tạo: danh sách
+                                  // + hồ sơ gia sư (Trưởng ban thêm Ban Chuyên môn /
+                                  // Đào tạo) — thay `/staff/tutors` cũ.
+                                  isAssistantStaff ||
+                                  (hasStaffWorkspaceAccess &&
+                                    isStaffOrAdmin &&
+                                    isTraining)
+                                : flags.isAssistantAdminLikeRoute
+                                  ? false
+                                  : flags.isCustomerCareSelfRoute
+                                    ? flags.isCustomerCareAdminRoute
+                                      ? isAssistantStaff ||
+                                        (hasStaffWorkspaceAccess &&
+                                          isStaffOrAdmin &&
+                                          isAccountantExpense)
+                                      : hasStaffWorkspaceAccess &&
+                                        isStaffOrAdmin &&
+                                        isCustomerCare
+                                    : flags.isAssistantSelfRoute
                                       ? hasStaffWorkspaceAccess &&
                                         isStaffOrAdmin &&
-                                        lessonWorkspace.canAccessWorkspace
-                                      : flags.isStaffLessonPlansTaskDetailRoute
+                                        (isAssistant ||
+                                          isAssistantStaff ||
+                                          isAccountantExpense)
+                                      : flags.isAccountantSelfRoute
                                         ? hasStaffWorkspaceAccess &&
                                           isStaffOrAdmin &&
-                                          (lessonWorkspace.canAccessTaskDetail ||
-                                            isAccountantExpense)
-                                        : flags.isLessonPlanManageDetailsRoute
+                                          (isAccountant || isAccountantExpense)
+                                        : flags.isCommunicationSelfRoute
                                           ? hasStaffWorkspaceAccess &&
                                             isStaffOrAdmin &&
-                                            (lessonWorkspace.canAccessManageDetails ||
+                                            (isCommunication ||
                                               isAccountantExpense)
-                                          : flags.isLessonPlanSelfRoute
+                                          : flags.isTechnicalSelfRoute
                                             ? hasStaffWorkspaceAccess &&
                                               isStaffOrAdmin &&
-                                              (flags.isLessonPlanAdminDetailRoute
-                                                ? isAccountantExpense
-                                                : isLessonPlanner)
-                                            : false;
+                                              (isTechnical ||
+                                                isAccountantExpense)
+                                            : flags.isTrainingSelfRoute
+                                              ? hasStaffWorkspaceAccess &&
+                                                isStaffOrAdmin &&
+                                                (isTrainingRole ||
+                                                  isAccountantExpense)
+                                              : flags.isTrainingHeadSelfRoute
+                                                ? hasStaffWorkspaceAccess &&
+                                                  isStaffOrAdmin &&
+                                                  (isTrainingHead ||
+                                                    isAccountantExpense)
+                                                : flags.isSaleSelfRoute
+                                                  ? hasStaffWorkspaceAccess &&
+                                                    isStaffOrAdmin &&
+                                                    (isSale ||
+                                                      isAccountantExpense)
+                                                  : flags.isLessonPlanLegacyRoute
+                                                    ? hasStaffWorkspaceAccess &&
+                                                      isStaffOrAdmin &&
+                                                      lessonWorkspace.canAccessWorkspace
+                                                    : flags.isStaffLessonPlansTaskDetailRoute
+                                                      ? hasStaffWorkspaceAccess &&
+                                                        isStaffOrAdmin &&
+                                                        (lessonWorkspace.canAccessTaskDetail ||
+                                                          isAccountantExpense)
+                                                      : flags.isLessonPlanManageDetailsRoute
+                                                        ? hasStaffWorkspaceAccess &&
+                                                          isStaffOrAdmin &&
+                                                          (lessonWorkspace.canAccessManageDetails ||
+                                                            isAccountantExpense)
+                                                        : flags.isLessonPlanSelfRoute
+                                                          ? hasStaffWorkspaceAccess &&
+                                                            isStaffOrAdmin &&
+                                                            (flags.isLessonPlanAdminDetailRoute
+                                                              ? isAccountantExpense
+                                                              : isLessonPlanner)
+                                                          : false;
 
   const redirectHref = isAllowed
     ? null
     : context.shouldRedirectToUserProfile
-        ? buildUserProfileRequirementHref(pathname)
-        : isAssistantStaff
-          ? "/staff"
-          : !isStaffOrAdmin
-            ? "/"
-            : null;
+      ? buildUserProfileRequirementHref(pathname)
+      : isAssistantStaff
+        ? "/staff"
+        : !isStaffOrAdmin
+          ? "/"
+          : null;
 
   return {
     isAllowed,

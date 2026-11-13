@@ -3,6 +3,7 @@ import type {
   SaleCsTeamBonus,
   SaleCsTeamListParams,
   SaleCsTeamMember,
+  SaleCsTeamMemberDetail,
   SaleCsTeamPage,
   SaleCsTeamRolesResult,
   SaleCsTeamSaleAllowance,
@@ -47,8 +48,8 @@ export async function listSaleCsTeamMembers(
 
 export async function getSaleCsTeamMember(
   staffId: string,
-): Promise<SaleCsTeamMember> {
-  const response = await api.get<SaleCsTeamMember>(memberPath(staffId));
+): Promise<SaleCsTeamMemberDetail> {
+  const response = await api.get<SaleCsTeamMemberDetail>(memberPath(staffId));
   return response.data;
 }
 
@@ -104,6 +105,20 @@ export async function updateSaleCsTeamProfile(
   const response = await api.patch<SaleCsTeamMember>(
     `${memberPath(staffId)}/professional-profile`,
     payload,
+  );
+  return response.data;
+}
+
+/** Đổi ảnh đại diện nhân sự dưới cấp (multipart `avatar`), lưu ngay. */
+export async function uploadSaleCsTeamAvatar(
+  staffId: string,
+  file: File,
+): Promise<SaleCsTeamMemberDetail> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  const response = await api.post<SaleCsTeamMemberDetail>(
+    `${memberPath(staffId)}/avatar`,
+    formData,
   );
   return response.data;
 }

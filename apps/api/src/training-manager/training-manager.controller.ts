@@ -46,9 +46,14 @@ export class TrainingManagerController {
     private readonly trainingManagerService: TrainingManagerService,
   ) {}
 
-  @Get('staff/training-manager-options')
+  // Không đặt dưới `/staff/*`: `GET /staff/:id` (StaffModule, chỉ Admin) đăng
+  // ký trước và nuốt path cũ `/staff/training-manager-options` → Admin 400,
+  // Trưởng ban Đào tạo 403, dropdown Quản lý lớp không bao giờ có danh sách.
+  @Get('training-manager/options')
   @ApiOperation({
     summary: 'Search active training staff for class manager assignment',
+    description:
+      'Nhân sự Ban Đào Tạo đang hoạt động (`training` / `training_head`) để gán Quản lý lớp. Trước đây là `GET /staff/training-manager-options` (bị `GET /staff/:id` che).',
   })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number })

@@ -29,6 +29,7 @@ import {
 import AdminClassDetailPage from "@/app/admin/classes/[id]/page";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import ManagedClassTeachersPopup from "@/components/admin/class/ManagedClassTeachersPopup";
+import EditClassTeachersPopup from "@/components/admin/class/EditClassTeachersPopup";
 import ClassTrainingManagerAssignDialog from "@/components/admin/class/ClassTrainingManagerAssignDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
@@ -364,6 +365,7 @@ export default function StaffClassDetailPage() {
   const [addSurveyPopupOpen, setAddSurveyPopupOpen] = useState(false);
   const [managedTeachersPopupOpen, setManagedTeachersPopupOpen] = useState(false);
   const [managerAssignDialogOpen, setManagerAssignDialogOpen] = useState(false);
+  const [headTeachersPopupOpen, setHeadTeachersPopupOpen] = useState(false);
   const [stopTeachingTarget, setStopTeachingTarget] = useState<{
     teacherId: string;
     teacherName: string;
@@ -424,6 +426,11 @@ export default function StaffClassDetailPage() {
    * lý (BE chặn 403).
    */
   const isTrainingHead = isTraining && canEditClassInfo;
+  /** Trưởng ban Đào tạo mở hồ sơ gia sư như admin (`/staff/staffs/:id`, #270). */
+  const resolveHeadTeacherHref = useCallback(
+    (teacherId: string) => `/staff/staffs/${encodeURIComponent(teacherId)}`,
+    [],
+  );
   const resolveCaretakerHref = useCallback(
     (student: ClassStudent) =>
       resolveClassStudentCaretakerHref({
@@ -448,10 +455,23 @@ export default function StaffClassDetailPage() {
     staleTime: 30_000,
   });
 
+  /**
+   * Trưởng ban Đào tạo chỉ dùng workspace này ở lớp mình dạy / quản lý; lớp
+   * khác chuyển sang trang admin (xem cuối component) nên không tải buổi học,
+   * khảo sát, cảnh báo ở đây để khỏi gọi trùng.
+   */
+  const trainingHeadUsesWorkspace =
+    !isTrainingHead ||
+    (Boolean(classDetail) &&
+      Boolean(actorStaffId) &&
+      ((classDetail?.teachers ?? []).some((teacher) => teacher.id === actorStaffId) ||
+        classDetail?.trainingManager?.id === actorStaffId));
+  const loadsWorkspaceData = canAccessClassWorkspace && trainingHeadUsesWorkspace;
+
   const { data: missedTeachingAlerts = [] } = useQuery<MissedTeachingAlert[]>({
     queryKey: missedAlertsQueryKey,
     queryFn: () => staffOpsApi.getMissedTeachingAlertsByClassId(id, { days: 31 }),
-    enabled: !!id && canAccessClassWorkspace,
+    enabled: !!id && loadsWorkspaceData,
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -467,7 +487,7 @@ export default function StaffClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && canAccessClassWorkspace && activeTab === "buoi-hoc",
+    enabled: !!id && loadsWorkspaceData && activeTab === "buoi-hoc",
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -483,14 +503,14 @@ export default function StaffClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && canAccessClassWorkspace && activeTab === "buoi-hoc",
+    enabled: !!id && loadsWorkspaceData && activeTab === "buoi-hoc",
     placeholderData: keepPreviousData,
     retry: false,
   });
   const { data: availableSurveys = [], status: availableSurveysStatus } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
-    enabled: canAccessClassWorkspace && activeTab === "buoi-hoc",
+    enabled: loadsWorkspaceData && activeTab === "buoi-hoc",
     staleTime: 60_000,
   });
 
@@ -823,6 +843,15 @@ export default function StaffClassDetailPage() {
     return <StaffClassDetailLoadingSkeleton showActionsColumn={canManageSessions} />;
   }
 
+  /**
+   * Trưởng ban Đào tạo ở lớp mình không dạy / không quản lý: dùng y trang chi
+   * tiết lớp của admin (cờ quyền khớp backend, #277). Lớp mình dạy / quản lý
+   * giữ workspace này để còn tạo buổi, sửa lịch, điểm danh.
+   */
+  if (classDetail && !trainingHeadUsesWorkspace) {
+    return <AdminClassDetailPage />;
+  }
+
   if (!id || !canAccessClassWorkspace || isError || !classDetail) {
     const message = !id
       ? "Thiếu mã lớp học."
@@ -942,7 +971,17 @@ export default function StaffClassDetailPage() {
         />
       ) : null}
 
-      {managedTeachersPopupOpen && canManageClassTeachers ? (
+      {/* Trưởng ban Đào tạo: cùng form «Gia sư & quản lý» của admin (#277). */}
+      <EditClassTeachersPopup
+        open={headTeachersPopupOpen && isTrainingHead}
+        onClose={() => setHeadTeachersPopupOpen(false)}
+        classDetail={classDetail}
+        variant="trainingHead"
+        actorStaffId={actorStaffId || null}
+        onSaved={invalidateClassTeacherQueries}
+      />
+
+      {managedTeachersPopupOpen && canManageClassTeachers && !isTrainingHead ? (
         <ManagedClassTeachersPopup
           classDetail={classDetail}
           actorStaffId={actorStaffId}
@@ -1033,7 +1072,8 @@ export default function StaffClassDetailPage() {
             showTeacherCompensation={seesAllTeacherCompensation || teacherAssignedToClass}
             compensationTeacherId={seesAllTeacherCompensation ? null : actorStaffId}
             className="flex-1"
-            enableTeacherNavigation={false}
+            enableTeacherNavigation={isTrainingHead}
+            getTeacherHref={resolveHeadTeacherHref}
             canStopTeaching={canManageClassTeachers}
             stopTeachingLockedTeacherId={actorStaffId || null}
             onStopTeaching={handleStopTeaching}
@@ -1043,7 +1083,15 @@ export default function StaffClassDetailPage() {
                 : null
             }
             action={
-              canManageClassTeachers || canAssignClassManager ? (
+              isTrainingHead ? (
+                <button
+                  type="button"
+                  onClick={() => setHeadTeachersPopupOpen(true)}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors duration-200 hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:w-auto"
+                >
+                  Chỉnh sửa
+                </button>
+              ) : canManageClassTeachers || canAssignClassManager ? (
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                   {canAssignClassManager ? (
                     <button

@@ -15,6 +15,8 @@ export interface SaleCsTeamPermissions {
   canEditRoles: boolean;
   canLockAccount: boolean;
   canEditProfile: boolean;
+  /** Thêm/sửa/xoá/sao/ảnh thành tích (nhân sự dưới cấp). */
+  canEditAchievements: boolean;
 }
 
 export interface SaleCsTeamMember {
@@ -33,7 +35,21 @@ export interface SaleCsTeamMember {
   customerCareDefaultProfitPercent: number | null;
   managedBy: { id: string; fullName: string } | null;
   customerCareStudentCount: number;
+  /** Tỉnh/TP — cột «Tỉnh» ở danh sách `/staff/staffs`. */
+  province: string | null;
+  /** Số thành tích — nút «Xem thành tích» ở danh sách. */
+  achievementCount: number;
   permissions: SaleCsTeamPermissions;
+}
+
+/**
+ * Chi tiết thành viên (trang `/staff/staffs/:id`, bố cục như admin): thêm
+ * handle, link Google Meet. Không có email, SĐT, CCCD, ngày sinh, địa chỉ,
+ * ngân hàng, QR (#270).
+ */
+export interface SaleCsTeamMemberDetail extends SaleCsTeamMember {
+  accountHandle: string | null;
+  googleMeetLink: string | null;
 }
 
 export interface SaleCsTeamPage<T> {
@@ -68,6 +84,8 @@ export interface SaleCsTeamBonus {
   month: string;
   /** `YYYY-MM-DD`. */
   date: string;
+  /** ISO thời điểm tạo. */
+  createdAt: string;
 }
 
 export interface UpdateSaleCsTeamRolesPayload {

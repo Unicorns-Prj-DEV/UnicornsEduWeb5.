@@ -5,13 +5,7 @@ import AchievementListEditor from "@/components/shared/achievement/AchievementLi
 import StaffMeetActionButton from "./StaffMeetActionButton";
 import StaffQrCard from "./StaffQrCard";
 
-function InlineFact({
-  label,
-  value,
-}: {
-  label: string;
-  value: ReactNode;
-}) {
+function InlineFact({ label, value }: { label: string; value: ReactNode }) {
   const display =
     value === undefined || value === null || value === "" ? "—" : value;
   return (
@@ -54,8 +48,12 @@ const SECTION_HEADING =
 
 export type StaffIdentityOverviewProps = {
   staffId: string;
-  /** Admin detail uses admin APIs; staff self profile uses /users/me/achievements. */
-  achievementMode?: "admin" | "self";
+  /**
+   * Admin detail uses admin APIs; staff self profile uses /users/me/achievements;
+   * `saleCsTeam`: Trưởng phòng Sale & CSKH đọc qua /sale-cs-team (chỉ đọc);
+   * `training`: Ban Đào Tạo qua /training/tutors (sửa được với cấp dưới).
+   */
+  achievementMode?: "admin" | "self" | "saleCsTeam" | "training";
   email?: string | null;
   phone?: string | null;
   accountHandle?: string | null;
@@ -71,8 +69,9 @@ export type StaffIdentityOverviewProps = {
   highSchool?: string | null;
   bankAccount?: string | null;
   googleMeetLink?: string | null;
-  qrLink: string | null;
-  onQrEdit: () => void;
+  /** Chỉ dùng khi `showBankInfo` (mặc định true). */
+  qrLink?: string | null;
+  onQrEdit?: () => void;
   /** When false, QR block is view-only (no edit / add link). Default true. */
   allowQrEdit?: boolean;
   /** When false, achievements render read-only. Default follows allowQrEdit. */
@@ -110,8 +109,8 @@ export default function StaffIdentityOverview({
   highSchool,
   bankAccount,
   googleMeetLink,
-  qrLink,
-  onQrEdit,
+  qrLink = null,
+  onQrEdit = () => {},
   allowQrEdit = true,
   allowAchievementEdit,
   showPersonalInfo = true,
@@ -154,9 +153,7 @@ export default function StaffIdentityOverview({
               : []),
             {
               label: "Handle",
-              value: accountHandle?.trim()
-                ? `@${accountHandle.trim()}`
-                : null,
+              value: accountHandle?.trim() ? `@${accountHandle.trim()}` : null,
             },
           ]}
         />
@@ -228,7 +225,7 @@ export default function StaffIdentityOverview({
             owner={
               achievementMode === "self"
                 ? { kind: "staff", mode: "self" }
-                : { kind: "staff", mode: "admin", staffId }
+                : { kind: "staff", mode: achievementMode, staffId }
             }
             editable={canEditAchievements}
             heading=""

@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
+import * as staffOpsApi from "@/lib/apis/staff-ops.api";
 import * as surveysApi from "@/lib/apis/surveys.api";
 import { buildEndClassConfirmMessage, formatCurrency } from "@/lib/class.helpers";
 import {
@@ -40,7 +41,6 @@ import {
   TutorCard,
 } from "@/components/admin/class";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
-import ClassTuitionCard from "@/components/admin/class/ClassTuitionCard";
 import SessionHistoryTable from "@/components/admin/session/SessionHistoryTable";
 import StudentClassTuitionPopup from "@/components/admin/student/StudentClassTuitionPopup";
 import QueryRefreshStrip from "@/components/ui/query-refresh-strip";
@@ -69,8 +69,14 @@ import {
 } from "@/lib/admin-shell-paths";
 import { canSetClassTeacherPay } from "@/lib/class-teacher-pay-access";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
-import { resolveClassWriteAccess } from "@/lib/class-write-access";
-import { resolveClassStudentCaretakerHref } from "@/lib/class-student-caretaker";
+import {
+  resolveClassWriteAccess,
+  TRAINING_HEAD_ROLE,
+} from "@/lib/class-write-access";
+import {
+  resolveClassStudentCaretakerHref,
+  resolveClassTeacherHref,
+} from "@/lib/class-student-caretaker";
 import { standardBlockCountFromClassSchedule } from "@/lib/class-pricing-mode";
 import { toastWarnings } from "@/lib/mutation-feedback";
 import { invalidateCalendarScopedQueries } from "@/lib/query-invalidation";
@@ -200,14 +206,17 @@ export default function AdminClassDetailPage() {
   const { isAdmin, isAccountant } = adminAccess;
   /** Trưởng phòng Sale & CSKH (`isAssistant` trong admin shell). */
   const isSaleCsHead = adminAccess.isAssistant;
-  const isExpenseAccountantOnly =
-    adminAccess.isAccountantExpense &&
-    !adminAccess.isAccountantIncome &&
-    !isAdmin &&
-    !isSaleCsHead;
+  /**
+   * Trưởng ban Đào tạo (#277) — `/staff/classes/:id` mở trang này cho lớp
+   * Trưởng ban không dạy / không quản lý (lớp mình dạy / quản lý vẫn dùng
+   * workspace staff để làm buổi, lịch).
+   */
+  const isTrainingHead =
+    !isAdmin && adminAccess.staffRoles.includes(TRAINING_HEAD_ROLE);
   const showClassOperationalMeta =
     adminAccess.isAdmin ||
     isSaleCsHead ||
+    isTrainingHead ||
     adminAccess.isAccountant ||
     adminAccess.isCustomerCare;
   /**
@@ -216,13 +225,29 @@ export default function AdminClassDetailPage() {
    * là route của Admin + kế toán nên không gọi để tránh 403.
    */
   const canViewClassOperations = isAdmin || isAccountant;
-  /** Học phí lớp: Kế toán chi không thấy (backend cũng đã bỏ trường học phí). */
-  const showClassTuitionMeta = !isExpenseAccountantOnly;
+  /**
+   * #277: Trưởng ban Đào tạo xem lịch sử buổi / khảo sát / cảnh báo thiếu buổi
+   * mọi lớp qua route staff-ops (backend đã che tiền buổi), chỉ đọc.
+   */
+  const usesStaffOpsClassOperations = !canViewClassOperations && isTrainingHead;
+  const canViewSessionHistory =
+    canViewClassOperations || usesStaffOpsClassOperations;
+  /**
+   * Học phí lớp / học sinh: khớp `resolveAdminClassFinanceView` backend —
+   * Admin, Trưởng phòng, Kế toán thu. Kế toán chi và Trưởng ban Đào tạo không
+   * thấy (backend đã bỏ trường).
+   */
+  const showClassTuitionMeta =
+    isAdmin || isSaleCsHead || adminAccess.isAccountantIncome;
   const showStudentTuitionColumn = showClassTuitionMeta;
   /** Admin / TP Sale & CSKH / kế toán thấy số dư ví; gia sư không dùng trang này. */
   const showStudentBalanceColumn = isAdmin || isSaleCsHead || isAccountant;
-  /** Lương gia sư: Admin + Kế toán chi. Trưởng phòng không thấy (#272). */
-  const showTeacherCompensation = isAdmin || adminAccess.isAccountantExpense;
+  /**
+   * Lương gia sư: Admin, Kế toán chi, Trưởng ban Đào tạo (#274). Trưởng phòng
+   * không thấy (#272).
+   */
+  const showTeacherCompensation =
+    isAdmin || adminAccess.isAccountantExpense || isTrainingHead;
   /**
    * Thông tin lớp (PATCH /class/:id/basic-info): Admin mọi trường; Trưởng
    * phòng chỉ tên, khoá học, sĩ số (#274).
@@ -232,8 +257,11 @@ export default function AdminClassDetailPage() {
     staffRoles: adminAccess.staffRoles,
     staffId: adminAccess.staffId,
   });
-  const canEditClassInfo = isAdmin || isSaleCsHead;
-  /** Học phí lớp (PATCH /class/:id/tuition): Admin + Trưởng phòng. */
+  const canEditClassInfo = isAdmin || isSaleCsHead || isTrainingHead;
+  /**
+   * Học phí lớp (PATCH /class/:id/tuition): Admin + Trưởng phòng. Sửa trong
+   * dialog Thông tin lớp; trang không còn card Học phí lớp (13/11).
+   */
   const canEditClassTuition = isAdmin || isSaleCsHead;
   const canEditTeacherRoster = isAdmin;
   /** POST /sessions chỉ Admin trên route admin; giữ CTA khớp backend. */
@@ -249,7 +277,15 @@ export default function AdminClassDetailPage() {
     canManageStudentTuition || canManageClassStudents;
   const canOpenClassStudentsPopup =
     canManageClassStudents || canManageStudentTuition;
-  const canOpenStudentDetails = true;
+  /**
+   * Hồ sơ học sinh `/staff/students/:id` bị gate chặn với Trưởng ban Đào tạo
+   * (chỉ kiêm Trưởng phòng / Kế toán thu / CSKH mới vào được).
+   */
+  const canOpenStudentDetails =
+    !isTrainingHead ||
+    isSaleCsHead ||
+    adminAccess.isAccountantIncome ||
+    adminAccess.isCustomerCare;
   const viewerStaffId = fullProfile?.staffInfo?.id ?? null;
   const resolveCaretakerHref = useCallback(
     (student: ClassStudent) =>
@@ -261,6 +297,17 @@ export default function AdminClassDetailPage() {
       }),
     [adminAccess, routeBase, viewerStaffId],
   );
+  /**
+   * Hồ sơ gia sư: Admin / Kế toán chi (trang đầy đủ), Trưởng ban Đào tạo (hồ
+   * sơ giới hạn); role khác card không bấm.
+   */
+  const resolveTeacherHref = (teacherId: string) =>
+    resolveClassTeacherHref({
+      routeBase,
+      teacherId,
+      access: adminAccess,
+      viewerIsTrainingHead: isTrainingHead,
+    });
   const canManageMakeupSchedule = isAdmin;
   // #275: `PUT /sessions/:id` + `payment-status/bulk` chỉ Admin + Kế toán chi.
   const canEditSessionPaymentStatus = isAdmin || adminAccess.isAccountantExpense;
@@ -289,7 +336,7 @@ export default function AdminClassDetailPage() {
    */
   const canEditTeacherCompensation =
     canEditTeacherRoster ||
-    (adminAccess.isAccountantExpense &&
+    ((adminAccess.isAccountantExpense || isTrainingHead) &&
       canSetClassTeacherPay({
         isAdmin,
         staffRoles: adminAccess.staffRoles,
@@ -305,8 +352,11 @@ export default function AdminClassDetailPage() {
   );
   const { data: missedTeachingAlerts = [] } = useQuery<MissedTeachingAlert[]>({
     queryKey: missedAlertsQueryKey,
-    queryFn: () => sessionApi.getMissedTeachingAlertsByClassId(id, { days: 31 }),
-    enabled: !!id && canViewClassOperations,
+    queryFn: () =>
+      (usesStaffOpsClassOperations
+        ? staffOpsApi.getMissedTeachingAlertsByClassId
+        : sessionApi.getMissedTeachingAlertsByClassId)(id, { days: 31 }),
+    enabled: !!id && canViewSessionHistory,
     placeholderData: keepPreviousData,
   });
 
@@ -319,11 +369,13 @@ export default function AdminClassDetailPage() {
   } = useQuery<SessionItem[]>({
     queryKey: ["sessions", "class", id, selectedYear, selectedMonthValue],
     queryFn: () =>
-      sessionApi.getSessionsByClassId(id, {
+      (usesStaffOpsClassOperations
+        ? staffOpsApi.getSessionsByClassId
+        : sessionApi.getSessionsByClassId)(id, {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && isSessionsTab && canViewClassOperations,
+    enabled: !!id && isSessionsTab && canViewSessionHistory,
     placeholderData: keepPreviousData,
   });
   const {
@@ -334,11 +386,13 @@ export default function AdminClassDetailPage() {
   } = useQuery({
     queryKey: ["class", "surveys", id, selectedYear, selectedMonthValue],
     queryFn: () =>
-      classApi.getClassSurveys(id, {
+      (usesStaffOpsClassOperations
+        ? staffOpsApi.getClassSurveys
+        : classApi.getClassSurveys)(id, {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && isSessionsTab && canViewClassOperations,
+    enabled: !!id && isSessionsTab && canViewSessionHistory,
     placeholderData: keepPreviousData,
   });
 
@@ -347,7 +401,7 @@ export default function AdminClassDetailPage() {
   const { data: availableSurveys = [], status: availableSurveysStatus } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
-    enabled: !!id && isSessionsTab && canViewClassOperations,
+    enabled: !!id && isSessionsTab && canViewSessionHistory,
     staleTime: 60_000,
   });
 
@@ -820,6 +874,8 @@ export default function AdminClassDetailPage() {
           onClose={() => setBasicInfoPopupOpen(false)}
           classDetail={classDetail}
           access={classWriteAccess}
+          canEditTuition={canEditClassTuition}
+          hasActiveStudents={activeClassStudents.length > 0}
         />
       ) : null}
       {canEditClassTuition ? (
@@ -847,6 +903,16 @@ export default function AdminClassDetailPage() {
           open={teachersPopupOpen}
           onClose={() => setTeachersPopupOpen(false)}
           classDetail={classDetail}
+        />
+      ) : isTrainingHead ? (
+        // #267/#277: thay cả danh sách gia sư chỉ Admin — Trưởng ban lưu theo
+        // từng route staff-ops (thêm / dừng dạy / lương / Quản lý lớp, % chỉ Admin).
+        <EditClassTeachersPopup
+          open={teachersPopupOpen}
+          onClose={() => setTeachersPopupOpen(false)}
+          classDetail={classDetail}
+          variant="trainingHead"
+          actorStaffId={viewerStaffId}
         />
       ) : (
         <EditClassTeacherCompensationPopup
@@ -939,6 +1005,7 @@ export default function AdminClassDetailPage() {
             defaultScaleAmount={classDetail.scaleAmount}
             showTeacherCompensation={showTeacherCompensation}
             className="flex-1"
+            getTeacherHref={resolveTeacherHref}
             canStopTeaching={canManageClassStatus && classDetail.status === "running"}
             onStopTeaching={handleStopTeaching}
             stopTeachingPendingTeacherId={stopTeachingPendingTeacherId}
@@ -1008,17 +1075,6 @@ export default function AdminClassDetailPage() {
             )}
           </ClassCard>
         </div>
-
-        {showClassTuitionMeta ? (
-          <ClassTuitionCard
-            classDetail={classDetail}
-            canEdit={canEditClassTuition}
-            onEdit={() => {
-              setTuitionRequiredForFirstStudent(false);
-              setTuitionPopupOpen(true);
-            }}
-          />
-        ) : null}
 
         {/* Row 2: Danh sách học sinh */}
         <ClassRosterCard
@@ -1391,6 +1447,7 @@ export default function AdminClassDetailPage() {
           teacherMode="select"
           canCreate={canCreateMakeupSchedule}
           canEdit={canManageMakeupSchedule}
+          canViewEventDetails={usesStaffOpsClassOperations}
           canDelete={canManageMakeupSchedule}
           canResync={isAdmin}
           onOpenPastEvents={() => setPastMakeupPopupOpen(true)}
@@ -1416,19 +1473,27 @@ export default function AdminClassDetailPage() {
           listFn={classApi.getClassMakeupEvents}
         />
 
-        {canViewClassOperations ? (
+        {canViewSessionHistory ? (
           <MissedTeachingAlertsCard
             alerts={missedTeachingAlerts}
             canCreateMakeup={canCreateMakeupSchedule}
             createMakeupFn={classApi.createClassMakeupEvent}
-            saveExplanationFn={sessionApi.createMissedTeachingExplanation}
-            updateExplanationFn={sessionApi.updateMissedTeachingExplanation}
+            saveExplanationFn={
+              usesStaffOpsClassOperations
+                ? staffOpsApi.createMissedTeachingExplanation
+                : sessionApi.createMissedTeachingExplanation
+            }
+            updateExplanationFn={
+              usesStaffOpsClassOperations
+                ? staffOpsApi.updateMissedTeachingExplanation
+                : sessionApi.updateMissedTeachingExplanation
+            }
             onChanged={handleMakeupScheduleChanged}
           />
         ) : null}
 
         {/* Row 3: Timeline lớp */}
-        {canViewClassOperations ? (
+        {canViewSessionHistory ? (
           <ClassCard title="Lịch sử & Nội dung" className="w-full">
             <div className="mb-3 flex flex-col gap-3">
               <ClassTabList
@@ -1505,6 +1570,7 @@ export default function AdminClassDetailPage() {
                     students={activeSurveyStudents}
                     error={isSurveysError}
                     canManage={canManageSurveys}
+                    canViewDetails={usesStaffOpsClassOperations}
                     createOpen={addSurveyPopupOpen}
                     onCreateOpenChange={setAddSurveyPopupOpen}
                     defaultTeacherId={currentClassTeacherId}
@@ -1549,7 +1615,11 @@ export default function AdminClassDetailPage() {
                             teachers={popupTeachers}
                             getClassStudents={getClassStudents}
                             sessionTuitionTotal={totalSessionTuition}
-                            showTrainingManagerAllowance={showTeacherCompensation}
+                            // Trưởng ban ở lớp không quản lý: backend bỏ trợ cấp
+                            // Quản lý lớp từng buổi.
+                            showTrainingManagerAllowance={
+                              showTeacherCompensation && !usesStaffOpsClassOperations
+                            }
                           />
                         </div>
                       )
@@ -1565,7 +1635,7 @@ export default function AdminClassDetailPage() {
                 <ClassModulesTab
                   classId={id}
                   canManageContent={canCreateSession}
-                  practiceActionsBasePath={`/admin/classes/${id}`}
+                  practiceActionsBasePath={`${routeBase}/classes/${id}`}
                 />
               )}
             </section>
