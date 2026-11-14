@@ -21,6 +21,16 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Role trưởng tạo nhân sự; Trưởng ban Đào tạo sửa trợ cấp / Dạy thử / Học thử buổi (14/11)
+
+#### Changed
+
+- **3 role trưởng tạo hồ sơ nhân sự:** `POST /staff` và `GET /staff/assignable-users` mở cho `sale_customer_care_head`, `training_head`, `lesson_plan_head` (`STAFF_CREATOR_HEAD_ROLES`). Gán được mọi role **trừ Admin và role trưởng** (giữ luật #265 qua `assertStaffRoleChangeAllowed`); không đặt `% chia doanh thu` / `% CSKH mặc định` (`assertStaffCreateAllowed` → `403`). Người không phải Admin tìm user bằng email **khớp đúng** (không `contains`) để không dò được email. Allowlist deny-by-default + test RBAC cập nhật.
+- **Web:** nút **Tạo nhân sự** (`HeadCreateStaffButton` → `AddTutorPopup canAssignHeadRoles={false}`) trên `/staff/staffs` của Trưởng phòng Sale & CSKH và Trưởng ban Đào tạo; Trưởng ban Chuyên môn có sidebar **Nhân sự** + trang tối giản `LessonPlanHeadStaffPanel` (chỉ danh sách, gate không mở `/staff/staffs/:id`).
+- **Trưởng ban Đào tạo chỉnh buổi học:** route mới `PATCH /staff-ops/sessions/:id/training-head` (`TrainingHeadSessionUpdateDto`) — sửa tay `allowanceAmount`, bật/tắt Dạy thử (`coefficient` 0/1), tick / bỏ tick **Học thử** từng học sinh (chỉ chuyển khi một phía là `trial`, `training-head-session-policy.ts`). Chặn buổi của chính mình (`403`), đổi trợ cấp / hệ số buổi `paid`/`deposit` (`400`), học sinh ngoài buổi / trùng (`400`). Giữ notes, nhận xét; học phí từng học sinh tính lại theo trạng thái.
+- **Redaction:** Trưởng ban Đào tạo thấy lại `allowanceAmount`, `coefficient`, `teacherPaymentStatus` của buổi (`redactSessionForTrainingHeadView` → `keepTeacherCompensation`); Quản lý lớp thường vẫn ẩn.
+- **Web:** `SessionHistoryTable` thêm chế độ `trainingHeadEdit` (form «Trợ cấp & học thử», còn lại chỉ đọc); `AttendanceStatusQuickPick` / `SessionAttendanceEditor` nhận `isStatusSelectable` để khoá từng trạng thái. Trang lớp admin-like của Trưởng ban gửi qua `staffOpsApi.updateSessionAsTrainingHead`.
+
 ### Trưởng phòng Sale & CSKH duyệt nạp thẳng ví học sinh (14/11)
 
 #### Changed

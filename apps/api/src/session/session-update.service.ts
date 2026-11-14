@@ -25,12 +25,14 @@ import {
 import {
   SessionBulkPaymentStatusUpdateResult,
   SessionUpdateDto,
+  TrainingHeadSessionUpdateDto,
 } from '../dtos/session.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   StaffOperationsAccessService,
   canEditClassSessionCoefficient,
   canWorkOnClassSession,
+  isTrainingHeadActor,
 } from '../staff-ops/staff-operations-access.service';
 import { SessionLedgerService } from './session-ledger.service';
 import { SessionRosterService } from './session-roster.service';
@@ -78,7 +80,13 @@ import {
   presentCustomAllowanceAsPerSession,
   standardBlockCountFromSlots,
 } from '../common/block-pricing.util';
-import { assertActorNotEditingOwnCompensation } from 'src/common/staff-role-policy';
+import {
+  assertActorNotEditingOwnCompensation,
+  assertNotEditingOwnCompensation,
+  resolveStaffPolicyActor,
+} from 'src/common/staff-role-policy';
+import { redactSessionForTrainingHeadView } from 'src/common/accountant-finance-redaction.util';
+import { resolveTrainingHeadAttendanceChanges } from './training-head-session-policy';
 
 const SESSION_UPDATE_TRANSACTION_MAX_WAIT_MS = 10_000;
 const SESSION_UPDATE_TRANSACTION_TIMEOUT_MS = 20_000;
@@ -1971,5 +1979,153 @@ export class SessionUpdateService {
       },
       auditActor,
     );
+  }
+
+  /**
+   * `PATCH /staff-ops/sessions/:id/training-head` (14/11): Trưởng ban Đào tạo
+   * (mọi lớp) chỉnh tay trợ cấp buổi, tick Dạy thử (hệ số 0/1) và tick Học
+   * thử từng học sinh. Không đụng nội dung / giờ / nhận xét.
+   * - Luật #265: không sửa buổi do chính mình dạy.
+   * - Buổi đã thanh toán / ghi cọc: không đổi trợ cấp hay Dạy thử.
+   * - Điểm danh: chỉ đổi sang / ra khỏi Học thử; học sinh khác giữ nguyên.
+   */
+  async updateSessionAsTrainingHead(
+    userId: string,
+    roleType: UserRole,
+    sessionId: string,
+    data: TrainingHeadSessionUpdateDto,
+    auditActor?: ActionHistoryActor,
+  ) {
+    const policyActor = await resolveStaffPolicyActor(this.prisma, {
+      userId,
+      roleType,
+    });
+    if (!policyActor.isAdmin && !isTrainingHeadActor(policyActor.roles)) {
+      throw new ForbiddenException(
+        'Chỉ Admin hoặc Trưởng ban Đào tạo được chỉnh tay trợ cấp và học thử của buổi.',
+      );
+    }
+
+    const existingSession = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: {
+        id: true,
+        classId: true,
+        teacherId: true,
+        snapshotNoAttendance: true,
+        snapshotBlockCount: true,
+        coefficient: true,
+        allowanceAmount: true,
+        teacherPaymentStatus: true,
+        attendance: {
+          select: {
+            studentId: true,
+            status: true,
+            notes: true,
+            tuitionFee: true,
+            testCorrectCount: true,
+            testComment: true,
+            strengths: true,
+            improvements: true,
+            homeworkQuality: true,
+            homeworkComment: true,
+          },
+        },
+      },
+    });
+    if (!existingSession) {
+      throw new NotFoundException('Session not found');
+    }
+
+    assertNotEditingOwnCompensation(policyActor, [existingSession.teacherId]);
+
+    const nextCoefficient = this.sessionValidationService.normalizeCoefficient(
+      data.coefficient,
+    );
+    const hasCoefficientChange =
+      nextCoefficient !== undefined &&
+      nextCoefficient !== Number(existingSession.coefficient ?? 1);
+    const hasAllowanceChange =
+      data.allowanceAmount !== undefined &&
+      data.allowanceAmount !== existingSession.allowanceAmount;
+    if (
+      (hasCoefficientChange || hasAllowanceChange) &&
+      this.sessionValidationService.isSessionTimeEditLocked(
+        existingSession.teacherPaymentStatus,
+      )
+    ) {
+      throw new BadRequestException(
+        'Không thể đổi trợ cấp hoặc Dạy thử của buổi đã thanh toán hoặc ghi cọc.',
+      );
+    }
+
+    let attendance: SessionUpdateDto['attendance'] | undefined;
+    if (data.attendance?.length) {
+      if (existingSession.snapshotNoAttendance) {
+        throw new BadRequestException('Buổi này không có điểm danh học sinh.');
+      }
+      const changes = resolveTrainingHeadAttendanceChanges(
+        new Map(
+          existingSession.attendance.map((row) => [row.studentId, row.status]),
+        ),
+        data.attendance,
+      );
+      if (changes.length > 0) {
+        const nextStatusByStudentId = new Map(
+          changes.map((change) => [change.studentId, change.status]),
+        );
+        const defaultTuitionByStudentId =
+          await this.sessionRosterService.assertAttendanceStudentsBelongToClass(
+            existingSession.classId,
+            existingSession.attendance.map((row) => row.studentId),
+            { blockCount: existingSession.snapshotBlockCount },
+          );
+        // Payload attendance thay toàn bộ điểm danh → gửi lại đủ học sinh, giữ
+        // ghi chú + nhận xét; học phí tính lại theo trạng thái mới.
+        attendance = existingSession.attendance.map((row) => {
+          const status = nextStatusByStudentId.get(row.studentId) ?? row.status;
+          return {
+            studentId: row.studentId,
+            status,
+            notes: row.notes,
+            ...pickAttendanceReviewInput({
+              testCorrectCount: row.testCorrectCount,
+              testComment: row.testComment,
+              strengths: row.strengths,
+              improvements: row.improvements,
+              homeworkQuality: row.homeworkQuality,
+              homeworkComment: row.homeworkComment,
+            } as AttendanceReviewInput),
+            tuitionFee:
+              this.sessionValidationService.resolveChargeableAttendanceTuitionFee(
+                status,
+                row.tuitionFee ?? null,
+                defaultTuitionByStudentId.get(row.studentId) ?? null,
+              ),
+          };
+        });
+      }
+    }
+
+    if (!hasCoefficientChange && !hasAllowanceChange && !attendance) {
+      throw new BadRequestException('Không có thay đổi nào để lưu.');
+    }
+
+    const updated = await this.updateSession(
+      {
+        id: sessionId,
+        ...(hasCoefficientChange && { coefficient: nextCoefficient }),
+        // Đổi Học thử mà không nhập trợ cấp → updateSession tự tính lại trợ cấp
+        // theo số học sinh tính phí; nhập tay thì số nhập tay thắng.
+        ...(hasAllowanceChange && { allowanceAmount: data.allowanceAmount }),
+        attendance,
+      },
+      auditActor,
+      { skipRequired: true },
+    );
+
+    return policyActor.isAdmin
+      ? updated
+      : redactSessionForTrainingHeadView(updated);
   }
 }

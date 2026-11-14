@@ -25,6 +25,16 @@ export const PRIVILEGED_STAFF_ROLES: readonly StaffRole[] = [
   StaffRole.lesson_plan_head,
 ];
 
+/**
+ * 14/11: role trưởng được tạo hồ sơ nhân sự mới (`POST /staff`). Role gán cho
+ * người mới vẫn qua `assertStaffRoleChangeAllowed` → không có Admin / role trưởng.
+ */
+export const STAFF_CREATOR_HEAD_ROLES: readonly StaffRole[] = [
+  SALE_CS_HEAD_ROLE,
+  StaffRole.training_head,
+  StaffRole.lesson_plan_head,
+];
+
 export function hasAnyStaffRole(
   roles: readonly string[] | null | undefined,
   allowed: readonly string[],
@@ -121,6 +131,36 @@ export function assertStaffRoleChangeAllowed(
   if (hasAnyStaffRole([...added, ...removed], PRIVILEGED_STAFF_ROLES)) {
     throw new ForbiddenException(
       'Chỉ Admin được giao hoặc thu hồi role trưởng hoặc Admin.',
+    );
+  }
+}
+
+/**
+ * Tạo hồ sơ nhân sự (`POST /staff`): ngoài Admin chỉ 3 role trưởng; trưởng
+ * không đặt mức thu nhập theo % của người mới (% chia doanh thu, % CSKH mặc
+ * định) — các mức này chỉ Admin sửa ở màn quản trị nhân sự.
+ */
+export function assertStaffCreateAllowed(
+  actor: StaffPolicyActor,
+  payload: {
+    revenueSharePercent?: number | null;
+    customerCareDefaultProfitPercent?: number | null;
+  },
+): void {
+  if (actor.isAdmin) {
+    return;
+  }
+  if (!hasAnyStaffRole(actor.roles, STAFF_CREATOR_HEAD_ROLES)) {
+    throw new ForbiddenException(
+      'Chỉ Admin hoặc role trưởng được tạo hồ sơ nhân sự.',
+    );
+  }
+  if (
+    payload.revenueSharePercent != null ||
+    payload.customerCareDefaultProfitPercent != null
+  ) {
+    throw new ForbiddenException(
+      'Chỉ Admin được đặt % chia doanh thu hoặc % CSKH mặc định.',
     );
   }
 }

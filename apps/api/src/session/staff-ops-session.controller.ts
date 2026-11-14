@@ -31,6 +31,7 @@ import {
   CreateStaffOpsSessionDto,
   MissedTeachingAlertDto,
   MissedTeachingExplanationResponseDto,
+  TrainingHeadSessionUpdateDto,
   UpdateMissedTeachingExplanationDto,
   UpdateStaffOpsSessionDto,
 } from 'src/dtos/session.dto';
@@ -283,6 +284,45 @@ export class StaffOpsSessionController {
     @Body() dto: UpdateStaffOpsSessionDto,
   ) {
     return this.sessionService.updateSessionForStaff(
+      user.id,
+      user.roleType,
+      id,
+      dto,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
+  }
+
+  @Patch('sessions/:id/training-head')
+  @ApiOperation({
+    summary:
+      'Trưởng ban Đào tạo chỉnh tay trợ cấp / Dạy thử / Học thử của buổi',
+    description:
+      '14/11: Admin hoặc Trưởng ban Đào tạo (mọi lớp). Chỉnh tay `allowanceAmount` (trợ cấp gốc của buổi), tick Dạy thử (`coefficient` 0/1) và tick Học thử từng học sinh (chỉ đổi sang/ra khỏi `trial`, học sinh không gửi giữ nguyên). Không sửa được buổi do chính mình dạy (#265); buổi đã thanh toán / ghi cọc không đổi trợ cấp hay Dạy thử. Đổi Học thử mà không nhập trợ cấp → trợ cấp tự tính lại theo số học sinh tính phí. Response ẩn học phí / vận hành với Trưởng ban.',
+  })
+  @ApiParam({ name: 'id', description: 'Session id' })
+  @ApiBody({ type: TrainingHeadSessionUpdateDto })
+  @ApiResponse({ status: 200, description: 'Session updated.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Không có thay đổi; buổi đã thanh toán / ghi cọc; học sinh không thuộc buổi; buổi không điểm danh.',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Admin / Trưởng ban Đào tạo; sửa buổi do chính mình dạy; đổi trạng thái điểm danh không liên quan Học thử.',
+  })
+  @ApiResponse({ status: 404, description: 'Session not found.' })
+  async updateSessionAsTrainingHead(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: TrainingHeadSessionUpdateDto,
+  ) {
+    return this.sessionService.updateSessionAsTrainingHead(
       user.id,
       user.roleType,
       id,

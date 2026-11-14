@@ -159,6 +159,14 @@ Từ chối (`403`): target là chính mình; target là Admin / tài khoản ad
 
 Không có route sửa thông tin cá nhân (liên hệ, CCCD, ngân hàng) hay xem thu nhập cá nhân; lịch sử buổi giữ nguyên `GET /training/tutors/:id/sessions` (không tiền). Lớp phụ trách = `currentClasses` / `pastClasses`.
 
+### Tạo nhân sự (14/11)
+
+Trưởng ban Đào tạo (và Trưởng ban Chuyên môn, Trưởng phòng Sale & CSKH) gọi được `POST /staff` + `GET /staff/assignable-users` (email khớp đúng). Role gán: mọi role trừ Admin / role trưởng; không đặt %. Web: nút **Tạo nhân sự** ở `TrainingStaffList` (chỉ Trưởng ban). Chi tiết: `docs/pages/admin.md`.
+
+### Trợ cấp, Dạy thử, Học thử của buổi (14/11)
+
+`PATCH /staff-ops/sessions/:id/training-head` — Trưởng ban sửa tay trợ cấp, bật/tắt Dạy thử (hệ số `0|1`), tick / bỏ tick Học thử từng học sinh trên buổi **mọi lớp** (trừ buổi mình dạy). Luật + lỗi: xem `docs/pages/staff.md` (mục Data and API). Danh sách buổi qua `GET /staff-ops/classes/:id/sessions` trả lại `allowanceAmount`, `coefficient`, `teacherPaymentStatus` cho Trưởng ban.
+
 ### Link Meet
 
 `POST /staff/:id/regenerate-meet-link` (`StaffService.assertCanRegenerateMeetLink`): được gọi bởi admin (`role_type` hoặc staff role `admin`), chính nhân sự đó, hoặc Trưởng ban Đào tạo `active` trên cấp dưới. Còn lại `403` (trước #278 mọi staff gọi được); target không có → `404`. Link hiện tại đọc từ `management.googleMeetLink` của chi tiết.

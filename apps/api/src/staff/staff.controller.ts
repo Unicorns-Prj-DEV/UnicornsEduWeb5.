@@ -69,6 +69,7 @@ import {
   StaffLandingProfilesResponseDto,
 } from 'src/dtos/landing-profile.dto';
 import { normalizeHttpHttpsUrl } from 'src/storage/supabase-storage';
+import { STAFF_CREATOR_HEAD_ROLES } from 'src/common/staff-role-policy';
 import { StaffService } from './staff.service';
 import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-context';
 
@@ -81,12 +82,13 @@ export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
   @Get('assignable-users')
-  // #270: trả email người dùng → chỉ Admin (tạo hồ sơ nhân sự cũng chỉ Admin).
-  @AllowStaffRolesOnAdminRoutes()
+  // #270: trả email người dùng. 14/11: 3 role trưởng tạo được nhân sự nên vào
+  // được, nhưng service chỉ trả user khớp ĐÚNG email (không dò email theo chuỗi con).
+  @AllowStaffRolesOnAdminRoutes(...STAFF_CREATOR_HEAD_ROLES)
   @ApiOperation({
     summary: 'Search users by email for tutor assignment',
     description:
-      'Search existing users by email and return whether they can be linked to a new staff/tutor profile.',
+      'Search existing users by email and return whether they can be linked to a new staff/tutor profile. Admin tìm theo chuỗi con; Trưởng phòng Sale & CSKH / Trưởng ban Đào tạo / Trưởng ban Chuyên môn chỉ nhận user khớp đúng email (không phân biệt hoa thường).',
   })
   @ApiQuery({
     name: 'email',
@@ -99,8 +101,14 @@ export class StaffController {
     status: 200,
     description: 'Matching users with eligibility metadata.',
   })
-  async searchAssignableUsers(@Query() query: SearchAssignableStaffUsersDto) {
-    return this.staffService.searchAssignableUsersByEmail(query.email);
+  async searchAssignableUsers(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: SearchAssignableStaffUsersDto,
+  ) {
+    return this.staffService.searchAssignableUsersByEmail(query.email, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
   }
 
   @Get('customer-care-options')
@@ -797,9 +805,15 @@ export class StaffController {
   @ApiBody({ type: CreateStaffDto, description: 'Staff create payload' })
   @ApiResponse({ status: 201, description: 'Staff created.' })
   @ApiResponse({ status: 400, description: 'Validation error.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Admin / role trưởng; trưởng gán role trưởng hoặc Admin; trưởng đặt % chia doanh thu hoặc % CSKH mặc định.',
+  })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // #267: Admin. 14/11: thêm 3 role trưởng — gán được mọi role trừ Admin và
+  // role trưởng (`assertStaffRoleChangeAllowed`), không đặt % thu nhập.
+  @AllowStaffRolesOnAdminRoutes(...STAFF_CREATOR_HEAD_ROLES)
   async createStaff(
     @CurrentUser() user: JwtPayload,
     @Body() data: CreateStaffDto,

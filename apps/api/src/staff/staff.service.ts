@@ -76,6 +76,7 @@ import { assertCanSetClassTeacherPay } from 'src/common/class-teacher-pay-access
 import {
   assertActorNotEditingOwnCompensation,
   assertNotEditingOwnCompensation,
+  assertStaffCreateAllowed,
   assertStaffRoleChangeAllowed,
   resolveStaffPolicyActor,
 } from 'src/common/staff-role-policy';
@@ -1240,18 +1241,25 @@ export class StaffService {
     };
   }
 
-  async searchAssignableUsersByEmail(email: string) {
+  /**
+   * Admin tìm theo chuỗi con. Role trưởng (14/11, tạo được nhân sự) chỉ nhận
+   * user khớp đúng email — không dò ra email của học sinh / nhân sự khác.
+   */
+  async searchAssignableUsersByEmail(
+    email: string,
+    actor?: { userId?: string | null; roleType?: string | null },
+  ) {
     const trimmedEmail = email.trim();
     if (trimmedEmail.length < 2) {
       throw new BadRequestException('Email tìm kiếm phải có ít nhất 2 ký tự.');
     }
 
+    const { isAdmin } = await resolveStaffPolicyActor(this.prisma, actor);
     const users = await this.prisma.user.findMany({
       where: {
-        email: {
-          contains: trimmedEmail,
-          mode: 'insensitive',
-        },
+        email: isAdmin
+          ? { contains: trimmedEmail, mode: 'insensitive' }
+          : { equals: trimmedEmail, mode: 'insensitive' },
       },
       take: 8,
       orderBy: {
@@ -6320,10 +6328,17 @@ export class StaffService {
       throw new NotFoundException('User not found');
     }
 
-    assertStaffRoleChangeAllowed(
-      await resolveStaffPolicyActor(this.prisma, auditActor),
-      { targetStaffId: null, previousRoles: [], nextRoles: data.roles ?? [] },
-    );
+    const policyActor = await resolveStaffPolicyActor(this.prisma, auditActor);
+    assertStaffCreateAllowed(policyActor, {
+      revenueSharePercent: data.revenue_share_percent,
+      customerCareDefaultProfitPercent:
+        data.customer_care_default_profit_percent,
+    });
+    assertStaffRoleChangeAllowed(policyActor, {
+      targetStaffId: null,
+      previousRoles: [],
+      nextRoles: data.roles ?? [],
+    });
 
     const eligibility = this.getUserEligibilityForStaffAssignment(user);
     if (!eligibility.isEligible) {

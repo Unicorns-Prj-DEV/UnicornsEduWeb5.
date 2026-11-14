@@ -15,6 +15,7 @@ import StaffListPagination from "@/components/admin/staff/StaffListPagination";
 import StaffAchievementsDialog, {
   StaffAchievementsButton,
 } from "@/components/shared/achievement/StaffAchievementsDialog";
+import HeadCreateStaffButton from "@/components/staff/HeadCreateStaffButton";
 import SaleCsTeamActionButton from "@/components/staff/sale-cs-team/SaleCsTeamActionButton";
 import SaleCsTeamRolesDialog from "@/components/staff/sale-cs-team/SaleCsTeamRolesDialog";
 import { useSaleCsTeamAccountLock } from "@/components/staff/sale-cs-team/useSaleCsTeamAccountLock";
@@ -351,14 +352,21 @@ export default function SaleCsTeamStaffList() {
           />
 
           <div className="relative">
-            <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
-              Nhân sự
-            </h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              {isCandidates
-                ? "Nhân sự chưa thuộc đội — bật role Sale hoặc CSKH để thêm vào đội."
-                : "Đội Sale & CSKH. Không gồm liên hệ, giấy tờ, ngân hàng, lương."}
-            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
+                  Nhân sự
+                </h1>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {isCandidates
+                    ? "Nhân sự chưa thuộc đội — bật role Sale hoặc CSKH để thêm vào đội."
+                    : "Đội Sale & CSKH. Không gồm liên hệ, giấy tờ, ngân hàng, lương."}
+                </p>
+              </div>
+              <HeadCreateStaffButton
+                invalidateQueryKeys={[saleCsTeamKeys.all]}
+              />
+            </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
               <label

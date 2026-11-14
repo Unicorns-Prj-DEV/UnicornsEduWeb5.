@@ -37,6 +37,8 @@ type MenuVisibility = {
   /** Có đúng role `training` / `training_head` — mục thu nhập theo role. */
   isTrainingRole: boolean;
   isTrainingHead: boolean;
+  /** Trưởng ban Chuyên môn — 14/11: mục Nhân sự để tạo nhân sự. */
+  isLessonPlanHead: boolean;
   /** Ban Đào Tạo đang là quản lý của ít nhất một lớp. */
   hasManagedClasses: boolean;
   isAccountant: boolean;
@@ -114,8 +116,14 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isActive: (pathname) => pathname.startsWith("/staff/staffs"),
       // Trưởng phòng Sale & CSKH: đội Sale & CSKH; Ban Đào Tạo: gia sư (Trưởng
       // ban thêm Ban Chuyên môn / Đào tạo) — bản giới hạn, thay `/staff/tutors`.
-      isVisible: ({ isAccountantExpense, isAssistant, isTraining }) =>
-        isAccountantExpense || isAssistant || isTraining,
+      // 14/11: Trưởng ban Chuyên môn vào để tạo nhân sự.
+      isVisible: ({
+        isAccountantExpense,
+        isAssistant,
+        isTraining,
+        isLessonPlanHead,
+      }) =>
+        isAccountantExpense || isAssistant || isTraining || isLessonPlanHead,
     },
     {
       href: "/staff/classes",
@@ -660,6 +668,7 @@ export default function StaffSidebar() {
     isTraining,
     isTrainingRole,
     isTrainingHead,
+    isLessonPlanHead: lessonWorkspace.isLessonPlanHead,
     hasManagedClasses,
     isAccountant,
     isAccountantIncome,

@@ -200,6 +200,10 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   'StudentController.approveStudentWalletDirectTopUpRequestFromQueue',
   'StudentController.getStudentWalletDirectTopUpRequest',
   'StudentController.listStudentWalletDirectTopUpRequests',
+  // 14/11: role trưởng tạo hồ sơ nhân sự (không gán Admin / role trưởng, không
+  // đặt %); tra user theo email khớp đúng.
+  'StaffController.createStaff',
+  'StaffController.searchAssignableUsers',
 ].sort();
 
 function loadAllControllers(): ControllerClass[] {
@@ -257,6 +261,9 @@ const TRAINING_HEAD_ADMIN_ROUTE_ALLOWLIST = [
   'ClassController.listMakeupEventsByClassId',
   'ClassController.updateClassBasicInfo',
   'StaffController.searchStaffOptions',
+  // 14/11: tạo hồ sơ nhân sự (như Trưởng phòng Sale & CSKH).
+  'StaffController.createStaff',
+  'StaffController.searchAssignableUsers',
   // Có từ trước #274 (không đổi ở ticket này).
   'ClassTimelineController.list',
   'NotificationController.createNotificationDraft',
@@ -346,7 +353,11 @@ describe('Admin routes deny-by-default (#267)', () => {
       [
         'nhân sự',
         StaffController,
-        adminOnlyRoutes(StaffController, ['searchCustomerCareStaffOptions']),
+        adminOnlyRoutes(StaffController, [
+          'searchCustomerCareStaffOptions',
+          'createStaff',
+          'searchAssignableUsers',
+        ]),
       ],
       [
         'lớp',
@@ -584,6 +595,32 @@ describe('Admin routes deny-by-default (#267)', () => {
         async (methodName) => {
           await expect(
             asStaff(ClassController, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
+
+    // 14/11: 3 role trưởng tạo hồ sơ nhân sự; role thường bị 403.
+    describe.each([
+      ['Trưởng phòng Sale & CSKH', [StaffRole.sale_customer_care_head]],
+      ['Trưởng ban Đào tạo', [StaffRole.training_head]],
+      ['Trưởng ban Chuyên môn', [StaffRole.lesson_plan_head]],
+    ] as [string, StaffRole[]][])('%s', (_label, staffRoles) => {
+      it.each(['createStaff', 'searchAssignableUsers'])(
+        'vào được StaffController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(StaffController, methodName, staffRoles),
+          ).resolves.toBe(true);
+        },
+      );
+    });
+    describe.each(otherRoles)('%s', (_label, staffRoles) => {
+      it.each(['createStaff', 'searchAssignableUsers'])(
+        'bị 403 ở StaffController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(StaffController, methodName, staffRoles),
           ).rejects.toBeInstanceOf(ForbiddenException);
         },
       );

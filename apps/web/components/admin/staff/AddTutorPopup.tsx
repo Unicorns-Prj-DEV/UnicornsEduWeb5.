@@ -27,7 +27,19 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onCreated?: (staff: StaffDetail) => void | Promise<void>;
+  /**
+   * Mặc định `true` (Admin). Role trưởng tạo nhân sự (14/11) truyền `false`:
+   * ẩn role trưởng (chỉ Admin giao, #265) và phải nhập đúng email để tìm user.
+   */
+  canAssignHeadRoles?: boolean;
 };
+
+/** Chỉ Admin giao được — backend chặn (#265), UI ẩn khỏi danh sách. */
+const HEAD_ROLE_VALUES = new Set([
+  "sale_customer_care_head",
+  "lesson_plan_head",
+  "training_head",
+]);
 
 const USER_ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -62,8 +74,22 @@ function getSuggestedFullName(user: StaffAssignableUser | null): string {
   return user.fullName?.trim() || user.email.trim();
 }
 
-function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
+function AddTutorPopupContent({
+  open,
+  onClose,
+  onCreated,
+  canAssignHeadRoles = true,
+}: Props) {
   const queryClient = useQueryClient();
+  const roleOptions = useMemo(
+    () =>
+      canAssignHeadRoles
+        ? STAFF_ROLE_OPTIONS
+        : STAFF_ROLE_OPTIONS.filter(
+            (option) => !HEAD_ROLE_VALUES.has(option.value),
+          ),
+    [canAssignHeadRoles],
+  );
 
   const [emailInput, setEmailInput] = useState("");
   const [searchEmail, setSearchEmail] = useState("");
@@ -260,6 +286,9 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                     <h3 className="mt-2 text-base font-semibold text-text-primary">Tìm user theo email</h3>
                     <p className="mt-1 text-sm text-text-secondary">
                       Hệ thống chỉ cho gán các user chưa có hồ sơ nhân sự và có role hiện tại phù hợp.
+                      {canAssignHeadRoles
+                        ? null
+                        : " Nhập đầy đủ, đúng email của user (không tìm theo một phần email)."}
                     </p>
 
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -422,7 +451,7 @@ function AddTutorPopupContent({ open, onClose, onCreated }: Props) {
                       <div className="flex flex-col gap-2 text-sm text-text-secondary sm:col-span-2">
                         <span>Vai trò nhân sự *</span>
                         <div className="grid gap-2 rounded-xl border border-border-default bg-bg-secondary/40 p-3 sm:grid-cols-2">
-                          {STAFF_ROLE_OPTIONS.map((roleOption) => {
+                          {roleOptions.map((roleOption) => {
                             const isSelected = selectedRoles.has(roleOption.value);
                             return (
                               <button

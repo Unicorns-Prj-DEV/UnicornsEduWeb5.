@@ -8,6 +8,7 @@ import {
   redactClassStudentWalletBalances,
   redactOtherTeachersIncome,
   redactOtherTeachersSessions,
+  redactSessionForTrainingHeadView,
   redactSessionForTrainingManagerView,
   redactSessionsForAccountantView,
   redactStudentClassRowsContacts,
@@ -577,5 +578,44 @@ describe('Kế toán thu không thấy khoản chi nhân sự trên buổi (ki�
       tuitionFee: 300000,
       trainingManagerStaffId: 'tm-1',
     });
+  });
+});
+
+describe('Trưởng ban Đào tạo chỉnh tay trợ cấp buổi (14/11)', () => {
+  const session = {
+    id: 's1',
+    allowanceAmount: 200000,
+    coefficient: 1,
+    teacherPaymentStatus: 'unpaid',
+    tuitionFee: 300000,
+    operatingDeductionAmount: 20000,
+    operatingDeductionRatePercent: 10,
+    trainingManagerAllowanceAmount: 6000,
+    attendance: [{ studentId: 'st1', tuitionFee: 150000 }],
+  };
+
+  it('giữ trợ cấp, hệ số, trạng thái thanh toán; vẫn ẩn học phí, vận hành, trợ cấp QLL', () => {
+    const redacted = redactSessionForTrainingHeadView(session) as Record<
+      string,
+      unknown
+    >;
+    expect(redacted.allowanceAmount).toBe(200000);
+    expect(redacted.coefficient).toBe(1);
+    expect(redacted.teacherPaymentStatus).toBe('unpaid');
+    expect(redacted).not.toHaveProperty('tuitionFee');
+    expect(redacted).not.toHaveProperty('operatingDeductionAmount');
+    expect(redacted).not.toHaveProperty('operatingDeductionRatePercent');
+    expect(redacted).not.toHaveProperty('trainingManagerAllowanceAmount');
+    expect(redacted.attendance).toEqual([{ studentId: 'st1' }]);
+  });
+
+  it('Quản lý lớp thường vẫn không thấy trợ cấp buổi', () => {
+    const redacted = redactSessionForTrainingManagerView(session) as Record<
+      string,
+      unknown
+    >;
+    expect(redacted).not.toHaveProperty('allowanceAmount');
+    expect(redacted).not.toHaveProperty('coefficient');
+    expect(redacted).not.toHaveProperty('teacherPaymentStatus');
   });
 });

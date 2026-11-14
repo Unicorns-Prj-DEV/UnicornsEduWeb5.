@@ -66,7 +66,7 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
     ]);
   });
 
-  it.each(['createStaff', 'updateStaff', 'updateStaffStatus', 'deleteStaff'])(
+  it.each(['updateStaff', 'updateStaffStatus', 'deleteStaff'])(
     'keeps StaffController.%s admin-only',
     (methodName) => {
       expect(getAllowedStaffRoles(StaffController, methodName)).toEqual([]);
@@ -173,10 +173,23 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
 });
 
 describe('Staff sensitive routes (#270)', () => {
-  it.each(['searchAssignableUsers', 'deleteStaffAvatar'])(
-    'keeps StaffController.%s admin-only (trả email / sửa hồ sơ)',
+  it('keeps StaffController.deleteStaffAvatar admin-only (sửa hồ sơ)', () => {
+    expect(getAllowedStaffRoles(StaffController, 'deleteStaffAvatar')).toEqual(
+      [],
+    );
+  });
+
+  // 14/11: role trưởng tạo hồ sơ nhân sự. searchAssignableUsers vẫn trả email
+  // nên service chỉ cho người không phải Admin tra khớp đúng email (không dò
+  // theo chuỗi con) — xem StaffService.searchAssignableUsersByEmail.
+  it.each(['createStaff', 'searchAssignableUsers'])(
+    'StaffController.%s chỉ mở thêm cho 3 role trưởng',
     (methodName) => {
-      expect(getAllowedStaffRoles(StaffController, methodName)).toEqual([]);
+      expect(getAllowedStaffRoles(StaffController, methodName)).toEqual([
+        StaffRole.sale_customer_care_head,
+        StaffRole.training_head,
+        StaffRole.lesson_plan_head,
+      ]);
     },
   );
 

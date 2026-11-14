@@ -47,6 +47,7 @@ Chi tiết (`GET /sale-cs-team/members/:staffId`, cũng là response của `prof
 ## Quyền liên quan ngoài module
 
 - **% CSKH mặc định** (`staff_info.customer_care_default_profit_percent`): chỉ Admin sửa (route admin quản lý nhân sự). Trưởng phòng chỉ xem.
+- **Tạo hồ sơ nhân sự** (14/11, `POST /staff` + `GET /staff/assignable-users`): Trưởng phòng tạo được nhân sự với mọi role trừ Admin / role trưởng, không đặt %; tìm user phải nhập đúng email. Web: nút **Tạo nhân sự** trên `/staff/staffs`. Chi tiết: `docs/pages/admin.md`.
 - **Giao / chuyển CSKH và % của từng học sinh** (`PATCH /student/:id` với `customer_care_staff_id`, `customer_care_profit_percent`): Admin hoặc Trưởng phòng. Trưởng phòng **không** được đặt % khi CSKH đích là chính mình (luật không tự sửa thu nhập #265). CSKH/Sale thường `403`.
 - **Trạng thái thanh toán hoa hồng trưởng phòng** (`PATCH /assistant-commission/payment-status*`): từ #271 chỉ Admin hoặc Kế toán chi; Trưởng phòng `403`, kể cả với hoa hồng của chính mình.
 - **Hoa hồng trưởng phòng**: khi tạo/sửa buổi học, `attendance.sale_cs_head_staff_id` (cột `assistant_manager_staff_id`) chỉ snapshot người quản lý CSKH (`customer_care_managed_by_staff_id`) nếu người đó **còn** role Trưởng phòng (`resolveSaleCsHeadManagerId`). Mỗi Trưởng phòng chỉ ăn nhóm CSKH mình quản lý. Buổi đã ghi trước đó không bị tính lại.
