@@ -198,12 +198,11 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   'NotificationController.updateNotificationDraft',
   // 14/11: Trưởng phòng duyệt hàng chờ nạp thẳng (kể cả yêu cầu của chính mình).
   'StudentController.approveStudentWalletDirectTopUpRequestFromQueue',
+  // 15/11: tạo nhân sự mới (tài khoản + hồ sơ); service chặn gán Admin / role
+  // trưởng và chặn email / tên đăng nhập đã có tài khoản.
+  'UserController.createStaffUser',
   'StudentController.getStudentWalletDirectTopUpRequest',
   'StudentController.listStudentWalletDirectTopUpRequests',
-  // 14/11: role trưởng tạo hồ sơ nhân sự (không gán Admin / role trưởng, không
-  // đặt %); tra user theo email khớp đúng.
-  'StaffController.createStaff',
-  'StaffController.searchAssignableUsers',
 ].sort();
 
 function loadAllControllers(): ControllerClass[] {
@@ -261,9 +260,8 @@ const TRAINING_HEAD_ADMIN_ROUTE_ALLOWLIST = [
   'ClassController.listMakeupEventsByClassId',
   'ClassController.updateClassBasicInfo',
   'StaffController.searchStaffOptions',
-  // 14/11: tạo hồ sơ nhân sự (như Trưởng phòng Sale & CSKH).
-  'StaffController.createStaff',
-  'StaffController.searchAssignableUsers',
+  // 15/11: tạo nhân sự mới (như Trưởng phòng Sale & CSKH).
+  'UserController.createStaffUser',
   // Có từ trước #274 (không đổi ở ticket này).
   'ClassTimelineController.list',
   'NotificationController.createNotificationDraft',
@@ -353,11 +351,7 @@ describe('Admin routes deny-by-default (#267)', () => {
       [
         'nhân sự',
         StaffController,
-        adminOnlyRoutes(StaffController, [
-          'searchCustomerCareStaffOptions',
-          'createStaff',
-          'searchAssignableUsers',
-        ]),
+        adminOnlyRoutes(StaffController, ['searchCustomerCareStaffOptions']),
       ],
       [
         'lớp',
@@ -600,32 +594,6 @@ describe('Admin routes deny-by-default (#267)', () => {
       );
     });
 
-    // 14/11: 3 role trưởng tạo hồ sơ nhân sự; role thường bị 403.
-    describe.each([
-      ['Trưởng phòng Sale & CSKH', [StaffRole.sale_customer_care_head]],
-      ['Trưởng ban Đào tạo', [StaffRole.training_head]],
-      ['Trưởng ban Chuyên môn', [StaffRole.lesson_plan_head]],
-    ] as [string, StaffRole[]][])('%s', (_label, staffRoles) => {
-      it.each(['createStaff', 'searchAssignableUsers'])(
-        'vào được StaffController.%s',
-        async (methodName) => {
-          await expect(
-            asStaff(StaffController, methodName, staffRoles),
-          ).resolves.toBe(true);
-        },
-      );
-    });
-    describe.each(otherRoles)('%s', (_label, staffRoles) => {
-      it.each(['createStaff', 'searchAssignableUsers'])(
-        'bị 403 ở StaffController.%s',
-        async (methodName) => {
-          await expect(
-            asStaff(StaffController, methodName, staffRoles),
-          ).rejects.toBeInstanceOf(ForbiddenException);
-        },
-      );
-    });
-
     // Kết thúc / xoá lớp (và các đường đổi trạng thái khác): chỉ Admin.
     const adminOnlyClassLifecycle = [
       'endClass',
@@ -662,6 +630,46 @@ describe('Admin routes deny-by-default (#267)', () => {
         await expect(asAdmin(ClassController, methodName)).resolves.toBe(true);
       },
     );
+  });
+
+  // 15/11: 3 role trưởng tạo nhân sự mới (tài khoản + hồ sơ); không còn vào
+  // luồng gắn hồ sơ vào user có sẵn (StaffController.createStaff /
+  // searchAssignableUsers chỉ Admin).
+  describe('tạo nhân sự (15/11)', () => {
+    const heads: [string, StaffRole[]][] = [
+      ['Trưởng phòng Sale & CSKH', [StaffRole.sale_customer_care_head]],
+      ['Trưởng ban Đào tạo', [StaffRole.training_head]],
+      ['Trưởng ban Chuyên môn', [StaffRole.lesson_plan_head]],
+    ];
+    describe.each(heads)('%s', (_label, staffRoles) => {
+      it('vào được UserController.createStaffUser', async () => {
+        await expect(
+          asStaff(UserController, 'createStaffUser', staffRoles),
+        ).resolves.toBe(true);
+      });
+      it.each(['createStaff', 'searchAssignableUsers'])(
+        'bị 403 ở StaffController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(StaffController, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
+
+    describe.each([
+      ['Quản lý lớp / Đào tạo', [StaffRole.training]],
+      ['Ban Chuyên môn', [StaffRole.lesson_plan]],
+      ['CSKH', [StaffRole.customer_care]],
+      ['Kế toán chi', [StaffRole.accountant_expense]],
+      ['Gia sư', [StaffRole.teacher]],
+    ] as [string, StaffRole[]][])('%s', (_label, staffRoles) => {
+      it('bị 403 ở UserController.createStaffUser', async () => {
+        await expect(
+          asStaff(UserController, 'createStaffUser', staffRoles),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+    });
   });
 
   describe('#275 buổi học trên route admin + khảo sát chung', () => {

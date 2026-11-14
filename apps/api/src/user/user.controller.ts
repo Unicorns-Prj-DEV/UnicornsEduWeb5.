@@ -29,6 +29,7 @@ import { AllowStaffRolesOnAdminRoutes } from 'src/auth/decorators/allow-staff-ro
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { StaffRole, UserRole } from 'generated/enums';
 import {
+  AdminCreateStaffUserDto,
   AdminCreateStudentUserDto,
   AdminSetUserPasswordDto,
   AdminCreateUserDto,
@@ -38,6 +39,8 @@ import {
 import { AuthService } from 'src/auth/auth.service';
 import { UserService } from './user.service';
 import { readProxyPublicOrigin } from 'src/mail/public-frontend-url';
+import { STAFF_CREATOR_HEAD_ROLES } from 'src/common/staff-role-policy';
+import { normalizeHttpHttpsUrl } from 'src/storage/supabase-storage';
 
 @ApiTags('users')
 @Controller('users')
@@ -175,6 +178,52 @@ export class UserController {
   ) {
     return this.userService.createStudentUser(
       data,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+      readProxyPublicOrigin(req),
+    );
+  }
+
+  @Post('staff')
+  // 15/11: Admin + 3 role trưởng tạo nhân sự mới (tài khoản + hồ sơ). Role
+  // trưởng không gán được Admin / role trưởng (`assertStaffRoleChangeAllowed`).
+  @AllowStaffRolesOnAdminRoutes(...STAFF_CREATOR_HEAD_ROLES)
+  @ApiOperation({
+    summary: 'Create staff user with profile',
+    description:
+      'Tạo tài khoản đăng nhập mới + hồ sơ nhân sự trong một bước. Email / tên đăng nhập phải chưa thuộc tài khoản nào (không gắn vào user có sẵn); số CCCD chưa tồn tại. Hồ sơ lỗi thì tài khoản vừa tạo bị xoá. Không nhận mức % thu nhập.',
+  })
+  @ApiBody({ type: AdminCreateStaffUserDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Đã tạo nhân sự: `{ message, staffId }`.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation error, email / tên đăng nhập đã có tài khoản, hoặc CCCD đã tồn tại.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Admin / role trưởng, hoặc role trưởng gán Admin / role trưởng.',
+  })
+  async createStaffUser(
+    @CurrentUser() user: JwtPayload,
+    @Body() data: AdminCreateStaffUserDto,
+    @Req() req: Request,
+  ) {
+    const normalizedBankQrLink = normalizeHttpHttpsUrl(
+      data.bank_qr_link,
+      'Link QR ngân hàng',
+    );
+
+    return this.userService.createStaffUser(
+      { ...data, bank_qr_link: normalizedBankQrLink ?? undefined },
       {
         userId: user.id,
         userEmail: user.email,

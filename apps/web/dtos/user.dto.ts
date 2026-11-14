@@ -56,6 +56,36 @@ export interface CreateUserResponse {
   message: string;
 }
 
+/**
+ * 15/11: Admin + 3 role trưởng tạo nhân sự mới = tài khoản đăng nhập mới + hồ sơ
+ * nhân sự (`POST /users/staff`). Không gắn hồ sơ vào user có sẵn.
+ */
+export interface CreateStaffUserPayload {
+  email: string;
+  password: string;
+  accountHandle: string;
+  phone?: string;
+  full_name: string;
+  roles: string[];
+  cccd_number: string;
+  gender: StudentGender;
+  ethnicity?: string;
+  current_address?: string;
+  cccd_issued_date?: string;
+  cccd_issued_place?: string;
+  birth_date?: string;
+  university?: string;
+  high_school?: string;
+  bank_account?: string;
+  bank_qr_link?: string;
+  emailVerified?: boolean;
+}
+
+export interface CreateStaffUserResponse {
+  message: string;
+  staffId: string;
+}
+
 export type UserStatus = "active" | "inactive" | "pending";
 
 export interface UpdateUserPayload {

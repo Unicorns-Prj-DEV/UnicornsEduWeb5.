@@ -1,5 +1,7 @@
 import type {
   AdminSetUserPasswordPayload,
+  CreateStaffUserPayload,
+  CreateStaffUserResponse,
   CreateStudentUserPayload,
   CreateUserPayload,
   CreateUserResponse,
@@ -55,6 +57,14 @@ export async function createStudentUser(
   data: CreateStudentUserPayload,
 ): Promise<CreateUserResponse> {
   const response = await api.post<CreateUserResponse>("/users/student", data);
+  return response.data;
+}
+
+/** 15/11: tạo nhân sự mới (tài khoản + hồ sơ) — Admin và 3 role trưởng. */
+export async function createStaffUser(
+  data: CreateStaffUserPayload,
+): Promise<CreateStaffUserResponse> {
+  const response = await api.post<CreateStaffUserResponse>("/users/staff", data);
   return response.data;
 }
 

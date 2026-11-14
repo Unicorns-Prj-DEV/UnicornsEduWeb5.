@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
-import AddTutorPopup from "@/components/admin/staff/AddTutorPopup";
+import CreateStaffAccountPopup from "@/components/staff/CreateStaffAccountPopup";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -14,8 +14,8 @@ type Props = {
 
 /**
  * 14/11: nút «Tạo nhân sự» cho 3 role trưởng (Trưởng phòng Sale & CSKH,
- * Trưởng ban Đào tạo, Trưởng ban Chuyên môn). Mở `AddTutorPopup` ẩn role
- * trưởng; backend (`POST /staff`) vẫn chặn Admin / role trưởng / mức %.
+ * Trưởng ban Đào tạo, Trưởng ban Chuyên môn). 15/11: mở form nhập thẳng tài
+ * khoản mới + hồ sơ (`POST /users/staff`); backend chặn Admin / role trưởng.
  */
 export default function HeadCreateStaffButton({
   invalidateQueryKeys = [],
@@ -37,18 +37,18 @@ export default function HeadCreateStaffButton({
         <UserPlus className="size-4 shrink-0" aria-hidden />
         Tạo nhân sự
       </button>
-      <AddTutorPopup
-        open={open}
-        onClose={() => setOpen(false)}
-        canAssignHeadRoles={false}
-        onCreated={async () => {
-          await Promise.all(
-            invalidateQueryKeys.map((queryKey) =>
-              queryClient.invalidateQueries({ queryKey }),
-            ),
-          );
-        }}
-      />
+      {open ? (
+        <CreateStaffAccountPopup
+          onClose={() => setOpen(false)}
+          onCreated={async () => {
+            await Promise.all(
+              invalidateQueryKeys.map((queryKey) =>
+                queryClient.invalidateQueries({ queryKey }),
+              ),
+            );
+          }}
+        />
+      ) : null}
     </>
   );
 }

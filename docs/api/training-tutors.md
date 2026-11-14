@@ -161,7 +161,7 @@ Không có route sửa thông tin cá nhân (liên hệ, CCCD, ngân hàng) hay 
 
 ### Tạo nhân sự (14/11)
 
-Trưởng ban Đào tạo (và Trưởng ban Chuyên môn, Trưởng phòng Sale & CSKH) gọi được `POST /staff` + `GET /staff/assignable-users` (email khớp đúng). Role gán: mọi role trừ Admin / role trưởng; không đặt %. Web: nút **Tạo nhân sự** ở `TrainingStaffList` (chỉ Trưởng ban). Chi tiết: `docs/pages/admin.md`.
+Trưởng ban Đào tạo (và Trưởng ban Chuyên môn, Trưởng phòng Sale & CSKH) gọi `POST /users/staff` (15/11): tạo **tài khoản mới + hồ sơ** trong một form, không gắn vào user có sẵn (`POST /staff` / `GET /staff/assignable-users` chỉ Admin). Role gán: mọi role trừ Admin / role trưởng; không đặt %. Web: nút **Tạo nhân sự** ở `TrainingStaffList` (chỉ Trưởng ban). Chi tiết: `docs/pages/admin.md`.
 
 ### Trợ cấp, Dạy thử, Học thử của buổi (14/11)
 

@@ -15,6 +15,7 @@ describe('UserService', () => {
     user: {
       create: jest.fn(),
       count: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -59,6 +60,10 @@ describe('UserService', () => {
     invalidateAuthIdentityCache: jest.fn(),
   };
 
+  const staffService = {
+    createStaff: jest.fn(),
+  };
+
   let service: UserService;
 
   beforeEach(() => {
@@ -70,6 +75,7 @@ describe('UserService', () => {
       mockPrisma as never,
       actionHistoryService as never,
       authService as never,
+      staffService as never,
     );
   });
 
@@ -1245,6 +1251,129 @@ describe('UserService', () => {
       await expect(
         service.getMyStudentClassDetail('s1', 'c1', now),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('createStaffUser (15/11)', () => {
+    const headActor = {
+      userId: 'head-1',
+      userEmail: 'head@example.com',
+      roleType: UserRole.staff,
+    };
+    const payload = {
+      email: 'new.staff@example.com',
+      password: 'secret1',
+      accountHandle: 'newstaff',
+      phone: '0901234567',
+      full_name: 'Nguyễn Văn B',
+      cccd_number: '012345678999',
+      gender: 'male' as const,
+      roles: [StaffRole.teacher, StaffRole.customer_care],
+    };
+
+    beforeEach(() => {
+      mockPrisma.user.findUnique.mockImplementation(
+        ({ where }: { where: { id?: string; email?: string } }) =>
+          Promise.resolve(
+            where.id === 'head-1'
+              ? {
+                  roleType: UserRole.staff,
+                  staffInfo: {
+                    id: 'staff-head',
+                    roles: [StaffRole.training_head],
+                  },
+                }
+              : where.email === payload.email
+                ? { id: 'user-new' }
+                : null,
+          ),
+      );
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(null);
+      authService.createPendingUserWithVerificationEmail.mockResolvedValue({
+        message: 'Tạo nhân sự thành công. Email xác thực đã được gửi.',
+      });
+      staffService.createStaff.mockResolvedValue({ id: 'UNISTAFF-new' });
+    });
+
+    it('tạo tài khoản mới rồi tạo hồ sơ nhân sự gắn vào tài khoản đó', async () => {
+      await expect(service.createStaffUser(payload, headActor)).resolves.toEqual(
+        {
+          message: 'Tạo nhân sự thành công. Email xác thực đã được gửi.',
+          staffId: 'UNISTAFF-new',
+        },
+      );
+
+      expect(
+        authService.createPendingUserWithVerificationEmail,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'new.staff@example.com',
+          password: 'secret1',
+          accountHandle: 'newstaff',
+          first_name: 'B',
+          last_name: 'Nguyễn Văn',
+        }),
+        expect.objectContaining({ auditActor: headActor }),
+      );
+      expect(staffService.createStaff).toHaveBeenCalledWith(
+        {
+          full_name: 'Nguyễn Văn B',
+          cccd_number: '012345678999',
+          gender: 'male',
+          roles: [StaffRole.teacher, StaffRole.customer_care],
+          user_id: 'user-new',
+        },
+        headActor,
+      );
+    });
+
+    it('role trưởng không gán được role trưởng — chặn trước khi tạo tài khoản', async () => {
+      await expect(
+        service.createStaffUser(
+          { ...payload, roles: [StaffRole.sale_customer_care_head] },
+          headActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(
+        authService.createPendingUserWithVerificationEmail,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('email đã có tài khoản (kể cả chưa xác thực) thì không tạo / ghi đè', async () => {
+      mockPrisma.user.findFirst.mockImplementation(
+        ({ where }: { where: { email?: unknown } }) =>
+          Promise.resolve(where.email ? { id: 'user-old' } : null),
+      );
+      await expect(
+        service.createStaffUser(payload, headActor),
+      ).rejects.toThrow('Email này đã có tài khoản.');
+      expect(
+        authService.createPendingUserWithVerificationEmail,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('CCCD đã tồn tại thì không tạo tài khoản', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-x' });
+      await expect(
+        service.createStaffUser(payload, headActor),
+      ).rejects.toThrow('Số CCCD đã tồn tại trong hệ thống.');
+      expect(
+        authService.createPendingUserWithVerificationEmail,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('tạo hồ sơ lỗi thì xoá tài khoản vừa tạo', async () => {
+      const failure = new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
+      staffService.createStaff.mockRejectedValue(failure);
+      mockPrisma.user.delete.mockResolvedValue({ id: 'user-new' });
+
+      await expect(service.createStaffUser(payload, headActor)).rejects.toBe(
+        failure,
+      );
+      expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+        where: { id: 'user-new' },
+      });
     });
   });
 });

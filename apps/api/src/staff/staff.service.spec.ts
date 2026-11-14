@@ -379,24 +379,6 @@ describe('StaffService', () => {
         service.createStaff(basePayload, headActor),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
-
-    it('role trưởng chỉ tra được user khớp đúng email, Admin tra theo chuỗi con', async () => {
-      mockActorLookup([StaffRole.sale_customer_care_head]);
-      mockPrisma.user.findMany.mockResolvedValue([]);
-      await service.searchAssignableUsersByEmail('  A@x.com ', headActor);
-      expect(mockPrisma.user.findMany).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          where: { email: { equals: 'A@x.com', mode: 'insensitive' } },
-        }),
-      );
-
-      await service.searchAssignableUsersByEmail('a@x', undefined);
-      expect(mockPrisma.user.findMany).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          where: { email: { contains: 'a@x', mode: 'insensitive' } },
-        }),
-      );
-    });
   });
 
   it('returns only active customer-care staff options', async () => {

@@ -1241,25 +1241,18 @@ export class StaffService {
     };
   }
 
-  /**
-   * Admin tìm theo chuỗi con. Role trưởng (14/11, tạo được nhân sự) chỉ nhận
-   * user khớp đúng email — không dò ra email của học sinh / nhân sự khác.
-   */
-  async searchAssignableUsersByEmail(
-    email: string,
-    actor?: { userId?: string | null; roleType?: string | null },
-  ) {
+  async searchAssignableUsersByEmail(email: string) {
     const trimmedEmail = email.trim();
     if (trimmedEmail.length < 2) {
       throw new BadRequestException('Email tìm kiếm phải có ít nhất 2 ký tự.');
     }
 
-    const { isAdmin } = await resolveStaffPolicyActor(this.prisma, actor);
     const users = await this.prisma.user.findMany({
       where: {
-        email: isAdmin
-          ? { contains: trimmedEmail, mode: 'insensitive' }
-          : { equals: trimmedEmail, mode: 'insensitive' },
+        email: {
+          contains: trimmedEmail,
+          mode: 'insensitive',
+        },
       },
       take: 8,
       orderBy: {
