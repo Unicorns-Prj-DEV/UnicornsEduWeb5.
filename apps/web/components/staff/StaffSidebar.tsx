@@ -41,7 +41,7 @@ type MenuVisibility = {
   hasManagedClasses: boolean;
   isAccountant: boolean;
   isAccountantIncome: boolean;
-  /** Trợ lí (#267): chỉ Học sinh (kèm ví) và Soạn thông báo. */
+  /** Trưởng phòng Sale & CSKH (#267): Học sinh (kèm ví), Duyệt nạp ví, Soạn thông báo. */
   isAssistant: boolean;
   isAccountantExpense: boolean;
   isCommunication: boolean;
@@ -144,6 +144,15 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
       isActive: (pathname) => pathname.startsWith("/staff/students"),
       isVisible: ({ isAccountantIncome, isAssistant }) =>
         isAccountantIncome || isAssistant,
+    },
+    {
+      // 14/11: Trưởng phòng Sale & CSKH duyệt hàng chờ nạp thẳng.
+      href: "/staff/wallet-direct-topup-requests",
+      label: "Duyệt nạp ví",
+      icon: <IconWalletApproval />,
+      isActive: (pathname) =>
+        pathname.startsWith("/staff/wallet-direct-topup-requests"),
+      isVisible: ({ isAssistant }) => isAssistant,
     },
     {
       href: "/staff/calendar",
@@ -428,6 +437,19 @@ function IconStudents() {
     <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+    </svg>
+  );
+}
+
+function IconWalletApproval() {
+  return (
+    <svg className="size-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 7h18v10H3V7zm3 3h4m4 0h4M7 17v2m10-2v2m-5-6.5l1.5 1.5L17 10"
+      />
     </svg>
   );
 }

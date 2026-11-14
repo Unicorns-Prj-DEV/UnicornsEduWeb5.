@@ -122,13 +122,15 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
     ]);
   });
 
-  it('keeps the direct top-up approval queue admin-only', () => {
+  it('opens the direct top-up approval queue to Trưởng phòng Sale & CSKH only', () => {
     for (const methodName of [
       'listStudentWalletDirectTopUpRequests',
       'getStudentWalletDirectTopUpRequest',
       'approveStudentWalletDirectTopUpRequestFromQueue',
     ]) {
-      expect(getAllowedStaffRoles(StudentController, methodName)).toEqual([]);
+      expect(getAllowedStaffRoles(StudentController, methodName)).toEqual([
+        StaffRole.sale_customer_care_head,
+      ]);
     }
   });
 

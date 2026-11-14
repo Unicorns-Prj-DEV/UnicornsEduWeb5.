@@ -255,3 +255,28 @@ describe("Hồ sơ nhân sự /staff/staffs/:id cho các trưởng", () => {
     },
   );
 });
+
+describe("hàng chờ duyệt nạp thẳng trong staff shell (14/11)", () => {
+  const QUEUE = "/staff/wallet-direct-topup-requests";
+
+  it("Trưởng phòng Sale & CSKH vào được", () => {
+    expect(
+      resolveStaffShellRouteAccess(
+        staffProfile(["sale_customer_care_head"]),
+        QUEUE,
+      ).isAllowed,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["customer_care"],
+    ["accountant_income"],
+    ["accountant_expense"],
+    ["teacher"],
+    ["training_head"],
+  ])("%s không vào được", (role) => {
+    expect(
+      resolveStaffShellRouteAccess(staffProfile([role]), QUEUE).isAllowed,
+    ).toBe(false);
+  });
+});

@@ -445,7 +445,7 @@ export default function AdminStudentDetailPage() {
                     }
                     directBalanceChangeSuccessMessage={
                         balancePopupMode === "topup" && canRequestDirectTopUp && !canDirectlyAdjustWallet
-                            ? "Đã gửi yêu cầu nạp thẳng tới admin."
+                            ? "Đã gửi yêu cầu nạp thẳng, chờ Admin hoặc Trưởng phòng Sale & CSKH duyệt."
                             : undefined
                     }
                     directReasonLabel={
@@ -471,7 +471,7 @@ export default function AdminStudentDetailPage() {
                             description: canDirectlyAdjustWallet
                                 ? "QR SePay tĩnh để phụ huynh chuyển khoản, hoặc dùng Nạp thẳng khi admin cần ghi nhận thủ công."
                                 : canRequestDirectTopUp
-                                    ? "QR SePay tĩnh để phụ huynh chuyển khoản, hoặc gửi yêu cầu nạp thẳng tới admin khi cần ghi nhận thủ công."
+                                    ? "QR SePay tĩnh để phụ huynh chuyển khoản, hoặc gửi yêu cầu nạp thẳng (Admin hoặc Trưởng phòng Sale & CSKH duyệt) khi cần ghi nhận thủ công."
                                 : "QR SePay tĩnh để phụ huynh chuyển khoản. Webhook SePay sẽ tự động cập nhật ví sau khi ngân hàng xác nhận.",
                         },
                     }}

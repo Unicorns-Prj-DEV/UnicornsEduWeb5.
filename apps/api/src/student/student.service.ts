@@ -2248,12 +2248,15 @@ export class StudentService {
       );
       const balanceBefore = request.student.accountBalance ?? 0;
       const balanceAfter = balanceBefore + request.amount;
+      // Hàng chờ cho cả Admin lẫn Trưởng phòng Sale & CSKH duyệt → ghi email
+      // người duyệt thật thay vì mặc định "admin".
+      const approverLabel = params.actor?.userEmail?.trim() || 'admin';
       const walletTransaction = await tx.walletTransactionsHistory.create({
         data: {
           studentId: request.studentId,
           type: WalletTransactionType.topup,
           amount: request.amount,
-          note: `Nạp thẳng đã được admin xác nhận. Lý do: ${request.reason}. Người yêu cầu: ${request.requestedByUserEmail ?? 'không có email'} | Số dư: ${this.formatVND(balanceBefore)} + ${this.formatVND(request.amount)} = ${this.formatVND(balanceAfter)}`,
+          note: `Nạp thẳng đã được ${approverLabel} xác nhận. Lý do: ${request.reason}. Người yêu cầu: ${request.requestedByUserEmail ?? 'không có email'} | Số dư: ${this.formatVND(balanceBefore)} + ${this.formatVND(request.amount)} = ${this.formatVND(balanceAfter)}`,
           date: now,
         },
       });

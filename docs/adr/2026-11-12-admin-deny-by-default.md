@@ -44,3 +44,9 @@ Biên bản họp 12/11/2026 «tái cấu trúc role theo mô hình công ty» (
 - Trợ lí mất quyền vận hành lớp, nhân sự, lương; các việc này dồn về Admin. Người kiêm role (vd Trợ lí + kế toán) vẫn hợp quyền theo role còn lại.
 - Giữ cho Trợ lí: xem CSKH phụ trách học sinh (`/staff/customer-care-detail/:id`, % lợi nhuận) và trang thu nhập Trợ lí của mình; trạng thái thanh toán hoa hồng CSKH chỉ Admin/kế toán.
 - Enum `StaffRole.assistant` chưa đổi tên (#268).
+
+## Addendum 14/11 — Trưởng phòng duyệt hàng chờ nạp thẳng
+
+- Mở `StudentController.listStudentWalletDirectTopUpRequests`, `getStudentWalletDirectTopUpRequest`, `approveStudentWalletDirectTopUpRequestFromQueue` cho `staff.sale_customer_care_head` (allowlist trong `admin-deny-by-default.spec.ts`). Thay thế câu «Hàng đợi nạp (xem/duyệt) chỉ Admin» ở trên.
+- Trưởng phòng duyệt được **mọi** yêu cầu, kể cả yêu cầu do chính mình tạo (quyết định nghiệp vụ 14/11, chấp nhận bỏ nguyên tắc 2 người). Dấu vết: note giao dịch ví ghi email người duyệt + action history ghi actor.
+- Nạp số dương thẳng (`PATCH /student/update-student-account-balance`, `amount > 0`) vẫn chỉ Admin. Web: route `/staff/wallet-direct-topup-requests`; `/admin/wallet-direct-topup-requests` vẫn strict Admin.
