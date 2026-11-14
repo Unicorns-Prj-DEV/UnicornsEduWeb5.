@@ -129,6 +129,7 @@ import {
   isSurveyRequiredFor,
 } from '../class/survey-requirement';
 import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
+import { isUniqueConstraintOn } from '../common/prisma-unique-error';
 import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from '../customer-care/customer-care-role-release';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
@@ -924,26 +925,8 @@ export class StaffService {
     });
   }
 
-  private isUniqueConstraintError(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: string }).code === 'P2002'
-    );
-  }
-
   private isCccdNumberUniqueConstraint(error: unknown) {
-    if (!this.isUniqueConstraintError(error)) {
-      return false;
-    }
-
-    const target = (error as { meta?: { target?: unknown } }).meta?.target;
-    if (Array.isArray(target)) {
-      return target.some((item) => String(item).includes('cccd_number'));
-    }
-
-    return typeof target === 'string' && target.includes('cccd_number');
+    return isUniqueConstraintOn(error, 'cccd_number');
   }
 
   private getStaffAuditSnapshot(db: StaffAuditClient, staffId: string) {

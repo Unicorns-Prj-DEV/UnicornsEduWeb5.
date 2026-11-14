@@ -21,6 +21,18 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Sửa CCCD trùng trả 500 khi Admin tạo nhân sự (15/11)
+
+#### Fixed
+
+- **`POST /staff` với CCCD đã có → `400` «Số CCCD đã tồn tại trong hệ thống.»** thay vì `500`. Gốc lỗi: Prisma 7 + `@prisma/adapter-pg` không còn `meta.target` trên lỗi `P2002` (tên cột nằm ở `meta.driverAdapterError.cause.constraint.fields`), nên `isCccdNumberUniqueConstraint` không bao giờ khớp. Helper chung mới `src/common/prisma-unique-error.ts` (`getUniqueConstraintFields`, `isUniqueConstraintOn`) đọc cả hai shape + test. Cùng gốc: `isEntityIdUniqueConstraintError` (retry khi sinh trùng id `UNISTAFF-*`) cũng chưa từng khớp — giờ dùng helper chung (`exact` để `id` không khớp nhầm `user_id`).
+
+### Trưởng phòng Sale & CSKH tạo học sinh trên trang Học sinh (15/11)
+
+#### Changed
+
+- **Web:** `/staff/students` của Trưởng phòng Sale & CSKH có nút **Tạo học sinh** (header, full-width trên mobile) mở `CreateCustomerCareStudentPopup variant="saleCsHead"` — nhập thẳng thông tin học sinh + tài khoản đăng nhập mới, gửi `POST /users/student` với `class_ids: []` (route đã mở cho Trưởng phòng từ #267, backend không đổi). Trưởng phòng tạo thì **không** tự gán Người chăm sóc; xếp lớp / gán CSKH làm sau trên hồ sơ học sinh. Cờ mới `canCreateStudent` (`resolveStudentAdminCapabilities`, chỉ `isAssistant`) + test. Popup giờ invalidate cả `["student","list"]` lẫn `["customer-care"]` nên danh sách Học sinh tự làm mới.
+
 ### Role trưởng tạo nhân sự; Trưởng ban Đào tạo sửa trợ cấp / Dạy thử / Học thử buổi (14/11)
 
 #### Changed
