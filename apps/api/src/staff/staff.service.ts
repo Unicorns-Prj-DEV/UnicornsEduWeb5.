@@ -76,6 +76,7 @@ import { assertCanSetClassTeacherPay } from 'src/common/class-teacher-pay-access
 import {
   assertActorNotEditingOwnCompensation,
   assertNotEditingOwnCompensation,
+  assertStaffCreateAllowed,
   assertStaffRoleChangeAllowed,
   resolveStaffPolicyActor,
 } from 'src/common/staff-role-policy';
@@ -128,6 +129,7 @@ import {
   isSurveyRequiredFor,
 } from '../class/survey-requirement';
 import { normalizeCustomerCareProfitPercent } from '../customer-care/customer-care-profit-percent';
+import { isUniqueConstraintOn } from '../common/prisma-unique-error';
 import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from '../customer-care/customer-care-role-release';
 
 /** Prisma expects DateTime; normalize date-only string (YYYY-MM-DD) to Date. */
@@ -923,26 +925,8 @@ export class StaffService {
     });
   }
 
-  private isUniqueConstraintError(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: string }).code === 'P2002'
-    );
-  }
-
   private isCccdNumberUniqueConstraint(error: unknown) {
-    if (!this.isUniqueConstraintError(error)) {
-      return false;
-    }
-
-    const target = (error as { meta?: { target?: unknown } }).meta?.target;
-    if (Array.isArray(target)) {
-      return target.some((item) => String(item).includes('cccd_number'));
-    }
-
-    return typeof target === 'string' && target.includes('cccd_number');
+    return isUniqueConstraintOn(error, 'cccd_number');
   }
 
   private getStaffAuditSnapshot(db: StaffAuditClient, staffId: string) {
@@ -6320,10 +6304,17 @@ export class StaffService {
       throw new NotFoundException('User not found');
     }
 
-    assertStaffRoleChangeAllowed(
-      await resolveStaffPolicyActor(this.prisma, auditActor),
-      { targetStaffId: null, previousRoles: [], nextRoles: data.roles ?? [] },
-    );
+    const policyActor = await resolveStaffPolicyActor(this.prisma, auditActor);
+    assertStaffCreateAllowed(policyActor, {
+      revenueSharePercent: data.revenue_share_percent,
+      customerCareDefaultProfitPercent:
+        data.customer_care_default_profit_percent,
+    });
+    assertStaffRoleChangeAllowed(policyActor, {
+      targetStaffId: null,
+      previousRoles: [],
+      nextRoles: data.roles ?? [],
+    });
 
     const eligibility = this.getUserEligibilityForStaffAssignment(user);
     if (!eligibility.isEligible) {

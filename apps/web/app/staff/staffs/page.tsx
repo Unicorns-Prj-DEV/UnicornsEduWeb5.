@@ -4,11 +4,13 @@ import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AdminStaffPage from "@/app/admin/staffs/page";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
+import LessonPlanHeadStaffPanel from "@/components/staff/lesson-plan-head/LessonPlanHeadStaffPanel";
 import SaleCsTeamStaffList from "@/components/staff/sale-cs-team/SaleCsTeamStaffList";
 import TrainingStaffList from "@/components/staff/tutors/TrainingStaffList";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import { resolveAdminShellAccess } from "@/lib/admin-shell-access";
 import { AUTH_FULL_PROFILE_QUERY_KEY } from "@/lib/profile-full-query";
+import { resolveStaffLessonWorkspace } from "@/lib/staff-lesson-workspace";
 import { hasTrainingAccess } from "@/lib/training-access";
 
 /**
@@ -20,6 +22,7 @@ import { hasTrainingAccess } from "@/lib/training-access";
  *   (`/training/tutors`) — thay trang `/staff/tutors` cũ.
  * Người vừa là Trưởng phòng Sale & CSKH vừa thuộc Ban Đào Tạo thấy danh sách
  * Sale & CSKH (giống thứ tự ưu tiên của nút quay lại ở hồ sơ).
+ * - Trưởng ban Chuyên môn (14/11): chỉ khối «Tạo nhân sự».
  * Gate (`staff-shell-access.ts`) chặn các role khác trước khi tới đây.
  */
 export default function StaffStaffsRoute() {
@@ -44,6 +47,8 @@ export default function StaffStaffsRoute() {
     <SaleCsTeamStaffList />
   ) : hasTrainingAccess(profile?.staffInfo?.roles) ? (
     <TrainingStaffList />
+  ) : resolveStaffLessonWorkspace(profile).isLessonPlanHead ? (
+    <LessonPlanHeadStaffPanel />
   ) : null;
   if (!list) return null;
 

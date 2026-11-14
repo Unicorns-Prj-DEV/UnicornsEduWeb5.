@@ -172,10 +172,13 @@ export class SessionReportingService {
       sessions.map((session) => this.withDerivedTeacherFullName(session)),
     );
 
-    // #277: Trưởng ban Đào tạo xem lịch sử buổi mọi lớp — không tiền buổi
-    // (trợ cấp từng buổi, hệ số, học phí, vận hành, trạng thái thanh toán).
+    // #277: Ban Đào tạo xem lịch sử buổi — không học phí / vận hành. 14/11:
+    // Trưởng ban Đào tạo thấy thêm trợ cấp, hệ số, trạng thái thanh toán trợ
+    // cấp gia sư để chỉnh tay (`PATCH /staff-ops/sessions/:id/training-head`).
     if (accessMode === 'training_manager') {
-      return redactSessionsForTrainingManagerView(mappedSessions);
+      return redactSessionsForTrainingManagerView(mappedSessions, {
+        keepTeacherCompensation: access.isTrainingHead,
+      });
     }
     if (accessMode === 'training_head') {
       // Lớp không quản lý: ẩn thêm trợ cấp quản lý lớp từng buổi.
@@ -205,7 +208,9 @@ export class SessionReportingService {
           session.teacherId === actor.id
             ? redactSessionsForAccountantView([session], financeView)[0]
             : access.isClassManager
-              ? redactSessionForTrainingManagerView(session)
+              ? redactSessionForTrainingManagerView(session, {
+                  keepTeacherCompensation: access.isTrainingHead,
+                })
               : redactSessionForTrainingHeadView(session),
         );
       }

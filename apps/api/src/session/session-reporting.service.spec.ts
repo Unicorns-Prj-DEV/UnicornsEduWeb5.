@@ -175,9 +175,10 @@ describe('SessionReportingService', () => {
       });
     });
 
-    // #277: Trưởng ban Đào tạo xem lịch sử buổi mọi lớp — không tiền buổi,
-    // không học phí.
-    it('redacts every session money field for training_head on a non-managed class', async () => {
+    // #277: Trưởng ban Đào tạo xem lịch sử buổi mọi lớp — không học phí,
+    // không trợ cấp quản lý lớp. 14/11: thấy trợ cấp / hệ số / thanh toán
+    // trợ cấp gia sư để chỉnh tay.
+    it('training_head on a non-managed class keeps teacher allowance, hides tuition', async () => {
       staffOperationsAccess.resolveClassViewerActor.mockResolvedValue({
         id: 'head-1',
         roles: [StaffRole.training_head],
@@ -200,9 +201,11 @@ describe('SessionReportingService', () => {
 
       expect(sessions).toHaveLength(2);
       for (const session of sessions) {
-        expect(session.allowanceAmount).toBeUndefined();
-        expect(session.coefficient).toBeUndefined();
-        expect(session.teacherPaymentStatus).toBeUndefined();
+        expect(session).toHaveProperty('allowanceAmount');
+        expect(session).toHaveProperty('coefficient');
+        expect(session).toHaveProperty('teacherPaymentStatus');
+        expect(session.tuitionFee).toBeUndefined();
+        expect(session.operatingDeductionAmount).toBeUndefined();
         expect(session.trainingManagerAllowanceAmount).toBeUndefined();
         expect(session.lessonContent).toBe('<p>Nội dung</p>');
         expect(

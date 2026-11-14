@@ -1,6 +1,13 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  PartialType,
+} from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -11,6 +18,7 @@ import {
   IsUUID,
   Max,
   Min,
+  IsNotEmpty,
   MinLength,
 } from 'class-validator';
 import {
@@ -22,6 +30,7 @@ import {
 } from 'generated/enums';
 import { IsClassId } from '../common/entity-id.validators';
 import { PaginationQueryDto } from './pagination.dto';
+import { CreateStaffDto } from './staff.dto';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -169,6 +178,68 @@ export class AdminCreateStudentUserDto extends CreateUserDto {
     example: true,
     description:
       'Xác thực email ngay khi tạo học sinh từ admin/Trưởng phòng Sale & CSKH',
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  emailVerified?: boolean;
+}
+
+/**
+ * 15/11: tạo tài khoản đăng nhập + hồ sơ nhân sự trong một bước (Admin, 3 role
+ * trưởng). Không có `user_id`: luôn là tài khoản mới, không gắn vào user có sẵn.
+ * Không nhận mức % thu nhập — chỉ Admin sửa ở màn quản trị nhân sự.
+ */
+export class AdminCreateStaffUserDto extends OmitType(CreateStaffDto, [
+  'user_id',
+  'first_name',
+  'last_name',
+  'full_name',
+  'roles',
+  'customer_care_managed_by_staff_id',
+  'google_meet_link',
+  'revenue_share_percent',
+  'customer_care_default_profit_percent',
+] as const) {
+  @ApiProperty({ example: 'staff@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: 'StrongPass123!' })
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @ApiProperty({ example: 'nguyenvanb' })
+  @IsString()
+  @IsNotEmpty()
+  accountHandle: string;
+
+  @ApiPropertyOptional({ example: '0901234567' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ example: 'Nguyễn Văn B' })
+  @IsString()
+  @IsNotEmpty()
+  full_name: string;
+
+  @ApiProperty({
+    enum: StaffRole,
+    isArray: true,
+    description:
+      'Ít nhất 1 role. Role trưởng không gán được Admin / role trưởng (#265).',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsEnum(StaffRole, { each: true })
+  roles: StaffRole[];
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Xác thực email ngay — nhân sự đăng nhập được luôn.',
   })
   @IsOptional()
   @Type(() => Boolean)

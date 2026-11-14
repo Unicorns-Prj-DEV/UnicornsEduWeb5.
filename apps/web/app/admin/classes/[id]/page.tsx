@@ -62,7 +62,12 @@ import type {
   CreateClassSurveyPayload,
   UpdateClassSurveyPayload,
 } from "@/dtos/class-survey.dto";
-import { MissedTeachingAlert, SessionItem } from "@/dtos/session.dto";
+import {
+  MissedTeachingAlert,
+  SessionItem,
+  SessionUpdatePayload,
+} from "@/dtos/session.dto";
+import { toTrainingHeadSessionUpdatePayload } from "@/lib/training-head-session-policy";
 import {
   buildAdminLikePath,
   resolveAdminLikeRouteBase,
@@ -585,6 +590,19 @@ export default function AdminClassDetailPage() {
         tuitionPerBlock: student.customTuitionPerBlock ?? null,
       })),
     [activeClassStudents],
+  );
+
+  /**
+   * 14/11: Trưởng ban Đào tạo chỉnh tay trợ cấp, Dạy thử, Học thử từng học
+   * sinh qua `PATCH /staff-ops/sessions/:id/training-head` (form chỉ đọc phần còn lại).
+   */
+  const updateSessionAsTrainingHead = useCallback(
+    (sessionId: string, data: SessionUpdatePayload) =>
+      staffOpsApi.updateSessionAsTrainingHead(
+        sessionId,
+        toTrainingHeadSessionUpdatePayload(data),
+      ),
+    [],
   );
 
   const getClassStudents = useCallback(
@@ -1603,10 +1621,20 @@ export default function AdminClassDetailPage() {
                             editorLayout="wide"
                             enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
                             allowTeacherSelection={canEditSessions}
-                            allowTrialTeachingToggle={canEditSessions}
+                            allowTrialTeachingToggle={
+                              canEditSessions || usesStaffOpsClassOperations
+                            }
                             allowFinancialEdits={canEditSessions}
                             skipRequiredReviewValidation={canSkipRequiredSessionReview}
-                            allowAllowanceEdit={canEditSessions}
+                            allowAllowanceEdit={
+                              canEditSessions || usesStaffOpsClassOperations
+                            }
+                            trainingHeadEdit={usesStaffOpsClassOperations}
+                            updateSessionFn={
+                              usesStaffOpsClassOperations
+                                ? updateSessionAsTrainingHead
+                                : undefined
+                            }
                             allowAttendanceTuitionEdits={canEditSessions}
                             allowPaymentStatusEdit={canEditSessionPaymentStatus}
                             readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}

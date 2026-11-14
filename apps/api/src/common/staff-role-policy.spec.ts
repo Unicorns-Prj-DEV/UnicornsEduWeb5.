@@ -3,6 +3,7 @@ import { StaffRole, UserRole } from 'generated/enums';
 import {
   assertActorNotEditingOwnCompensation,
   assertNotEditingOwnCompensation,
+  assertStaffCreateAllowed,
   assertStaffRoleChangeAllowed,
   assertUserRoleTypeChangeAllowed,
   hasAnyStaffRole,
@@ -226,6 +227,87 @@ describe('staff-role-policy', () => {
         assertUserRoleTypeChangeAllowed(saleHead, {
           previousRoleType: UserRole.guest,
           nextRoleType: UserRole.staff,
+        }),
+      ).not.toThrow();
+    });
+  });
+
+  describe('tạo hồ sơ nhân sự (14/11)', () => {
+    const roleOnly = (roles: StaffRole[]): StaffPolicyActor => ({
+      isAdmin: false,
+      staffId: 'S-X',
+      roles,
+    });
+
+    it.each([
+      ['Trưởng phòng Sale & CSKH', SALE_CS_HEAD_ROLE],
+      ['Trưởng ban Đào tạo', StaffRole.training_head],
+      ['Trưởng ban Chuyên môn', StaffRole.lesson_plan_head],
+    ])('%s tạo được, gán mọi role thường', (_label, role) => {
+      const actor = roleOnly([role]);
+      expect(() => assertStaffCreateAllowed(actor, {})).not.toThrow();
+      expect(() =>
+        assertStaffRoleChangeAllowed(actor, {
+          targetStaffId: null,
+          previousRoles: [],
+          nextRoles: [
+            StaffRole.teacher,
+            StaffRole.lesson_plan,
+            StaffRole.accountant_income,
+            StaffRole.accountant_expense,
+            StaffRole.communication,
+            StaffRole.technical,
+            StaffRole.customer_care,
+            StaffRole.training,
+            StaffRole.sale,
+          ],
+        }),
+      ).not.toThrow();
+    });
+
+    it.each([
+      StaffRole.admin,
+      SALE_CS_HEAD_ROLE,
+      StaffRole.training_head,
+      StaffRole.lesson_plan_head,
+    ])('trưởng không gán được role %s cho người mới', (role) => {
+      expect(() =>
+        assertStaffRoleChangeAllowed(roleOnly([StaffRole.training_head]), {
+          targetStaffId: null,
+          previousRoles: [],
+          nextRoles: [StaffRole.teacher, role],
+        }),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('role thường (kế toán chi, gia sư) không tạo được', () => {
+      expect(() =>
+        assertStaffCreateAllowed(
+          roleOnly([StaffRole.accountant_expense, StaffRole.teacher]),
+          {},
+        ),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('trưởng không đặt % chia doanh thu / % CSKH mặc định; Admin được', () => {
+      expect(() =>
+        assertStaffCreateAllowed(saleHead, { revenueSharePercent: 3 }),
+      ).toThrow(ForbiddenException);
+      expect(() =>
+        assertStaffCreateAllowed(saleHead, {
+          customerCareDefaultProfitPercent: 0.1,
+        }),
+      ).toThrow(ForbiddenException);
+      expect(() =>
+        assertStaffCreateAllowed(saleHead, {
+          revenueSharePercent: null,
+          customerCareDefaultProfitPercent: undefined,
+        }),
+      ).not.toThrow();
+      expect(() =>
+        assertStaffCreateAllowed(admin, {
+          revenueSharePercent: 3,
+          customerCareDefaultProfitPercent: 0.1,
         }),
       ).not.toThrow();
     });

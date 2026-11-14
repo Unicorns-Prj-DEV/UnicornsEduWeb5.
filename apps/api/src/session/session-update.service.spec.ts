@@ -938,4 +938,218 @@ describe('SessionUpdateService', () => {
       expect(args.update.customerCareStaffId).toBe('care-new');
     });
   });
+
+  describe('Trưởng ban Đào tạo chỉnh tay trợ cấp / Dạy thử / Học thử (14/11)', () => {
+    const headUser = {
+      roleType: UserRole.staff,
+      staffInfo: { id: 'head-1', roles: [StaffRole.training_head] },
+    };
+    const baseSession = {
+      id: 'session-1',
+      classId: 'class-1',
+      teacherId: 'teacher-1',
+      snapshotNoAttendance: false,
+      snapshotBlockCount: null,
+      coefficient: 1,
+      allowanceAmount: 100000,
+      teacherPaymentStatus: SessionPaymentStatus.unpaid,
+      attendance: [
+        {
+          studentId: 'st1',
+          status: AttendanceStatus.present,
+          notes: 'Ghi chú',
+          tuitionFee: 200000,
+          testCorrectCount: 8,
+          testComment: null,
+          strengths: 'Tốt',
+          improvements: null,
+          homeworkQuality: null,
+          homeworkComment: null,
+        },
+        {
+          studentId: 'st2',
+          status: AttendanceStatus.trial,
+          notes: null,
+          tuitionFee: null,
+          testCorrectCount: null,
+          testComment: null,
+          strengths: null,
+          improvements: null,
+          homeworkQuality: null,
+          homeworkComment: null,
+        },
+      ],
+    };
+
+    it('sửa trợ cấp + Dạy thử, response ẩn học phí', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(headUser);
+      mockPrisma.session.findUnique.mockResolvedValueOnce(baseSession);
+      const updateSessionSpy = jest
+        .spyOn(service, 'updateSession')
+        .mockResolvedValue({
+          id: 'session-1',
+          allowanceAmount: 150000,
+          coefficient: 0,
+          tuitionFee: 400000,
+        } as never);
+
+      const result = (await service.updateSessionAsTrainingHead(
+        'user-head',
+        UserRole.staff,
+        'session-1',
+        { allowanceAmount: 150000, coefficient: 0 },
+      )) as Record<string, unknown>;
+
+      expect(updateSessionSpy).toHaveBeenCalledWith(
+        {
+          id: 'session-1',
+          coefficient: 0,
+          allowanceAmount: 150000,
+          attendance: undefined,
+        },
+        undefined,
+        { skipRequired: true },
+      );
+      expect(result.allowanceAmount).toBe(150000);
+      expect(result).not.toHaveProperty('tuitionFee');
+    });
+
+    it('tick Học thử: gửi lại đủ học sinh, giữ ghi chú + nhận xét, học phí theo trạng thái mới', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(headUser);
+      mockPrisma.session.findUnique.mockResolvedValueOnce(baseSession);
+      rosterService.assertAttendanceStudentsBelongToClass.mockResolvedValue(
+        new Map([
+          ['st1', 180000],
+          ['st2', 180000],
+        ]),
+      );
+      const updateSessionSpy = jest
+        .spyOn(service, 'updateSession')
+        .mockResolvedValue({ id: 'session-1' } as never);
+
+      await service.updateSessionAsTrainingHead(
+        'user-head',
+        UserRole.staff,
+        'session-1',
+        {
+          attendance: [
+            { studentId: 'st1', status: AttendanceStatus.trial },
+            { studentId: 'st2', status: AttendanceStatus.present },
+          ],
+        },
+      );
+
+      const payload = updateSessionSpy.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('allowanceAmount');
+      expect(payload).not.toHaveProperty('coefficient');
+      expect(payload.attendance).toEqual([
+        expect.objectContaining({
+          studentId: 'st1',
+          status: AttendanceStatus.trial,
+          notes: 'Ghi chú',
+          testCorrectCount: 8,
+          strengths: 'Tốt',
+          tuitionFee: null,
+        }),
+        expect.objectContaining({
+          studentId: 'st2',
+          status: AttendanceStatus.present,
+          tuitionFee: 180000,
+        }),
+      ]);
+    });
+
+    it('chặn đổi có mặt → vắng', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(headUser);
+      mockPrisma.session.findUnique.mockResolvedValueOnce(baseSession);
+      const updateSessionSpy = jest.spyOn(service, 'updateSession');
+
+      await expect(
+        service.updateSessionAsTrainingHead(
+          'user-head',
+          UserRole.staff,
+          'session-1',
+          {
+            attendance: [{ studentId: 'st1', status: AttendanceStatus.absent }],
+          },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(updateSessionSpy).not.toHaveBeenCalled();
+    });
+
+    it('chặn sửa buổi do chính mình dạy (#265)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(headUser);
+      mockPrisma.session.findUnique.mockResolvedValueOnce({
+        ...baseSession,
+        teacherId: 'head-1',
+      });
+
+      await expect(
+        service.updateSessionAsTrainingHead(
+          'user-head',
+          UserRole.staff,
+          'session-1',
+          {
+            allowanceAmount: 999999,
+          },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('chặn đổi trợ cấp buổi đã thanh toán', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(headUser);
+      mockPrisma.session.findUnique.mockResolvedValueOnce({
+        ...baseSession,
+        teacherPaymentStatus: SessionPaymentStatus.paid,
+      });
+
+      await expect(
+        service.updateSessionAsTrainingHead(
+          'user-head',
+          UserRole.staff,
+          'session-1',
+          {
+            allowanceAmount: 120000,
+          },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('Quản lý lớp thường (không phải Trưởng ban) bị 403', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        roleType: UserRole.staff,
+        staffInfo: { id: 'tm-1', roles: [StaffRole.training] },
+      });
+
+      await expect(
+        service.updateSessionAsTrainingHead(
+          'user-tm',
+          UserRole.staff,
+          'session-1',
+          {
+            allowanceAmount: 120000,
+          },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.session.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('không có thay đổi → 400', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(headUser);
+      mockPrisma.session.findUnique.mockResolvedValueOnce(baseSession);
+
+      await expect(
+        service.updateSessionAsTrainingHead(
+          'user-head',
+          UserRole.staff,
+          'session-1',
+          {
+            allowanceAmount: 100000,
+            coefficient: 1,
+            attendance: [{ studentId: 'st2', status: AttendanceStatus.trial }],
+          },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
 });

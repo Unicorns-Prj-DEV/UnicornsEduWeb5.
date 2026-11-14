@@ -609,14 +609,33 @@ export function redactOtherTeachersIncome<T>(
   return next as T;
 }
 
-export function redactSessionForTrainingManagerView<T>(session: T): T {
+/**
+ * 14/11: Trưởng ban Đào tạo chỉnh tay trợ cấp + tick Dạy thử của buổi (mọi
+ * lớp, trừ buổi mình dạy) → cần thấy trợ cấp, hệ số và trạng thái thanh toán
+ * trợ cấp gia sư. Học phí / vận hành vẫn ẩn.
+ */
+const SESSION_TRAINING_HEAD_VISIBLE_COMPENSATION_FIELDS: readonly string[] = [
+  'allowanceAmount',
+  'coefficient',
+  'teacherPaymentStatus',
+];
+
+export function redactSessionForTrainingManagerView<T>(
+  session: T,
+  options: { keepTeacherCompensation?: boolean } = {},
+): T {
   if (!session || typeof session !== 'object') {
     return session;
   }
 
   const next = omitFields(
     session as Record<string, unknown>,
-    SESSION_TRAINING_MANAGER_HIDDEN_FIELDS,
+    options.keepTeacherCompensation
+      ? SESSION_TRAINING_MANAGER_HIDDEN_FIELDS.filter(
+          (field) =>
+            !SESSION_TRAINING_HEAD_VISIBLE_COMPENSATION_FIELDS.includes(field),
+        )
+      : SESSION_TRAINING_MANAGER_HIDDEN_FIELDS,
   );
 
   if (Array.isArray(next.attendance)) {
@@ -633,16 +652,20 @@ export function redactSessionForTrainingManagerView<T>(session: T): T {
   return next as T;
 }
 
-export function redactSessionsForTrainingManagerView<T>(sessions: T[]): T[] {
+export function redactSessionsForTrainingManagerView<T>(
+  sessions: T[],
+  options: { keepTeacherCompensation?: boolean } = {},
+): T[] {
   return sessions.map((session) =>
-    redactSessionForTrainingManagerView(session),
+    redactSessionForTrainingManagerView(session, options),
   );
 }
 
 /**
  * #277: Trưởng ban Đào tạo xem buổi của lớp mình **không** quản lý — ngoài
  * phần ẩn như Quản lý lớp, bỏ cả trợ cấp quản lý lớp từng buổi (tiền của
- * người quản lý khác).
+ * người quản lý khác). 14/11: giữ trợ cấp / hệ số / trạng thái thanh toán
+ * trợ cấp gia sư để chỉnh tay.
  */
 const SESSION_TRAINING_HEAD_EXTRA_HIDDEN_FIELDS = [
   'trainingManagerAllowanceAmount',
@@ -652,7 +675,9 @@ const SESSION_TRAINING_HEAD_EXTRA_HIDDEN_FIELDS = [
 ] as const;
 
 export function redactSessionForTrainingHeadView<T>(session: T): T {
-  const redacted = redactSessionForTrainingManagerView(session);
+  const redacted = redactSessionForTrainingManagerView(session, {
+    keepTeacherCompensation: true,
+  });
   if (!redacted || typeof redacted !== 'object') {
     return redacted;
   }

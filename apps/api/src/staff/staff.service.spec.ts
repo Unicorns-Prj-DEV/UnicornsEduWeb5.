@@ -66,6 +66,7 @@ describe('StaffService', () => {
   const mockPrisma = {
     user: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
     staffInfo: {
@@ -243,11 +244,14 @@ describe('StaffService', () => {
   }
 
   it('records action history after creating a staff profile', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      roleType: UserRole.guest,
-      staffInfo: null,
-    });
+    mockPrisma.user.findUnique.mockImplementation(
+      ({ where }: { where: { id: string } }) =>
+        Promise.resolve(
+          where.id === 'admin-1'
+            ? { id: 'admin-1', roleType: UserRole.admin, staffInfo: null }
+            : { id: 'user-1', roleType: UserRole.guest, staffInfo: null },
+        ),
+    );
     mockPrisma.staffInfo.create.mockResolvedValue({
       id: 'staff-1',
       fullName: 'Teacher A',
@@ -323,6 +327,58 @@ describe('StaffService', () => {
     expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
       'user-1',
     );
+  });
+
+  describe('role trưởng tạo hồ sơ nhân sự (14/11)', () => {
+    const headActor = { userId: 'head-1', roleType: UserRole.staff };
+    const mockActorLookup = (roles: StaffRole[]) =>
+      mockPrisma.user.findUnique.mockImplementation(
+        ({ where }: { where: { id: string } }) =>
+          Promise.resolve(
+            where.id === 'head-1'
+              ? {
+                  id: 'head-1',
+                  roleType: UserRole.staff,
+                  staffInfo: { id: 'staff-head', roles },
+                }
+              : { id: 'user-2', roleType: UserRole.guest, staffInfo: null },
+          ),
+      );
+    const basePayload = {
+      full_name: 'Gia sư mới',
+      cccd_number: '012345678902',
+      roles: [StaffRole.teacher],
+      user_id: 'user-2',
+    };
+
+    it('Trưởng ban Đào tạo không gán được role trưởng cho người mới', async () => {
+      mockActorLookup([StaffRole.training_head]);
+      await expect(
+        service.createStaff(
+          { ...basePayload, roles: [StaffRole.lesson_plan_head] },
+          headActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.staffInfo.create).not.toHaveBeenCalled();
+    });
+
+    it('Trưởng ban Chuyên môn không đặt được % chia doanh thu', async () => {
+      mockActorLookup([StaffRole.lesson_plan_head]);
+      await expect(
+        service.createStaff(
+          { ...basePayload, revenue_share_percent: 10 },
+          headActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.staffInfo.create).not.toHaveBeenCalled();
+    });
+
+    it('Gia sư không tạo được hồ sơ nhân sự', async () => {
+      mockActorLookup([StaffRole.teacher]);
+      await expect(
+        service.createStaff(basePayload, headActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
   });
 
   it('returns only active customer-care staff options', async () => {

@@ -21,6 +21,28 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Sửa CCCD trùng trả 500 khi Admin tạo nhân sự (15/11)
+
+#### Fixed
+
+- **`POST /staff` với CCCD đã có → `400` «Số CCCD đã tồn tại trong hệ thống.»** thay vì `500`. Gốc lỗi: Prisma 7 + `@prisma/adapter-pg` không còn `meta.target` trên lỗi `P2002` (tên cột nằm ở `meta.driverAdapterError.cause.constraint.fields`), nên `isCccdNumberUniqueConstraint` không bao giờ khớp. Helper chung mới `src/common/prisma-unique-error.ts` (`getUniqueConstraintFields`, `isUniqueConstraintOn`) đọc cả hai shape + test. Cùng gốc: `isEntityIdUniqueConstraintError` (retry khi sinh trùng id `UNISTAFF-*`) cũng chưa từng khớp — giờ dùng helper chung (`exact` để `id` không khớp nhầm `user_id`).
+
+### Trưởng phòng Sale & CSKH tạo học sinh trên trang Học sinh (15/11)
+
+#### Changed
+
+- **Web:** `/staff/students` của Trưởng phòng Sale & CSKH có nút **Tạo học sinh** (header, full-width trên mobile) mở `CreateCustomerCareStudentPopup variant="saleCsHead"` — nhập thẳng thông tin học sinh + tài khoản đăng nhập mới, gửi `POST /users/student` với `class_ids: []` (route đã mở cho Trưởng phòng từ #267, backend không đổi). Trưởng phòng tạo thì **không** tự gán Người chăm sóc; xếp lớp / gán CSKH làm sau trên hồ sơ học sinh. Cờ mới `canCreateStudent` (`resolveStudentAdminCapabilities`, chỉ `isAssistant`) + test. Popup giờ invalidate cả `["student","list"]` lẫn `["customer-care"]` nên danh sách Học sinh tự làm mới.
+
+### Role trưởng tạo nhân sự; Trưởng ban Đào tạo sửa trợ cấp / Dạy thử / Học thử buổi (14/11)
+
+#### Changed
+
+- **3 role trưởng tạo nhân sự = tài khoản mới + hồ sơ (sửa 15/11):** route mới `POST /users/staff` (`UserController.createStaffUser`, `AdminCreateStaffUserDto`) cho Admin + `sale_customer_care_head`, `training_head`, `lesson_plan_head` (`STAFF_CREATOR_HEAD_ROLES`). Nhập thẳng email, tên đăng nhập, mật khẩu, SĐT, họ tên, role, CCCD (12 số) + hồ sơ; **không** tìm / gắn hồ sơ vào user có sẵn. Email / tên đăng nhập đã có tài khoản (kể cả chưa xác thực) hoặc CCCD trùng → `400` (không ghi đè tài khoản người khác). Gán được mọi role **trừ Admin và role trưởng** (`assertStaffRoleChangeAllowed`, #265); DTO không nhận `% chia doanh thu` / `% CSKH mặc định` / Google Meet / Người quản lý CSKH. Tạo hồ sơ lỗi thì xoá user vừa tạo. `POST /staff` và `GET /staff/assignable-users` **giữ Admin-only** (bản 14/11 mở cho role trưởng đã thu hồi). Allowlist deny-by-default + test RBAC, `user.service.spec.ts` cập nhật.
+- **Web:** nút **Tạo nhân sự** (`HeadCreateStaffButton` → `CreateStaffAccountPopup`, helper `lib/staff-account-form.ts` + test; 9 role, không Admin / role trưởng) trên `/staff/staffs` của Trưởng phòng Sale & CSKH và Trưởng ban Đào tạo; Trưởng ban Chuyên môn có sidebar **Nhân sự** + trang tối giản `LessonPlanHeadStaffPanel` (chỉ danh sách, gate không mở `/staff/staffs/:id`).
+- **Trưởng ban Đào tạo chỉnh buổi học:** route mới `PATCH /staff-ops/sessions/:id/training-head` (`TrainingHeadSessionUpdateDto`) — sửa tay `allowanceAmount`, bật/tắt Dạy thử (`coefficient` 0/1), tick / bỏ tick **Học thử** từng học sinh (chỉ chuyển khi một phía là `trial`, `training-head-session-policy.ts`). Chặn buổi của chính mình (`403`), đổi trợ cấp / hệ số buổi `paid`/`deposit` (`400`), học sinh ngoài buổi / trùng (`400`). Giữ notes, nhận xét; học phí từng học sinh tính lại theo trạng thái.
+- **Redaction:** Trưởng ban Đào tạo thấy lại `allowanceAmount`, `coefficient`, `teacherPaymentStatus` của buổi (`redactSessionForTrainingHeadView` → `keepTeacherCompensation`); Quản lý lớp thường vẫn ẩn.
+- **Web:** `SessionHistoryTable` thêm chế độ `trainingHeadEdit` (form «Trợ cấp & học thử», còn lại chỉ đọc); `AttendanceStatusQuickPick` / `SessionAttendanceEditor` nhận `isStatusSelectable` để khoá từng trạng thái. Trang lớp admin-like của Trưởng ban gửi qua `staffOpsApi.updateSessionAsTrainingHead`.
+
 ### Trưởng phòng Sale & CSKH duyệt nạp thẳng ví học sinh (14/11)
 
 #### Changed

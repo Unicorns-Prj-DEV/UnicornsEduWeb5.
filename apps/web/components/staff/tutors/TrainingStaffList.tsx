@@ -14,6 +14,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useDebouncedCallback } from "use-debounce";
+import HeadCreateStaffButton from "@/components/staff/HeadCreateStaffButton";
 import { StaffListTableSkeleton } from "@/components/admin/staff";
 import StaffListAvatar from "@/components/admin/staff/StaffListAvatar";
 import StaffListPagination from "@/components/admin/staff/StaffListPagination";
@@ -284,13 +285,18 @@ export default function TrainingStaffList() {
                 </p>
               </div>
               {isHead ? (
-                <button
-                  type="button"
-                  onClick={() => setPickingCandidate(true)}
-                  className={cn(BUTTON_SECONDARY, "shrink-0")}
-                >
-                  Bật role cho nhân sự khác
-                </button>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => setPickingCandidate(true)}
+                    className={cn(BUTTON_SECONDARY, "shrink-0")}
+                  >
+                    Bật role cho nhân sự khác
+                  </button>
+                  <HeadCreateStaffButton
+                    invalidateQueryKeys={[trainingTutorKeys.all]}
+                  />
+                </div>
               ) : null}
             </div>
 

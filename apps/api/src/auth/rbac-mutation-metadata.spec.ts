@@ -66,6 +66,15 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
     ]);
   });
 
+  // 15/11: tạo nhân sự mới (tài khoản + hồ sơ) cho Admin + 3 role trưởng.
+  it('allows 3 head roles on UserController.createStaffUser', () => {
+    expect(getAllowedStaffRoles(UserController, 'createStaffUser')).toEqual([
+      StaffRole.sale_customer_care_head,
+      StaffRole.training_head,
+      StaffRole.lesson_plan_head,
+    ]);
+  });
+
   it.each(['createStaff', 'updateStaff', 'updateStaffStatus', 'deleteStaff'])(
     'keeps StaffController.%s admin-only',
     (methodName) => {

@@ -226,8 +226,8 @@ describe("Hồ sơ nhân sự /staff/staffs/:id cho các trưởng", () => {
     ).toBe(true);
   });
 
-  it.each([["training"], ["training_head"]])(
-    "role %s vào danh sách /staff/staffs (thay /staff/tutors cũ)",
+  it.each([["training"], ["training_head"], ["lesson_plan_head"]])(
+    "role %s vào danh sách /staff/staffs (thay /staff/tutors cũ; Trưởng ban Chuyên môn để tạo nhân sự)",
     (role) => {
       expect(
         resolveStaffShellRouteAccess(staffProfile([role]), "/staff/staffs")
@@ -236,7 +236,7 @@ describe("Hồ sơ nhân sự /staff/staffs/:id cho các trưởng", () => {
     },
   );
 
-  it.each([["teacher"], ["lesson_plan_head"], ["customer_care"]])(
+  it.each([["teacher"], ["lesson_plan"], ["customer_care"]])(
     "role %s không vào danh sách /staff/staffs",
     (role) => {
       expect(

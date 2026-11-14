@@ -26,6 +26,8 @@ export type StudentAdminCapabilities = {
   canEditStudentClassTuition: boolean;
   canViewWalletHistory: boolean;
   canDeleteStudent: boolean;
+  /** 15/11: Trưởng phòng Sale & CSKH tạo học sinh kèm tài khoản (`POST /users/student`). */
+  canCreateStudent: boolean;
 };
 
 export type UserAdminCapabilities = {
@@ -269,6 +271,7 @@ export function resolveStudentAdminCapabilities(
     // Quyết định 13/11: Kế toán thu xem lịch sử ví để đối soát (chỉ xem).
     canViewWalletHistory: canManageStudent || access.isAccountantIncome,
     canDeleteStudent: access.isAdmin || access.isAssistant,
+    canCreateStudent: access.isAssistant,
   };
 }
 

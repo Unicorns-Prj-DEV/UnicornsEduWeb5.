@@ -93,6 +93,22 @@ export class SessionService {
     );
   }
 
+  updateSessionAsTrainingHead(
+    userId: string,
+    roleType: UserRole,
+    sessionId: string,
+    data: Parameters<SessionUpdateService['updateSessionAsTrainingHead']>[3],
+    actor?: ActionHistoryActor,
+  ) {
+    return this.sessionUpdateService.updateSessionAsTrainingHead(
+      userId,
+      roleType,
+      sessionId,
+      data,
+      actor,
+    );
+  }
+
   deleteSession(id: string, actor?: ActionHistoryActor) {
     return this.sessionDeleteService.deleteSession(id, actor);
   }

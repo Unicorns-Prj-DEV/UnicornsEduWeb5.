@@ -50,3 +50,8 @@ Biên bản họp 12/11/2026 «tái cấu trúc role theo mô hình công ty» (
 - Mở `StudentController.listStudentWalletDirectTopUpRequests`, `getStudentWalletDirectTopUpRequest`, `approveStudentWalletDirectTopUpRequestFromQueue` cho `staff.sale_customer_care_head` (allowlist trong `admin-deny-by-default.spec.ts`). Thay thế câu «Hàng đợi nạp (xem/duyệt) chỉ Admin» ở trên.
 - Trưởng phòng duyệt được **mọi** yêu cầu, kể cả yêu cầu do chính mình tạo (quyết định nghiệp vụ 14/11, chấp nhận bỏ nguyên tắc 2 người). Dấu vết: note giao dịch ví ghi email người duyệt + action history ghi actor.
 - Nạp số dương thẳng (`PATCH /student/update-student-account-balance`, `amount > 0`) vẫn chỉ Admin. Web: route `/staff/wallet-direct-topup-requests`; `/admin/wallet-direct-topup-requests` vẫn strict Admin.
+
+## Addendum 15/11 — Role trưởng tạo nhân sự qua `POST /users/staff`
+
+- `UserController.createStaffUser` (`POST /users/staff`) mở cho `sale_customer_care_head`, `training_head`, `lesson_plan_head` (`STAFF_CREATOR_HEAD_ROLES`): tạo **tài khoản mới + hồ sơ**; email / tên đăng nhập đã có (kể cả chưa xác thực) → `400`, nên không chiếm hay ghi đè tài khoản người khác.
+- `StaffController.createStaff` (`POST /staff`) và `searchAssignableUsers` (`GET /staff/assignable-users`, trả email) **giữ Admin-only**. Bản 14/11 mở hai route này cho role trưởng (tìm email khớp đúng) đã thu hồi: gắn hồ sơ vào user có sẵn không phải luồng của role trưởng.

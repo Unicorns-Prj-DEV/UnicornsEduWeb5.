@@ -12,6 +12,8 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -543,3 +545,62 @@ export class CreateStaffOpsSessionDto extends SessionReviewFieldsDto {
 export class UpdateStaffOpsSessionDto extends PartialType(
   OmitType(CreateStaffOpsSessionDto, ['teacherId'] as const),
 ) {}
+
+/** Một dòng đổi trạng thái học thử (Trưởng ban Đào tạo, 14/11). */
+export class TrainingHeadAttendanceStatusDto {
+  @ApiProperty({
+    description: 'Học sinh đã có trong điểm danh của buổi',
+    example: 'UNIST-a1b2c3d4e5',
+  })
+  @IsStudentId()
+  studentId: string;
+
+  @ApiProperty({
+    enum: AttendanceStatus,
+    example: AttendanceStatus.trial,
+    description:
+      'Trạng thái mới. Chỉ được đổi sang hoặc ra khỏi `trial` (Học thử).',
+  })
+  @IsEnum(AttendanceStatus)
+  status: AttendanceStatus;
+}
+
+/**
+ * `PATCH /staff-ops/sessions/:id/training-head` (14/11): Trưởng ban Đào tạo
+ * chỉnh tay trợ cấp buổi, tick Dạy thử của buổi, tick Học thử từng học sinh.
+ */
+export class TrainingHeadSessionUpdateDto {
+  @ApiPropertyOptional({
+    description:
+      'Trợ cấp gốc của buổi (VNĐ, trước hệ số / vận hành / thuế). Buổi đã thanh toán hoặc ghi cọc không đổi được.',
+    example: 150000,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000_000)
+  allowanceAmount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Dạy thử: 0 = buổi dạy thử (không trợ cấp), 1 = buổi thường.',
+    enum: [0, 1],
+    example: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn([0, 1])
+  coefficient?: number;
+
+  @ApiPropertyOptional({
+    type: [TrainingHeadAttendanceStatusDto],
+    description:
+      'Chỉ các học sinh cần đổi. Học sinh không gửi giữ nguyên trạng thái, ghi chú và nhận xét.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => TrainingHeadAttendanceStatusDto)
+  attendance?: TrainingHeadAttendanceStatusDto[];
+}

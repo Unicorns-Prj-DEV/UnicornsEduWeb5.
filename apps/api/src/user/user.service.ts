@@ -23,6 +23,7 @@ import {
   ActionHistoryService,
 } from 'src/action-history/action-history.service';
 import { AuthService } from 'src/auth/auth.service';
+import { StaffService } from 'src/staff/staff.service';
 import type { PublicRequestOrigin } from 'src/mail/public-frontend-url';
 import { STAFF_DATA_CONSENT_VERSION } from 'src/auth/constants';
 import {
@@ -31,6 +32,7 @@ import {
   UpdateMyStudentProfileDto,
 } from 'src/dtos/profile.dto';
 import {
+  AdminCreateStaffUserDto,
   AdminCreateStudentUserDto,
   AdminCreateUserDto,
   GetUsersQueryDto,
@@ -38,6 +40,7 @@ import {
 } from 'src/dtos/user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
+  assertStaffCreateAllowed,
   assertStaffRoleChangeAllowed,
   assertUserRoleTypeChangeAllowed,
   resolveStaffPolicyActor,
@@ -102,6 +105,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
     private readonly authService: AuthService,
+    private readonly staffService: StaffService,
   ) {}
 
   private buildAvatarStoragePath(userId: string) {
@@ -754,6 +758,113 @@ export class UserService {
 
     this.authService.invalidateAuthIdentityCache(createdUser.id);
     return response;
+  }
+
+  /**
+   * 15/11: tạo tài khoản đăng nhập + hồ sơ nhân sự trong một bước (Admin, role
+   * trưởng). Chỉ nhận email / tên đăng nhập chưa thuộc tài khoản nào: không gắn
+   * hồ sơ vào, cũng không ghi đè (kể cả tài khoản chưa xác thực) user có sẵn.
+   */
+  async createStaffUser(
+    data: AdminCreateStaffUserDto,
+    auditActor?: ActionHistoryActor,
+    emailLinkOrigin?: PublicRequestOrigin,
+  ): Promise<{ message: string; staffId: string }> {
+    const fullName = data.full_name.trim();
+    if (!fullName) {
+      throw new BadRequestException('Vui lòng nhập họ tên nhân sự.');
+    }
+
+    // Chặn quyền trước khi tạo user pending, tránh tạo xong mới 403.
+    const policyActor = await resolveStaffPolicyActor(this.prisma, auditActor);
+    assertStaffCreateAllowed(policyActor, {});
+    assertStaffRoleChangeAllowed(policyActor, {
+      targetStaffId: null,
+      previousRoles: [],
+      nextRoles: data.roles,
+    });
+
+    const email = data.email.trim();
+    const accountHandle = data.accountHandle.trim();
+    const [emailOwner, handleOwner, cccdOwner] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: { email: { equals: email, mode: 'insensitive' } },
+        select: { id: true },
+      }),
+      this.prisma.user.findFirst({
+        where: { accountHandle: { equals: accountHandle, mode: 'insensitive' } },
+        select: { id: true },
+      }),
+      this.prisma.staffInfo.findUnique({
+        where: { cccdNumber: data.cccd_number },
+        select: { id: true },
+      }),
+    ]);
+    if (emailOwner) {
+      throw new BadRequestException('Email này đã có tài khoản.');
+    }
+    if (handleOwner) {
+      throw new BadRequestException('Tên đăng nhập đã được dùng.');
+    }
+    if (cccdOwner) {
+      throw new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
+    }
+
+    const names = splitFullName(fullName);
+    const response =
+      await this.authService.createPendingUserWithVerificationEmail(
+        {
+          email,
+          password: data.password,
+          accountHandle,
+          phone: data.phone?.trim() || undefined,
+          first_name: names.first_name,
+          last_name: names.last_name ?? undefined,
+        },
+        {
+          auditActor,
+          createDescription: 'Tạo tài khoản nhân sự',
+          updateDescription: 'Cập nhật user pending từ luồng tạo nhân sự',
+          successMessage: data.emailVerified
+            ? 'Tạo nhân sự thành công (đã xác thực email).'
+            : 'Tạo nhân sự thành công. Email xác thực đã được gửi.',
+          emailVerified: data.emailVerified,
+          emailLinkOrigin,
+        },
+      );
+
+    const createdUser = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (!createdUser) {
+      throw new InternalServerErrorException(
+        'Không tìm thấy user vừa tạo để tạo hồ sơ nhân sự.',
+      );
+    }
+
+    const {
+      email: _email,
+      password: _password,
+      accountHandle: _accountHandle,
+      phone: _phone,
+      emailVerified: _emailVerified,
+      ...profile
+    } = data;
+    try {
+      const staff = await this.staffService.createStaff(
+        { ...profile, full_name: fullName, user_id: createdUser.id },
+        auditActor,
+      );
+      return { message: response.message, staffId: staff.id };
+    } catch (error) {
+      // Hồ sơ lỗi (VD: CCCD vừa bị người khác dùng) → bỏ tài khoản vừa tạo,
+      // không để lại user mồ côi chiếm email / tên đăng nhập.
+      await this.prisma.user
+        .delete({ where: { id: createdUser.id } })
+        .catch(() => undefined);
+      throw error;
+    }
   }
 
   /** Luật 2 (#265): chỉ Admin cấp/thu hồi role trưởng, Admin; không tự thêm role. */

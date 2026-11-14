@@ -159,6 +159,18 @@ describe("Trang quản trị mặc định đóng (#267)", () => {
     expect(caps.canDirectlyAdjustWallet).toBe(false);
   });
 
+  it("Tạo học sinh trên trang Học sinh: chỉ Trưởng phòng Sale & CSKH (15/11)", () => {
+    expect(
+      resolveStudentAdminCapabilities(staffProfile(["sale_customer_care_head"]), "/staff")
+        .canCreateStudent,
+    ).toBe(true);
+    for (const roles of [["customer_care"], ["accountant_income"], ["training_head"]]) {
+      expect(
+        resolveStudentAdminCapabilities(staffProfile(roles), "/staff").canCreateStudent,
+      ).toBe(false);
+    }
+  });
+
   it("#272: học phí riêng HS — Kế toán thu sửa, Kế toán chi không", () => {
     expect(
       resolveStudentAdminCapabilities(staffProfile(["accountant_income"]))

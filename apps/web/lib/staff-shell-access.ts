@@ -455,7 +455,13 @@ export function resolveStaffShellRouteAccess(
                                   isAssistantStaff ||
                                   (hasStaffWorkspaceAccess &&
                                     isStaffOrAdmin &&
-                                    isTraining)
+                                    isTraining) ||
+                                  // 14/11: Trưởng ban Chuyên môn chỉ vào trang
+                                  // danh sách để tạo nhân sự, không xem hồ sơ.
+                                  (!flags.isStaffDetailRoute &&
+                                    hasStaffWorkspaceAccess &&
+                                    isStaffOrAdmin &&
+                                    lessonWorkspace.isLessonPlanHead)
                                 : flags.isAssistantAdminLikeRoute
                                   ? false
                                   : flags.isCustomerCareSelfRoute
