@@ -21,6 +21,15 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Trưởng phòng Sale & CSKH duyệt nạp thẳng ví học sinh (14/11)
+
+#### Changed
+
+- **Trưởng phòng Sale & CSKH (`staff.sale_customer_care_head`) được duyệt hàng chờ nạp thẳng:** mở `GET /student/wallet-direct-topup-requests`, `GET /student/wallet-direct-topup-requests/:requestId`, `POST /student/wallet-direct-topup-requests/:requestId/approve` qua `@AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)`. Được duyệt **mọi** yêu cầu, kể cả yêu cầu do chính mình tạo (quyết định 14/11). Nạp số dương thẳng qua `PATCH /student/update-student-account-balance` vẫn chỉ Admin (#267). Không thêm notification cho Trưởng phòng — vào trang hàng chờ để duyệt; email vẫn chỉ gửi `ADMIN_EMAIL`.
+- **Route web `/staff/wallet-direct-topup-requests`** (re-export trang admin) + mục sidebar **Duyệt nạp ví** cho Trưởng phòng; gate `isStaffDirectTopUpQueueRoute` trong `lib/staff-shell-access.ts`. `/admin/wallet-direct-topup-requests` vẫn strict Admin.
+- **Ghi chú giao dịch ví khi duyệt** đổi từ «Nạp thẳng đã được admin xác nhận» sang «Nạp thẳng đã được `<email người duyệt>` xác nhận» (luồng email token ghi `ADMIN_EMAIL`).
+- Trang hàng chờ hỏi xác nhận bằng `ConfirmDialog` thay `window.confirm`; copy trang chi tiết học sinh đổi «tới admin» → «Admin hoặc Trưởng phòng Sale & CSKH duyệt».
+
 ### Ban Đào Tạo dùng chung giao diện admin (13/11)
 
 #### Changed

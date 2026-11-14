@@ -50,6 +50,7 @@ export type StaffShellRouteFlags = {
   isStaffCalendarRoute: boolean;
   isStaffSurveysRoute: boolean;
   isStaffCoursesRoute: boolean;
+  isStaffDirectTopUpQueueRoute: boolean;
 };
 
 export type StaffShellAccessContext = {
@@ -295,6 +296,9 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
   const isStaffCalendarRoute = pathname.startsWith("/staff/calendar");
   const isStaffSurveysRoute = pathname.startsWith("/staff/surveys");
   const isStaffCoursesRoute = pathname.startsWith("/staff/courses");
+  const isStaffDirectTopUpQueueRoute = pathname.startsWith(
+    "/staff/wallet-direct-topup-requests",
+  );
   const isAssistantAdminLikeRoute =
     isAssistantDashboardRoute ||
     isAssistantUsersRoute ||
@@ -342,6 +346,7 @@ function resolveStaffShellRouteFlags(pathname: string): StaffShellRouteFlags {
     isStaffCalendarRoute,
     isStaffSurveysRoute,
     isStaffCoursesRoute,
+    isStaffDirectTopUpQueueRoute,
   };
 }
 
@@ -390,6 +395,9 @@ export function resolveStaffShellRouteAccess(
         ? true
         : flags.isAdminOnlyReportRoute
           ? false
+          : flags.isStaffDirectTopUpQueueRoute
+            ? // 14/11: Trưởng phòng Sale & CSKH duyệt hàng chờ nạp thẳng.
+              isAssistantStaff
           : flags.isStaffCalendarRoute
             ? hasStaffWorkspaceAccess && (isAdmin || isTeacher || isTraining)
             : flags.isStaffSurveysRoute

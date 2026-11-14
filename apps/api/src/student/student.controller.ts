@@ -257,8 +257,9 @@ export class StudentController {
     @CurrentAuth() auth: ResolvedAuthAccess | null,
     @Body() data: UpdateStudentAccountBalanceCreateDto,
   ) {
-    // #267: nạp thẳng số dương chỉ Admin; Trợ lí chỉ được rút (số âm) và nạp
-    // qua yêu cầu nạp / QR SePay (hàng đợi duyệt nạp cũng chỉ Admin).
+    // #267: nạp thẳng số dương chỉ Admin; Trưởng phòng Sale & CSKH chỉ được rút
+    // (số âm) và nạp qua yêu cầu nạp / QR SePay. Trưởng phòng được duyệt hàng
+    // chờ nạp thẳng (`wallet-direct-topup-requests/:id/approve`).
     const isFullAdmin =
       user.roleType === UserRole.admin || auth?.access.admin.tier === 'full';
     if (!isFullAdmin && data.amount > 0) {
@@ -278,7 +279,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'List direct wallet top-up approval requests',
     description:
-      'Admin-only queue for pending and historical direct wallet top-up approval requests.',
+      'Queue for pending and historical direct wallet top-up approval requests. Admin and Trưởng phòng Sale & CSKH.',
   })
   @ApiQuery({
     name: 'status',
@@ -293,7 +294,11 @@ export class StudentController {
     description: 'Paginated direct top-up approval requests.',
     type: StudentWalletDirectTopUpRequestListResponseDto,
   })
-  @ApiResponse({ status: 403, description: 'Admin-only.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Admin hoặc Trưởng phòng Sale & CSKH.',
+  })
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async listStudentWalletDirectTopUpRequests(
     @Query() query: StudentWalletDirectTopUpRequestListQueryDto,
   ): Promise<StudentWalletDirectTopUpRequestListResponseDto> {
@@ -304,7 +309,7 @@ export class StudentController {
   @ApiOperation({
     summary: 'Get one direct wallet top-up approval request',
     description:
-      'Admin-only detail endpoint used by the notification approval popup.',
+      'Detail endpoint used by the notification approval popup. Admin and Trưởng phòng Sale & CSKH.',
   })
   @ApiParam({ name: 'requestId', description: 'Direct top-up request ID' })
   @ApiResponse({
@@ -312,7 +317,11 @@ export class StudentController {
     description: 'Direct top-up approval request.',
     type: StudentWalletDirectTopUpRequestResponseDto,
   })
-  @ApiResponse({ status: 403, description: 'Admin-only.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Admin hoặc Trưởng phòng Sale & CSKH.',
+  })
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   @ApiResponse({ status: 404, description: 'Request not found.' })
   async getStudentWalletDirectTopUpRequest(
     @Param('requestId', new ParseUUIDPipe()) requestId: string,
@@ -324,9 +333,9 @@ export class StudentController {
 
   @Post('wallet-direct-topup-requests/:requestId/approve')
   @ApiOperation({
-    summary: 'Approve a direct wallet top-up request from the admin queue',
+    summary: 'Approve a direct wallet top-up request from the approval queue',
     description:
-      'Admin-only approval endpoint. Credits the student wallet using the same transaction logic as the email approval flow.',
+      'Approval endpoint for Admin and Trưởng phòng Sale & CSKH (may approve any request, including their own). Credits the student wallet using the same transaction logic as the email approval flow.',
   })
   @ApiParam({ name: 'requestId', description: 'Direct top-up request ID' })
   @ApiResponse({
@@ -335,7 +344,11 @@ export class StudentController {
     type: StudentWalletDirectTopUpApprovalResultDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid or expired request.' })
-  @ApiResponse({ status: 403, description: 'Admin-only.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Admin hoặc Trưởng phòng Sale & CSKH.',
+  })
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
   async approveStudentWalletDirectTopUpRequestFromQueue(
     @CurrentUser() user: JwtPayload,
     @Param('requestId', new ParseUUIDPipe()) requestId: string,

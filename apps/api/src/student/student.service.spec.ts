@@ -1223,11 +1223,26 @@ describe('StudentService', () => {
     });
 
     await expect(
-      service.approveStudentWalletDirectTopUpRequestById('direct-request-1'),
+      service.approveStudentWalletDirectTopUpRequestById('direct-request-1', {
+        userId: 'head-user-1',
+        userEmail: 'head@example.com',
+        roleType: UserRole.staff,
+      }),
     ).resolves.toMatchObject({
       status: StudentWalletDirectTopUpRequestStatus.approved,
       balanceAfter: 600000,
     });
+
+    // Ghi chú giao dịch ghi đúng người duyệt (Trưởng phòng), không mặc định "admin".
+    expect(mockPrisma.walletTransactionsHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          note: expect.stringContaining(
+            'Nạp thẳng đã được head@example.com xác nhận.',
+          ),
+        }),
+      }),
+    );
 
     expect(
       mockPrisma.studentWalletDirectTopUpRequest.findUnique,

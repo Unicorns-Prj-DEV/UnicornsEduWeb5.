@@ -196,6 +196,10 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   'NotificationController.getNotificationRecipientOptions',
   'NotificationController.pushNotification',
   'NotificationController.updateNotificationDraft',
+  // 14/11: Trưởng phòng duyệt hàng chờ nạp thẳng (kể cả yêu cầu của chính mình).
+  'StudentController.approveStudentWalletDirectTopUpRequestFromQueue',
+  'StudentController.getStudentWalletDirectTopUpRequest',
+  'StudentController.listStudentWalletDirectTopUpRequests',
 ].sort();
 
 function loadAllControllers(): ControllerClass[] {
@@ -321,6 +325,9 @@ describe('Admin routes deny-by-default (#267)', () => {
       [DeviceController, 'forceLogout'],
       [StudentController, 'updateStudentAccountBalance'],
       [StudentController, 'createStudentWalletDirectTopUpRequest'],
+      [StudentController, 'listStudentWalletDirectTopUpRequests'],
+      [StudentController, 'getStudentWalletDirectTopUpRequest'],
+      [StudentController, 'approveStudentWalletDirectTopUpRequestFromQueue'],
       [StudentController, 'createStudentSePayTopUpOrder'],
       [StudentController, 'getStudentSePayStaticQr'],
       [NotificationController, 'createNotificationDraft'],
@@ -386,15 +393,6 @@ describe('Admin routes deny-by-default (#267)', () => {
         'lịch sử thao tác',
         ActionHistoryController,
         adminOnlyRoutes(ActionHistoryController),
-      ],
-      [
-        'duyệt hàng đợi nạp',
-        StudentController,
-        [
-          'listStudentWalletDirectTopUpRequests',
-          'getStudentWalletDirectTopUpRequest',
-          'approveStudentWalletDirectTopUpRequestFromQueue',
-        ],
       ],
     ];
 
