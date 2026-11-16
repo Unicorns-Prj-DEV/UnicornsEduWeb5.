@@ -5462,6 +5462,8 @@ export class StaffService {
         include: {
           user: {
             select: {
+              // Web dùng `user.id` cho đổi tên đăng nhập + link hồ sơ liên kết.
+              id: true,
               ...STAFF_NAME_USER_SELECT,
               province: true,
               phone: true,

@@ -50,6 +50,10 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - **Web:** dialog chung `SetAccountHandleDialog` (`ResponsiveDialog`, hỏi `ConfirmDialog` khi bỏ thay đổi, Sonner, validate client `lib/account-handle.ts` khớp backend). Nút **Đổi tên đăng nhập** (icon @) cạnh **Đặt mật khẩu** trên `/admin/students/:id` + `/staff/students/:id`, chip `@handle` cạnh trạng thái. Nút **Đổi** cạnh dòng Handle của `StaffIdentityOverview` (prop `onEditAccountHandle`) trên `/staff/staffs/:id` (theo cờ của Sale & CSKH hoặc Đào tạo) và `/admin/staffs/:id` (chỉ Admin).
 - **Giới hạn:** Trưởng ban Giáo án (`lesson_plan_head`) chưa có quyền này; nhân sự kiêm role ngoài nhóm của trưởng → nhờ Admin.
 
+#### Fixed
+
+- **`GET /staff/:id` trả thêm `user.id`** (khớp `StaffDetail.user.id` của web; `userId` top-level vốn đã trả, không lộ thêm). Trước đó `/admin/staffs/:id` kiểm `staff.user?.id` luôn rỗng → ẩn nút **Đổi tên đăng nhập** và link **Quản lý tài khoản** (`UserLinkedProfileLinks`) dù người xem là Admin.
+
 ### Role trưởng xoá buổi học (15/11)
 
 #### Changed
