@@ -39,6 +39,11 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 #### Changed
 
+- **Copy nhận xét buổi học ra Zalo** (template có cấu trúc): chữ ký cuối tin đổi từ `— Gia sư Unicorns Edu` sang theo môn của instance (`appConfig.profile`):
+  - IT: `— Gia sư UniEdu Tin học`
+  - JP: `— Gia sư UniEdu Tiếng Nhật`
+  - ENG: `— Gia sư UniEdu Tiếng Anh`
+  - áp dụng cả nút Copy lẫn phần nhận xét hiển thị trong lịch sử buổi; format legacy 5 phần giữ `— UniEdu`
 - `ProtectedVideoPlaybackDto`:
   - `processing` có thêm `stage`, `queuePosition`, `queueTotal`
   - thêm state `failed`: đồng bộ UNIOJ lỗi → «Video không xem được» kèm lời nhắc liên hệ gia sư hoặc trợ giảng, hỏi lại mỗi 60 giây

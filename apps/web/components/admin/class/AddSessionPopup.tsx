@@ -75,6 +75,7 @@ import {
   isSessionFormDirty,
 } from "@/lib/session-form-dirty.helpers";
 import { cn } from "@/lib/utils";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import {
   emptySessionReviewForm,
   emptyStudentReviewForm,
@@ -314,6 +315,8 @@ export default function AddSessionPopup({
   onCreated,
 }: Props) {
   const queryClient = useQueryClient();
+  const { data: appConfig } = useAppConfig();
+  const lmsProfile = appConfig?.profile ?? null;
   const { data: fullProfile } = useQuery({
     queryKey: ["auth", "full-profile"],
     queryFn: getFullProfile,
@@ -700,9 +703,11 @@ export default function AddSessionPopup({
         ordinal: nextOrdinal?.ordinal ?? null,
         review: sessionReviewPayload,
         structured: true,
+        profile: lmsProfile,
         students: reviewStudents,
       }),
     [
+      lmsProfile,
       className,
       date,
       endTime,

@@ -83,6 +83,7 @@ import {
   TrialLessonToggle,
 } from "@/components/admin/session/session-form-ui";
 import { useInClassTestEnabled } from "@/lib/hooks/useInClassTestEnabled";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { DateInput } from "@/components/ui/DateInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { TimeInput } from "@/components/ui/TimeInput";
@@ -982,6 +983,8 @@ export default function SessionHistoryTable({
       ? REVIEW_ONLY_SESSION_STATUS
       : renderSessionStatus(session, mode);
   const inClassTestEnabled = useInClassTestEnabled();
+  const { data: appConfig } = useAppConfig();
+  const lmsProfile = appConfig?.profile ?? null;
   const isSavedTrialLesson = Number(editingSession?.coefficient ?? 1) === 0;
   const [editIsTrialLesson, setEditIsTrialLesson] = useState(false);
   const showTrialLessonToggle =
@@ -2084,8 +2087,10 @@ export default function SessionHistoryTable({
       review: editSessionReviewPayload,
       structured: true,
       students: editReviewStudents,
+      profile: lmsProfile,
     });
   }, [
+    lmsProfile,
     editReviewStudents,
     editSessionReviewPayload,
     editDate,
@@ -2185,7 +2190,9 @@ export default function SessionHistoryTable({
               homework: session.homework,
               tutorial: session.tutorial,
               attendance: session.attendance,
-            });
+            },
+              lmsProfile,
+            );
             const entityLabel = shouldShowEntity
               ? renderEntityHeader(entityMode)
               : "";
@@ -2527,7 +2534,9 @@ export default function SessionHistoryTable({
                     homework: session.homework,
                     tutorial: session.tutorial,
                     attendance: session.attendance,
-                  });
+                  },
+                    lmsProfile,
+                  );
 
                   return (
                     <tr
@@ -2768,7 +2777,9 @@ export default function SessionHistoryTable({
                     homework: session.homework,
                     tutorial: session.tutorial,
                     attendance: session.attendance,
-                  });
+                  },
+                    lmsProfile,
+                  );
                   return (
                     <tr
                       key={session.id}
