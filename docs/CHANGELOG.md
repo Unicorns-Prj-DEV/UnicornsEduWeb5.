@@ -30,6 +30,7 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 #### Changed
 
 - `GET /courses` trả **mọi khoá** cho mọi role, mỗi khoá kèm `canAccessContent` (admin: mọi khoá; đội chuyên môn: khoá được gán; role khác: `false`). Bỏ `CourseAccessService.resolveListableCourseIds`. Route nội dung vẫn `403` khi chưa được gán (`assertCanManageCourse`).
+- Dropdown «Khoá học» (`CourseSelect`): tải lỗi → toast Sonner «Không tải được danh sách khoá học.» + nút **Thử lại**, dropdown ghi «Không tải được khoá học.» thay vì «Chưa có khoá học nào.»; đang tải ghi «Đang tải khoá học…».
 - Workspace **Khoá học** (`/staff/courses`): khoá chưa được gán hiện mờ + badge 🔒 «Chưa được gán», không mở được, ẩn Sửa/Xoá/Switch; bỏ empty state «Bạn chưa được gán vào đội chuyên môn của khoá nào.».
 
 ### Cảnh báo chưa dạy thử trong popup thanh toán + tiến trình xử lý video cho học sinh (16/11)
