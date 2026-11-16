@@ -336,6 +336,21 @@ export default function AdminClassDetailPage() {
   const canEditSessions = isAdmin;
   // Khớp quyền `PUT /sessions/:id`: được lưu khi Nhận xét buổi học còn trống field bắt buộc.
   const canSkipRequiredSessionReview = isAdmin || adminAccess.isAccountantExpense;
+  /**
+   * 16/11: Kế toán chi tick Dạy thử (hệ số 0/1) của buổi qua `PUT /sessions/:id`
+   * như Admin. Trưởng ban Đào tạo đi route staff-ops riêng.
+   */
+  const canToggleTrialTeaching =
+    canEditSessions || usesStaffOpsClassOperations || adminAccess.isAccountantExpense;
+  /** #265: Kế toán chi không đổi hệ số buổi do chính mình dạy (backend `403`). */
+  const canToggleTrialForSession = useCallback(
+    (session: { teacherId: string }) =>
+      isAdmin ||
+      !adminAccess.isAccountantExpense ||
+      !viewerStaffId ||
+      session.teacherId !== viewerStaffId,
+    [isAdmin, adminAccess.isAccountantExpense, viewerStaffId],
+  );
   const canManageClassStatus = isAdmin;
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
@@ -1638,9 +1653,8 @@ export default function AdminClassDetailPage() {
                             editorLayout="wide"
                             enableBulkPaymentStatusEdit={canEditSessionPaymentStatus}
                             allowTeacherSelection={canEditSessions}
-                            allowTrialTeachingToggle={
-                              canEditSessions || usesStaffOpsClassOperations
-                            }
+                            allowTrialTeachingToggle={canToggleTrialTeaching}
+                            canToggleTrialForSession={canToggleTrialForSession}
                             allowFinancialEdits={canEditSessions}
                             skipRequiredReviewValidation={canSkipRequiredSessionReview}
                             allowAllowanceEdit={
