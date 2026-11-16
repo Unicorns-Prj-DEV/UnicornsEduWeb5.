@@ -42,17 +42,19 @@ Query:
 
 Mỗi dòng kèm `_count.classes`, `_count.lessonPlanMembers`, `_count.difficultyLevels` (chỉ mức khó đang active).
 
-### Lọc theo người gọi (server-side)
+### Danh sách và quyền vào nội dung (17/11)
 
-Phạm vi **không** nhận cờ từ client. Controller resolve actor rồi gọi `CourseAccessService.resolveListableCourseIds`.
+Mọi người gọi (admin/staff) nhận **toàn bộ** danh sách khoá — tên khoá không nhạy cảm; dropdown «Khoá học» khi tạo/sửa lớp luôn đủ khoá. Mỗi khoá kèm cờ `canAccessContent` do controller tính từ `CourseAccessService.resolveViewableCourseIds` (không nhận cờ từ client):
 
-| Actor | Kết quả list |
+| Actor | `canAccessContent` |
 | --- | --- |
-| Đội chuyên môn thuần (`lesson_plan` và/hoặc `lesson_plan_head`, không kèm `admin`) | Chỉ khoá được gán trong `course_lesson_plan_members` |
-| `admin`, `sale_customer_care_head` (chỉ danh sách), `training`, `accountant_income`, `accountant_expense`, `teacher`, `customer_care` | Tất cả khoá (không đổi so với trước) |
-| User đã auth nhưng không có staff profile, và không phải `lesson_plan` thuần | Tất cả khoá; không crash |
+| `admin` (user admin hoặc staff role `admin`) | `true` mọi khoá |
+| Đội chuyên môn (`lesson_plan` / `lesson_plan_head`, không kèm `admin`) — kể cả khi kiêm `training_head`, `sale_customer_care_head`… | `true` chỉ khoá được gán trong `course_lesson_plan_members` |
+| Role khác (`training`, `training_head`, `sale_customer_care_head`, `teacher`, `accountant_*`, `customer_care`), user không có staff profile | `false` mọi khoá |
 
-`resolveListableCourseIds` trả `null` = mọi khoá, trả mảng = chỉ các id đó. **Không** dùng `resolveViewableCourseIds` cho endpoint này: hàm kia là phạm vi *quản lý nội dung* và sẽ trả mảng rỗng cho training/giáo viên/kế toán (dropdown khoá trống khi tạo lớp).
+Chặn thật nằm ở các route nội dung (`GET /courses/:id`, mức độ khó, đội chuyên môn, cây nội dung…) qua `assertCanManageCourse` → `403`. FE workspace (`CourseListWorkspace`) hiện khoá `canAccessContent=false` mờ + badge 🔒 «Chưa được gán», không link, ẩn Sửa/Xoá/Switch.
+
+Trước 17/11 endpoint **lọc** danh sách cho đội chuyên môn (`resolveListableCourseIds`, đã xoá) → người kiêm `lesson_plan` mà chưa được gán khoá thấy dropdown «Khoá học» trống «Chưa có khoá học nào.» khi tạo lớp.
 
 ## Cây nội dung khoá (Chuyên đề / Tiết học)
 

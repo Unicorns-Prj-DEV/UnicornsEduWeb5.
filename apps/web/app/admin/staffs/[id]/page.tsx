@@ -25,6 +25,7 @@ import {
   QrLinkPopup,
   SessionHistoryTableSkeleton,
   SurveyDeadlineBlockPaymentWarning,
+  TrialTeachingPaymentWarning,
 } from "@/components/admin/staff";
 import {
   SetAccountHandleDialog,
@@ -2926,6 +2927,12 @@ export default function AdminStaffDetailPage({
                 </div>
               ) : paymentPreviewSummary?.itemCount ? (
                 <div className="space-y-5">
+                  <TrialTeachingPaymentWarning
+                    staffId={id}
+                    warnings={paymentPreview?.trialTeachingWarnings ?? []}
+                    canDismiss={isAdmin || !viewingOwnStaffRecord}
+                    routeBase={routeBase}
+                  />
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     <article className="rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">

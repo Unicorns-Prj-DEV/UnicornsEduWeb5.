@@ -534,7 +534,8 @@ export class StaffController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Staff payment preview.',
+    description:
+      'Staff payment preview. `trialTeachingWarnings`: [{ classId, className }] — lớp còn trợ cấp buổi chờ trả mà gia sư chưa có buổi Dạy thử (coefficient = 0) và chưa bị bỏ qua; chỉ cảnh báo, không chặn thanh toán.',
   })
   @ApiResponse({ status: 400, description: 'month/year invalid.' })
   @ApiResponse({ status: 404, description: 'Staff not found.' })
@@ -543,6 +544,34 @@ export class StaffController {
     @Query() query: StaffPaymentMonthDto,
   ): Promise<StaffPaymentPreviewDto> {
     return this.staffService.getPaymentPreview(id, query);
+  }
+
+  @Post(':id/trial-teaching-warnings/:classId/dismiss')
+  @ApiOperation({
+    summary: 'Dismiss a trial-teaching warning (Cảnh báo chưa dạy thử)',
+    description:
+      'Bỏ qua cảnh báo «gia sư chưa có buổi dạy thử ở lớp» trong popup thanh toán (`trialTeachingWarnings` của GET /staff/:id/payment-preview). Lưu theo cặp (gia sư, lớp), dùng chung cho mọi người xem, không nhắc lại. Idempotent. Admin + Kế toán chi; Kế toán chi không bỏ qua cảnh báo của chính mình (#265).',
+  })
+  @ApiParam({ name: 'id', description: 'Staff id (gia sư)' })
+  @ApiParam({ name: 'classId', description: 'Class id' })
+  @ApiResponse({
+    status: 201,
+    description: '{ staffId, classId, dismissedAt }',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Kế toán chi bỏ qua cảnh báo của chính mình.',
+  })
+  @ApiResponse({ status: 404, description: 'Staff or class not found.' })
+  async dismissTrialTeachingWarning(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStaffIdPipe()) id: string,
+    @Param('classId', new ParseClassIdPipe()) classId: string,
+  ) {
+    return this.staffService.dismissTrialTeachingWarning(id, classId, {
+      userId: user.id,
+      roleType: user.roleType,
+    });
   }
 
   @Get(':id/survey-deadline-block-warnings')

@@ -72,33 +72,6 @@ export class CourseAccessService {
   }
 
   /**
-   * Phạm vi khoá mà actor được *liệt kê tên* (dropdown, danh sách khoá).
-   *
-   * Khác `resolveViewableCourseIds`: hàm kia trả lời "ai được quản lý nội dung"
-   * và trả mảng rỗng cho teacher / training / kế toán / CSKH. Hàm này trả `null`
-   * (mọi khoá) cho mọi role, **trừ** đội giáo án thuần — có role `lesson_plan` /
-   * `lesson_plan_head` mà không kèm role quản lý (`admin`).
-   * Tên khoá không nhạy cảm; chặn sửa nội dung là việc của gate route + guard.
-   *
-   * Trả `null` = mọi khoá. Trả mảng (kể cả rỗng) = chỉ các id đó.
-   * Actor không có staff profile không crash: không thuộc đội giáo án thì vẫn nhận
-   * mọi khoá; đội giáo án mà thiếu `staffId` thì nhận mảng rỗng.
-   */
-  async resolveListableCourseIds(actor: CourseActor): Promise<string[] | null> {
-    if (this.isManager(actor) || !this.isLessonPlanMember(actor)) {
-      return null;
-    }
-    if (!actor.staffId) {
-      return [];
-    }
-    const memberships = await this.prisma.courseLessonPlanMember.findMany({
-      where: { staffId: actor.staffId },
-      select: { courseId: true },
-    });
-    return memberships.map((m) => m.courseId);
-  }
-
-  /**
    * Phạm vi khoá mà actor được xem nội dung.
    * Trả `null` = mọi khoá (manager). Trả mảng rỗng = không khoá nào.
    * Đội giáo án (không phải manager) chỉ được các khoá được gán.

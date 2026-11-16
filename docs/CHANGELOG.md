@@ -21,6 +21,49 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Mọi người thấy mọi khoá học, chỉ chặn nội dung (17/11)
+
+#### Fixed
+
+- **Thêm lớp — dropdown «Khoá học» trống «Chưa có khoá học nào.»** với người kiêm role đội chuyên môn (`lesson_plan` / `lesson_plan_head`) + Trưởng ban Đào tạo / Trưởng phòng Sale & CSKH mà chưa được gán khoá nào: `GET /courses` từng lọc danh sách theo khoá được gán.
+
+#### Changed
+
+- `GET /courses` trả **mọi khoá** cho mọi role, mỗi khoá kèm `canAccessContent` (admin: mọi khoá; đội chuyên môn: khoá được gán; role khác: `false`). Bỏ `CourseAccessService.resolveListableCourseIds`. Route nội dung vẫn `403` khi chưa được gán (`assertCanManageCourse`).
+- Dropdown «Khoá học» (`CourseSelect`): tải lỗi → toast Sonner «Không tải được danh sách khoá học.» + nút **Thử lại**, dropdown ghi «Không tải được khoá học.» thay vì «Chưa có khoá học nào.»; đang tải ghi «Đang tải khoá học…».
+- Workspace **Khoá học** (`/staff/courses`): khoá chưa được gán hiện mờ + badge 🔒 «Chưa được gán», không mở được, ẩn Sửa/Xoá/Switch; bỏ empty state «Bạn chưa được gán vào đội chuyên môn của khoá nào.».
+
+### Cảnh báo chưa dạy thử trong popup thanh toán + tiến trình xử lý video cho học sinh (16/11)
+
+#### Added
+
+- **Cảnh báo chưa dạy thử** (popup **Thanh toán** `/admin/staffs/:id`, Admin + Kế toán chi):
+  - mỗi lớp còn trợ cấp buổi chờ trả mà gia sư chưa có buổi Dạy thử (`coefficient = 0`) nào trong lịch sử lớp → một cảnh báo riêng
+  - chỉ cảnh báo, không chặn thanh toán
+  - `GET /staff/:id/payment-preview` trả thêm `trialTeachingWarnings`
+  - `POST /staff/:id/trial-teaching-warnings/:classId/dismiss` bỏ qua theo cặp (gia sư, lớp), không nhắc lại với ai
+  - Kế toán chi bỏ qua cảnh báo của chính mình → `403` (#265), FE ẩn nút
+  - bảng mới `trial_teaching_warning_dismissals`, migration `20261116120000_trial_teaching_warning_dismissals` — **cần `pnpm db:deploy` khi release**
+- **Video bảo vệ, phía học sinh** (timeline, trang tiết học, dialog chi tiết buổi):
+  - khi đang xử lý, hiện thanh tiến trình kèm nhãn giai đoạn: «Đang xếp hàng (thứ X/Y)», «Đang tải video về», «Đang chuyển mã · N%», «Sắp xong · N%»
+  - hỏi lại mỗi 15 giây
+  - thêm `components/ui/progress.tsx` (`@radix-ui/react-progress`)
+
+#### Changed
+
+- **Copy nhận xét buổi học ra Zalo** (template có cấu trúc): chữ ký cuối tin đổi từ `— Gia sư Unicorns Edu` sang theo môn của instance (`appConfig.profile`):
+  - IT: `— Gia sư UniEdu Tin học`
+  - JP: `— Gia sư UniEdu Tiếng Nhật`
+  - ENG: `— Gia sư UniEdu Tiếng Anh`
+  - áp dụng cả nút Copy lẫn phần nhận xét hiển thị trong lịch sử buổi; format legacy 5 phần giữ `— UniEdu`
+- `ProtectedVideoPlaybackDto`:
+  - `processing` có thêm `stage`, `queuePosition`, `queueTotal`
+  - thêm state `failed`: đồng bộ UNIOJ lỗi → «Video không xem được» kèm lời nhắc liên hệ gia sư hoặc trợ giảng, hỏi lại mỗi 60 giây
+  - link không phải YouTube hoặc server thiếu `UNIVIDEO_*` vẫn là `unavailable`
+- `CONTEXT.md`:
+  - thêm thuật ngữ **Cảnh báo chưa dạy thử**
+  - mục Dạy thử ghi Kế toán chi được bật (khớp code #267)
+
 ### Kế toán chi tick «Dạy thử» cho buổi học trong lớp (16/11)
 
 #### Changed
@@ -42,6 +85,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - **FE trang chi tiết học sinh** (`/admin/students/[id]`, `/staff/students/[id]`): thêm `StudentEmailVerifiedSwitch` dưới tên học sinh. Ai sửa được hồ sơ thì thấy Switch (optimistic + toast). Người khác thấy badge chỉ đọc.
 - Trước đây cờ này chỉ chỉnh được lúc tạo học sinh hoặc qua `/admin/users` (Admin).
 - Unit test `student.service.spec.ts` (6 case).
+
+### Form lesson output: hạng mục lên đầu, field hiện theo hạng mục (16/11)
 
 #### Changed
 
