@@ -67,18 +67,18 @@ export class CourseService {
     private readonly courseAccess: CourseAccessService,
   ) {}
 
+  /**
+   * Danh sách khoá: MỌI người gọi thấy MỌI khoá (tên khoá không nhạy cảm).
+   * `contentCourseIds` = phạm vi được vào nội dung (`resolveViewableCourseIds`):
+   * `null` = mọi khoá, mảng = chỉ các id đó. Chỉ dùng để gắn cờ `canAccessContent`,
+   * không lọc danh sách.
+   */
   async list(
     includeInactive = false,
-    listableCourseIds: string[] | null = null,
+    contentCourseIds: string[] | null = null,
   ) {
-    if (listableCourseIds && listableCourseIds.length === 0) {
-      return [];
-    }
-    return this.prisma.course.findMany({
-      where: {
-        ...(includeInactive ? {} : { isActive: true }),
-        ...(listableCourseIds ? { id: { in: listableCourseIds } } : {}),
-      },
+    const courses = await this.prisma.course.findMany({
+      where: includeInactive ? {} : { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         _count: {
@@ -90,6 +90,11 @@ export class CourseService {
         },
       },
     });
+    const accessible = contentCourseIds ? new Set(contentCourseIds) : null;
+    return courses.map((course) => ({
+      ...course,
+      canAccessContent: accessible ? accessible.has(course.id) : true,
+    }));
   }
 
   async getDetail(id: string) {

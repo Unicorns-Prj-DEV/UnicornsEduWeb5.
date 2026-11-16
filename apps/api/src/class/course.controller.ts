@@ -51,25 +51,28 @@ export class CourseController {
   @ApiOperation({
     summary: 'List courses',
     description:
-      'Danh sách khoá học (VIP, Basic, Advance, Hardcore, THPT Basic, ...). Dùng cho dropdown chọn khoá khi tạo/sửa lớp. Lọc phía server theo người gọi: đội chuyên môn (`lesson_plan`, `lesson_plan_head`) không kèm admin chỉ nhận khoá được gán vào đội chuyên môn; mọi role khác (training, giáo viên, kế toán) nhận toàn bộ danh sách. Không nhận cờ lọc từ client.',
+      'Danh sách khoá học (VIP, Basic, Advance, Hardcore, THPT Basic, ...). Dùng cho dropdown chọn khoá khi tạo/sửa lớp. Mọi người gọi đều nhận toàn bộ danh sách khoá. Mỗi khoá kèm `canAccessContent`: người gọi có được vào nội dung khoá không (admin: mọi khoá; đội chuyên môn: khoá được gán; role khác: không). Các route nội dung vẫn tự chặn bằng `assertCanManageCourse`.',
   })
   @ApiQuery({
     name: 'includeInactive',
     required: false,
     description: 'Include deactivated courses (admin only).',
   })
-  @ApiResponse({ status: 200, description: 'List of courses.' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of courses, mỗi khoá kèm `canAccessContent`.',
+  })
   @ApiResponse({ status: 401, description: 'Chưa đăng nhập.' })
   async list(
     @CurrentUser() user: JwtPayload,
     @Query('includeInactive') includeInactive?: string,
   ) {
     const actor = await this.courseAccess.resolveActor(user.id, user.roleType);
-    const listableCourseIds =
-      await this.courseAccess.resolveListableCourseIds(actor);
+    const contentCourseIds =
+      await this.courseAccess.resolveViewableCourseIds(actor);
     return this.courseService.list(
       includeInactive === 'true',
-      listableCourseIds,
+      contentCourseIds,
     );
   }
 

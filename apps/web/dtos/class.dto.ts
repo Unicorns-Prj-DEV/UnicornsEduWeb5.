@@ -17,6 +17,11 @@ export interface Course {
     isOneTime: boolean;
     createdAt?: string;
     updatedAt?: string;
+    /**
+     * GET /courses: người gọi có được vào nội dung khoá không. Mọi người thấy mọi khoá;
+     * đội chuyên môn chỉ vào được khoá được gán, role ngoài workspace luôn `false`.
+     */
+    canAccessContent?: boolean;
     /** Present when returned from GET /courses (list). */
     _count?: {
         classes: number;

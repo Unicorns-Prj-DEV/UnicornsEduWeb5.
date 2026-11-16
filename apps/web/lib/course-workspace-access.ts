@@ -50,9 +50,9 @@ export function resolveCourseWorkspaceCapabilities(
 
   const profileCanEnter =
     isFullAdmin || isLessonPlanHead || isLessonPlanMember;
-  // Trưởng ban Chuyên môn mutate được khoá, nhưng danh sách đã bị BE lọc về khoá được gán.
+  // Trưởng ban Chuyên môn mutate được khoá, nhưng chỉ khoá có `canAccessContent` (được gán).
   const profileCanMutateCourses = isFullAdmin || isLessonPlanHead;
-  // Trưởng ban Chuyên môn chỉ thấy khoá được gán vào đội giáo án (BE lọc), như lesson_plan.
+  // Mọi người thấy mọi khoá; cờ này = được vào nội dung mọi khoá (chỉ admin).
   const profileCanViewAllCourses = isFullAdmin;
   const profileCanUseAcademicTabs =
     isFullAdmin || isLessonPlanHead || isLessonPlanMember;

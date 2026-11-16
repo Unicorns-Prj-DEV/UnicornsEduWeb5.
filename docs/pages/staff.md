@@ -257,8 +257,8 @@
 
     | Role | Vào workspace | Danh sách khoá | Tab Nội dung | Tab Câu hỏi / Cài đặt | Thêm/Sửa/Xoá/Switch khoá | Đội chuyên môn | CRUD câu hỏi / mức độ khó |
     | --- | --- | --- | --- | --- | --- | --- | --- |
-    | `lesson_plan` thuần | Có | Chỉ khoá được phân công | Có, mutate | Có | Ẩn | Chỉ xem | Có |
-    | `lesson_plan_head` | Có | Chỉ khoá được gán (khoá tự tạo tự gán) | Có, mutate | Có | Có (khoá được gán) | Mutate | Có |
+    | `lesson_plan` thuần | Có | Mọi khoá; khoá chưa phân công hiện 🔒 «Chưa được gán», không mở được (17/11) | Có, mutate | Có | Ẩn | Chỉ xem | Có |
+    | `lesson_plan_head` | Có | Mọi khoá; chỉ mở / Sửa / Xoá / Switch khoá được gán (khoá tự tạo tự gán), khoá khác hiện 🔒 «Chưa được gán» | Có, mutate | Có | Có (khoá được gán) | Mutate | Có |
     | `teacher` / `accountant_*` / `customer_care` / `training` | Không (màn khoá) | — | — | — | — | — | — |
     | `sale_customer_care_head` thuần | Không trên `/staff/courses` (dùng `/admin/courses`) | — | — | — | — | — | — |
 

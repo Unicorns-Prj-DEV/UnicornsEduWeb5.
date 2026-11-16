@@ -21,6 +21,17 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Mọi người thấy mọi khoá học, chỉ chặn nội dung (17/11)
+
+#### Fixed
+
+- **Thêm lớp — dropdown «Khoá học» trống «Chưa có khoá học nào.»** với người kiêm role đội chuyên môn (`lesson_plan` / `lesson_plan_head`) + Trưởng ban Đào tạo / Trưởng phòng Sale & CSKH mà chưa được gán khoá nào: `GET /courses` từng lọc danh sách theo khoá được gán.
+
+#### Changed
+
+- `GET /courses` trả **mọi khoá** cho mọi role, mỗi khoá kèm `canAccessContent` (admin: mọi khoá; đội chuyên môn: khoá được gán; role khác: `false`). Bỏ `CourseAccessService.resolveListableCourseIds`. Route nội dung vẫn `403` khi chưa được gán (`assertCanManageCourse`).
+- Workspace **Khoá học** (`/staff/courses`): khoá chưa được gán hiện mờ + badge 🔒 «Chưa được gán», không mở được, ẩn Sửa/Xoá/Switch; bỏ empty state «Bạn chưa được gán vào đội chuyên môn của khoá nào.».
+
 ### Cảnh báo chưa dạy thử trong popup thanh toán + tiến trình xử lý video cho học sinh (16/11)
 
 #### Added

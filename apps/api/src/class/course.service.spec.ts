@@ -222,3 +222,47 @@ describe('CourseService – lesson_plan_head scope', () => {
     });
   });
 });
+
+describe('CourseService.list – mọi người thấy mọi khoá, cờ quyền vào nội dung', () => {
+  const courses = [
+    { id: 'course-a', name: 'A' },
+    { id: 'course-b', name: 'B' },
+  ];
+  const prisma = {
+    course: { findMany: jest.fn() },
+  };
+  let service: CourseService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.course.findMany.mockResolvedValue(courses);
+    service = new CourseService(
+      prisma as never,
+      new CourseAccessService(prisma as never),
+    );
+  });
+
+  it('returns every course with canAccessContent=true for a manager (null scope)', async () => {
+    await expect(service.list(false, null)).resolves.toEqual([
+      { id: 'course-a', name: 'A', canAccessContent: true },
+      { id: 'course-b', name: 'B', canAccessContent: true },
+    ]);
+  });
+
+  it('still returns every course but flags only assigned ones for the lesson-plan team', async () => {
+    await expect(service.list(false, ['course-b'])).resolves.toEqual([
+      { id: 'course-a', name: 'A', canAccessContent: false },
+      { id: 'course-b', name: 'B', canAccessContent: true },
+    ]);
+    const where = (
+      prisma.course.findMany.mock.calls[0] as [{ where: object }]
+    )[0].where;
+    expect(where).not.toHaveProperty('id');
+  });
+
+  it('returns every course with canAccessContent=false when no content scope (training, CSKH…)', async () => {
+    const result = await service.list(true, []);
+    expect(result).toHaveLength(2);
+    expect(result.every((c) => !c.canAccessContent)).toBe(true);
+  });
+});
