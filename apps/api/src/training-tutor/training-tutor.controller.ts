@@ -39,6 +39,7 @@ import {
   UpdateTrainingTutorProfileDto,
   UpdateTrainingTutorStatusDto,
 } from 'src/dtos/training-tutor.dto';
+import { SetAccountHandleDto } from 'src/dtos/user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   buildImageUploadFileFilter,
@@ -494,6 +495,37 @@ export class TrainingTutorController {
     @Body() body: UpdateTrainingTutorStatusDto,
   ) {
     return this.trainingTutorService.updateStatus(user, staffId, body);
+  }
+
+  @Patch(':id/account-handle')
+  @ApiOperation({
+    summary: 'Trưởng ban Đào tạo: đổi tên đăng nhập của cấp dưới',
+    description:
+      'Đổi `users.account_handle` (3–50 ký tự, không khoảng trắng, không `@`, kiểm trùng không phân biệt hoa thường). Cùng điều kiện khoá tài khoản: người đích CHỈ mang role Gia sư / Ban Chuyên môn / Đào tạo. Không đăng xuất thiết bị.',
+  })
+  @ApiParam({ name: 'id', description: 'Staff id (UNISTAFF-…)' })
+  @ApiBody({ type: SetAccountHandleDto })
+  @ApiResponse({
+    status: 200,
+    description: '{ id (staff id), accountHandle }.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Sai định dạng, tên đăng nhập đã được dùng, hoặc nhân sự chưa có tài khoản.',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Trưởng ban Đào tạo, chính mình, người đích không phải cấp dưới hoặc mang role ngoài ba nhóm.',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy nhân sự.' })
+  updateAccountHandle(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStaffIdPipe()) staffId: string,
+    @Body() body: SetAccountHandleDto,
+  ) {
+    return this.trainingTutorService.updateAccountHandle(user, staffId, body);
   }
 
   @Patch(':id/account-status')

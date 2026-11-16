@@ -11,6 +11,10 @@ import type {
   UpdateSaleCsTeamProfilePayload,
   UpdateSaleCsTeamRolesPayload,
 } from "@/dtos/sale-cs-team.dto";
+import type {
+  AccountHandleResult,
+  SetAccountHandlePayload,
+} from "@/dtos/user.dto";
 import { api } from "@/lib/client";
 
 export const saleCsTeamKeys = {
@@ -93,6 +97,18 @@ export async function updateSaleCsTeamAccountStatus(
 ): Promise<SaleCsTeamAccountStatusResult> {
   const response = await api.patch<SaleCsTeamAccountStatusResult>(
     `${memberPath(staffId)}/account-status`,
+    payload,
+  );
+  return response.data;
+}
+
+/** Đổi tên đăng nhập nhân sự chỉ mang Sale/CSKH (16/11). */
+export async function updateSaleCsTeamAccountHandle(
+  staffId: string,
+  payload: SetAccountHandlePayload,
+): Promise<AccountHandleResult> {
+  const response = await api.patch<AccountHandleResult>(
+    `${memberPath(staffId)}/account-handle`,
     payload,
   );
   return response.data;

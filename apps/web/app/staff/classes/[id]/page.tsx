@@ -27,6 +27,10 @@ import {
   TutorCard,
 } from "@/components/admin/class";
 import AdminClassDetailPage from "@/app/admin/classes/[id]/page";
+import {
+  canDeleteSessionsAsHead,
+  canHeadDeleteSession,
+} from "@/lib/session-delete-access";
 import AddSessionPopup from "@/components/admin/class/AddSessionPopup";
 import ManagedClassTeachersPopup from "@/components/admin/class/ManagedClassTeachersPopup";
 import EditClassTeachersPopup from "@/components/admin/class/EditClassTeachersPopup";
@@ -583,6 +587,9 @@ export default function StaffClassDetailPage() {
   /** Hệ số / Dạy thử: Admin, hoặc gia sư trên buổi do mình dạy — Quản lý lớp không đổi buổi của gia sư khác. */
   const canToggleTrialForSession = (session: SessionItem) =>
     isAdmin || (Boolean(actorStaffId) && session.teacherId === actorStaffId);
+  /** 15/11: role trưởng xoá buổi chưa thanh toán / ghi cọc (backend chặn buổi đã khoá). */
+  const canDeleteSessionsAsHeadRole =
+    !isAdmin && canDeleteSessionsAsHead(profile?.staffInfo?.roles);
   const ownSessionCount = usesTeacherScope
     ? sessions.filter((session) => session.teacherId === actorStaffId).length
     : sessions.length;
@@ -1501,7 +1508,8 @@ export default function StaffClassDetailPage() {
                           allowTeacherSelection={false}
                           allowFinancialEdits={false}
                           allowPaymentStatusEdit={false}
-                          allowDeleteSession={false}
+                          allowDeleteSession={canDeleteSessionsAsHeadRole}
+                          canDeleteSessionItem={canHeadDeleteSession}
                           readOnlySessionDetails={
                             canOpenReadonlyClassForms || !canManageSessions
                           }

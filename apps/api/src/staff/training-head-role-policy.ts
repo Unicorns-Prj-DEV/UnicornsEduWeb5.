@@ -132,6 +132,23 @@ export function assertTrainingHeadCanLockAccount(
   }
 }
 
+/**
+ * Đổi tên đăng nhập (16/11): tác động cả tài khoản → cùng điều kiện khoá tài
+ * khoản (target CHỈ mang role thuộc ba nhóm).
+ */
+export const canTrainingHeadChangeAccountHandle = canTrainingHeadLockAccount;
+
+export function assertTrainingHeadCanChangeAccountHandle(
+  target: TrainingHeadTarget,
+): void {
+  assertTrainingHeadSubordinate(target, 'đổi tên đăng nhập');
+  if (!canTrainingHeadChangeAccountHandle(target)) {
+    throw new ForbiddenException(
+      'Chỉ được đổi tên đăng nhập của nhân sự chỉ mang role Gia sư, Ban Chuyên môn và/hoặc Đào tạo.',
+    );
+  }
+}
+
 /** Đổi trạng thái đang làm / đã nghỉ: cùng điều kiện với khoá tài khoản. */
 export function assertTrainingHeadCanChangeStatus(
   target: TrainingHeadTarget,

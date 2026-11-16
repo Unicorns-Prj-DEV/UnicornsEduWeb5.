@@ -46,14 +46,21 @@ import type {
   UpdateTrainingTutorStatusDto,
 } from 'src/dtos/training-tutor.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import type {
+  AccountHandleResultDto,
+  SetAccountHandleDto,
+} from 'src/dtos/user.dto';
+import { changeAccountHandleInTx } from 'src/user/account-handle';
 import { buildNameSearchWhere } from 'src/staff/staff-name-search';
 import { StaffService } from 'src/staff/staff.service';
 import {
   TRAINING_HEAD_MANAGEABLE_ROLES,
   type TrainingHeadTarget,
+  assertTrainingHeadCanChangeAccountHandle,
   assertTrainingHeadCanChangeStatus,
   assertTrainingHeadCanLockAccount,
   assertTrainingHeadSubordinate,
+  canTrainingHeadChangeAccountHandle,
   canTrainingHeadChangeStatus,
   canTrainingHeadEditRoles,
   canTrainingHeadLockAccount,
@@ -185,7 +192,6 @@ const TARGET_SELECT = {
 
 type TargetRow = Prisma.StaffInfoGetPayload<{ select: typeof TARGET_SELECT }>;
 
-
 /** Người xem lấy thẳng từ JWT (`id`, `roleType`). */
 export type TrainingTutorViewer = Pick<JwtPayload, 'id' | 'roleType'>;
 export type TrainingHeadActor = Pick<JwtPayload, 'id' | 'email' | 'roleType'>;
@@ -256,6 +262,8 @@ export function buildTrainingHeadManagement(
       canLockAccount: hasAccount && canTrainingHeadLockAccount(target),
       canManageMeetLink: isSubordinate,
       canViewBonuses: isSubordinate,
+      canEditAccountHandle:
+        hasAccount && canTrainingHeadChangeAccountHandle(target),
     },
   };
 }
@@ -416,16 +424,25 @@ export class TrainingTutorService {
     management: TrainingHeadTutorManagementDto,
   ) {
     if (!management.isSubordinate) {
-      return { lastName: null, firstName: null, googleMeetLink: null };
+      return {
+        lastName: null,
+        firstName: null,
+        googleMeetLink: null,
+        accountHandle: null,
+      };
     }
-    const meet = await this.prisma.staffInfo.findUnique({
+    const extra = await this.prisma.staffInfo.findUnique({
       where: { id: row.id },
-      select: { googleMeetLink: true },
+      select: {
+        googleMeetLink: true,
+        user: { select: { accountHandle: true } },
+      },
     });
     return {
       lastName: row.user?.last_name ?? null,
       firstName: row.user?.first_name ?? null,
-      googleMeetLink: meet?.googleMeetLink ?? null,
+      googleMeetLink: extra?.googleMeetLink ?? null,
+      accountHandle: extra?.user?.accountHandle ?? null,
     };
   }
 
@@ -813,5 +830,46 @@ export class TrainingTutorService {
 
     this.invalidateAuth(userId);
     return { id: target.id, accountLocked: data.locked };
+  }
+
+  /**
+   * Đổi tên đăng nhập của cấp dưới (16/11) — cùng điều kiện khoá tài khoản:
+   * người đích CHỈ mang role Gia sư / Ban Chuyên môn / Đào tạo.
+   */
+  async updateAccountHandle(
+    viewer: TrainingHeadActor,
+    staffId: string,
+    data: SetAccountHandleDto,
+  ): Promise<AccountHandleResultDto> {
+    const headStaffId = await this.resolveHead(viewer);
+    const target = await this.findTarget(staffId);
+    assertTrainingHeadCanChangeAccountHandle(
+      toPolicyTarget(headStaffId, target),
+    );
+    if (!target.userId) {
+      throw new BadRequestException('Nhân sự chưa có tài khoản đăng nhập.');
+    }
+
+    const userId = target.userId;
+    const change = await this.prisma.$transaction(async (tx) => {
+      const result = await changeAccountHandleInTx(tx, {
+        userId,
+        accountHandle: data.accountHandle,
+      });
+      if (result.changed) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: toAuditActor(viewer),
+          entityType: 'staff',
+          entityId: target.id,
+          description: 'Trưởng ban Đào tạo đổi tên đăng nhập nhân sự',
+          beforeValue: { accountHandle: result.previous },
+          afterValue: { accountHandle: result.next },
+        });
+      }
+      return result;
+    });
+
+    if (change.changed) this.invalidateAuth(userId);
+    return { id: target.id, accountHandle: change.next };
   }
 }

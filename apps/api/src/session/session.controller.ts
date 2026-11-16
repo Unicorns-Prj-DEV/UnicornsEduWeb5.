@@ -48,7 +48,10 @@ import type { RequestWithResolvedAuthContext } from 'src/auth/auth-request-conte
 import {
   redactSessionsForAccountantView,
   resolveAccountantFinanceView,
+  resolveAdminClassFinanceView,
 } from 'src/common/accountant-finance-redaction.util';
+import { SALE_CS_HEAD_ROLE } from 'src/common/sale-cs-head-access';
+import { SESSION_DELETE_HEAD_ROLES } from 'src/common/staff-role-policy';
 
 @Controller('sessions')
 @ApiTags('sessions')
@@ -176,9 +179,22 @@ export class SessionController {
 
   @Delete(':id')
   @Roles(UserRole.admin)
-  @ApiOperation({ summary: 'Xóa session' })
+  @AllowStaffRolesOnAdminRoutes(...SESSION_DELETE_HEAD_ROLES)
+  @ApiOperation({
+    summary: 'Xóa session',
+    description:
+      'Admin xoá mọi buổi. 15/11: Trưởng phòng Sale & CSKH, Trưởng ban Đào tạo, Trưởng ban Chuyên môn xoá được buổi chưa thanh toán / ghi cọc trợ cấp gia sư.',
+  })
   @ApiParam({ name: 'id', description: 'ID session' })
   @ApiResponse({ status: 200, description: 'Session đã được xóa.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Role trưởng xoá buổi đã thanh toán hoặc ghi cọc.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không phải Admin hoặc role trưởng.',
+  })
   @ApiResponse({ status: 404, description: 'Session không tồn tại.' })
   async deleteSession(
     @CurrentUser() user: JwtPayload,
@@ -311,8 +327,13 @@ export class SessionController {
   @AllowStaffRolesOnAdminRoutes(
     StaffRole.accountant_income,
     StaffRole.accountant_expense,
+    SALE_CS_HEAD_ROLE,
   )
-  @ApiOperation({ summary: 'Lấy session theo class + tháng/năm' })
+  @ApiOperation({
+    summary: 'Lấy session theo class + tháng/năm',
+    description:
+      'Góc nhìn tài chính theo `resolveAdminClassFinanceView`: Trưởng phòng Sale & CSKH (15/11) và Kế toán thu không thấy trợ cấp / trạng thái thanh toán gia sư; Kế toán chi không thấy học phí.',
+  })
   @ApiParam({
     name: 'classId',
     description: 'ID lớp học',
@@ -337,9 +358,10 @@ export class SessionController {
       month,
       year,
     );
+    // Route admin của lớp: role trưởng chỉ thấy tài chính thuộc mảng mình (#272).
     return redactSessionsForAccountantView(
       sessions,
-      resolveAccountantFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
+      resolveAdminClassFinanceView(user.roleType, req.resolvedStaffRoles ?? []),
     );
   }
 

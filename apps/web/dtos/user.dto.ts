@@ -110,6 +110,21 @@ export interface AdminSetUserPasswordPayload {
   newPassword: string;
 }
 
+/**
+ * Đổi tên đăng nhập (16/11): `PATCH /users/:id/account-handle`,
+ * `PATCH /sale-cs-team/members/:staffId/account-handle`,
+ * `PATCH /training/tutors/:id/account-handle`.
+ */
+export interface SetAccountHandlePayload {
+  accountHandle: string;
+}
+
+export interface AccountHandleResult {
+  /** `users.id` (route `/users`) hoặc staff id (route của role trưởng). */
+  id: string;
+  accountHandle: string;
+}
+
 /** Một dòng user trong danh sách (admin). */
 export interface UserListItem {
   id: string;

@@ -57,6 +57,8 @@ export type StaffIdentityOverviewProps = {
   email?: string | null;
   phone?: string | null;
   accountHandle?: string | null;
+  /** 16/11: có thì hiện nút «Đổi» cạnh Handle (người xem có quyền đổi tên đăng nhập). */
+  onEditAccountHandle?: () => void;
   birthDateLabel: string;
   province: React.ReactNode;
   ethnicity?: string | null;
@@ -97,6 +99,7 @@ export default function StaffIdentityOverview({
   email,
   phone,
   accountHandle,
+  onEditAccountHandle,
   birthDateLabel,
   province,
   ethnicity,
@@ -153,7 +156,23 @@ export default function StaffIdentityOverview({
               : []),
             {
               label: "Handle",
-              value: accountHandle?.trim() ? `@${accountHandle.trim()}` : null,
+              value: onEditAccountHandle ? (
+                <span className="inline-flex flex-wrap items-baseline gap-x-2">
+                  <span>
+                    {accountHandle?.trim() ? `@${accountHandle.trim()}` : "—"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onEditAccountHandle}
+                    className="inline-flex min-h-9 items-center rounded-md px-2 text-sm font-medium text-primary transition hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus sm:min-h-0 sm:py-0.5"
+                    aria-label="Đổi tên đăng nhập"
+                  >
+                    Đổi
+                  </button>
+                </span>
+              ) : accountHandle?.trim() ? (
+                `@${accountHandle.trim()}`
+              ) : null,
             },
           ]}
         />

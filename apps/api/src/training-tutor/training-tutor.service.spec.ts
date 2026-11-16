@@ -148,7 +148,7 @@ describe('TrainingTutorService', () => {
       count: jest.fn(),
       update: jest.fn(),
     },
-    user: { update: jest.fn() },
+    user: { update: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn() },
     bonus: { findMany: jest.fn() },
     session: {
       findMany: jest.fn(),
@@ -379,6 +379,7 @@ describe('TrainingTutorService', () => {
           canEditProfile: true,
           canChangeStatus: false,
           canLockAccount: false,
+          canEditAccountHandle: false,
           canManageMeetLink: true,
           canViewBonuses: true,
         },
@@ -556,6 +557,7 @@ describe('TrainingTutorService', () => {
           canEditProfile: false,
           canChangeStatus: false,
           canLockAccount: false,
+          canEditAccountHandle: false,
           canManageMeetLink: false,
           canViewBonuses: false,
         },
@@ -1104,6 +1106,63 @@ describe('TrainingTutorService', () => {
         await expect(
           service.updateAccountStatus(head, 'UNISTAFF-T', { locked: true }),
         ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+    });
+
+    describe('updateAccountHandle (16/11)', () => {
+      it('đổi handle người chỉ mang role ba nhóm: ghi users, audit, xoá cache auth', async () => {
+        mockViewer([StaffRole.training_head]);
+        mockTarget(targetRow([StaffRole.teacher, StaffRole.lesson_plan]));
+        mockPrisma.user.findUnique.mockResolvedValueOnce({
+          accountHandle: 'gs01',
+        });
+        mockPrisma.user.findFirst.mockResolvedValueOnce(null);
+
+        await expect(
+          service.updateAccountHandle(head, 'UNISTAFF-T', {
+            accountHandle: 'gs_moi',
+          }),
+        ).resolves.toEqual({ id: 'UNISTAFF-T', accountHandle: 'gs_moi' });
+        expect(mockPrisma.user.update).toHaveBeenCalledWith({
+          where: { id: 'user-t' },
+          data: { accountHandle: 'gs_moi' },
+          select: { id: true },
+        });
+        expect(mockActionHistory.recordUpdate).toHaveBeenCalledWith(
+          mockPrisma,
+          expect.objectContaining({
+            entityType: 'staff',
+            entityId: 'UNISTAFF-T',
+            beforeValue: { accountHandle: 'gs01' },
+            afterValue: { accountHandle: 'gs_moi' },
+          }),
+        );
+        expect(mockAuthCache.invalidateUser).toHaveBeenCalledWith('user-t');
+      });
+
+      it.each([
+        ['kiêm role ngoài ba nhóm', [StaffRole.teacher, StaffRole.sale]],
+        ['mang role trưởng', [StaffRole.teacher, StaffRole.training_head]],
+      ])('từ chối đổi handle người %s', async (_label, roles) => {
+        mockViewer([StaffRole.training_head]);
+        mockTarget(targetRow(roles));
+        await expect(
+          service.updateAccountHandle(head, 'UNISTAFF-T', {
+            accountHandle: 'abc_moi',
+          }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+        expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      });
+
+      it('nhân sự chưa có tài khoản → 400', async () => {
+        mockViewer([StaffRole.training_head]);
+        mockTarget(targetRow([StaffRole.teacher], { userId: null }));
+        await expect(
+          service.updateAccountHandle(head, 'UNISTAFF-T', {
+            accountHandle: 'abc_moi',
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
       });
     });
   });

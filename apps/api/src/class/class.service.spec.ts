@@ -2698,6 +2698,63 @@ describe('ClassService', () => {
         );
       });
 
+      it('16/11 PATCH /class: học sinh đang học giữ học phí riêng, chỉ học sinh vào lại bị reset', async () => {
+        mockPrisma.class.findUnique.mockResolvedValue({ id: 'class-1' });
+        mockTx.class.findUnique.mockResolvedValue({
+          courseId: 'course-basic',
+          tuitionPackageTotal: 1_600_000,
+          course: { isOneTime: false },
+        });
+        type FindArgs = {
+          where?: { class?: unknown; OR?: unknown };
+          select?: { status?: boolean };
+        };
+        mockTx.studentClass.findMany.mockImplementation((args: FindArgs) => {
+          if (args?.where?.class) return Promise.resolve([]);
+          if (args?.where?.OR) {
+            return Promise.resolve([{ classId: 'class-1' }]);
+          }
+          if (args?.select?.status) {
+            return Promise.resolve([
+              { studentId: 'student-1', status: 'active' },
+              { studentId: 'student-2', status: 'inactive' },
+            ]);
+          }
+          return Promise.resolve([]);
+        });
+
+        await service.updateClass({
+          id: 'class-1',
+          student_ids: ['student-1', 'student-2'],
+        } as never);
+
+        const resetCalls = (
+          mockTx.studentClass.updateMany.mock.calls as Array<
+            [{ data?: { status?: string } }]
+          >
+        ).filter(([args]) => args?.data?.status === 'active');
+        expect(resetCalls).toHaveLength(1);
+        expect(resetCalls[0][0]).toEqual({
+          where: { classId: 'class-1', studentId: 'student-2' },
+          data: {
+            status: 'active',
+            customStudentTuitionPerSession: null,
+            customTuitionPerBlock: null,
+            customTuitionPackageTotal: null,
+            customTuitionPackageSession: null,
+          },
+        });
+        expect(mockTx.studentClass.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              classId: { in: ['class-1'] },
+              studentId: { in: ['student-1', 'student-2'] },
+              class: { pricingMode: 'one_time' },
+            }) as unknown,
+          }),
+        );
+      });
+
       it('PATCH /class: lớp trống, không học phí → 400', async () => {
         mockRoster([]);
         mockPrisma.class.findUnique.mockResolvedValue({ id: 'class-1' });

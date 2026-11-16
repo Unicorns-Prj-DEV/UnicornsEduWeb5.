@@ -98,6 +98,10 @@ import {
 } from "@/lib/class-first-student-tuition";
 import ClassRosterCard from "@/components/shared/class/ClassRosterCard";
 import type { ClassScheduleGoogleCalendarResyncSummary } from "@/dtos/class-schedule.dto";
+import {
+  canDeleteSessionsAsHead,
+  canHeadDeleteSession,
+} from "@/lib/session-delete-access";
 
 const STATUS_LABELS: Record<ClassStatus, string> = {
   running: "Đang chạy",
@@ -226,8 +230,9 @@ export default function AdminClassDetailPage() {
     adminAccess.isCustomerCare;
   /**
    * #272: Trưởng phòng chỉ xem Thông tin lớp, Học phí lớp, gia sư (không lương),
-   * lịch, học sinh và lịch bù. Buổi học / khảo sát / cảnh báo thiếu buổi vẫn
-   * là route của Admin + kế toán nên không gọi để tránh 403.
+   * lịch, học sinh và lịch bù. Khảo sát / cảnh báo thiếu buổi vẫn là route của
+   * Admin + kế toán nên không gọi để tránh 403. 15/11: lịch sử buổi mở riêng
+   * (`usesSaleCsHeadSessionView`).
    */
   const canViewClassOperations = isAdmin || isAccountant;
   /**
@@ -235,8 +240,20 @@ export default function AdminClassDetailPage() {
    * mọi lớp qua route staff-ops (backend đã che tiền buổi), chỉ đọc.
    */
   const usesStaffOpsClassOperations = !canViewClassOperations && isTrainingHead;
-  const canViewSessionHistory =
+  /** Khảo sát lớp + cảnh báo thiếu buổi: Admin, kế toán, Trưởng ban Đào tạo. */
+  const canViewClassSurveysAndAlerts =
     canViewClassOperations || usesStaffOpsClassOperations;
+  /**
+   * 15/11: Trưởng phòng Sale & CSKH xem lịch sử buổi (route admin, backend che
+   * lương gia sư) để xoá buổi. Không có khảo sát / cảnh báo thiếu buổi.
+   */
+  const usesSaleCsHeadSessionView =
+    !canViewClassSurveysAndAlerts && isSaleCsHead;
+  const canViewSessionHistory =
+    canViewClassSurveysAndAlerts || usesSaleCsHeadSessionView;
+  /** 15/11: role trưởng xoá buổi chưa thanh toán / ghi cọc (Admin xoá mọi buổi). */
+  const canDeleteSessionsAsHeadRole =
+    !isAdmin && canDeleteSessionsAsHead(adminAccess.staffRoles);
   /**
    * Học phí lớp / học sinh: khớp `resolveAdminClassFinanceView` backend —
    * Admin, Trưởng phòng, Kế toán thu. Kế toán chi và Trưởng ban Đào tạo không
@@ -361,7 +378,7 @@ export default function AdminClassDetailPage() {
       (usesStaffOpsClassOperations
         ? staffOpsApi.getMissedTeachingAlertsByClassId
         : sessionApi.getMissedTeachingAlertsByClassId)(id, { days: 31 }),
-    enabled: !!id && canViewSessionHistory,
+    enabled: !!id && canViewClassSurveysAndAlerts,
     placeholderData: keepPreviousData,
   });
 
@@ -397,7 +414,7 @@ export default function AdminClassDetailPage() {
         month: selectedMonthValue,
         year: selectedYear,
       }),
-    enabled: !!id && isSessionsTab && canViewSessionHistory,
+    enabled: !!id && isSessionsTab && canViewClassSurveysAndAlerts,
     placeholderData: keepPreviousData,
   });
 
@@ -406,7 +423,7 @@ export default function AdminClassDetailPage() {
   const { data: availableSurveys = [], status: availableSurveysStatus } = useQuery({
     queryKey: ["surveys", "open-picker"],
     queryFn: () => surveysApi.getOpenSurveys(),
-    enabled: !!id && isSessionsTab && canViewSessionHistory,
+    enabled: !!id && isSessionsTab && canViewClassSurveysAndAlerts,
     staleTime: 60_000,
   });
 
@@ -1491,7 +1508,7 @@ export default function AdminClassDetailPage() {
           listFn={classApi.getClassMakeupEvents}
         />
 
-        {canViewSessionHistory ? (
+        {canViewClassSurveysAndAlerts ? (
           <MissedTeachingAlertsCard
             alerts={missedTeachingAlerts}
             canCreateMakeup={canCreateMakeupSchedule}
@@ -1638,7 +1655,15 @@ export default function AdminClassDetailPage() {
                             allowAttendanceTuitionEdits={canEditSessions}
                             allowPaymentStatusEdit={canEditSessionPaymentStatus}
                             readOnlySessionDetails={!canEditSessions && !canEditSessionPaymentStatus}
-                            allowDeleteSession={canEditSessions && !isAccountant}
+                            allowDeleteSession={
+                              (canEditSessions && !isAccountant) ||
+                              canDeleteSessionsAsHeadRole
+                            }
+                            canDeleteSessionItem={
+                              canDeleteSessionsAsHeadRole
+                                ? canHeadDeleteSession
+                                : undefined
+                            }
                             onSessionUpdated={handleSessionUpdated}
                             teachers={popupTeachers}
                             getClassStudents={getClassStudents}

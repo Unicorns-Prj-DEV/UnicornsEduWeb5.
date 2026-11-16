@@ -170,6 +170,7 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   // Tạo tài khoản học sinh, đặt mật khẩu (service giới hạn đích là học sinh).
   'UserController.createStudentUser',
   'UserController.setUserPassword',
+  'UserController.setUserAccountHandle',
   // Đăng xuất thiết bị học sinh.
   'DeviceController.forceLogout',
   'DeviceController.getStudentDevices',
@@ -196,6 +197,10 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   'NotificationController.getNotificationRecipientOptions',
   'NotificationController.pushNotification',
   'NotificationController.updateNotificationDraft',
+  // 15/11: xem lịch sử buổi của lớp (che lương gia sư) và xoá buổi chưa
+  // thanh toán / ghi cọc.
+  'SessionController.getSessionsByClassId',
+  'SessionController.deleteSession',
   // 14/11: Trưởng phòng duyệt hàng chờ nạp thẳng (kể cả yêu cầu của chính mình).
   'StudentController.approveStudentWalletDirectTopUpRequestFromQueue',
   // 15/11: tạo nhân sự mới (tài khoản + hồ sơ); service chặn gán Admin / role
@@ -262,6 +267,8 @@ const TRAINING_HEAD_ADMIN_ROUTE_ALLOWLIST = [
   'StaffController.searchStaffOptions',
   // 15/11: tạo nhân sự mới (như Trưởng phòng Sale & CSKH).
   'UserController.createStaffUser',
+  // 15/11: xoá buổi chưa thanh toán / ghi cọc.
+  'SessionController.deleteSession',
   // Có từ trước #274 (không đổi ở ticket này).
   'ClassTimelineController.list',
   'NotificationController.createNotificationDraft',
@@ -327,6 +334,7 @@ describe('Admin routes deny-by-default (#267)', () => {
       [StudentController, 'updateStudentStatus'],
       [UserController, 'createStudentUser'],
       [UserController, 'setUserPassword'],
+      [UserController, 'setUserAccountHandle'],
       [DeviceController, 'forceLogout'],
       [StudentController, 'updateStudentAccountBalance'],
       [StudentController, 'createStudentWalletDirectTopUpRequest'],
@@ -388,7 +396,6 @@ describe('Admin routes deny-by-default (#267)', () => {
           isAdminOnlyRoute(QuestionController, name),
         ),
       ],
-      ['xoá buổi', SessionController, ['deleteSession']],
       [
         'lịch tổng',
         CalendarAdminController,
@@ -700,7 +707,7 @@ describe('Admin routes deny-by-default (#267)', () => {
       ['Trưởng phòng', [StaffRole.sale_customer_care_head]],
     ];
     describe.each(sessionDenied)('%s', (_label, staffRoles) => {
-      it.each([...sessionFinanceRoutes, 'deleteSession'])(
+      it.each(sessionFinanceRoutes)(
         'bị 403 ở SessionController.%s',
         async (methodName) => {
           await expect(
@@ -710,12 +717,58 @@ describe('Admin routes deny-by-default (#267)', () => {
       );
     });
 
-    it('Kế toán chi vẫn không xoá được buổi (chỉ Admin)', async () => {
-      await expect(
-        asStaff(SessionController, 'deleteSession', [
-          StaffRole.accountant_expense,
-        ]),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+    describe('15/11 xoá buổi: Admin + 3 role trưởng', () => {
+      it('Admin xoá được buổi', async () => {
+        await expect(asAdmin(SessionController, 'deleteSession')).resolves.toBe(
+          true,
+        );
+      });
+
+      it.each([
+        ['Trưởng phòng Sale & CSKH', StaffRole.sale_customer_care_head],
+        ['Trưởng ban Đào tạo', StaffRole.training_head],
+        ['Trưởng ban Chuyên môn', StaffRole.lesson_plan_head],
+      ])('%s vào được SessionController.deleteSession', async (_l, role) => {
+        await expect(
+          asStaff(SessionController, 'deleteSession', [role]),
+        ).resolves.toBe(true);
+      });
+
+      it.each([
+        ['Kế toán chi', StaffRole.accountant_expense],
+        ['Kế toán thu', StaffRole.accountant_income],
+        ['Quản lý lớp / Đào tạo', StaffRole.training],
+        ['Ban Chuyên môn', StaffRole.lesson_plan],
+        ['CSKH', StaffRole.customer_care],
+        ['Gia sư', StaffRole.teacher],
+      ])('%s vẫn bị 403 khi xoá buổi', async (_l, role) => {
+        await expect(
+          asStaff(SessionController, 'deleteSession', [role]),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+    });
+
+    describe('15/11 lịch sử buổi của lớp (route admin)', () => {
+      it.each([
+        StaffRole.accountant_income,
+        StaffRole.accountant_expense,
+        StaffRole.sale_customer_care_head,
+      ])('%s xem được SessionController.getSessionsByClassId', async (role) => {
+        await expect(
+          asStaff(SessionController, 'getSessionsByClassId', [role]),
+        ).resolves.toBe(true);
+      });
+
+      it.each([
+        StaffRole.training,
+        StaffRole.training_head,
+        StaffRole.lesson_plan_head,
+        StaffRole.teacher,
+      ])('%s bị 403 ở getSessionsByClassId', async (role) => {
+        await expect(
+          asStaff(SessionController, 'getSessionsByClassId', [role]),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
     });
 
     const surveyRoutes = adminOnlyRoutes(SurveysController);

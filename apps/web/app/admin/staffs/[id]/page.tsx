@@ -14,6 +14,7 @@ import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as bonusApi from "@/lib/apis/bonus.api";
 import * as staffApi from "@/lib/apis/staff.api";
+import * as userApi from "@/lib/apis/user.api";
 import * as deductionSettingsApi from "@/lib/apis/deduction-settings.api";
 import {
   EditStaffPopup,
@@ -25,7 +26,10 @@ import {
   SessionHistoryTableSkeleton,
   SurveyDeadlineBlockPaymentWarning,
 } from "@/components/admin/staff";
-import { UserLinkedProfileLinks } from "@/components/admin/user";
+import {
+  SetAccountHandleDialog,
+  UserLinkedProfileLinks,
+} from "@/components/admin/user";
 import {
   AssistantDualRoleIncomeHelper,
   hasAssistantAndCustomerCareRoles,
@@ -320,6 +324,7 @@ export default function AdminStaffDetailPage({
   const [editPopupOpen, setEditPopupOpen] = useState(false);
   const [qrLink, setQrLink] = useState<string | null>(null);
   const [qrPopupOpen, setQrPopupOpen] = useState(false);
+  const [accountHandleOpen, setAccountHandleOpen] = useState(false);
   const [addBonusPopupOpen, setAddBonusPopupOpen] = useState(false);
   const [bonusFormMode, setBonusFormMode] = useState<"create" | "edit">(
     "create",
@@ -1884,6 +1889,11 @@ export default function AdminStaffDetailPage({
           email={staff.user?.email}
           phone={staff.user?.phone}
           accountHandle={staff.user?.accountHandle}
+          onEditAccountHandle={
+            canManageUsers && staff.user?.id
+              ? () => setAccountHandleOpen(true)
+              : undefined
+          }
           birthDateLabel={formatDate(staff.birthDate)}
           province={province}
           ethnicity={staff.ethnicity}
@@ -1907,6 +1917,20 @@ export default function AdminStaffDetailPage({
           showPersonalInfo={staff.sensitiveView?.personal ?? true}
           showBankInfo={staff.sensitiveView?.bank ?? true}
         />
+        {canManageUsers && staff.user?.id ? (
+          <SetAccountHandleDialog
+            displayName={staffDisplayName || staff.user.email || "Nhân sự"}
+            currentHandle={staff.user.accountHandle}
+            open={accountHandleOpen}
+            onClose={() => setAccountHandleOpen(false)}
+            mutationFn={(accountHandle) =>
+              userApi.setUserAccountHandle(staff.user?.id as string, {
+                accountHandle,
+              })
+            }
+            invalidateKeys={[["staff", "detail", id], ["staff", "list"]]}
+          />
+        ) : null}
 
         <section
           className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"

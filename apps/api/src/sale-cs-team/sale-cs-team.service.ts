@@ -35,12 +35,19 @@ import type {
 } from 'src/dtos/sale-cs-team.dto';
 import { FixedSalarySettingsService } from 'src/fixed-salary-settings/fixed-salary-settings.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import type {
+  AccountHandleResultDto,
+  SetAccountHandleDto,
+} from 'src/dtos/user.dto';
+import { changeAccountHandleInTx } from 'src/user/account-handle';
 import { releaseCustomerCareAssignmentsOnRoleRemovalInTx } from 'src/customer-care/customer-care-role-release';
 import {
   SALE_CS_HEAD_MANAGEABLE_ROLES,
+  assertSaleCsHeadCanChangeAccountHandle,
   assertSaleCsHeadCanEditAchievements,
   assertSaleCsHeadCanEditProfile,
   assertSaleCsHeadCanLockAccount,
+  canSaleCsHeadChangeAccountHandle,
   canSaleCsHeadEditAchievements,
   canSaleCsHeadEditProfile,
   canSaleCsHeadEditRoles,
@@ -491,6 +498,50 @@ export class SaleCsTeamService {
     return { id: target.id, accountLocked: data.locked };
   }
 
+  /**
+   * Đổi tên đăng nhập (16/11) — cùng phạm vi khoá tài khoản: target CHỈ mang
+   * role sale / customer_care, không phải mình / Admin / trưởng.
+   */
+  async updateAccountHandle(
+    viewer: SaleCsTeamViewer,
+    targetStaffId: string,
+    data: SetAccountHandleDto,
+  ): Promise<AccountHandleResultDto> {
+    const headStaffId = await this.resolveHead(viewer);
+    const target = await this.findTarget(targetStaffId);
+    assertSaleCsHeadCanChangeAccountHandle({
+      actorStaffId: headStaffId,
+      targetStaffId: target.id,
+      targetRoles: target.roles,
+      targetIsAdminAccount: target.user?.roleType === UserRole.admin,
+    });
+    if (!target.userId) {
+      throw new BadRequestException('Nhân sự chưa có tài khoản đăng nhập.');
+    }
+
+    const userId = target.userId;
+    const change = await this.prisma.$transaction(async (tx) => {
+      const result = await changeAccountHandleInTx(tx, {
+        userId,
+        accountHandle: data.accountHandle,
+      });
+      if (result.changed) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: toAuditActor(viewer),
+          entityType: 'staff',
+          entityId: target.id,
+          description: 'Trưởng phòng Sale & CSKH đổi tên đăng nhập nhân sự',
+          beforeValue: { accountHandle: result.previous },
+          afterValue: { accountHandle: result.next },
+        });
+      }
+      return result;
+    });
+
+    if (change.changed) this.invalidateAuth(userId);
+    return { id: target.id, accountHandle: change.next };
+  }
+
   /** Hồ sơ chuyên môn: họ tên, trường đại học, trường THPT. */
   async updateProfessionalProfile(
     viewer: SaleCsTeamViewer,
@@ -698,6 +749,8 @@ export class SaleCsTeamService {
         canLockAccount: user != null && canSaleCsHeadLockAccount(policyTarget),
         canEditProfile: canSaleCsHeadEditProfile(policyTarget),
         canEditAchievements: canSaleCsHeadEditAchievements(policyTarget),
+        canEditAccountHandle:
+          user != null && canSaleCsHeadChangeAccountHandle(policyTarget),
       },
     };
   }

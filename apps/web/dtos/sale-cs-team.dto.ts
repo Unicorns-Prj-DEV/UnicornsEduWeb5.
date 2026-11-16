@@ -17,6 +17,8 @@ export interface SaleCsTeamPermissions {
   canEditProfile: boolean;
   /** Thêm/sửa/xoá/sao/ảnh thành tích (nhân sự dưới cấp). */
   canEditAchievements: boolean;
+  /** Đổi tên đăng nhập — cùng phạm vi khoá tài khoản (16/11). */
+  canEditAccountHandle: boolean;
 }
 
 export interface SaleCsTeamMember {

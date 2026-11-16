@@ -33,6 +33,7 @@ import {
   AdminCreateStudentUserDto,
   AdminSetUserPasswordDto,
   AdminCreateUserDto,
+  SetAccountHandleDto,
   GetUsersQueryDto,
   UpdateUserDto,
 } from 'src/dtos/user.dto';
@@ -285,6 +286,39 @@ export class UserController {
     @Body() data: AdminSetUserPasswordDto,
   ) {
     return this.authService.adminSetUserPassword(id, data.newPassword, {
+      userId: user.id,
+      userEmail: user.email,
+      roleType: user.roleType,
+    });
+  }
+
+  @Patch(':id/account-handle')
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE)
+  @ApiOperation({
+    summary: 'Set user account handle',
+    description:
+      'Đổi tên đăng nhập (`account_handle`). Admin: mọi tài khoản. Trưởng phòng Sale & CSKH: chỉ tài khoản học sinh (nhân sự đội Sale/CSKH dùng `PATCH /sale-cs-team/members/:staffId/account-handle`). Handle mới 3–50 ký tự, không khoảng trắng, không `@`; kiểm trùng không phân biệt hoa thường. Không đăng xuất thiết bị.',
+  })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiBody({ type: SetAccountHandleDto })
+  @ApiResponse({ status: 200, description: '{ id, accountHandle }.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Sai định dạng hoặc tên đăng nhập đã được dùng.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden. Non-admin staff, or sale_customer_care_head targeting a non-student account.',
+  })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async setUserAccountHandle(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() data: SetAccountHandleDto,
+  ) {
+    return this.userService.setAccountHandle(id, data.accountHandle, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,

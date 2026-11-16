@@ -10,7 +10,8 @@ describe('CourseService – lesson_plan_head scope', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-    class: { count: jest.fn(), updateMany: jest.fn() },
+    class: { count: jest.fn(), updateMany: jest.fn(), findMany: jest.fn() },
+    studentClass: { findMany: jest.fn(), updateMany: jest.fn() },
     attendance: { count: jest.fn() },
     courseLessonPlanMember: { findUnique: jest.fn() },
     $transaction: jest.fn(),
@@ -40,6 +41,8 @@ describe('CourseService – lesson_plan_head scope', () => {
     prisma.course.update.mockResolvedValue(course);
     prisma.class.count.mockResolvedValue(0);
     prisma.attendance.count.mockResolvedValue(0);
+    prisma.class.findMany.mockResolvedValue([]);
+    prisma.studentClass.findMany.mockResolvedValue([]);
     prisma.$transaction.mockImplementation(
       (fn: (tx: typeof prisma) => unknown) => fn(prisma),
     );
@@ -168,6 +171,37 @@ describe('CourseService – lesson_plan_head scope', () => {
       });
     });
 
+    it('16/11: bật thì chốt gói cho học sinh đang học của các lớp trong khoá', async () => {
+      prisma.class.findMany.mockResolvedValueOnce([{ id: 'UNICL-1' }]);
+      await service.update(admin, course.id, { is_one_time: true } as never);
+      expect(prisma.studentClass.findMany).toHaveBeenCalledWith({
+        where: {
+          classId: { in: ['UNICL-1'] },
+          OR: [{ status: null }, { status: 'active' }],
+        },
+        select: { classId: true, studentId: true },
+      });
+      expect(prisma.studentClass.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('16/11: tắt thì xoá học phí riêng của mọi học sinh trong các lớp của khoá', async () => {
+      prisma.course.findUnique.mockResolvedValue({
+        ...course,
+        isOneTime: true,
+      });
+      await service.update(admin, course.id, { is_one_time: false } as never);
+      expect(prisma.studentClass.updateMany).toHaveBeenCalledWith({
+        where: { class: { courseId: course.id } },
+        data: {
+          customStudentTuitionPerSession: null,
+          customTuitionPerBlock: null,
+          customTuitionPackageTotal: null,
+          customTuitionPackageSession: null,
+        },
+      });
+      expect(prisma.class.findMany).not.toHaveBeenCalled();
+    });
+
     it('không cho trưởng ban Chuyên môn đổi cài đặt bán một lần', async () => {
       prisma.courseLessonPlanMember.findUnique.mockResolvedValue({ id: 'm1' });
       await expect(
@@ -184,6 +218,7 @@ describe('CourseService – lesson_plan_head scope', () => {
         is_one_time: false,
       } as never);
       expect(prisma.class.updateMany).not.toHaveBeenCalled();
+      expect(prisma.studentClass.updateMany).not.toHaveBeenCalled();
     });
   });
 });

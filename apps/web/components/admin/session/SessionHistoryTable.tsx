@@ -92,7 +92,7 @@ import ProtectedVideoSyncStatus from "@/components/admin/ProtectedVideoSyncStatu
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as classApi from "@/lib/apis/class.api";
 import * as sessionApi from "@/lib/apis/session.api";
-import { runBackgroundSave } from "@/lib/mutation-feedback";
+import { getMutationErrorMessage, runBackgroundSave } from "@/lib/mutation-feedback";
 import { isTrainingHeadAttendanceTransitionAllowed } from "@/lib/training-head-session-policy";
 import { mergeTimelineByDateDesc } from "@/lib/class-session-timeline";
 import {
@@ -158,6 +158,11 @@ type Props = {
   allowAttendanceTuitionEdits?: boolean;
   allowPaymentStatusEdit?: boolean;
   allowDeleteSession?: boolean;
+  /**
+   * Thu hẹp nút xoá theo từng buổi (15/11: role trưởng không xoá buổi đã
+   * thanh toán / ghi cọc). Bỏ trống = theo `allowDeleteSession`.
+   */
+  canDeleteSessionItem?: (session: SessionItem) => boolean;
   enableBulkPaymentStatusEdit?: boolean;
   readOnlySessionDetails?: boolean;
   /**
@@ -918,6 +923,7 @@ export default function SessionHistoryTable({
   allowAttendanceTuitionEdits,
   allowPaymentStatusEdit = true,
   allowDeleteSession = true,
+  canDeleteSessionItem,
   enableBulkPaymentStatusEdit = false,
   readOnlySessionDetails: readOnlySessionDetailsProp = false,
   isReviewOnlySession,
@@ -936,6 +942,8 @@ export default function SessionHistoryTable({
   const isWideEditor = editorLayout === "wide";
   const showActionsColumn = showActionsColumnProp ?? Boolean(onSessionUpdated);
   const showDeleteAction = showActionsColumn && allowDeleteSession;
+  const canShowDeleteFor = (session: SessionItem) =>
+    showDeleteAction && (!canDeleteSessionItem || canDeleteSessionItem(session));
   const isTeacherDisplayHidden = hideTeacherDisplay && entityMode === "teacher";
   const isClassDetailRowLayout = variant === "classDetail";
   const classDetailTablePad = {
@@ -1254,8 +1262,10 @@ export default function SessionHistoryTable({
       toast.success("Đã xóa buổi học.");
       onSessionUpdated?.();
     },
-    onError: () => {
-      toast.error("Không thể xóa buổi học. Vui lòng thử lại.");
+    onError: (error: unknown) => {
+      toast.error(
+        getMutationErrorMessage(error, "Không thể xóa buổi học. Vui lòng thử lại."),
+      );
     },
   });
 
@@ -2239,7 +2249,7 @@ export default function SessionHistoryTable({
                           status={status}
                         />
                       </div>
-                      {showDeleteAction ? (
+                      {canShowDeleteFor(session) ? (
                         <button
                           type="button"
                           onClick={(event) => {
@@ -2390,7 +2400,7 @@ export default function SessionHistoryTable({
                               />
                             </svg>
                           </button>
-                          {showDeleteAction ? (
+                          {canShowDeleteFor(session) ? (
                             <button
                               type="button"
                               onClick={(event) => {
@@ -2599,7 +2609,7 @@ export default function SessionHistoryTable({
                       <td
                         className={`${classDetailTablePad.tdActions} align-top text-right`}
                       >
-                        {showDeleteAction ? (
+                        {canShowDeleteFor(session) ? (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2873,7 +2883,7 @@ export default function SessionHistoryTable({
                                 />
                               </svg>
                             </button>
-                            {showDeleteAction ? (
+                            {canShowDeleteFor(session) ? (
                               <button
                                 type="button"
                                 onClick={(event) => {

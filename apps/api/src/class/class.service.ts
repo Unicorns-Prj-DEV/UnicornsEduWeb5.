@@ -90,6 +90,7 @@ import {
   resolveSnapshotBlockCountForPricingMode,
 } from 'src/common/class-pricing-mode.util';
 import { findOneTimeChargedStudentIds } from 'src/common/one-time-charge.util';
+import { lockOneTimeStudentPackages } from 'src/common/one-time-package-lock';
 import {
   assertClassTuitionBeforeFirstStudent,
   findClassIdsWithoutActiveStudents,
@@ -1745,6 +1746,14 @@ export class ClassService {
             status: StudentClassStatus.active,
           })),
         });
+        // 16/11: lớp bán một lần chốt gói lớp lúc vào lớp.
+        await lockOneTimeStudentPackages(
+          tx,
+          data.student_ids.map((studentId) => ({
+            classId: createdClass.id,
+            studentId,
+          })),
+        );
       }
 
       const detail = await this.getClassDetailSnapshot(tx, createdClass.id);
@@ -1914,11 +1923,22 @@ export class ClassService {
 
         const existingStudentClasses = await tx.studentClass.findMany({
           where: { classId: data.id },
-          select: { studentId: true },
+          select: { studentId: true, status: true },
         });
 
         const existingStudentIdSet = new Set(
           existingStudentClasses.map((item) => item.studentId),
+        );
+        // Học sinh đang học giữ nguyên học phí riêng (gói đã chốt của lớp bán
+        // một lần); chỉ học sinh vào lại mới reset học phí riêng.
+        const activeStudentIdSet = new Set(
+          existingStudentClasses
+            .filter(
+              (item) =>
+                item.status == null ||
+                item.status === StudentClassStatus.active,
+            )
+            .map((item) => item.studentId),
         );
         const incomingStudentIdSet = new Set(normalizedStudentIds);
         const studentIdsToInactive = existingStudentClasses
@@ -1939,7 +1959,9 @@ export class ClassService {
 
         if (normalizedStudentIds.length > 0) {
           const studentIdsToActivate = normalizedStudentIds.filter(
-            (studentId) => existingStudentIdSet.has(studentId),
+            (studentId) =>
+              existingStudentIdSet.has(studentId) &&
+              !activeStudentIdSet.has(studentId),
           );
           const studentIdsToCreate = normalizedStudentIds.filter(
             (studentId) => !existingStudentIdSet.has(studentId),
@@ -1976,6 +1998,10 @@ export class ClassService {
           }
         }
       }
+      const lockStudentIds =
+        data.student_ids !== undefined
+          ? Array.from(new Set(data.student_ids))
+          : [];
 
       const standardBlockCount = await this.loadStandardBlockCount(tx, data.id);
       const updatedClass = await tx.class.update({
@@ -2007,6 +2033,12 @@ export class ClassService {
         },
       });
       await assertClassTuitionBeforeFirstStudent(tx, firstStudentClassIds);
+      // 16/11: chốt gói lớp bán một lần cho học sinh vừa vào (sau khi đã ghi
+      // gói lớp mới của request này).
+      await lockOneTimeStudentPackages(
+        tx,
+        lockStudentIds.map((studentId) => ({ classId: data.id, studentId })),
+      );
 
       const classRecord = await tx.classTeacher.findMany({
         where: {
@@ -3122,6 +3154,11 @@ export class ClassService {
           ),
         },
       });
+      // 16/11: lớp bán một lần không có học sinh "theo gói lớp" — xoá gói riêng
+      // thì chốt lại theo gói lớp hiện tại (hoặc số đã thu nếu đã bị thu).
+      await lockOneTimeStudentPackages(tx, [
+        { classId: id, studentId: dto.student_id },
+      ]);
 
       const afterValue = await this.getClassAuditSnapshot(tx, id);
       if (!afterValue) {
@@ -3503,6 +3540,12 @@ export class ClassService {
               },
             });
           }),
+        );
+        // 16/11: lớp bán một lần — học sinh không gửi gói riêng được chốt gói
+        // lớp hiện tại (học sinh vào lại đã bị thu: chốt đúng số đã thu).
+        await lockOneTimeStudentPackages(
+          tx,
+          normalizedStudentIds.map((studentId) => ({ classId: id, studentId })),
         );
       }
 

@@ -128,6 +128,22 @@ Lớp **chưa có học sinh đang học** (`student_classes.status` = `active` 
 | Nhận học sinh đầu tiên (`class-first-student-tuition`) | `400` | `400` | được |
 | Bật `is_one_time` cho khoá (`PATCH /courses/:id`) | lớp trống được; lớp có học sinh → `400` | `400` | được |
 
+## Chốt gói lớp bán một lần (16/11)
+
+Bất biến: ở lớp `one_time`, mọi học sinh đang học có `student_classes.custom_tuition_package_total` khác `null`. Gói lớp lúc học sinh vào lớp trở thành gói riêng; sửa **Học phí lớp** về sau (`PATCH /class/:id/tuition`, `PATCH /class/:id`) **không** đổi gói đã chốt — gói mới chỉ áp cho học sinh vào sau.
+
+Helper `apps/api/src/common/one-time-package-lock.ts`:
+
+- `resolveOneTimePackageLock` — đã có gói riêng (kể cả `0đ` miễn phí, hoặc nhập tay cùng request) → giữ; đã bị thu trên lớp → chốt **đúng số đã thu** (dòng `attendance` present/excused `tuition_fee > 0` đầu tiên theo `sessions.date`, `created_at`), số buổi theo gói lớp; chưa thu → gói lớp hiện tại (gói trống / ≤ 0 → bỏ qua). Ghi kèm `custom_student_tuition_per_session` suy ra bằng `resolveDerivedTuitionPerSession` (gói ÷ số buổi, làm tròn; gói `0đ` → `0`; số buổi trống/≤ 0 → `null`), như mọi đường ghi gói riêng khác.
+- `lockOneTimeStudentPackages(tx, [{ classId, studentId }])` — chỉ chạm lớp `one_time`, học sinh đang học, gói riêng `null`. Gọi trong cùng transaction sau khi ghi roster ở: `createClass`, `updateClass` (sau khi ghi lớp → dùng gói mới), `updateClassStudents`, `updateClassStudentTuition` (xoá gói riêng → chốt lại theo gói lớp), `StudentService.updateStudentClasses` (thêm + vào lại), `UserService.createStudentUser`.
+- `lockOneTimePackagesForActiveStudents(tx, classIds)` — khi khoá bật bán một lần (`docs/api/courses.md`).
+
+Vào lại lớp: các đường vào lại reset `custom_*` về `null` rồi chốt lại → học sinh đã từng bị thu giữ đúng số đã thu (và không bị thu thêm, vì `findOneTimeChargedStudentIds`); chưa thu → giá lớp lúc vào lại.
+
+**Fix kèm:** `PATCH /class/:id` với `student_ids` trước đây reset học phí riêng của cả học sinh **đang học**; giờ chỉ học sinh vào lại (đang `inactive`) bị reset, giống `StudentService`.
+
+Backfill: migration dữ liệu `20261116090000_lock_one_time_student_packages` (gói + số buổi) và `20261116100000_derive_one_time_locked_per_session` (suy ra học phí riêng / buổi cho hàng đã chốt còn thiếu) — xem `docs/Database Schema.md`.
+
 **Lương gia sư theo lớp.** Mọi đường ghi định mức lương gia sư theo lớp (trợ cấp/HS, scale, % vận hành, trần, mức riêng gia sư) chỉ cho Admin, Trưởng ban Đào tạo, Quản lý lớp của lớp: `PATCH /class/:id/teacher-compensation` (`resolveClassTeacherManagerScope`), `PATCH /staff/:id/class-teachers/:classId/operating-deduction` (`assertCanSetClassTeacherPay`), `/staff-ops/classes/:id/teacher-pay`. Kế toán chi giữ trên allowlist route để người kiêm role vào được, nhưng thuần Kế toán chi → `403` «Chỉ Admin, Trưởng ban Đào tạo hoặc Quản lý lớp của lớp này mới được sửa lương gia sư theo lớp. Kế toán chi chỉ xem.». Không tự sửa lương của chính mình (`assertActorNotEditingOwnCompensation`) giữ nguyên.
 
 **Số dư ví học sinh.** Trên route `/class`, `accountBalance` của học sinh (cấp dòng và `student.accountBalance`) chỉ trả cho Admin, Trưởng phòng Sale & CSKH, Kế toán thu, Kế toán chi (hợp quyền). Trưởng ban Đào tạo / Ban Đào tạo không nhận — áp `GET /class/:id`, `GET /class/:id/students` và response của các route ghi lớp. Route staff-ops giữ luật cũ (teacher / training_manager / training_head bỏ ví).

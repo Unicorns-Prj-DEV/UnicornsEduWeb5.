@@ -21,6 +21,48 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Chốt gói học phí lớp bán một lần (16/11)
+
+#### Added
+
+- **Helper** `src/common/one-time-package-lock.ts` (`resolveOneTimePackageLock`, `lockOneTimeStudentPackages`, `lockOneTimePackagesForActiveStudents`): học sinh vào lớp `one_time` được chốt gói lớp lúc đó thành gói riêng (`custom_tuition_package_total/session`); đã bị thu trên lớp → chốt đúng số đã thu; gói riêng có sẵn (kể cả 0đ) giữ nguyên. Ghi kèm `custom_student_tuition_per_session` suy ra từ gói (`resolveDerivedTuitionPerSession`). Gọi ở `createClass`, `updateClass`, `updateClassStudents`, `updateClassStudentTuition`, `StudentService.updateStudentClasses`, `UserService.createStudentUser`.
+- **Migration dữ liệu** `20261116090000_lock_one_time_student_packages`: backfill học sinh đang học lớp `one_time` chưa có gói riêng (đã thu → số đã thu; chưa thu → gói lớp hiện tại). Bổ sung `20261116100000_derive_one_time_locked_per_session`: suy ra học phí riêng / buổi cho hàng đã chốt còn `NULL`. Schema không đổi.
+
+#### Changed
+
+- Sửa Học phí lớp bán một lần không còn làm học sinh cũ hiển thị đổi theo; gói mới chỉ áp cho học sinh vào sau.
+- `PATCH /courses/:id`: bật bán một lần → chốt gói học sinh đang học; tắt → xoá 4 cột học phí riêng của mọi học sinh trong các lớp của khoá.
+- Web: copy cảnh báo `CourseFormPopup` (bật/tắt Bán một lần) và mô tả phần Học phí lớp ở `EditClassTuitionPopup` + `EditClassBasicInfoPopup` (dialog Thông tin lớp) cho lớp `one_time`.
+
+#### Fixed
+
+- `PATCH /class/:id` kèm `student_ids` reset học phí riêng của cả học sinh đang học; giờ chỉ reset học sinh vào lại.
+
+### Đổi tên đăng nhập học sinh / nhân sự (16/11)
+
+#### Added
+
+- **Luật chung** `src/user/account-handle.ts` (`normalizeAccountHandle`, `changeAccountHandleInTx`): tên đăng nhập mới 3–50 ký tự sau trim, **không khoảng trắng, không `@`** (đăng nhập tra handle HOẶC email bằng cùng chuỗi — handle chứa `@` trùng email người khác sẽ lệch tài khoản), không trùng tài khoản khác (so không phân biệt hoa thường; đua ghi bắt P2002 trên `account_handle`) → `400` «Tên đăng nhập đã được dùng.». Handle cũ không đạt luật vẫn giữ tới khi đổi. Giống hệt handle hiện tại → không ghi, không audit. Đổi xong ghi `action_history` (before/after `accountHandle`), xoá cache auth; **không** đăng xuất thiết bị, mật khẩu giữ nguyên. Body chung `SetAccountHandleDto { accountHandle }`, trả `{ id, accountHandle }`.
+- **`PATCH /users/:id/account-handle`**: Admin đổi mọi tài khoản; Trưởng phòng Sale & CSKH (và Trợ lí — cùng allowlist với đặt mật khẩu) chỉ tài khoản **học sinh**, đích khác → `403` «Chỉ Admin được đổi tên đăng nhập của tài khoản không phải học sinh.».
+- **`PATCH /sale-cs-team/members/:staffId/account-handle`**: Trưởng phòng Sale & CSKH đổi handle nhân sự **chỉ** mang Sale và/hoặc CSKH (cùng phạm vi khoá tài khoản — `assertSaleCsHeadCanChangeAccountHandle`); cờ `permissions.canEditAccountHandle`.
+- **`PATCH /training/tutors/:id/account-handle`**: Trưởng ban Đào tạo đổi handle cấp dưới **chỉ** mang Gia sư / Ban Chuyên môn / Đào tạo (`assertTrainingHeadCanChangeAccountHandle`); cờ `management.permissions.canEditAccountHandle`, chi tiết thêm `management.accountHandle`.
+- `GET /students/:id` trả thêm `accountHandle` (của tài khoản học sinh, `null` khi chưa có).
+- **Web:** dialog chung `SetAccountHandleDialog` (`ResponsiveDialog`, hỏi `ConfirmDialog` khi bỏ thay đổi, Sonner, validate client `lib/account-handle.ts` khớp backend). Nút **Đổi tên đăng nhập** (icon @) cạnh **Đặt mật khẩu** trên `/admin/students/:id` + `/staff/students/:id`, chip `@handle` cạnh trạng thái. Nút **Đổi** cạnh dòng Handle của `StaffIdentityOverview` (prop `onEditAccountHandle`) trên `/staff/staffs/:id` (theo cờ của Sale & CSKH hoặc Đào tạo) và `/admin/staffs/:id` (chỉ Admin).
+- **Giới hạn:** Trưởng ban Giáo án (`lesson_plan_head`) chưa có quyền này; nhân sự kiêm role ngoài nhóm của trưởng → nhờ Admin.
+
+#### Fixed
+
+- **`GET /staff/:id` trả thêm `user.id`** (khớp `StaffDetail.user.id` của web; `userId` top-level vốn đã trả, không lộ thêm). Trước đó `/admin/staffs/:id` kiểm `staff.user?.id` luôn rỗng → ẩn nút **Đổi tên đăng nhập** và link **Quản lý tài khoản** (`UserLinkedProfileLinks`) dù người xem là Admin.
+
+### Role trưởng xoá buổi học (15/11)
+
+#### Changed
+
+- **`DELETE /sessions/:id` mở cho 3 role trưởng** (`sale_customer_care_head`, `training_head`, `lesson_plan_head` — `SESSION_DELETE_HEAD_ROLES` trong `src/common/staff-role-policy.ts`, qua `@AllowStaffRolesOnAdminRoutes`). Role trưởng xoá được mọi buổi **chưa thanh toán** trợ cấp gia sư (kể cả buổi chính mình dạy); buổi `paid` / `deposit` → `400` «Không thể xoá buổi đã thanh toán hoặc ghi cọc. Liên hệ Admin nếu cần xoá.» (`assertSessionDeleteAllowed`, kiểm trong transaction của `SessionDeleteService`). Admin vẫn xoá mọi buổi; role khác (kế toán, Ban Đào tạo, gia sư…) `403`. Helper `isSessionPaymentLocked` tách ra từ `isSessionTimeEditLocked` để hai luật dùng chung một định nghĩa «đã khoá thanh toán».
+- **Trưởng phòng Sale & CSKH thấy lịch sử buổi trên trang lớp:** `GET /sessions/class/:classId` thêm `sale_customer_care_head` vào allowlist; phần che tiền đổi sang `resolveAdminClassFinanceView` → Trưởng phòng nhận góc nhìn `income` (thấy học phí, **không** thấy trợ cấp / `teacherPaymentStatus`). Khảo sát lớp + cảnh báo chưa dạy vẫn không mở.
+- **Web:** `lib/session-delete-access.ts` (`canDeleteSessionsAsHead`, `canHeadDeleteSession` + test). `SessionHistoryTable` thêm prop `canDeleteSessionItem` để ẩn nút xoá từng buổi (buổi `paid`/`deposit` với role trưởng); lỗi xoá hiện message backend qua `getMutationErrorMessage`. `/admin/classes/:id` (màn admin-like của Trưởng phòng / Trưởng ban) và workspace `/staff/classes/:id` bật nút xoá cho role trưởng. Trưởng phòng không thấy trạng thái thanh toán nên nút luôn hiện; backend chặn `400` nếu buổi đã trả.
+- **Giới hạn hiện tại:** Trưởng ban Chuyên môn (`lesson_plan_head`) có quyền xoá ở backend nhưng chưa có trang lớp riêng — nút xoá chỉ hiện trên workspace `/staff/classes/:id` của lớp mình dạy (khi kiêm gia sư).
+
 ### Sửa CCCD trùng trả 500 khi Admin tạo nhân sự (15/11)
 
 #### Fixed

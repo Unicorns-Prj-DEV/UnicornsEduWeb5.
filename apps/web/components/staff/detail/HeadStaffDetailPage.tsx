@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { SetAccountHandleDialog } from "@/components/admin/user";
 import MonthNav from "@/components/admin/MonthNav";
 import StaffIdentityOverview from "@/components/admin/staff/StaffIdentityOverview";
 import StaffBonusViewCard from "@/components/staff/detail/StaffBonusViewCard";
@@ -20,10 +21,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   getSaleCsTeamMember,
   saleCsTeamKeys,
+  updateSaleCsTeamAccountHandle,
 } from "@/lib/apis/sale-cs-team.api";
 import {
   getTrainingTutor,
   trainingTutorKeys,
+  updateTrainingTutorAccountHandle,
 } from "@/lib/apis/training-tutor.api";
 import { getDefaultMonthKey } from "@/lib/month-format";
 import { formatCustomerCarePercent } from "@/lib/sale-cs-team";
@@ -51,6 +54,7 @@ export default function HeadStaffDetailPage({
   viewerRoles: readonly string[];
 }) {
   const [showInfo, setShowInfo] = useState(false);
+  const [accountHandleOpen, setAccountHandleOpen] = useState(false);
   const [month, setMonth] = useState(getDefaultMonthKey);
   const [monthPopupOpen, setMonthPopupOpen] = useState(false);
   const viewerIsSaleHead = hasSaleCsHeadAccess(viewerRoles);
@@ -129,6 +133,23 @@ export default function HeadStaffDetailPage({
       : null;
   const hasMonthlySection = Boolean(member) || bonusSource != null;
   const canOpenInfo = Boolean(member) || Boolean(trainingManagement);
+  // 16/11: đổi tên đăng nhập — cùng phạm vi khoá tài khoản; ưu tiên route
+  // Sale & CSKH nếu người xem là Trưởng phòng và nhân sự thuộc đội.
+  const accountHandle =
+    member?.accountHandle ?? trainingManagement?.accountHandle ?? null;
+  const accountHandleEditor = member?.permissions.canEditAccountHandle
+    ? {
+        mutationFn: (value: string) =>
+          updateSaleCsTeamAccountHandle(staffId, { accountHandle: value }),
+        invalidateKeys: [saleCsTeamKeys.all],
+      }
+    : trainingManagement?.permissions.canEditAccountHandle
+      ? {
+          mutationFn: (value: string) =>
+            updateTrainingTutorAccountHandle(staffId, { accountHandle: value }),
+          invalidateKeys: [trainingTutorKeys.all],
+        }
+      : null;
   const workCard = member ? (
     <SaleCsTeamWorkCard member={member} month={month} />
   ) : null;
@@ -175,7 +196,10 @@ export default function HeadStaffDetailPage({
       <StaffIdentityOverview
         staffId={staffId}
         achievementMode={tutor ? "training" : "saleCsTeam"}
-        accountHandle={member?.accountHandle}
+        accountHandle={accountHandle}
+        onEditAccountHandle={
+          accountHandleEditor ? () => setAccountHandleOpen(true) : undefined
+        }
         birthDateLabel="—"
         province={member?.province?.trim() || "—"}
         university={tutor?.university ?? member?.university}
@@ -242,6 +266,16 @@ export default function HeadStaffDetailPage({
         <SaleCsTeamMemberInfoDialog
           member={member}
           onClose={() => setShowInfo(false)}
+        />
+      ) : null}
+      {accountHandleEditor ? (
+        <SetAccountHandleDialog
+          displayName={member?.fullName ?? tutor?.fullName ?? "Nhân sự"}
+          currentHandle={accountHandle}
+          open={accountHandleOpen}
+          onClose={() => setAccountHandleOpen(false)}
+          mutationFn={accountHandleEditor.mutationFn}
+          invalidateKeys={accountHandleEditor.invalidateKeys}
         />
       ) : null}
       {showInfo && !member && tutor && trainingManagement ? (

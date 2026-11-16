@@ -19,6 +19,7 @@ import {
   Max,
   Min,
   IsNotEmpty,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 import {
@@ -401,6 +402,30 @@ export class AdminSetUserPasswordDto {
   @IsString()
   @MinLength(6)
   newPassword: string;
+}
+
+/**
+ * Đổi tên đăng nhập (16/11). Dùng chung cho `PATCH /users/:id/account-handle`,
+ * `PATCH /sale-cs-team/members/:staffId/account-handle`,
+ * `PATCH /training/tutors/:id/account-handle`. Luật chi tiết (3–50 ký tự,
+ * không khoảng trắng, không `@`) kiểm ở `normalizeAccountHandle`.
+ */
+export class SetAccountHandleDto {
+  @ApiProperty({
+    description:
+      'Tên đăng nhập mới: 3–50 ký tự, không khoảng trắng, không ký tự @. Không phân biệt hoa thường khi kiểm trùng.',
+    example: 'nguyenvana',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  accountHandle: string;
+}
+
+export interface AccountHandleResultDto {
+  /** `users.id` (route `/users`) hoặc staff id (route của role trưởng). */
+  id: string;
+  accountHandle: string;
 }
 
 export class SetupPasswordDto {
