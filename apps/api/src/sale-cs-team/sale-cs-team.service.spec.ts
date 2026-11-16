@@ -112,7 +112,7 @@ describe('SaleCsTeamService (#271)', () => {
       count: jest.fn(),
       update: jest.fn(),
     },
-    user: { update: jest.fn() },
+    user: { update: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn() },
     customerCareService: { deleteMany: jest.fn() },
     extraAllowance: { findMany: jest.fn() },
     bonus: { findMany: jest.fn() },
@@ -209,6 +209,7 @@ describe('SaleCsTeamService (#271)', () => {
         permissions: {
           canEditRoles: true,
           canLockAccount: true,
+          canEditAccountHandle: true,
           canEditProfile: true,
           canEditAchievements: true,
         },
@@ -242,12 +243,14 @@ describe('SaleCsTeamService (#271)', () => {
       expect(data[0].permissions).toEqual({
         canEditRoles: true,
         canLockAccount: false,
+        canEditAccountHandle: false,
         canEditProfile: true,
         canEditAchievements: true,
       });
       expect(data[1].permissions).toEqual({
         canEditRoles: false,
         canLockAccount: false,
+        canEditAccountHandle: false,
         canEditProfile: false,
         canEditAchievements: false,
       });
@@ -665,6 +668,55 @@ describe('SaleCsTeamService (#271)', () => {
     });
   });
 
+  describe('đổi tên đăng nhập (16/11)', () => {
+    it('đổi handle nhân sự chỉ mang Sale/CSKH: ghi users, audit staff, xoá cache auth', async () => {
+      mockActor();
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(
+        buildTarget([StaffRole.sale]),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({ accountHandle: 'sale01' });
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateAccountHandle(HEAD_VIEWER, 'UNISTAFF-T1', {
+          accountHandle: 'sale_moi',
+        }),
+      ).resolves.toEqual({ id: 'UNISTAFF-T1', accountHandle: 'sale_moi' });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'target-user' },
+        data: { accountHandle: 'sale_moi' },
+        select: { id: true },
+      });
+      expect(mockActionHistory.recordUpdate).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          entityType: 'staff',
+          entityId: 'UNISTAFF-T1',
+          beforeValue: { accountHandle: 'sale01' },
+          afterValue: { accountHandle: 'sale_moi' },
+        }),
+      );
+      expect(mockAuthCache.invalidateUser).toHaveBeenCalledWith('target-user');
+    });
+
+    it.each([
+      ['CSKH kiêm gia sư', [StaffRole.customer_care, StaffRole.teacher]],
+      ['Trưởng phòng khác', [StaffRole.sale_customer_care_head]],
+      ['Admin', [StaffRole.admin]],
+    ])('chặn đổi handle %s (403), không chạm users', async (_label, roles) => {
+      mockActor();
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(buildTarget(roles));
+
+      await expect(
+        service.updateAccountHandle(HEAD_VIEWER, 'UNISTAFF-T1', {
+          accountHandle: 'abc_moi',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('hồ sơ chuyên môn', () => {
     it('chỉ ghi họ tên + trường, không đụng field cá nhân', async () => {
       mockActor();
@@ -744,7 +796,11 @@ describe('SaleCsTeamService (#271)', () => {
     it.each([
       ['ngoài đội', [StaffRole.teacher], {}],
       ['trưởng khác', [StaffRole.lesson_plan_head, StaffRole.sale], {}],
-      ['Trưởng phòng Sale & CSKH khác', [StaffRole.sale_customer_care_head], {}],
+      [
+        'Trưởng phòng Sale & CSKH khác',
+        [StaffRole.sale_customer_care_head],
+        {},
+      ],
       [
         'tài khoản Admin',
         [StaffRole.sale],
@@ -844,17 +900,20 @@ describe('SaleCsTeamService (#271)', () => {
       ['ngoài đội', [StaffRole.teacher], {}],
       ['trưởng khác', [StaffRole.lesson_plan_head, StaffRole.sale], {}],
       ['chính mình', [StaffRole.sale], { id: 'UNISTAFF-HEAD' }],
-    ])('chặn đổi ảnh %s, không tải gì lên', async (_label, roles, overrides) => {
-      mockActor();
-      mockPrisma.staffInfo.findUnique.mockResolvedValue(
-        buildTarget(roles, overrides),
-      );
+    ])(
+      'chặn đổi ảnh %s, không tải gì lên',
+      async (_label, roles, overrides) => {
+        mockActor();
+        mockPrisma.staffInfo.findUnique.mockResolvedValue(
+          buildTarget(roles, overrides),
+        );
 
-      await expect(
-        service.uploadAvatar(HEAD_VIEWER, 'UNISTAFF-T1', file),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(uploadUserAvatarFiles).not.toHaveBeenCalled();
-    });
+        await expect(
+          service.uploadAvatar(HEAD_VIEWER, 'UNISTAFF-T1', file),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(uploadUserAvatarFiles).not.toHaveBeenCalled();
+      },
+    );
 
     it('nhân sự chưa có tài khoản / thiếu ảnh → 400', async () => {
       mockActor();

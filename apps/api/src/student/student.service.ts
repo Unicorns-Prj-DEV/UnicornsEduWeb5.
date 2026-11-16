@@ -1,3 +1,4 @@
+import { lockOneTimeStudentPackages } from 'src/common/one-time-package-lock';
 import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import { assertNotEditingOwnCompensation } from 'src/common/staff-role-policy';
 import {
@@ -141,6 +142,7 @@ const studentDetailInclude = {
     select: {
       id: true,
       avatarPath: true,
+      accountHandle: true,
     },
   },
   customerCareServices: {
@@ -468,6 +470,8 @@ export class StudentService {
     return {
       ...this.serializeStudentListItem(student),
       userId: student.userId,
+      // 16/11: hiện + đổi tên đăng nhập trên hồ sơ học sinh.
+      accountHandle: student.user?.accountHandle ?? null,
       avatarPath: student.user?.avatarPath ?? null,
       birthYear: student.birthYear,
       parentName: student.parentName,
@@ -2912,6 +2916,15 @@ export class StudentService {
           })),
         });
       }
+      // 16/11: lớp bán một lần chốt gói lớp lúc vào (vào lại mà đã bị thu
+      // thì chốt đúng số đã thu).
+      await lockOneTimeStudentPackages(
+        tx,
+        [...classIdsToActivate, ...classIdsToAdd].map((classId) => ({
+          classId,
+          studentId: id,
+        })),
+      );
 
       const nextStudent = await tx.studentInfo.findUnique({
         where: { id },

@@ -124,7 +124,9 @@ function EditClassTuitionForm({
               <p id={DESCRIPTION_ID} className="mt-1 text-sm text-text-secondary">
                 {requiredBeforeFirstStudent
                   ? "Lớp chưa có học phí. Điền Học phí lớp trước khi thêm học sinh đầu tiên — 0đ vẫn tính là đã điền, học phí riêng của học sinh không thay được học phí lớp."
-                  : "Học phí chung của lớp. Học sinh có học phí riêng giữ nguyên số riêng."}
+                  : pricingMode === "one_time"
+                    ? "Học phí chung của lớp. Lớp bán một lần chốt gói lúc học sinh vào lớp: học sinh đang học giữ gói đã chốt, gói mới chỉ áp cho học sinh vào sau."
+                    : "Học phí chung của lớp. Học sinh có học phí riêng giữ nguyên số riêng."}
               </p>
             </div>
 

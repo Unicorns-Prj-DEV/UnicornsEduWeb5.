@@ -18,7 +18,11 @@ import {
     StudentClassTuitionPopup,
     StudentDevicePopup,
 } from "@/components/admin/student";
-import { SetUserPasswordDialog, UserLinkedProfileLinks } from "@/components/admin/user";
+import {
+    SetAccountHandleDialog,
+    SetUserPasswordDialog,
+    UserLinkedProfileLinks,
+} from "@/components/admin/user";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
 import OjProgressSection from "@/components/student/OjProgressSection";
@@ -35,6 +39,7 @@ import {
 import { resolveStudentAdminCapabilities, resolveUserAdminCapabilities } from "@/lib/admin-shell-access";
 import { getFullProfile } from "@/lib/apis/auth.api";
 import * as studentApi from "@/lib/apis/student.api";
+import * as userApi from "@/lib/apis/user.api";
 import { pickAvatarUrl } from "@/lib/avatar";
 import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
@@ -116,6 +121,7 @@ export default function AdminStudentDetailPage() {
     const [devicePopupOpen, setDevicePopupOpen] = useState(false);
     const [forceLogoutConfirmOpen, setForceLogoutConfirmOpen] = useState(false);
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+    const [accountHandleDialogOpen, setAccountHandleDialogOpen] = useState(false);
     const [editingPackageForClassId, setEditingPackageForClassId] = useState<string | null>(null);
     const queryClient = useQueryClient();
     const { data: fullProfile } = useQuery({
@@ -494,6 +500,16 @@ export default function AdminStudentDetailPage() {
                         open={passwordDialogOpen}
                         onClose={() => setPasswordDialogOpen(false)}
                     />
+                    <SetAccountHandleDialog
+                        displayName={student.fullName?.trim() || student.email || "Học sinh"}
+                        currentHandle={student.accountHandle}
+                        open={accountHandleDialogOpen}
+                        onClose={() => setAccountHandleDialogOpen(false)}
+                        mutationFn={(accountHandle) =>
+                            userApi.setUserAccountHandle(student.userId as string, { accountHandle })
+                        }
+                        invalidateKeys={[["student", "detail", id], ["student", "list"]]}
+                    />
                     <ConfirmDialog
                         open={forceLogoutConfirmOpen}
                         onOpenChange={setForceLogoutConfirmOpen}
@@ -630,6 +646,20 @@ export default function AdminStudentDetailPage() {
                                                 </svg>
                                             </button>
                                         ) : null}
+                                        {/* 16/11: đổi tên đăng nhập — cùng nhóm quyền đặt mật khẩu. */}
+                                        {canManageStudent && student.userId ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setAccountHandleDialogOpen(true)}
+                                                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-default bg-bg-surface text-text-muted transition hover:bg-bg-tertiary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface sm:size-8"
+                                                aria-label="Đổi tên đăng nhập học sinh"
+                                                title="Đổi tên đăng nhập"
+                                            >
+                                                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0Zm0 0v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-9 9m4.5-1.206a8.959 8.959 0 0 1-4.5 1.207" />
+                                                </svg>
+                                            </button>
+                                        ) : null}
                                         {canManageStudent && student.userId ? (
                                             <button
                                                 type="button"
@@ -668,6 +698,14 @@ export default function AdminStudentDetailPage() {
                                             {GENDER_LABELS[normalizedGender]}
                                         </span>
                                         <StudentLevelBadge fullName={student.fullName} />
+                                        {canManageStudent && student.accountHandle ? (
+                                            <span
+                                                className="inline-flex max-w-full truncate rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default"
+                                                title="Tên đăng nhập"
+                                            >
+                                                @{student.accountHandle}
+                                            </span>
+                                        ) : null}
                                         {isCustomerCareReadOnlyView ? (
                                             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                                                 CSKH

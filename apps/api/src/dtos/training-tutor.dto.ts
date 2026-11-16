@@ -88,6 +88,8 @@ export interface TrainingHeadTutorPermissionsDto {
   canManageMeetLink: boolean;
   /** Xem thưởng (chỉ đọc). */
   canViewBonuses: boolean;
+  /** Đổi tên đăng nhập (16/11) — cùng điều kiện khoá tài khoản, cần có tài khoản. */
+  canEditAccountHandle: boolean;
 }
 
 export interface TrainingHeadTutorManagementDto {
@@ -108,6 +110,8 @@ export interface TrainingHeadTutorDetailManagementDto extends TrainingHeadTutorM
   lastName: string | null;
   firstName: string | null;
   googleMeetLink: string | null;
+  /** Tên đăng nhập hiện tại (16/11) — chỉ cấp dưới có tài khoản, còn lại `null`. */
+  accountHandle: string | null;
 }
 
 export interface TrainingTutorClassDto {

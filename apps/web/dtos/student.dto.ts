@@ -82,6 +82,8 @@ export interface StudentListResponse {
 /** Detail from GET /student/:id */
 export interface StudentDetail extends StudentListItem {
   userId?: string | null;
+  /** Tên đăng nhập của tài khoản học sinh; `null` khi chưa có tài khoản. */
+  accountHandle?: string | null;
   avatarUrl?: string | null;
   avatarPath?: string | null;
   birthYear?: number | null;

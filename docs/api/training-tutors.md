@@ -41,6 +41,7 @@ Ngoại lệ có kiểm soát cho Trưởng ban (#278): chi tiết của **cấp
     "canEditProfile": true,
     "canChangeStatus": true,
     "canLockAccount": true,
+    "canEditAccountHandle": true,
     "canManageMeetLink": true,
     "canViewBonuses": true
   }
@@ -50,6 +51,7 @@ Ngoại lệ có kiểm soát cho Trưởng ban (#278): chi tiết của **cấp
 - `hasOtherRoles`: target còn role ngoài ba nhóm (không lộ role đó là gì).
 - `accountLocked`: `users.status = inactive`; `null` khi không phải cấp dưới hoặc chưa có tài khoản.
 - `canChangeStatus` / `canLockAccount`: chỉ khi target **chỉ** mang role ba nhóm; `canLockAccount` cần thêm có tài khoản.
+- `canEditAccountHandle` (16/11): cùng điều kiện `canLockAccount`. Chi tiết (`GET /training/tutors/:id`) trả thêm `management.accountHandle` (`null` nếu không phải cấp dưới).
 - Admin hoặc Ban Đào Tạo thường: không có `management`.
 
 Test: `training-tutor.service.spec.ts` mock Prisma trả row có cả field nhạy cảm và khẳng định output + `select` không chứa chúng.
@@ -154,8 +156,9 @@ Chỉ staff `active` có `training_head` (`resolveHead`); admin không mang role
 | `POST` | `/training/tutors/:id/avatar` | multipart `avatar` (JPG/PNG/WebP ≤ 5 MB) | `assertTrainingHeadSubordinate` | Thay ảnh đại diện (storage qua helper chung `uploadUserAvatarFiles`) |
 | `PATCH` | `/training/tutors/:id/status` | `{ status: "active" \| "inactive", reason? }` | `assertTrainingHeadCanChangeStatus` | Qua `StaffService.updateStaffStatus` (cùng hiệu ứng với admin: gỡ lịch dạy sắp tới khi nghỉ) |
 | `PATCH` | `/training/tutors/:id/account-status` | `{ locked: boolean }` | `assertTrainingHeadCanLockAccount` | Đổi `users.status`; chưa có tài khoản → `400`; ghi `action_history`; invalidate cache auth |
+| `PATCH` | `/training/tutors/:id/account-handle` | `{ accountHandle }` | `assertTrainingHeadCanChangeAccountHandle` | 16/11: đổi tên đăng nhập (3–50 ký tự, không khoảng trắng / `@`, không trùng); chưa có tài khoản / sai / trùng → `400`; ghi `action_history`; invalidate cache auth; không đăng xuất thiết bị. Trả `{ id, accountHandle }` |
 
-Từ chối (`403`): target là chính mình; target là Admin / tài khoản admin / mang role trưởng; target ngoài ba nhóm. Đổi trạng thái và khoá tài khoản thêm điều kiện target **chỉ** mang role ba nhóm — kiêm `sale`, `customer_care`… → `403`.
+Từ chối (`403`): target là chính mình; target là Admin / tài khoản admin / mang role trưởng; target ngoài ba nhóm. Đổi trạng thái, khoá tài khoản và đổi tên đăng nhập thêm điều kiện target **chỉ** mang role ba nhóm — kiêm `sale`, `customer_care`… → `403`.
 
 Không có route sửa thông tin cá nhân (liên hệ, CCCD, ngân hàng) hay xem thu nhập cá nhân; lịch sử buổi giữ nguyên `GET /training/tutors/:id/sessions` (không tiền). Lớp phụ trách = `currentClasses` / `pastClasses`.
 

@@ -49,6 +49,7 @@ import {
   UpdateSaleCsTeamProfileDto,
   UpdateSaleCsTeamRolesDto,
 } from 'src/dtos/sale-cs-team.dto';
+import { SetAccountHandleDto } from 'src/dtos/user.dto';
 import { SaleCsTeamService } from './sale-cs-team.service';
 
 const FORBIDDEN_NOT_HEAD = 'Không phải Trưởng phòng Sale & CSKH đang active.';
@@ -406,6 +407,37 @@ export class SaleCsTeamController {
     return this.saleCsTeamService.updateAccountStatus(user, staffId, data);
   }
 
+  @Patch('members/:staffId/account-handle')
+  @ApiOperation({
+    summary: 'Trưởng phòng: đổi tên đăng nhập của nhân sự',
+    description:
+      'Đổi `users.account_handle` (3–50 ký tự, không khoảng trắng, không `@`, kiểm trùng không phân biệt hoa thường). Cùng phạm vi khoá tài khoản: target CHỈ mang role sale và/hoặc customer_care. Không đăng xuất thiết bị.',
+  })
+  @ApiParam({ name: 'staffId', description: 'Staff id (UNISTAFF-…)' })
+  @ApiBody({ type: SetAccountHandleDto })
+  @ApiResponse({
+    status: 200,
+    description: '{ id (staff id), accountHandle }.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Sai định dạng, tên đăng nhập đã được dùng, hoặc nhân sự chưa có tài khoản.',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Không phải Trưởng phòng, chính mình, target Admin/trưởng hoặc mang role ngoài Sale/CSKH.',
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy nhân sự.' })
+  updateAccountHandle(
+    @CurrentUser() user: JwtPayload,
+    @Param('staffId', new ParseStaffIdPipe()) staffId: string,
+    @Body() data: SetAccountHandleDto,
+  ) {
+    return this.saleCsTeamService.updateAccountHandle(user, staffId, data);
+  }
+
   @Patch('members/:staffId/professional-profile')
   @ApiOperation({
     summary: 'Trưởng phòng: sửa hồ sơ chuyên môn',
@@ -459,7 +491,10 @@ export class SaleCsTeamController {
       properties: { avatar: { type: 'string', format: 'binary' } },
     },
   })
-  @ApiResponse({ status: 200, description: 'Hồ sơ thành viên sau khi đổi ảnh.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Hồ sơ thành viên sau khi đổi ảnh.',
+  })
   @ApiResponse({
     status: 400,
     description: 'Ảnh không hợp lệ / thiếu ảnh / nhân sự chưa có tài khoản.',

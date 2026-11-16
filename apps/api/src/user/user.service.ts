@@ -1,3 +1,4 @@
+import { lockOneTimeStudentPackages } from 'src/common/one-time-package-lock';
 import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import {
   BadRequestException,
@@ -35,9 +36,11 @@ import {
   AdminCreateStaffUserDto,
   AdminCreateStudentUserDto,
   AdminCreateUserDto,
+  type AccountHandleResultDto,
   GetUsersQueryDto,
   UpdateUserDto,
 } from 'src/dtos/user.dto';
+import { changeAccountHandleInTx } from './account-handle';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   assertStaffCreateAllowed,
@@ -325,7 +328,7 @@ export class UserService {
     const normalizedRoles = Array.from(
       new Set(
         staffRoles.filter((role): role is StaffRole =>
-          STAFF_ROLE_VALUES.has(role as StaffRole),
+          STAFF_ROLE_VALUES.has(role),
         ),
       ),
     );
@@ -690,6 +693,14 @@ export class UserService {
               })),
             });
           }
+          // 16/11: lớp bán một lần chốt gói lớp lúc vào lớp.
+          await lockOneTimeStudentPackages(
+            tx,
+            normalizedClassIds.map((classId) => ({
+              classId,
+              studentId: student.id,
+            })),
+          );
 
           // CSKH tạo học sinh thì tự là Người chăm sóc với % mặc định trên hồ sơ.
           // Học sinh đã có Người chăm sóc thì giữ nguyên: chuyển người chỉ admin/trợ lí làm.
@@ -792,7 +803,9 @@ export class UserService {
         select: { id: true },
       }),
       this.prisma.user.findFirst({
-        where: { accountHandle: { equals: accountHandle, mode: 'insensitive' } },
+        where: {
+          accountHandle: { equals: accountHandle, mode: 'insensitive' },
+        },
         select: { id: true },
       }),
       this.prisma.staffInfo.findUnique({
@@ -885,6 +898,58 @@ export class UserService {
       previousRoles: change.previousStaffRoles,
       nextRoles: change.nextStaffRoles,
     });
+  }
+
+  /**
+   * `PATCH /users/:id/account-handle` (16/11): Admin đổi tên đăng nhập mọi tài
+   * khoản; Trưởng phòng Sale & CSKH chỉ tài khoản học sinh (cùng phạm vi đặt
+   * mật khẩu). Đổi nhân sự của role trưởng đi qua route của module tương ứng.
+   * Không đăng xuất thiết bị: phiên hiện tại vẫn hợp lệ, lần sau đăng nhập
+   * bằng tên mới (hoặc email).
+   */
+  async setAccountHandle(
+    targetUserId: string,
+    accountHandle: string,
+    auditActor: ActionHistoryActor,
+  ): Promise<AccountHandleResultDto> {
+    const [target, policyActor] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { id: true, roleType: true },
+      }),
+      resolveStaffPolicyActor(this.prisma, auditActor),
+    ]);
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+    if (!policyActor.isAdmin && target.roleType !== UserRole.student) {
+      throw new ForbiddenException(
+        'Chỉ Admin được đổi tên đăng nhập của tài khoản không phải học sinh.',
+      );
+    }
+
+    const change = await this.prisma.$transaction(async (tx) => {
+      const result = await changeAccountHandleInTx(tx, {
+        userId: targetUserId,
+        accountHandle,
+      });
+      if (result.changed) {
+        await this.actionHistoryService.recordUpdate(tx, {
+          actor: auditActor,
+          entityType: 'user',
+          entityId: targetUserId,
+          description: 'Đổi tên đăng nhập',
+          beforeValue: { accountHandle: result.previous },
+          afterValue: { accountHandle: result.next },
+        });
+      }
+      return result;
+    });
+
+    if (change.changed) {
+      this.authService.invalidateAuthIdentityCache(targetUserId);
+    }
+    return { id: targetUserId, accountHandle: change.next };
   }
 
   async updateUser(data: UpdateUserDto, auditActor?: ActionHistoryActor) {

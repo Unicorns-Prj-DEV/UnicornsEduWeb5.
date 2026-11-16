@@ -1297,12 +1297,12 @@ describe('UserService', () => {
     });
 
     it('tạo tài khoản mới rồi tạo hồ sơ nhân sự gắn vào tài khoản đó', async () => {
-      await expect(service.createStaffUser(payload, headActor)).resolves.toEqual(
-        {
-          message: 'Tạo nhân sự thành công. Email xác thực đã được gửi.',
-          staffId: 'UNISTAFF-new',
-        },
-      );
+      await expect(
+        service.createStaffUser(payload, headActor),
+      ).resolves.toEqual({
+        message: 'Tạo nhân sự thành công. Email xác thực đã được gửi.',
+        staffId: 'UNISTAFF-new',
+      });
 
       expect(
         authService.createPendingUserWithVerificationEmail,
@@ -1345,9 +1345,9 @@ describe('UserService', () => {
         ({ where }: { where: { email?: unknown } }) =>
           Promise.resolve(where.email ? { id: 'user-old' } : null),
       );
-      await expect(
-        service.createStaffUser(payload, headActor),
-      ).rejects.toThrow('Email này đã có tài khoản.');
+      await expect(service.createStaffUser(payload, headActor)).rejects.toThrow(
+        'Email này đã có tài khoản.',
+      );
       expect(
         authService.createPendingUserWithVerificationEmail,
       ).not.toHaveBeenCalled();
@@ -1355,16 +1355,18 @@ describe('UserService', () => {
 
     it('CCCD đã tồn tại thì không tạo tài khoản', async () => {
       mockPrisma.staffInfo.findUnique.mockResolvedValue({ id: 'staff-x' });
-      await expect(
-        service.createStaffUser(payload, headActor),
-      ).rejects.toThrow('Số CCCD đã tồn tại trong hệ thống.');
+      await expect(service.createStaffUser(payload, headActor)).rejects.toThrow(
+        'Số CCCD đã tồn tại trong hệ thống.',
+      );
       expect(
         authService.createPendingUserWithVerificationEmail,
       ).not.toHaveBeenCalled();
     });
 
     it('tạo hồ sơ lỗi thì xoá tài khoản vừa tạo', async () => {
-      const failure = new BadRequestException('Số CCCD đã tồn tại trong hệ thống.');
+      const failure = new BadRequestException(
+        'Số CCCD đã tồn tại trong hệ thống.',
+      );
       staffService.createStaff.mockRejectedValue(failure);
       mockPrisma.user.delete.mockResolvedValue({ id: 'user-new' });
 
@@ -1374,6 +1376,87 @@ describe('UserService', () => {
       expect(mockPrisma.user.delete).toHaveBeenCalledWith({
         where: { id: 'user-new' },
       });
+    });
+  });
+
+  describe('setAccountHandle (16/11)', () => {
+    const SALE_HEAD = {
+      userId: 'head-user',
+      userEmail: 'head@example.com',
+      roleType: UserRole.staff,
+    };
+
+    /** findUnique trả theo `select`: target, actor (staffInfo), handle hiện tại. */
+    const mockUsers = (targetRoleType: UserRole, actorRoles: StaffRole[]) => {
+      mockPrisma.user.findUnique.mockImplementation(
+        ({ where, select }: { where: { id: string }; select: object }) => {
+          if ('staffInfo' in select) {
+            return Promise.resolve({
+              roleType: UserRole.staff,
+              staffInfo: { id: 'head-staff', roles: actorRoles },
+            });
+          }
+          if ('accountHandle' in select) {
+            return Promise.resolve({ accountHandle: 'old_handle' });
+          }
+          return Promise.resolve({ id: where.id, roleType: targetRoleType });
+        },
+      );
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.user.update.mockResolvedValue({ id: 'student-user' });
+    };
+
+    it('Trưởng phòng Sale & CSKH đổi handle học sinh: ghi DB, audit, xoá cache auth', async () => {
+      mockUsers(UserRole.student, [StaffRole.sale_customer_care_head]);
+
+      await expect(
+        service.setAccountHandle('student-user', ' hs_moi ', SALE_HEAD),
+      ).resolves.toEqual({ id: 'student-user', accountHandle: 'hs_moi' });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'student-user' },
+        data: { accountHandle: 'hs_moi' },
+        select: { id: true },
+      });
+      expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          entityType: 'user',
+          entityId: 'student-user',
+          beforeValue: { accountHandle: 'old_handle' },
+          afterValue: { accountHandle: 'hs_moi' },
+        }),
+      );
+      expect(authService.invalidateAuthIdentityCache).toHaveBeenCalledWith(
+        'student-user',
+      );
+    });
+
+    it('Trưởng phòng Sale & CSKH không đổi được handle tài khoản nhân sự', async () => {
+      mockUsers(UserRole.staff, [StaffRole.sale_customer_care_head]);
+
+      await expect(
+        service.setAccountHandle('staff-user', 'nv_moi', SALE_HEAD),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('Admin đổi được handle mọi loại tài khoản', async () => {
+      mockUsers(UserRole.staff, [StaffRole.admin]);
+
+      await expect(
+        service.setAccountHandle('staff-user', 'nv_moi', SALE_HEAD),
+      ).resolves.toEqual({ id: 'staff-user', accountHandle: 'nv_moi' });
+    });
+
+    it('handle không đổi → không audit, không xoá cache', async () => {
+      mockUsers(UserRole.student, [StaffRole.sale_customer_care_head]);
+
+      await service.setAccountHandle('student-user', 'old_handle', SALE_HEAD);
+
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(actionHistoryService.recordUpdate).not.toHaveBeenCalled();
+      expect(authService.invalidateAuthIdentityCache).not.toHaveBeenCalled();
     });
   });
 });

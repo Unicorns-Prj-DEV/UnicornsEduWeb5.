@@ -1,4 +1,5 @@
 import type {
+  AccountHandleResult,
   AdminSetUserPasswordPayload,
   CreateStaffUserPayload,
   CreateStaffUserResponse,
@@ -8,6 +9,7 @@ import type {
   UserDetailWithStaff,
   UserListItem,
   UserListResponse,
+  SetAccountHandlePayload,
   UpdateUserPayload,
 } from "@/dtos/user.dto";
 import { api } from "../client";
@@ -82,6 +84,18 @@ export async function setUserPassword(
   const safeId = encodeURIComponent(id);
   const response = await api.patch<{ message: string }>(
     `/users/${safeId}/password`,
+    data,
+  );
+  return response.data;
+}
+
+/** Đổi tên đăng nhập (Admin: mọi tài khoản; Trưởng phòng Sale & CSKH: học sinh). */
+export async function setUserAccountHandle(
+  id: string,
+  data: SetAccountHandlePayload,
+): Promise<AccountHandleResult> {
+  const response = await api.patch<AccountHandleResult>(
+    `/users/${encodeURIComponent(id)}/account-handle`,
     data,
   );
   return response.data;

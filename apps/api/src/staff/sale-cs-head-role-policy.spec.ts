@@ -1,7 +1,9 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { StaffRole } from 'generated/enums';
 import {
+  assertSaleCsHeadCanChangeAccountHandle,
   assertSaleCsHeadCanEditProfile,
+  canSaleCsHeadChangeAccountHandle,
   assertSaleCsHeadCanLockAccount,
   canSaleCsHeadEditProfile,
   canSaleCsHeadEditRoles,
@@ -194,6 +196,52 @@ describe('assertSaleCsHeadCanEditProfile', () => {
       assertSaleCsHeadCanEditProfile({
         ...base,
         targetStaffId: 'HEAD',
+        targetRoles: [StaffRole.sale],
+      }),
+    ).toThrow(ForbiddenException);
+  });
+});
+
+describe('assertSaleCsHeadCanChangeAccountHandle (16/11)', () => {
+  it.each([
+    [[StaffRole.sale]],
+    [[StaffRole.customer_care]],
+    [[StaffRole.sale, StaffRole.customer_care]],
+  ])('cho đổi tên đăng nhập nhân sự chỉ mang %j', (targetRoles) => {
+    expect(() =>
+      assertSaleCsHeadCanChangeAccountHandle({ ...base, targetRoles }),
+    ).not.toThrow();
+    expect(canSaleCsHeadChangeAccountHandle({ ...base, targetRoles })).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    // Tên đăng nhập là của cả tài khoản: kiêm role ngoài đội thì để Admin đổi.
+    ['CSKH kiêm gia sư', [StaffRole.customer_care, StaffRole.teacher]],
+    ['chỉ gia sư', [StaffRole.teacher]],
+    ...PRIVILEGED_CASES,
+  ])('chặn %s', (_label, targetRoles) => {
+    expect(() =>
+      assertSaleCsHeadCanChangeAccountHandle({ ...base, targetRoles }),
+    ).toThrow(ForbiddenException);
+    expect(canSaleCsHeadChangeAccountHandle({ ...base, targetRoles })).toBe(
+      false,
+    );
+  });
+
+  it('chặn chính mình và tài khoản admin hệ thống', () => {
+    expect(() =>
+      assertSaleCsHeadCanChangeAccountHandle({
+        ...base,
+        targetStaffId: 'HEAD',
+        targetRoles: [StaffRole.sale],
+      }),
+    ).toThrow('Không thể tự đổi tên đăng nhập của chính mình.');
+    expect(() =>
+      assertSaleCsHeadCanChangeAccountHandle({
+        ...base,
+        targetIsAdminAccount: true,
         targetRoles: [StaffRole.sale],
       }),
     ).toThrow(ForbiddenException);

@@ -629,7 +629,9 @@ function EditClassBasicInfoDialog({
                   Học phí lớp
                 </h3>
                 <p className="mb-3 mt-0.5 text-xs text-text-muted">
-                  Học phí chung của lớp. Học sinh có học phí riêng giữ nguyên số riêng.
+                  {pricingMode === "one_time"
+                    ? "Học phí chung của lớp. Lớp bán một lần chốt gói lúc học sinh vào lớp: học sinh đang học giữ gói đã chốt, gói mới chỉ áp cho học sinh vào sau."
+                    : "Học phí chung của lớp. Học sinh có học phí riêng giữ nguyên số riêng."}
                 </p>
                 <ClassTuitionFields
                   form={tuitionForm}

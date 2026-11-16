@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from 'generated/client';
 import { StaffRole, UserRole } from 'generated/enums';
 import type { PrismaService } from 'src/prisma/prisma.service';
@@ -30,6 +30,16 @@ export const PRIVILEGED_STAFF_ROLES: readonly StaffRole[] = [
  * người mới vẫn qua `assertStaffRoleChangeAllowed` → không có Admin / role trưởng.
  */
 export const STAFF_CREATOR_HEAD_ROLES: readonly StaffRole[] = [
+  SALE_CS_HEAD_ROLE,
+  StaffRole.training_head,
+  StaffRole.lesson_plan_head,
+];
+
+/**
+ * 15/11: role trưởng được xoá buổi học (`DELETE /sessions/:id`) — trừ buổi đã
+ * thanh toán / ghi cọc (`assertSessionDeleteAllowed`). Admin xoá được mọi buổi.
+ */
+export const SESSION_DELETE_HEAD_ROLES: readonly StaffRole[] = [
   SALE_CS_HEAD_ROLE,
   StaffRole.training_head,
   StaffRole.lesson_plan_head,
@@ -161,6 +171,29 @@ export function assertStaffCreateAllowed(
   ) {
     throw new ForbiddenException(
       'Chỉ Admin được đặt % chia doanh thu hoặc % CSKH mặc định.',
+    );
+  }
+}
+
+/**
+ * Xoá buổi học: Admin xoá mọi buổi; role trưởng chỉ xoá buổi chưa thanh toán
+ * trợ cấp gia sư (đã trả / ghi cọc = tiền đã chi, xoá sẽ lệch sổ lương).
+ */
+export function assertSessionDeleteAllowed(
+  actor: StaffPolicyActor,
+  session: { isPaymentLocked: boolean },
+): void {
+  if (actor.isAdmin) {
+    return;
+  }
+  if (!hasAnyStaffRole(actor.roles, SESSION_DELETE_HEAD_ROLES)) {
+    throw new ForbiddenException(
+      'Chỉ Admin hoặc role trưởng được xoá buổi học.',
+    );
+  }
+  if (session.isPaymentLocked) {
+    throw new BadRequestException(
+      'Không thể xoá buổi đã thanh toán hoặc ghi cọc. Liên hệ Admin nếu cần xoá.',
     );
   }
 }

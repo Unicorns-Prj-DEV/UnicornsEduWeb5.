@@ -14,6 +14,10 @@ import type {
   TrainingRoleCandidateParams,
   UpdateStaffTrainingRolesPayload,
 } from "@/dtos/training-tutor.dto";
+import type {
+  AccountHandleResult,
+  SetAccountHandlePayload,
+} from "@/dtos/user.dto";
 import { api } from "@/lib/client";
 
 export const trainingTutorKeys = {
@@ -144,6 +148,18 @@ export async function updateTrainingTutorStatus(
 ): Promise<TrainingTutorStatusResult> {
   const response = await api.patch<TrainingTutorStatusResult>(
     tutorPath(id, "/status"),
+    payload,
+  );
+  return response.data;
+}
+
+/** Đổi tên đăng nhập cấp dưới của Trưởng ban Đào tạo (16/11). */
+export async function updateTrainingTutorAccountHandle(
+  id: string,
+  payload: SetAccountHandlePayload,
+): Promise<AccountHandleResult> {
+  const response = await api.patch<AccountHandleResult>(
+    tutorPath(id, "/account-handle"),
     payload,
   );
   return response.data;

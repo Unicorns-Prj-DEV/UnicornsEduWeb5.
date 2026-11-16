@@ -104,6 +104,23 @@ export function pickAttendanceReviewInput(
   ) as AttendanceReviewInput;
 }
 
+/**
+ * Trợ cấp gia sư của buổi đã chi (thanh toán / ghi cọc): khoá giờ học, trợ
+ * cấp, và việc role trưởng xoá buổi.
+ */
+export function isSessionPaymentLocked(paymentStatus?: string | null): boolean {
+  const normalized = String(paymentStatus ?? '')
+    .trim()
+    .toLowerCase();
+  return (
+    normalized === 'paid' ||
+    normalized === 'deposit' ||
+    normalized === 'deposite' ||
+    normalized === 'coc' ||
+    normalized === 'cọc'
+  );
+}
+
 @Injectable()
 export class SessionValidationService {
   constructor(
@@ -202,16 +219,7 @@ export class SessionValidationService {
   }
 
   isSessionTimeEditLocked(paymentStatus?: string | null): boolean {
-    const normalized = String(paymentStatus ?? '')
-      .trim()
-      .toLowerCase();
-    return (
-      normalized === 'paid' ||
-      normalized === 'deposit' ||
-      normalized === 'deposite' ||
-      normalized === 'coc' ||
-      normalized === 'cọc'
-    );
+    return isSessionPaymentLocked(paymentStatus);
   }
 
   assertSessionTimesUnlockedForPayment(options: {
@@ -320,10 +328,10 @@ export class SessionValidationService {
     const hasExcusedWithoutReason =
       !options.skipRequired &&
       attendance.some(
-      (item) =>
-        item?.status === AttendanceStatus.excused &&
-        !this.normalizeReviewText(item.notes),
-    );
+        (item) =>
+          item?.status === AttendanceStatus.excused &&
+          !this.normalizeReviewText(item.notes),
+      );
     if (hasExcusedWithoutReason) {
       throw new BadRequestException(
         'Học sinh nghỉ phép phải có lý do nghỉ (attendance.notes).',

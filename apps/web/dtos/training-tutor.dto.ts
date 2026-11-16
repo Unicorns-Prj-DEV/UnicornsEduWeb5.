@@ -25,6 +25,8 @@ export interface TrainingHeadTutorPermissions {
   canEditProfile: boolean;
   canChangeStatus: boolean;
   canLockAccount: boolean;
+  /** Đổi tên đăng nhập — cùng phạm vi khoá tài khoản (16/11). */
+  canEditAccountHandle: boolean;
   canManageMeetLink: boolean;
   canViewBonuses: boolean;
 }
@@ -45,6 +47,8 @@ export interface TrainingHeadTutorDetailManagement
   lastName: string | null;
   firstName: string | null;
   googleMeetLink: string | null;
+  /** Tên đăng nhập — `null` nếu không phải cấp dưới hoặc chưa có tài khoản (16/11). */
+  accountHandle: string | null;
 }
 
 export interface TrainingTutorClass {

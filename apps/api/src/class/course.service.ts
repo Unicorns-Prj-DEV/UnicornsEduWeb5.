@@ -11,6 +11,7 @@ import {
   StudentClassStatus,
 } from '../../generated/client';
 import { assertCanEnableOneTimeCourse } from 'src/common/class-pricing-mode.util';
+import { lockOneTimePackagesForActiveStudents } from 'src/common/one-time-package-lock';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { getPreferredUserFullName } from 'src/common/user-name.util';
 import {
@@ -214,6 +215,31 @@ export class CourseService {
               : ClassPricingMode.per_session,
           },
         });
+
+        if (dto.is_one_time) {
+          // 16/11: học sinh đang học chưa có gói riêng được chốt theo gói lớp
+          // lúc chuyển sang bán một lần.
+          const classes = await tx.class.findMany({
+            where: { courseId: id },
+            select: { id: true },
+          });
+          await lockOneTimePackagesForActiveStudents(
+            tx,
+            classes.map((row) => row.id),
+          );
+        } else {
+          // 16/11: tắt bán một lần xoá học phí riêng (gói đã chốt + học phí
+          // riêng / buổi suy từ gói) để các buổi sau thu theo học phí lớp.
+          await tx.studentClass.updateMany({
+            where: { class: { courseId: id } },
+            data: {
+              customStudentTuitionPerSession: null,
+              customTuitionPerBlock: null,
+              customTuitionPackageTotal: null,
+              customTuitionPackageSession: null,
+            },
+          });
+        }
       }
 
       return updated;

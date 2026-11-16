@@ -1,7 +1,8 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { StaffRole, UserRole } from 'generated/enums';
 import {
   assertActorNotEditingOwnCompensation,
+  assertSessionDeleteAllowed,
   assertNotEditingOwnCompensation,
   assertStaffCreateAllowed,
   assertStaffRoleChangeAllowed,
@@ -311,5 +312,46 @@ describe('staff-role-policy', () => {
         }),
       ).not.toThrow();
     });
+  });
+});
+
+describe('assertSessionDeleteAllowed (15/11)', () => {
+  const unlocked = { isPaymentLocked: false };
+  const locked = { isPaymentLocked: true };
+
+  it('Admin xoá mọi buổi, kể cả đã thanh toán', () => {
+    expect(() => assertSessionDeleteAllowed(admin, locked)).not.toThrow();
+  });
+
+  it.each([
+    SALE_CS_HEAD_ROLE,
+    StaffRole.training_head,
+    StaffRole.lesson_plan_head,
+  ])('%s xoá được buổi chưa thanh toán', (role) => {
+    expect(() =>
+      assertSessionDeleteAllowed(
+        { isAdmin: false, staffId: 'S9', roles: [role] },
+        unlocked,
+      ),
+    ).not.toThrow();
+  });
+
+  it('role trưởng không xoá buổi đã thanh toán / ghi cọc', () => {
+    expect(() => assertSessionDeleteAllowed(saleHead, locked)).toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('role thường bị 403', () => {
+    expect(() =>
+      assertSessionDeleteAllowed(
+        {
+          isAdmin: false,
+          staffId: 'S9',
+          roles: [StaffRole.accountant_expense],
+        },
+        unlocked,
+      ),
+    ).toThrow(ForbiddenException);
   });
 });

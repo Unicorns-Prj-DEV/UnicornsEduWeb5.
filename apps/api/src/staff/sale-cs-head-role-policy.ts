@@ -133,6 +133,23 @@ export function assertSaleCsHeadCanLockAccount(target: SaleCsHeadTarget): void {
   }
 }
 
+/**
+ * Đổi tên đăng nhập (16/11): đổi cả tài khoản như khoá tài khoản → cùng phạm
+ * vi (target CHỈ mang role sale / customer_care, không phải mình / Admin / trưởng).
+ */
+export const canSaleCsHeadChangeAccountHandle = canSaleCsHeadLockAccount;
+
+export function assertSaleCsHeadCanChangeAccountHandle(
+  target: SaleCsHeadTarget,
+): void {
+  assertNotSelfOrProtected(target, 'đổi tên đăng nhập');
+  if (!canSaleCsHeadChangeAccountHandle(target)) {
+    throw new ForbiddenException(
+      'Chỉ được đổi tên đăng nhập của nhân sự chỉ mang role Sale và/hoặc CSKH.',
+    );
+  }
+}
+
 /** Sửa hồ sơ chuyên môn: target là thành viên đội, không phải mình / Admin / trưởng. */
 export function assertSaleCsHeadCanEditProfile(target: SaleCsHeadTarget): void {
   assertNotSelfOrProtected(target, 'sửa hồ sơ');
