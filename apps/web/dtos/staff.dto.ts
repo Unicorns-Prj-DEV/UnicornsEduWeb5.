@@ -315,12 +315,26 @@ export interface StaffPaymentPreviewSection extends StaffPaymentPreviewTotals {
     sources: StaffPaymentPreviewSource[];
 }
 
+/** Cảnh báo chưa dạy thử: lớp còn trợ cấp buổi chờ trả mà gia sư chưa có buổi dạy thử. */
+export interface StaffTrialTeachingWarning {
+    classId: string;
+    className: string;
+}
+
 export interface StaffPaymentPreview {
     staffId: string;
     month: string;
     taxAsOfDate: string;
     summary: StaffPaymentPreviewTotals;
     sections: StaffPaymentPreviewSection[];
+    /** Chỉ cảnh báo, không chặn thanh toán; lớp đã bỏ qua không có ở đây. */
+    trialTeachingWarnings: StaffTrialTeachingWarning[];
+}
+
+export interface StaffTrialTeachingWarningDismissResult {
+    staffId: string;
+    classId: string;
+    dismissedAt: string;
 }
 
 export interface StaffPayAllPaymentsPayload {

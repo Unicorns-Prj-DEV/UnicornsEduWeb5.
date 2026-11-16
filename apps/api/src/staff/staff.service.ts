@@ -124,6 +124,7 @@ import {
   LESSON_PLAN_ROLE_LABEL,
 } from '../common/lesson-plan-label';
 import { findTeacherSurveyDeadlineBlocks } from '../class/survey-deadline-block';
+import { loadTrialTeachingWarnings } from './trial-teaching-warnings';
 import {
   FIRST_SESSION_SELECT,
   isSurveyRequiredFor,
@@ -3319,7 +3320,7 @@ export class StaffService {
     taxAsOfDate: string;
     staffRoles: StaffRole[];
     records: StaffPaymentPreviewRecord[];
-  }): StaffPaymentPreviewDto {
+  }): Omit<StaffPaymentPreviewDto, 'trialTeachingWarnings'> {
     const summary = makePaymentPreviewTotals();
     const sectionBuckets = new Map<string, StaffPaymentPreviewSectionBucket>();
     const roleOrder = new Map<string, number>();
@@ -3677,13 +3678,63 @@ export class StaffService {
     const { staff, monthKey, taxAsOfDate, records } =
       await this.loadStaffPaymentPreviewRecords(this.prisma, id, query);
 
-    return this.buildStaffPaymentPreviewResponse({
-      staffId: id,
-      monthKey,
-      taxAsOfDate,
-      staffRoles: staff.roles,
-      records,
+    const trialTeachingWarnings = await loadTrialTeachingWarnings(
+      this.prisma,
+      id,
+      records
+        .filter((record) => record.sourceType === 'teacher_session')
+        .map((record) => ({
+          classId: record.classId ?? '',
+          className: record.label,
+        })),
+    );
+
+    return {
+      ...this.buildStaffPaymentPreviewResponse({
+        staffId: id,
+        monthKey,
+        taxAsOfDate,
+        staffRoles: staff.roles,
+        records,
+      }),
+      trialTeachingWarnings,
+    };
+  }
+
+  /**
+   * Bỏ qua Cảnh báo chưa dạy thử của gia sư ở một lớp — dùng chung cho mọi người xem, không
+   * hoàn tác trên UI. Kế toán chi không bỏ qua cảnh báo của chính mình (#265).
+   */
+  async dismissTrialTeachingWarning(
+    staffId: string,
+    classId: string,
+    actor: { userId: string; roleType?: string | null },
+  ): Promise<{ staffId: string; classId: string; dismissedAt: string }> {
+    await assertActorNotEditingOwnCompensation(this.prisma, actor, [staffId]);
+
+    const [staff, cls] = await Promise.all([
+      this.prisma.staffInfo.findUnique({
+        where: { id: staffId },
+        select: { id: true },
+      }),
+      this.prisma.class.findUnique({
+        where: { id: classId },
+        select: { id: true },
+      }),
+    ]);
+    if (!staff) throw new NotFoundException('Staff not found');
+    if (!cls) throw new NotFoundException('Không tìm thấy lớp.');
+
+    const row = await this.prisma.trialTeachingWarningDismissal.upsert({
+      where: { staffId_classId: { staffId, classId } },
+      create: { staffId, classId, dismissedByUserId: actor.userId },
+      update: {},
     });
+    return {
+      staffId: row.staffId,
+      classId: row.classId,
+      dismissedAt: row.dismissedAt.toISOString(),
+    };
   }
 
   private buildDepositPaymentPreviewResponse(params: {

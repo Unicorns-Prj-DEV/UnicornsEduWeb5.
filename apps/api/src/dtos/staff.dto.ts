@@ -484,12 +484,20 @@ export interface StaffPaymentPreviewSectionDto extends StaffPaymentPreviewTotals
   sources: StaffPaymentPreviewSourceDto[];
 }
 
+/** Cảnh báo chưa dạy thử: một lớp còn trợ cấp buổi chờ trả mà gia sư chưa có buổi dạy thử. */
+export interface StaffTrialTeachingWarningDto {
+  classId: string;
+  className: string;
+}
+
 export interface StaffPaymentPreviewDto {
   staffId: string;
   month: string;
   taxAsOfDate: string;
   summary: StaffPaymentPreviewTotalsDto;
   sections: StaffPaymentPreviewSectionDto[];
+  /** Chỉ cảnh báo, không chặn thanh toán; lớp đã bỏ qua không có ở đây. */
+  trialTeachingWarnings: StaffTrialTeachingWarningDto[];
 }
 
 export class StaffPayAllPaymentsDto extends StaffPaymentMonthDto {}

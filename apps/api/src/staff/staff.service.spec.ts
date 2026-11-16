@@ -90,6 +90,9 @@ describe('StaffService', () => {
     survey: {
       findMany: jest.fn(),
     },
+    trialTeachingWarningDismissal: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     classSurvey: {
       findMany: jest.fn(),
     },

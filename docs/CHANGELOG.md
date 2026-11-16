@@ -21,6 +21,32 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Cảnh báo chưa dạy thử trong popup thanh toán + tiến trình xử lý video cho học sinh (16/11)
+
+#### Added
+
+- **Cảnh báo chưa dạy thử** (popup **Thanh toán** `/admin/staffs/:id`, Admin + Kế toán chi):
+  - mỗi lớp còn trợ cấp buổi chờ trả mà gia sư chưa có buổi Dạy thử (`coefficient = 0`) nào trong lịch sử lớp → một cảnh báo riêng
+  - chỉ cảnh báo, không chặn thanh toán
+  - `GET /staff/:id/payment-preview` trả thêm `trialTeachingWarnings`
+  - `POST /staff/:id/trial-teaching-warnings/:classId/dismiss` bỏ qua theo cặp (gia sư, lớp), không nhắc lại với ai
+  - Kế toán chi bỏ qua cảnh báo của chính mình → `403` (#265), FE ẩn nút
+  - bảng mới `trial_teaching_warning_dismissals`, migration `20261116120000_trial_teaching_warning_dismissals` — **cần `pnpm db:deploy` khi release**
+- **Video bảo vệ, phía học sinh** (timeline, trang tiết học, dialog chi tiết buổi):
+  - khi đang xử lý, hiện thanh tiến trình kèm nhãn giai đoạn: «Đang xếp hàng (thứ X/Y)», «Đang tải video về», «Đang chuyển mã · N%», «Sắp xong · N%»
+  - hỏi lại mỗi 15 giây
+  - thêm `components/ui/progress.tsx` (`@radix-ui/react-progress`)
+
+#### Changed
+
+- `ProtectedVideoPlaybackDto`:
+  - `processing` có thêm `stage`, `queuePosition`, `queueTotal`
+  - thêm state `failed`: đồng bộ UNIOJ lỗi → «Video không xem được» kèm lời nhắc liên hệ gia sư hoặc trợ giảng, hỏi lại mỗi 60 giây
+  - link không phải YouTube hoặc server thiếu `UNIVIDEO_*` vẫn là `unavailable`
+- `CONTEXT.md`:
+  - thêm thuật ngữ **Cảnh báo chưa dạy thử**
+  - mục Dạy thử ghi Kế toán chi được bật (khớp code #267)
+
 ### Kế toán chi tick «Dạy thử» cho buổi học trong lớp (16/11)
 
 #### Changed
