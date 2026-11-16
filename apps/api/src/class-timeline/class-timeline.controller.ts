@@ -92,7 +92,7 @@ export class ClassTimelineController {
   @ApiResponse({
     status: 200,
     description:
-      "{ state: 'ready', masterUrl, expiresAt } | { state: 'processing', progress } | { state: 'unavailable' } | { state: 'none' }",
+      "{ state: 'ready', masterUrl, expiresAt } | { state: 'processing', stage: 'queued'|'downloading'|'transcoding'|'uploading', progress, queuePosition, queueTotal } | { state: 'failed' } | { state: 'unavailable' } | { state: 'none' }",
   })
   @ApiResponse({
     status: 403,
