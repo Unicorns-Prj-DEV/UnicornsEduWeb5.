@@ -43,6 +43,8 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 - Trước đây cờ này chỉ chỉnh được lúc tạo học sinh hoặc qua `/admin/users` (Admin).
 - Unit test `student.service.spec.ts` (6 case).
 
+### Form lesson output: hạng mục lên đầu, field hiện theo hạng mục (16/11)
+
 #### Changed
 
 - **FE `LessonOutputEditorForm` / `LessonOutputPricingFields`** (cả layout full và compact tab Công việc): khối **Hạng mục đã làm** chuyển lên đầu form, ô tick dạng thẻ (mobile 1 cột → `sm` 2 cột). **Level** chuyển vào khối giá và chỉ hiện khi tick **Bài giảng lý thuyết** (kèm danh sách link video). **Độ khó** + nhóm field bài tập (Contest, Nguồn, Original title/Tên gốc, Link gốc, Link output, Checker/Code) chỉ hiện khi tick 1 trong Sinh test / Lời giải / Bài giảng video. Link output bắt buộc khi nhóm này hiện (thay luật cũ «chỉ lý thuyết thì không bắt buộc»).
