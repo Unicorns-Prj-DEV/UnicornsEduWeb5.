@@ -21,6 +21,37 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Kế toán chi tick «Dạy thử» cho buổi học trong lớp (16/11)
+
+#### Changed
+
+- **FE `/admin/classes/:id`** (Kế toán chi vào qua `/staff/classes/:id`): form sửa buổi trong tab Lịch sử hiện toggle **Dạy thử** (`coefficient` 0/1) cho Kế toán chi, trước đây chỉ Admin và Trưởng ban Đào tạo thấy.
+  - Lưu qua `PUT /sessions/:id`. Backend vốn đã cho Kế toán chi đổi `coefficient`, không đổi API.
+  - Buổi do chính Kế toán chi dạy: ẩn toggle (`canToggleTrialForSession`), khớp #265 (`assertAdminRouteUpdateAllowed` trả `403`).
+  - Trạng thái điểm danh **Học thử** từng học sinh giữ như cũ (Kế toán chi vốn chọn được).
+
+### CSKH / Trưởng phòng Sale & CSKH tick «Email đã xác thực» cho học sinh (16/11)
+
+#### Added
+
+- **BE `PATCH /student/:id/email-verified`** (`StudentService.setStudentEmailVerified`, `SetStudentEmailVerifiedDto`), body `{ email_verified }`.
+  - Phạm vi giống sửa hồ sơ: admin và Trưởng phòng Sale & CSKH với mọi học sinh, CSKH chỉ học sinh mình phụ trách (ngoài phạm vi `404`).
+  - Hồ sơ chưa có tài khoản trả `400`.
+  - Ghi `action_history` và invalidate auth identity cache.
+- **BE `GET /student/:id`** trả thêm `emailVerified`.
+- **FE trang chi tiết học sinh** (`/admin/students/[id]`, `/staff/students/[id]`): thêm `StudentEmailVerifiedSwitch` dưới tên học sinh. Ai sửa được hồ sơ thì thấy Switch (optimistic + toast). Người khác thấy badge chỉ đọc.
+- Trước đây cờ này chỉ chỉnh được lúc tạo học sinh hoặc qua `/admin/users` (Admin).
+- Unit test `student.service.spec.ts` (6 case).
+
+#### Changed
+
+- **FE `LessonOutputEditorForm` / `LessonOutputPricingFields`** (cả layout full và compact tab Công việc): khối **Hạng mục đã làm** chuyển lên đầu form, ô tick dạng thẻ (mobile 1 cột → `sm` 2 cột). **Level** chuyển vào khối giá và chỉ hiện khi tick **Bài giảng lý thuyết** (kèm danh sách link video). **Độ khó** + nhóm field bài tập (Contest, Nguồn, Original title/Tên gốc, Link gốc, Link output, Checker/Code) chỉ hiện khi tick 1 trong Sinh test / Lời giải / Bài giảng video. Link output bắt buộc khi nhóm này hiện (thay luật cũ «chỉ lý thuyết thì không bắt buộc»).
+- Field đang ẩn gửi `null` khi lưu (bỏ tick = xoá dữ liệu nhóm đó, gồm cả `level` khi bỏ tick lý thuyết). Người bị khoá giá (`allowCostEdit=false`) không bị gate: hiện hết, không xoá gì.
+
+#### Added
+
+- `getLessonOutputFieldVisibility()` trong `apps/web/lib/lesson-output-pricing.ts` + test vitest.
+
 ### Chốt gói học phí lớp bán một lần (16/11)
 
 #### Added

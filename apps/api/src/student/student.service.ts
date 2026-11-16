@@ -143,6 +143,7 @@ const studentDetailInclude = {
       id: true,
       avatarPath: true,
       accountHandle: true,
+      emailVerified: true,
     },
   },
   customerCareServices: {
@@ -472,6 +473,8 @@ export class StudentService {
       userId: student.userId,
       // 16/11: hiện + đổi tên đăng nhập trên hồ sơ học sinh.
       accountHandle: student.user?.accountHandle ?? null,
+      // 16/11: cờ xác thực email của tài khoản; `null` khi chưa có tài khoản.
+      emailVerified: student.user?.emailVerified ?? null,
       avatarPath: student.user?.avatarPath ?? null,
       birthYear: student.birthYear,
       parentName: student.parentName,
@@ -2732,6 +2735,58 @@ export class StudentService {
 
     this.invalidateStudentAuthIdentity(student.userId);
     return this.withStudentAvatarUrl(this.serializeStudentDetail(updated));
+  }
+
+  /**
+   * 16/11: bật/tắt «Email đã xác thực» của tài khoản học sinh từ hồ sơ học sinh.
+   * Phạm vi như sửa hồ sơ: Admin / Trưởng phòng Sale & CSKH mọi học sinh, CSKH
+   * chỉ học sinh mình chăm sóc (`assertCanMutateStudentProfile`).
+   */
+  async setStudentEmailVerified(
+    studentId: string,
+    emailVerified: boolean,
+    auditActor?: ActionHistoryActor,
+  ): Promise<{ studentId: string; userId: string; emailVerified: boolean }> {
+    await this.assertCanMutateStudentProfile(studentId, undefined, auditActor);
+
+    const student = await this.prisma.studentInfo.findUnique({
+      where: { id: studentId },
+      select: { userId: true, user: { select: { emailVerified: true } } },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+    if (!student.userId || !student.user) {
+      throw new BadRequestException(
+        'Học sinh chưa gắn tài khoản đăng nhập nên không thể xác thực email.',
+      );
+    }
+
+    const userId = student.userId;
+    const previous = student.user.emailVerified;
+    if (previous !== emailVerified) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { emailVerified },
+        });
+        if (auditActor) {
+          await this.actionHistoryService.recordUpdate(tx, {
+            actor: auditActor,
+            entityType: 'user',
+            entityId: userId,
+            description: emailVerified
+              ? 'Xác thực email tài khoản học sinh'
+              : 'Bỏ xác thực email tài khoản học sinh',
+            beforeValue: { emailVerified: previous },
+            afterValue: { emailVerified },
+          });
+        }
+      });
+      this.invalidateStudentAuthIdentity(userId);
+    }
+
+    return { studentId, userId, emailVerified };
   }
 
   async updateStudent(data: UpdateStudentDto, auditActor?: ActionHistoryActor) {

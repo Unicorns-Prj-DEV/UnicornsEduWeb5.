@@ -2000,6 +2000,128 @@ describe('StudentService', () => {
     );
   });
 
+  describe('setStudentEmailVerified', () => {
+    const staffActor = {
+      userId: 'care-user-1',
+      userEmail: 'care@example.com',
+      roleType: UserRole.staff,
+    };
+
+    it('lets the assigned customer care verify the student email', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+      });
+      mockPrisma.customerCareService.findUnique.mockResolvedValue({
+        staffId: 'staff-care-1',
+      });
+      mockPrisma.studentInfo.findUnique.mockResolvedValue({
+        userId: 'student-user-1',
+        user: { emailVerified: false },
+      });
+
+      await expect(
+        service.setStudentEmailVerified('student-1', true, staffActor),
+      ).resolves.toEqual({
+        studentId: 'student-1',
+        userId: 'student-user-1',
+        emailVerified: true,
+      });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'student-user-1' },
+        data: { emailVerified: true },
+      });
+      expect(actionHistoryService.recordUpdate).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          entityType: 'user',
+          entityId: 'student-user-1',
+          beforeValue: { emailVerified: false },
+          afterValue: { emailVerified: true },
+        }),
+      );
+      expect(authIdentityCacheService.invalidateUser).toHaveBeenCalledWith(
+        'student-user-1',
+      );
+    });
+
+    it('hides students another customer care is responsible for', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-care-1',
+        roles: [StaffRole.customer_care],
+      });
+      mockPrisma.customerCareService.findUnique.mockResolvedValue({
+        staffId: 'staff-care-2',
+      });
+
+      await expect(
+        service.setStudentEmailVerified('student-1', true, staffActor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('lets the Sale & CSKH head toggle any student', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-head-1',
+        roles: [StaffRole.sale_customer_care_head],
+      });
+      mockPrisma.studentInfo.findUnique.mockResolvedValue({
+        userId: 'student-user-1',
+        user: { emailVerified: true },
+      });
+
+      await service.setStudentEmailVerified('student-1', false, staffActor);
+
+      expect(mockPrisma.customerCareService.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'student-user-1' },
+        data: { emailVerified: false },
+      });
+    });
+
+    it('rejects staff outside admin / Sale & CSKH / customer care', async () => {
+      mockPrisma.staffInfo.findUnique.mockResolvedValue({
+        id: 'staff-teacher-1',
+        roles: [StaffRole.teacher],
+      });
+
+      await expect(
+        service.setStudentEmailVerified('student-1', true, staffActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects a student profile without a login account', async () => {
+      mockPrisma.studentInfo.findUnique.mockResolvedValue({
+        userId: null,
+        user: null,
+      });
+
+      await expect(
+        service.setStudentEmailVerified('student-1', true, {
+          userId: 'admin-1',
+          userEmail: 'admin@example.com',
+          roleType: UserRole.admin,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('skips the write when the flag is unchanged', async () => {
+      mockPrisma.studentInfo.findUnique.mockResolvedValue({
+        userId: 'student-user-1',
+        user: { emailVerified: true },
+      });
+
+      await service.setStudentEmailVerified('student-1', true, {
+        userId: 'admin-1',
+        userEmail: 'admin@example.com',
+        roleType: UserRole.admin,
+      });
+
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(authIdentityCacheService.invalidateUser).not.toHaveBeenCalled();
+    });
+  });
+
   describe('customer care transfer permission', () => {
     const customerCareActor = {
       userId: 'care-user-1',

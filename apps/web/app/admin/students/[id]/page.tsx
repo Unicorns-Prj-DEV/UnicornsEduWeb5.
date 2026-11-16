@@ -25,6 +25,7 @@ import {
 } from "@/components/admin/user";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import ParentReceiptEmailSwitch from "@/components/student/ParentReceiptEmailSwitch";
+import StudentEmailVerifiedSwitch from "@/components/student/StudentEmailVerifiedSwitch";
 import OjProgressSection from "@/components/student/OjProgressSection";
 import AchievementListEditor from "@/components/shared/achievement/AchievementListEditor";
 import StudentGalleryEditor from "@/components/shared/student-gallery/StudentGalleryEditor";
@@ -45,6 +46,7 @@ import { formatCurrency } from "@/lib/class.helpers";
 import { cn } from "@/lib/utils";
 import { forceLogoutStudent } from "@/lib/apis/auth.api";
 import { formatVnDate } from "@/lib/formatters";
+import { getMutationErrorMessage } from "@/lib/mutation-feedback";
 
 const STATUS_LABELS: Record<StudentStatus, string> = {
     active: "Đang học",
@@ -190,6 +192,36 @@ export default function AdminStudentDetailPage() {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["student", "detail", id] });
             toast.success("Đã cập nhật cài đặt gửi biên lai.");
+        },
+    });
+
+    // 16/11: Admin / Trưởng phòng Sale & CSKH / CSKH phụ trách xác thực email học sinh.
+    const emailVerifiedMutation = useMutation({
+        mutationFn: (verified: boolean) => studentApi.setStudentEmailVerified(id, verified),
+        onMutate: async (verified) => {
+            await queryClient.cancelQueries({ queryKey: ["student", "detail", id] });
+            const previous = queryClient.getQueryData<StudentDetail>(["student", "detail", id]);
+            if (previous) {
+                queryClient.setQueryData<StudentDetail>(["student", "detail", id], {
+                    ...previous,
+                    emailVerified: verified,
+                });
+            }
+            return { previous };
+        },
+        onError: (error: unknown, _verified, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(["student", "detail", id], context.previous);
+            }
+            toast.error(getMutationErrorMessage(error, "Không cập nhật được trạng thái xác thực email."));
+        },
+        onSuccess: async (result) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["student", "detail", id] }),
+                // Popup Quản lý user (Admin) đọc cùng cờ từ GET /users/:id.
+                queryClient.invalidateQueries({ queryKey: ["user"] }),
+            ]);
+            toast.success(result.emailVerified ? "Đã xác thực email học sinh." : "Đã bỏ xác thực email học sinh.");
         },
     });
 
@@ -720,6 +752,15 @@ export default function AdminStudentDetailPage() {
                                                 showManageLink
                                             />
                                         </div>
+                                    ) : null}
+                                    {student.userId ? (
+                                        <StudentEmailVerifiedSwitch
+                                            className="mt-1 max-w-xl"
+                                            verified={student.emailVerified === true}
+                                            editable={canEditStudentProfile}
+                                            disabled={emailVerifiedMutation.isPending}
+                                            onToggle={(verified) => emailVerifiedMutation.mutate(verified)}
+                                        />
                                     ) : null}
                                 </div>
                                 <div className="mt-4 grid gap-2 sm:hidden">

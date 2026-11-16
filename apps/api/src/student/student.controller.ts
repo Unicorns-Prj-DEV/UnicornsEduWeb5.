@@ -64,6 +64,7 @@ import {
   UpdateStudentExamSchedulesDto,
   UpdateStudentDto,
   UpdateStudentStatusDto,
+  SetStudentEmailVerifiedDto,
 } from 'src/dtos/student.dto';
 import {
   StudentLandingAchievementsQueryDto,
@@ -710,6 +711,49 @@ export class StudentController {
       userEmail: user.email,
       roleType: user.roleType,
     });
+  }
+
+  @Patch(':id/email-verified')
+  @AllowStaffRolesOnAdminRoutes(SALE_CS_HEAD_ROLE, StaffRole.customer_care)
+  @ApiOperation({
+    summary: 'Set student account email verified flag',
+    description:
+      '16/11: bật/tắt «Email đã xác thực» trên tài khoản đăng nhập của học sinh (giống checkbox Admin ở popup Quản lý user). Admin, Trưởng phòng Sale & CSKH: mọi học sinh; CSKH: chỉ học sinh mình là Người chăm sóc.',
+  })
+  @ApiParam({ name: 'id', description: 'Student ID' })
+  @ApiBody({ type: SetStudentEmailVerifiedDto })
+  @ApiResponse({
+    status: 200,
+    description: '{ studentId, userId, emailVerified }.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Học sinh chưa gắn tài khoản đăng nhập.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden. Không phải Admin / Trưởng phòng Sale & CSKH / CSKH.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Student not found (kể cả CSKH không phụ trách học sinh).',
+  })
+  async setStudentEmailVerified(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseStudentIdPipe()) id: string,
+    @Body() body: SetStudentEmailVerifiedDto,
+  ) {
+    return this.studentService.setStudentEmailVerified(
+      id,
+      body.email_verified,
+      {
+        userId: user.id,
+        userEmail: user.email,
+        roleType: user.roleType,
+      },
+    );
   }
 
   @Get(':id/wallet-history')
