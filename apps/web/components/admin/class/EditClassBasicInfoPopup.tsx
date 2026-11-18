@@ -139,7 +139,7 @@ function EditClassBasicInfoDialog({
 }: Omit<Props, "open">) {
   const queryClient = useQueryClient();
   const tuitionForm = useClassTuitionForm(classDetail);
-  /** Trưởng ban/Trưởng phòng: chỉ tên, khoá học, sĩ số. */
+  /** Trưởng ban/Trưởng phòng: tên, khoá học, sĩ số, trạng thái (kết thúc / mở lại lớp). */
   const headsMode = !access.isAdmin;
   /**
    * Trưởng ban Đào tạo (#277): thêm trợ cấp / trần / scale mặc định của lớp.
@@ -194,8 +194,7 @@ function EditClassBasicInfoDialog({
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [endReason, setEndReason] = useState("");
 
-  const willEndClass =
-    !headsMode && classDetail.status === "running" && status === "ended";
+  const willEndClass = classDetail.status === "running" && status === "ended";
 
   const handleStatusChange = (nextValue: string) => {
     setStatus(nextValue as ClassStatus);
@@ -299,7 +298,9 @@ function EditClassBasicInfoDialog({
       return;
     }
     const reason = endReason.trim() || undefined;
-    const shouldUpdateBasicInfo = basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus);
+    const shouldUpdateBasicInfo = headsMode
+      ? headsFieldsChanged(basicInfoWithoutStatus)
+      : basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus);
 
     setEndConfirmOpen(false);
     onClose();
@@ -339,13 +340,16 @@ function EditClassBasicInfoDialog({
       return;
     }
 
-    const shouldSave = headsMode
-      ? headsFieldsChanged(basicInfoWithoutStatus)
-      : basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus) ||
-        status !== classDetail.status;
-    const payload: UpdateClassBasicInfoPayload = headsMode
-      ? basicInfoWithoutStatus
-      : { ...basicInfoWithoutStatus, status };
+    const statusChanged = status !== classDetail.status;
+    const shouldSave =
+      (headsMode
+        ? headsFieldsChanged(basicInfoWithoutStatus)
+        : basicInfoFieldsChanged(classDetail, basicInfoWithoutStatus)) || statusChanged;
+    // Role trưởng chỉ gửi `status` khi đổi (mở lại lớp); kết thúc lớp đi qua endClass ở trên.
+    const payload: UpdateClassBasicInfoPayload =
+      headsMode && !statusChanged
+        ? basicInfoWithoutStatus
+        : { ...basicInfoWithoutStatus, status };
     const classPayPayload = headPayMode ? buildHeadClassPayPayload() : undefined;
     onClose();
     runBackgroundSave({
@@ -491,11 +495,11 @@ function EditClassBasicInfoDialog({
                 {headsMode
                   ? canEditTuition
                     ? headPayMode
-                      ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số, trợ cấp mặc định của lớp và Học phí lớp. Các mục khác do Admin chỉnh."
-                      : "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số và Học phí lớp. Các mục khác do Admin chỉnh."
+                      ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số, trợ cấp mặc định của lớp và Học phí lớp. Kết thúc / mở lại lớp ở mục Trạng thái. Các mục khác do Admin chỉnh."
+                      : "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số và Học phí lớp. Kết thúc / mở lại lớp ở mục Trạng thái. Các mục khác do Admin chỉnh."
                     : headPayMode
-                      ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số và trợ cấp mặc định của lớp (áp dụng cho buổi tạo sau). Các mục khác do Admin chỉnh."
-                      : "Bạn sửa được tên lớp, khoá học (môn/loại lớp) và sĩ số. Các mục khác do Admin chỉnh."
+                      ? "Bạn sửa được tên lớp, khoá học (môn/loại lớp), sĩ số và trợ cấp mặc định của lớp (áp dụng cho buổi tạo sau). Kết thúc / mở lại lớp ở mục Trạng thái. Các mục khác do Admin chỉnh."
+                      : "Bạn sửa được tên lớp, khoá học (môn/loại lớp) và sĩ số. Kết thúc / mở lại lớp ở mục Trạng thái. Các mục khác do Admin chỉnh."
                   : canEditTuition
                     ? "Tên, khoá học, trạng thái, sĩ số, trợ cấp gia sư, cách thu và Học phí lớp."
                     : "Tên, khoá học, trạng thái, sĩ số, trợ cấp gia sư và cách thu học phí."}
@@ -522,23 +526,26 @@ function EditClassBasicInfoDialog({
                     buttonClassName={fieldClassName}
                   />
                 </label>
-                {headsMode ? null : (
-                  <div className="flex flex-col gap-1 text-sm text-text-secondary">
-                    <span>Trạng thái</span>
-                    <UpgradedSelect
-                      name="edit-class-basic-info-status"
-                      value={status}
-                      onValueChange={handleStatusChange}
-                      options={STATUS_OPTIONS}
-                      buttonClassName={fieldClassName}
-                    />
-                    {willEndClass ? (
-                      <p className="text-xs text-text-muted">
-                        Lưu sẽ gọi kết thúc lớp: gỡ gia sư, đóng roster, xóa lịch cố định và lịch bù tương lai.
-                      </p>
-                    ) : null}
-                  </div>
-                )}
+                <div className="flex flex-col gap-1 text-sm text-text-secondary">
+                  <span>Trạng thái</span>
+                  <UpgradedSelect
+                    name="edit-class-basic-info-status"
+                    value={status}
+                    onValueChange={handleStatusChange}
+                    options={STATUS_OPTIONS}
+                    buttonClassName={fieldClassName}
+                  />
+                  {willEndClass ? (
+                    <p className="text-xs text-text-muted">
+                      Lưu sẽ gọi kết thúc lớp: gỡ gia sư, đóng roster, xóa lịch cố định và lịch bù tương lai.
+                    </p>
+                  ) : null}
+                  {classDetail.status === "ended" && status === "running" ? (
+                    <p className="text-xs text-text-muted">
+                      Mở lại lớp không khôi phục học sinh, gia sư và lịch cũ — cần gán lại sau khi lưu.
+                    </p>
+                  ) : null}
+                </div>
                 {headsMode ? null : (
                   <div className="flex flex-col gap-1 text-sm md:col-span-2">
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-surface px-3 py-2">

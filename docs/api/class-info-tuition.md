@@ -15,14 +15,16 @@ Hai route API vẫn tách (quyền khác nhau), nhưng **web** (13/11) sửa c�
 |---|---|---|---|---|---|
 | `GET /class`, `GET /class/:id`, `GET /class/:id/students`, `GET /class/:id/makeup-events` | đọc | đọc (#274) | đọc | đọc | đọc |
 | `POST /class` (tạo lớp, #274) | mọi trường | theo phần (xem dưới) | theo phần (xem dưới) | 403 | 403 |
-| `PATCH /class/:id/basic-info` (Thông tin lớp) | sửa | tên, khoá, sĩ số (#274) | tên, khoá, sĩ số (#274) | 403 | 403 |
+| `PATCH /class/:id/basic-info` (Thông tin lớp) | sửa | tên, khoá, sĩ số (#274), trạng thái để mở lại lớp | tên, khoá, sĩ số (#274), trạng thái để mở lại lớp | 403 | 403 |
 | `PATCH /class` (cập nhật tổng quát) | sửa | 403 | 403 | 403 | 403 |
 | `PATCH /class/:id/tuition` (Học phí lớp) | sửa | 403 | sửa | 403 | 403 |
 | `PATCH /class/:id/student-tuition` (học phí riêng học sinh) | sửa | 403 | sửa | sửa | 403 |
 | `PATCH /class/:id/students` (thêm/bớt học sinh, #273) | sửa | 403 | sửa | 403 | 403 |
-| `PATCH /class/:id/pricing-mode`, lịch | sửa | 403 | 403 | 403 | 403 |
+| `PATCH /class/:id/pricing-mode` | sửa | 403 | 403 | 403 | 403 |
+| Lịch lớp: `PATCH /class/:id/schedule`, `POST /class/:id/schedule/google-calendar/resync`, `POST/PATCH/DELETE /class/:id/makeup-events…`, `POST /class/:id/makeup-events/:eventId/google-calendar/resync` | sửa | sửa (mọi lớp) | sửa (mọi lớp) | 403 | 403 |
 | `PATCH /class/:id/teacher-compensation` (lương gia sư theo lớp, follow-up 13/11) | sửa | 403 ở route admin (dùng `PATCH /staff-ops/classes/:id/teacher-pay`) | 403 | 403 | 403 (chỉ xem; kiêm Trưởng ban Đào tạo / Quản lý lớp của lớp → sửa) |
-| `POST /class/:id/end` (kết thúc lớp), `DELETE /class/:id` (xoá lớp) | ✓ | 403 | 403 | 403 | 403 |
+| `POST /class/:id/end` (kết thúc lớp) | ✓ | ✓ (mọi lớp đang chạy) | ✓ (mọi lớp đang chạy) | 403 | 403 |
+| `DELETE /class/:id` (xoá lớp), `POST /class/:id/teachers/:teacherId/stop-teaching` | ✓ | 403 | 403 | 403 | 403 |
 | `GET /staff/options` (tìm gia sư khi tạo lớp) | ✓ | ✓ (#274) | 403 | 403 | ✓ |
 
 ## Tạo lớp và sửa Thông tin lớp theo role (#274)
@@ -41,7 +43,8 @@ Policy: `apps/api/src/class/class-write-field-policy.ts` (`assertCreateClassAllo
 - Role khác (Đào tạo/Quản lý lớp, Kế toán, CSKH, gia sư) → `403` «Chỉ Admin, Trưởng ban Đào tạo hoặc Trưởng phòng Sale & CSKH được tạo lớp.».
 - Luật #265: Trưởng ban không tự gán mình làm gia sư (`teacher_ids` / `teachers[].teacher_id`) → `403`. Tự làm Quản lý lớp được (% trợ cấp quản lý lớp vẫn chỉ Admin sửa).
 - `training_manager_staff_id` (mới, chỉ `POST /class`): nhân sự Đào tạo/Trưởng ban/gia sư đang hoạt động (`404` không tồn tại, `400` không hợp lệ); gia sư được gán thì tự cấp role `training` như `PATCH /training-manager/classes/:id`.
-- `PATCH /class/:id/basic-info` cho role trưởng: chỉ `name`, `course_id`, `max_students`; gửi `status`, `no_attendance`, trợ cấp/scale, `content_access_expires_at` → `403`. Cách thu học phí, lịch, Meet: route riêng, chỉ Admin.
+- `PATCH /class/:id/basic-info` cho role trưởng: chỉ `name`, `course_id`, `max_students`, `status`; gửi `no_attendance`, trợ cấp/scale, `content_access_expires_at` → `403`. `status` dùng để **Mở lại lớp** (`ended → running`); `running → ended` qua route này vẫn `400` (phải dùng `POST /class/:id/end`). Mở lại không khôi phục roster/gia sư/lịch đã đóng. Cách thu học phí, Meet: chỉ Admin. Lịch lớp: route riêng, Admin + hai role trưởng.
+- `POST /class/:id/end`, `PATCH /class/:id/schedule`: response lọc học phí/lương gia sư/số dư ví theo người xem như các route đọc.
 - Response tạo lớp / basic-info lọc theo người xem như các route đọc.
 - Hạn chế: Trưởng ban Đào tạo không tạo được lớp thuộc khoá trọn gói (`one_time`) vì khoá đó bắt buộc học phí, mà học phí ngoài quyền.
 

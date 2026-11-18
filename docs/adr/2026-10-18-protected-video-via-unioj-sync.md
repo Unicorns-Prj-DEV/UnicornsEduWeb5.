@@ -28,3 +28,12 @@ Video tiết lý thuyết (`lessons.video_url`) và recording buổi học (`ses
 - Video là của UNIOJ trong kho chung; UNIOJ cam kết không xoá video gửi qua API.
 - Link YouTube trong text tự do (nội dung tiết, tutorial buổi, BTVN) không được bảo vệ.
 - Worker đang để `CORS_ORIGIN=*`; nếu sau này giới hạn thì phải thêm domain LMS.
+
+## Sửa đổi 2026-11-18: link recording đi qua tin copy Zalo
+
+Tin copy Zalo của Nhận xét buổi học (template có cấu trúc) in **link YouTube gốc** của recording buổi (`sessions.recording_url`) trong khối `🎥 Video buổi học:` sau Tutorial; buổi chưa có link thì bỏ khối. Nhân sự copy tin, gửi vào nhóm Zalo phụ huynh/học sinh.
+
+- **Vì sao:** chủ hệ thống muốn phụ huynh bấm xem video ngay trong Zalo, không phải đăng nhập LMS.
+- **Phương án đã cân nhắc:** (A) dán link trang lớp LMS, học sinh đăng nhập rồi xem video bảo vệ — giữ nguyên quyết định 3, nhưng thêm bước đăng nhập; (C) chỉ báo «đã có video», không kèm link. Chủ hệ thống chọn link gốc.
+- **Hệ quả:** quyết định 3 («Link YouTube không bao giờ tới trình duyệt học sinh») chỉ còn đúng **trong LMS**: API vẫn redact `recordingUrl` ở luồng học sinh, player vẫn phát HLS. Riêng recording buổi học, ai có tin Zalo cũng xem/tải được video trên YouTube (video unlisted không chặn người có link). Video tiết lý thuyết (`lessons.video_url`) không bị ảnh hưởng.
+

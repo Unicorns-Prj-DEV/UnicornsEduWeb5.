@@ -272,9 +272,50 @@ describe("buildSessionCommentZaloText — structured review", () => {
     expect(signatureOf(null)).toBe("— Gia sư UniEdu");
   });
 
+  it("prints the session video link after Tutorial, before the signature", () => {
+    const lines = buildSessionCommentZaloText({
+      ...baseInput,
+      review,
+      profile: "it",
+      recordingUrl: "  https://youtube.com/watch?v=abc123  ",
+      students: [],
+    }).split("\n");
+    expect(lines.slice(-4)).toEqual([
+      "🎥 Video buổi học:",
+      "https://youtube.com/watch?v=abc123",
+      "",
+      "— Gia sư UniEdu Tin học",
+    ]);
+    expect(lines.indexOf("📎 Tutorial:")).toBeLessThan(
+      lines.indexOf("🎥 Video buổi học:"),
+    );
+  });
+
+  it.each([null, undefined, "", "   "])(
+    "omits the video block when the session has no video (%j)",
+    (recordingUrl) => {
+      const text = buildSessionCommentZaloText({
+        ...baseInput,
+        review,
+        recordingUrl,
+        students: [],
+      });
+      expect(text).not.toContain("🎥");
+    },
+  );
+
   it("keeps the legacy format when progress status is missing", () => {
     const text = buildSessionCommentZaloText({ ...baseInput, students: [] });
     expect(text).toContain("— UniEdu");
+  });
+
+  it("does not add the video link to the legacy format", () => {
+    const text = buildSessionCommentZaloText({
+      ...baseInput,
+      recordingUrl: "https://youtube.com/watch?v=abc123",
+      students: [],
+    });
+    expect(text).not.toContain("🎥");
   });
 });
 

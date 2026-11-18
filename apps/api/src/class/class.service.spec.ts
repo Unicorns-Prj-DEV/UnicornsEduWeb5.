@@ -987,8 +987,47 @@ describe('ClassService', () => {
       });
     });
 
+    it('Trưởng phòng mở lại lớp (ended → running) được', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.sale_customer_care_head]),
+      );
+      mockPrisma.class.findUnique.mockResolvedValueOnce({
+        id: 'class-1',
+        status: ClassStatus.ended,
+      });
+
+      await service.updateClassBasicInfo(
+        'class-1',
+        { status: ClassStatus.running },
+        headActor,
+      );
+
+      expect(mockTx.class.update).toHaveBeenCalledWith({
+        where: { id: 'class-1' },
+        data: { status: ClassStatus.running },
+      });
+    });
+
+    it('Trưởng phòng kết thúc lớp qua basic-info → 400 (phải dùng POST /end)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(
+        staffUserWith([StaffRole.sale_customer_care_head]),
+      );
+      mockPrisma.class.findUnique.mockResolvedValueOnce({
+        id: 'class-1',
+        status: ClassStatus.running,
+      });
+
+      await expect(
+        service.updateClassBasicInfo(
+          'class-1',
+          { status: ClassStatus.ended },
+          headActor,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockTx.class.update).not.toHaveBeenCalled();
+    });
+
     it.each([
-      ['kết thúc lớp (status ended)', { status: ClassStatus.ended }],
       ['lương gia sư', { allowance_per_session_per_student: 90000 }],
       ['không cần điểm danh', { no_attendance: true }],
     ])('Trưởng phòng gửi %s → 403', async (_label, dto) => {

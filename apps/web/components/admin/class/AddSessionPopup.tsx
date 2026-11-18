@@ -704,10 +704,12 @@ export default function AddSessionPopup({
         review: sessionReviewPayload,
         structured: true,
         profile: lmsProfile,
+        recordingUrl,
         students: reviewStudents,
       }),
     [
       lmsProfile,
+      recordingUrl,
       className,
       date,
       endTime,

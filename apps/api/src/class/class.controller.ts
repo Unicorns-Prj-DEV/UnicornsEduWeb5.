@@ -111,6 +111,15 @@ const CLASS_VIEWER_STAFF_ROLES = [
   StaffRole.accountant_expense,
 ] as const;
 
+/**
+ * Kết thúc lớp, mở lại lớp (qua basic-info) và Lịch lớp (lịch cố định, lịch
+ * bù, resync Google Calendar): Admin + hai role trưởng, trên mọi lớp.
+ */
+const CLASS_LIFECYCLE_HEAD_ROLES = [
+  StaffRole.training_head,
+  SALE_CS_HEAD_ROLE,
+] as const;
+
 @Controller('class')
 @ApiTags('class')
 @ApiCookieAuth('access_token')
@@ -245,7 +254,7 @@ export class ClassController {
   @ApiOperation({
     summary: 'Cập nhật Thông tin lớp',
     description:
-      'Thông tin lớp (tên, khoá, trạng thái, sĩ số, không điểm danh, hạn xem nội dung) + lương gia sư mặc định của lớp. KHÔNG nhận học phí (#272: dùng PATCH /class/:id/tuition; trường học phí gửi lên bị bỏ qua). Changing allowance_per_session_per_student updates only the class default; per-teacher class_teachers.custom_allowance overrides are not modified. #274: Admin sửa mọi trường; Trưởng ban Đào tạo và Trưởng phòng Sale & CSKH chỉ được gửi name, course_id (môn/loại lớp), max_students — gửi trường khác → 403 liệt kê trường bị từ chối. Kế toán thu/chi bị 403. Response bỏ học phí/lương gia sư theo role người xem.',
+      'Thông tin lớp (tên, khoá, trạng thái, sĩ số, không điểm danh, hạn xem nội dung) + lương gia sư mặc định của lớp. KHÔNG nhận học phí (#272: dùng PATCH /class/:id/tuition; trường học phí gửi lên bị bỏ qua). Changing allowance_per_session_per_student updates only the class default; per-teacher class_teachers.custom_allowance overrides are not modified. #274: Admin sửa mọi trường; Trưởng ban Đào tạo và Trưởng phòng Sale & CSKH chỉ được gửi name, course_id (môn/loại lớp), max_students và status (chỉ để mở lại lớp: ended → running; kết thúc lớp vẫn qua POST /class/:id/end) — gửi trường khác → 403 liệt kê trường bị từ chối. Kế toán thu/chi bị 403. Response bỏ học phí/lương gia sư theo role người xem.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: UpdateClassBasicInfoDto })
@@ -254,7 +263,7 @@ export class ClassController {
   @ApiResponse({
     status: 403,
     description:
-      'Role không được sửa Thông tin lớp, hoặc role trưởng gửi trường ngoài tên/khoá học/sĩ số (#274).',
+      'Role không được sửa Thông tin lớp, hoặc role trưởng gửi trường ngoài tên/khoá học/sĩ số/trạng thái (#274).',
   })
   @ApiResponse({ status: 404, description: 'Class not found.' })
   // #274: Admin + Trưởng ban Đào tạo + Trưởng phòng; giới hạn trường ở service.
@@ -436,18 +445,29 @@ export class ClassController {
     description:
       'Lịch vừa bị người khác cập nhật (optimistic lock) hoặc đang có request khác xử lý cùng lớp.',
   })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // Lịch lớp / Kết thúc lớp: Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(...CLASS_LIFECYCLE_HEAD_ROLES)
   async updateClassSchedule(
     @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: UpdateClassScheduleDto,
   ) {
-    return this.classService.updateClassSchedule(id, dto, {
+    const updated = await this.classService.updateClassSchedule(id, dto, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
     });
+    // Service trả `{ class, warnings }` — redact phải chạy trên `class` bên
+    // trong, không phải lớp vỏ, kẻo lộ lương gia sư cho Trưởng.
+    return {
+      ...updated,
+      class: redactAdminClassResponse(
+        updated.class,
+        user.roleType,
+        req.resolvedStaffRoles ?? [],
+      ),
+    };
   }
 
   @Patch(':id/students')
@@ -486,9 +506,9 @@ export class ClassController {
 
   @Post(':id/end')
   @ApiOperation({
-    summary: 'End class operations',
+    summary: 'Kết thúc lớp',
     description:
-      'Set class status to ended, close active roster/teacher assignments, clear fixed schedule, and remove future makeup events.',
+      'Set class status to ended, close active roster/teacher assignments, clear fixed schedule, and remove future makeup events. Admin, Trưởng ban Đào tạo, Trưởng phòng Sale & CSKH; mọi lớp đang chạy. Response bỏ học phí/lương gia sư theo role người xem.',
   })
   @ApiParam({ name: 'id', description: 'Class id' })
   @ApiBody({ type: ClassStatusActionDto, required: false })
@@ -500,21 +520,27 @@ export class ClassController {
   @ApiResponse({
     status: 400,
     description:
-      'Validation error (class already ended or teacher sessions not fully paid).',
+      'Validation error (class already ended).',
   })
   @ApiResponse({ status: 404, description: 'Class not found.' })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // Lịch lớp / Kết thúc lớp: Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(...CLASS_LIFECYCLE_HEAD_ROLES)
   async endClass(
     @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithResolvedAuthContext,
     @Param('id', new ParseClassIdPipe()) id: string,
     @Body() dto: ClassStatusActionDto,
   ) {
-    return this.classService.endClass(id, dto ?? {}, {
+    const ended = await this.classService.endClass(id, dto ?? {}, {
       userId: user.id,
       userEmail: user.email,
       roleType: user.roleType,
     });
+    return redactAdminClassResponse(
+      ended,
+      user.roleType,
+      req.resolvedStaffRoles ?? [],
+    );
   }
 
   @Post(':id/teachers/:teacherId/stop-teaching')
@@ -642,8 +668,8 @@ export class ClassController {
     description: 'Class schedule resynced to Google Calendar.',
     type: ClassScheduleGoogleCalendarResyncResponseDto,
   })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // Lịch lớp / Kết thúc lớp: Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(...CLASS_LIFECYCLE_HEAD_ROLES)
   async resyncClassScheduleGoogleCalendar(
     @Param('id', new ParseClassIdPipe()) id: string,
   ): Promise<ClassScheduleGoogleCalendarResyncResponseDto> {
@@ -663,8 +689,8 @@ export class ClassController {
     description: 'Makeup event resynced to Google Calendar.',
     type: MakeupGoogleCalendarResyncResponseDto,
   })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // Lịch lớp / Kết thúc lớp: Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(...CLASS_LIFECYCLE_HEAD_ROLES)
   async resyncClassMakeupGoogleCalendar(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,
@@ -806,8 +832,8 @@ export class ClassController {
       },
     },
   })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // Lịch lớp / Kết thúc lớp: Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(...CLASS_LIFECYCLE_HEAD_ROLES)
   async createMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,
@@ -894,8 +920,8 @@ export class ClassController {
       },
     },
   })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // Lịch lớp / Kết thúc lớp: Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(...CLASS_LIFECYCLE_HEAD_ROLES)
   async updateMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,
@@ -975,8 +1001,8 @@ export class ClassController {
       },
     },
   })
-  // #267: chỉ Admin (không kế thừa danh sách staff role cấp class).
-  @AllowStaffRolesOnAdminRoutes()
+  // Lịch lớp / Kết thúc lớp: Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH.
+  @AllowStaffRolesOnAdminRoutes(...CLASS_LIFECYCLE_HEAD_ROLES)
   async deleteMakeupEventByClassId(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseClassIdPipe()) id: string,

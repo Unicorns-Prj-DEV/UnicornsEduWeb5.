@@ -43,6 +43,8 @@ describe('ClassController #272 redaction', () => {
     updateClassStudentTuition: jest.fn(),
     updateClassBasicInfo: jest.fn(),
     updateClassTeacherCompensation: jest.fn(),
+    updateClassSchedule: jest.fn(),
+    endClass: jest.fn(),
   };
   const staffOperationsAccess = {
     resolveClassTeacherManagerScope: jest.fn(),
@@ -92,6 +94,35 @@ describe('ClassController #272 redaction', () => {
     expect(result).toHaveProperty('studentTuitionPerSession', 180000);
     expect(result).toHaveProperty('tuitionPackageTotal', 2000000);
   };
+
+  it('Trưởng sửa lịch: redact `class` bên trong `{ class, warnings }`', async () => {
+    classService.updateClassSchedule.mockResolvedValue({
+      class: classDetail(),
+      warnings: ['w'],
+    });
+    const result = (await controller.updateClassSchedule(
+      headUser,
+      headReq,
+      'class-1',
+      { schedule: [] } as never,
+    )) as unknown as { class: Record<string, unknown>; warnings: string[] };
+    expectNoTeacherPay(result.class);
+    expect(result.warnings).toEqual(['w']);
+  });
+
+  it('Trưởng kết thúc lớp: response bỏ lương gia sư', async () => {
+    classService.endClass.mockResolvedValue({
+      ...classDetail(),
+      calendarSyncWarnings: [],
+    });
+    const result = (await controller.endClass(
+      headUser,
+      headReq,
+      'class-1',
+      {} as never,
+    )) as unknown as Record<string, unknown>;
+    expectNoTeacherPay(result);
+  });
 
   it('Trưởng phòng xem chi tiết lớp không có lương gia sư', async () => {
     const result = await controller.getClassById(headUser, headReq, 'class-1');

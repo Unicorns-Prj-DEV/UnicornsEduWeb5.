@@ -82,10 +82,27 @@ describe('RBAC route metadata (#267 deny-by-default)', () => {
     },
   );
 
-  it.each(['endClass', 'stopClassTeacher'])(
-    'keeps ClassController.%s admin-only',
+  it('keeps ClassController.stopClassTeacher admin-only', () => {
+    expect(getAllowedStaffRoles(ClassController, 'stopClassTeacher')).toEqual(
+      [],
+    );
+  });
+
+  it.each([
+    'endClass',
+    'updateClassSchedule',
+    'resyncClassScheduleGoogleCalendar',
+    'resyncClassMakeupGoogleCalendar',
+    'createMakeupEventByClassId',
+    'updateMakeupEventByClassId',
+    'deleteMakeupEventByClassId',
+  ])(
+    'Kết thúc lớp / Lịch lớp: ClassController.%s mở cho hai role trưởng',
     (methodName) => {
-      expect(getAllowedStaffRoles(ClassController, methodName)).toEqual([]);
+      expect(getAllowedStaffRoles(ClassController, methodName)).toEqual([
+        StaffRole.training_head,
+        StaffRole.sale_customer_care_head,
+      ]);
     },
   );
 
