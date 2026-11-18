@@ -215,8 +215,6 @@ describe('#274 assertUpdateClassBasicInfoAllowed', () => {
   });
 
   const adminOnlyFields: [string, UpdateClassBasicInfoDto][] = [
-    ['status ended (kết thúc lớp)', { status: ClassStatus.ended }],
-    ['status running', { status: ClassStatus.running }],
     ['no_attendance', { no_attendance: true }],
     [
       'allowance_per_session_per_student',
@@ -236,6 +234,17 @@ describe('#274 assertUpdateClassBasicInfoAllowed', () => {
       expect(() =>
         assertUpdateClassBasicInfoAllowed(actor, { ...headFields, ...dto }),
       ).toThrow(ForbiddenException);
+    });
+
+    // Mở lại lớp: trưởng gửi status. running → ended qua basic-info bị
+    // service chặn (phải qua POST /class/:id/end), không phải policy trường.
+    it('gửi status running (mở lại lớp) được', () => {
+      expect(() =>
+        assertUpdateClassBasicInfoAllowed(actor, {
+          ...headFields,
+          status: ClassStatus.running,
+        }),
+      ).not.toThrow();
     });
   });
 

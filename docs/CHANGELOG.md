@@ -21,6 +21,15 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Trưởng kết thúc / mở lại lớp, sửa Lịch lớp; link video trong tin Zalo (18/11)
+
+#### Changed
+
+- **Kết thúc lớp** (`POST /class/:id/end`) mở cho **Trưởng ban Đào tạo** và **Trưởng phòng Sale & CSKH** trên mọi lớp đang chạy (trước: chỉ Admin). Response lọc học phí/lương theo người xem.
+- **Mở lại lớp**: hai role trưởng gửi được `status` qua `PATCH /class/:id/basic-info` (popup Thông tin lớp hiện ô Trạng thái). Mở lại không khôi phục học sinh, gia sư, lịch.
+- **Lịch lớp** mở cho hai role trưởng: `PATCH /class/:id/schedule`, resync Google Calendar lịch cố định, tạo/sửa/xoá/resync lịch bù. Trang lớp hiện nút **Chỉnh sửa** / **Đồng bộ Google** và thao tác lịch bù cho hai trưởng. Response `PATCH schedule` (`{ class, warnings }`) lọc lương/trợ cấp gia sư trên `class` bên trong. Trưởng ban Đào tạo ở lớp mình quản lý (workspace `/staff/classes/:id`) kết thúc/mở lại lớp qua ô Trạng thái của popup Thông tin lớp. **Cho gia sư nghỉ** và **xoá lớp** vẫn chỉ Admin.
+- **Copy nhận xét buổi học (Zalo)**: thêm khối `🎥 Video buổi học:` + link YouTube gốc của recording sau Tutorial, trước chữ ký; bỏ khối khi buổi chưa có link. Template legacy không đổi. ADR Video bảo vệ có mục sửa đổi 2026-11-18.
+
 ### Mọi người thấy mọi khoá học, chỉ chặn nội dung (17/11)
 
 #### Fixed

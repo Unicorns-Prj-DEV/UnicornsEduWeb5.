@@ -330,7 +330,12 @@ export default function AdminClassDetailPage() {
       access: adminAccess,
       viewerIsTrainingHead: isTrainingHead,
     });
-  const canManageMakeupSchedule = isAdmin;
+  /**
+   * Lịch lớp (lịch cố định, lịch bù, đồng bộ Google) và Kết thúc / Mở lại lớp:
+   * Admin + Trưởng ban Đào tạo + Trưởng phòng Sale & CSKH, mọi lớp.
+   */
+  const canManageClassLifecycle = isAdmin || isSaleCsHead || isTrainingHead;
+  const canManageMakeupSchedule = canManageClassLifecycle;
   // #275: `PUT /sessions/:id` + `payment-status/bulk` chỉ Admin + Kế toán chi.
   const canEditSessionPaymentStatus = isAdmin || adminAccess.isAccountantExpense;
   const canEditSessions = isAdmin;
@@ -351,7 +356,9 @@ export default function AdminClassDetailPage() {
       session.teacherId !== viewerStaffId,
     [isAdmin, adminAccess.isAccountantExpense, viewerStaffId],
   );
-  const canManageClassStatus = isAdmin;
+  const canManageClassStatus = canManageClassLifecycle;
+  // `POST /class/:id/teachers/:teacherId/stop-teaching` vẫn chỉ Admin.
+  const canStopClassTeacher = isAdmin;
 
   const [selectedYear, selectedMonthValue] = selectedMonth.split("-");
   const classDetailQueryKey = useMemo(() => classKeys.detail(id), [id]);
@@ -971,7 +978,7 @@ export default function AdminClassDetailPage() {
           classDetail={classDetail}
         />
       )}
-      {isAdmin ? (
+      {canManageClassLifecycle ? (
         <EditClassSchedulePopup
           open={schedulePopupOpen}
           onClose={() => setSchedulePopupOpen(false)}
@@ -1056,7 +1063,7 @@ export default function AdminClassDetailPage() {
             showTeacherCompensation={showTeacherCompensation}
             className="flex-1"
             getTeacherHref={resolveTeacherHref}
-            canStopTeaching={canManageClassStatus && classDetail.status === "running"}
+            canStopTeaching={canStopClassTeacher && classDetail.status === "running"}
             onStopTeaching={handleStopTeaching}
             stopTeachingPendingTeacherId={stopTeachingPendingTeacherId}
             action={
@@ -1076,7 +1083,7 @@ export default function AdminClassDetailPage() {
             title="Khung giờ học"
             action={
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                {isAdmin ? (
+                {canManageClassLifecycle ? (
                   <button
                     type="button"
                     onClick={() => resyncScheduleMutation.mutate()}
@@ -1093,7 +1100,7 @@ export default function AdminClassDetailPage() {
                     Đồng bộ Google
                   </button>
                 ) : null}
-                {isAdmin ? (
+                {canManageClassLifecycle ? (
                   <button
                     type="button"
                     onClick={() => setSchedulePopupOpen(true)}
@@ -1499,7 +1506,7 @@ export default function AdminClassDetailPage() {
           canEdit={canManageMakeupSchedule}
           canViewEventDetails={usesStaffOpsClassOperations}
           canDelete={canManageMakeupSchedule}
-          canResync={isAdmin}
+          canResync={canManageMakeupSchedule}
           onOpenPastEvents={() => setPastMakeupPopupOpen(true)}
           disabledCreateMessage={makeupScheduleDisabledMessage}
           month={selectedMonth}

@@ -20,8 +20,9 @@ import {
  *   riêng/% vận hành từng gia sư). Không học phí, không học sinh.
  * - **Trưởng phòng Sale & CSKH:** thông tin lớp + học phí + học sinh.
  * - Người mang cả hai role trưởng được hợp hai tập trường.
- * - Lịch học, cách thu học phí, «không cần điểm danh» và tạo lớp ở trạng
- *   thái kết thúc: chỉ Admin.
+ * - Lịch học lúc tạo lớp, cách thu học phí, «không cần điểm danh» và tạo
+ *   lớp ở trạng thái kết thúc: chỉ Admin. Sau khi tạo, hai role trưởng sửa
+ *   Lịch lớp, Kết thúc lớp và Mở lại lớp qua route riêng.
  *
  * Gửi trường ngoài quyền → 403 liệt kê các trường bị từ chối (không lặng lẽ
  * bỏ qua, để client biết payload sai).
@@ -170,10 +171,15 @@ export function assertCreateClassAllowed(
   assertNotEditingOwnCompensation(actor, teacherIds);
 }
 
-/** Trưởng ban/Trưởng phòng chỉ sửa tên, khoá học (môn/loại lớp), sĩ số. */
-export const HEAD_BASIC_INFO_FIELDS: ReadonlySet<string> = new Set(
-  HEAD_CLASS_INFO_FIELDS,
-);
+/**
+ * Trưởng ban/Trưởng phòng sửa tên, khoá học (môn/loại lớp), sĩ số và trạng
+ * thái. `status` chỉ để **Mở lại lớp** (ended → running): running → ended
+ * qua basic-info bị service chặn, phải dùng `POST /class/:id/end`.
+ */
+export const HEAD_BASIC_INFO_FIELDS: ReadonlySet<string> = new Set([
+  ...HEAD_CLASS_INFO_FIELDS,
+  'status',
+]);
 
 export function assertUpdateClassBasicInfoAllowed(
   actor: StaffPolicyActor,

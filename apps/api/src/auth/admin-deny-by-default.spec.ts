@@ -190,6 +190,14 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   // (chỉ tên, khoá học, sĩ số — service giới hạn trường).
   'ClassController.createClass',
   'ClassController.updateClassBasicInfo',
+  // Kết thúc lớp, Mở lại lớp (basic-info) và Lịch lớp: Admin + hai trưởng.
+  'ClassController.endClass',
+  'ClassController.updateClassSchedule',
+  'ClassController.resyncClassScheduleGoogleCalendar',
+  'ClassController.resyncClassMakeupGoogleCalendar',
+  'ClassController.createMakeupEventByClassId',
+  'ClassController.updateMakeupEventByClassId',
+  'ClassController.deleteMakeupEventByClassId',
   // Gửi thông báo.
   'NotificationController.createNotificationDraft',
   'NotificationController.deleteNotification',
@@ -251,6 +259,14 @@ const SALE_CS_HEAD_CLASS_ROUTES = [
   // #274: tạo lớp + sửa Thông tin lớp (trường giới hạn ở service).
   'createClass',
   'updateClassBasicInfo',
+  // Kết thúc lớp / Lịch lớp: Admin + hai trưởng.
+  'endClass',
+  'updateClassSchedule',
+  'resyncClassScheduleGoogleCalendar',
+  'resyncClassMakeupGoogleCalendar',
+  'createMakeupEventByClassId',
+  'updateMakeupEventByClassId',
+  'deleteMakeupEventByClassId',
 ] as const;
 
 /**
@@ -264,6 +280,14 @@ const TRAINING_HEAD_ADMIN_ROUTE_ALLOWLIST = [
   'ClassController.getStudentsByClassId',
   'ClassController.listMakeupEventsByClassId',
   'ClassController.updateClassBasicInfo',
+  // Kết thúc lớp, Mở lại lớp (basic-info) và Lịch lớp: Admin + hai trưởng.
+  'ClassController.endClass',
+  'ClassController.updateClassSchedule',
+  'ClassController.resyncClassScheduleGoogleCalendar',
+  'ClassController.resyncClassMakeupGoogleCalendar',
+  'ClassController.createMakeupEventByClassId',
+  'ClassController.updateMakeupEventByClassId',
+  'ClassController.deleteMakeupEventByClassId',
   'StaffController.searchStaffOptions',
   // 15/11: tạo nhân sự mới (như Trưởng phòng Sale & CSKH).
   'UserController.createStaffUser',
@@ -601,15 +625,56 @@ describe('Admin routes deny-by-default (#267)', () => {
       );
     });
 
-    // Kết thúc / xoá lớp (và các đường đổi trạng thái khác): chỉ Admin.
+    // Xoá lớp, cách thu học phí, cho gia sư nghỉ: chỉ Admin.
     const adminOnlyClassLifecycle = [
-      'endClass',
       'deleteClass',
       'updateClass',
       'updateClassPricingMode',
-      'updateClassSchedule',
       'stopClassTeacher',
     ];
+
+    // Kết thúc lớp + Lịch lớp: Admin + hai role trưởng; role khác 403.
+    const headClassLifecycle = [
+      'endClass',
+      'updateClassSchedule',
+      'resyncClassScheduleGoogleCalendar',
+      'resyncClassMakeupGoogleCalendar',
+      'createMakeupEventByClassId',
+      'updateMakeupEventByClassId',
+      'deleteMakeupEventByClassId',
+    ];
+    it.each(headClassLifecycle)(
+      'Admin, Trưởng ban Đào tạo, Trưởng phòng, kiêm hai role vào được %s',
+      async (methodName) => {
+        await expect(asAdmin(ClassController, methodName)).resolves.toBe(true);
+        await expect(asAssistant(ClassController, methodName)).resolves.toBe(
+          true,
+        );
+        await expect(
+          asStaff(ClassController, methodName, trainingHead),
+        ).resolves.toBe(true);
+        await expect(
+          asStaff(ClassController, methodName, bothHeads),
+        ).resolves.toBe(true);
+      },
+    );
+    describe.each([
+      [
+        'Kế toán thu + chi',
+        [StaffRole.accountant_income, StaffRole.accountant_expense],
+      ],
+      ['Quản lý lớp / Đào tạo', [StaffRole.training]],
+      ['Trưởng ban Chuyên môn', [StaffRole.lesson_plan_head]],
+    ] as [string, StaffRole[]][])('%s', (_label, staffRoles) => {
+      it.each(headClassLifecycle)(
+        'bị 403 ở ClassController.%s',
+        async (methodName) => {
+          await expect(
+            asStaff(ClassController, methodName, staffRoles),
+          ).rejects.toBeInstanceOf(ForbiddenException);
+        },
+      );
+    });
     const nonAdminRoles: [string, StaffRole[]][] = [
       ['Trưởng ban Đào tạo', trainingHead],
       ['Trưởng phòng', [StaffRole.sale_customer_care_head]],
