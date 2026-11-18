@@ -251,6 +251,11 @@ export type BuildSessionCommentZaloTextInput = {
   noAttendance?: boolean;
   /** Hồ sơ môn của instance (`appConfig.profile`) → chữ ký cuối tin. */
   profile?: LmsProfile | null;
+  /**
+   * Link YouTube gốc của video buổi (Link video buổi học). Chỉ template có cấu
+   * trúc in ra; ngoại lệ có chủ đích của Video bảo vệ (link đi qua Zalo).
+   */
+  recordingUrl?: string | null;
   students: SessionCommentZaloStudent[];
 };
 
@@ -345,6 +350,7 @@ export type SessionCommentZaloSource = SessionReviewFields & {
   lessonContent?: string | null;
   homework?: string | null;
   tutorial?: string | null;
+  recordingUrl?: string | null;
   /** Snapshot cờ lớp không điểm danh của buổi. */
   snapshotNoAttendance?: boolean | null;
   attendance?: Array<
@@ -373,6 +379,7 @@ export function buildSessionCommentZaloTextFromSession(
     review: session,
     noAttendance: Boolean(session.snapshotNoAttendance),
     profile,
+    recordingUrl: session.recordingUrl ?? null,
     students: (session.attendance ?? []).map((attendanceItem) => ({
       ...attendanceItem,
       fullName: attendanceItem.student?.fullName?.trim() || "—",
@@ -657,9 +664,15 @@ function buildStructuredSessionReviewText(
     "",
     "📎 Tutorial:",
     richTextToPlainTextPreservingStructure(input.tutorial) || "—",
-    "",
-    sessionReviewSignature(input.profile),
   );
+
+  // Buổi chưa có video thì bỏ hẳn khối (video thường được dán sau buổi).
+  const recordingUrl = input.recordingUrl?.trim();
+  if (recordingUrl) {
+    lines.push("", "🎥 Video buổi học:", recordingUrl);
+  }
+
+  lines.push("", sessionReviewSignature(input.profile));
 
   return lines.join("\n");
 }
