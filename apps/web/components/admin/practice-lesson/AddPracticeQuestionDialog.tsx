@@ -21,7 +21,8 @@ import {
   ResponsiveDialog,
   ResponsiveDialogBody,
 } from "@/components/ui/ResponsiveDialog";
-import { questionTypeLabel } from "@/dtos/question.dto";
+import { QuestionTypeDto, questionTypeLabel } from "@/dtos/question.dto";
+import { numberBlanks } from "@/lib/fill-blank";
 
 function useQuestionBank(
   courseId: string,
@@ -245,7 +246,8 @@ export function AddPracticeQuestionDialog({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="line-clamp-2 text-sm text-text-primary">
-                      <MathContent content={q.content} />
+                      {/* Đề điền ô trống: hiện 【1】 thay vì dấu thô [[___]]. */}
+                      <MathContent content={numberBlanks(q.content)} />
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
@@ -253,7 +255,8 @@ export function AddPracticeQuestionDialog({
                       </span>
                       {q.options && Array.isArray(q.options) ? (
                         <span className="text-[10px] text-text-muted">
-                          {q.options.length} đáp án
+                          {q.options.length}{" "}
+                          {q.type === QuestionTypeDto.ordering ? "thẻ" : "đáp án"}
                         </span>
                       ) : null}
                     </div>

@@ -33,6 +33,34 @@ export function resizeBlankKey(key: string[][], count: number): string[][] {
   return Array.from({ length: count }, (_, i) => key[i] ?? [""]);
 }
 
+/**
+ * Đáp án sau khi chèn một ô mới ở vị trí `index` (0 = trước mọi ô cũ): ô mới
+ * nhận đáp án trống, đáp án các ô phía sau dời theo — đáp án gắn với ô theo
+ * thứ tự xuất hiện trong đề, chèn giữa mà không dời thì lệch hết.
+ */
+export function insertBlankAnswerSlot(
+  key: string[][],
+  count: number,
+  index: number,
+): string[][] {
+  const next = resizeBlankKey(key, count);
+  next.splice(Math.min(Math.max(index, 0), count), 0, [""]);
+  return next;
+}
+
+/**
+ * Con trỏ ở `offset` rơi vào giữa một dấu `[[…]]` (ô trống, vị trí trống) thì
+ * trả offset ngay sau dấu — chèn giữa dấu làm hỏng cả hai. Không thì giữ nguyên.
+ */
+export function offsetPastMarker(text: string, offset: number): number {
+  if (offset <= 0) return offset;
+  const open = text.lastIndexOf("[[", offset - 1);
+  if (open < 0) return offset;
+  const close = text.indexOf("]]", open + 2);
+  if (close < 0 || offset >= close + 2) return offset;
+  return close + 2;
+}
+
 /** Chuẩn hoá giống API (`normalizeBlankAnswer`) — chỉ để tô xanh/đỏ khi xem lại. */
 function normalizeBlankAnswer(raw: string): string {
   return raw
