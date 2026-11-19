@@ -53,9 +53,10 @@ export function questionFormToPayload(
     essayInputSizes?: boolean;
   } = {},
 ): PayloadResult {
-  if (!form.moduleId || !form.difficultyLevelId || isBlankHtml(form.content)) {
-    return { error: "Điền chuyên đề, mức khó và nội dung câu hỏi" };
-  }
+  // Báo đúng trường thiếu — thông báo gộp trước đây khiến người soạn phải đoán.
+  if (!form.moduleId) return { error: "Chọn chuyên đề" };
+  if (!form.difficultyLevelId) return { error: "Chọn độ khó" };
+  if (isBlankHtml(form.content)) return { error: "Nhập nội dung câu hỏi" };
   // Hồ sơ JP: bắt buộc ≥1 kỹ năng (câu cũ chưa có thì bị đòi lúc sửa).
   if (requireSkills && form.skills.length === 0) {
     return { error: "Chọn ít nhất một kỹ năng" };

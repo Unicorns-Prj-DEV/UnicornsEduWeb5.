@@ -104,7 +104,7 @@ export default function SetQuestionList({
             className="inline-flex min-h-11 items-center gap-1 rounded-md border border-border-default px-3 text-sm font-medium text-text-secondary hover:border-primary/50 sm:min-h-9"
           >
             <FolderInput className="size-4" aria-hidden />
-            Câu có sẵn
+            Chuyển câu có sẵn
           </button>
           <button
             type="button"

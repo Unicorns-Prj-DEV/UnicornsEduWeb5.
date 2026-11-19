@@ -2,10 +2,11 @@
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import type { EditorView } from "@tiptap/pm/view";
+import type { ResolvedPos } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Mathematics from "@tiptap/extension-mathematics";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import {
   Bold,
   Columns2,
@@ -31,8 +32,21 @@ import {
   type QuestionImageRef,
 } from "@/dtos/question-image.dto";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
+import { useAppConfig } from "@/lib/hooks/useAppConfig";
+import { offsetPastMarker } from "@/lib/fill-blank";
+
+/**
+ * Điều khiển editor từ ngoài (nút "Chèn ô trống", "Chèn vị trí trống"): chèn
+ * chữ thường tại con trỏ. Chưa từng đặt con trỏ trong editor thì chèn cuối.
+ */
+export type MathRichTextEditorHandle = {
+  insertTextAtCursor: (text: string) => void;
+  /** Chữ thô từ đầu tài liệu tới chỗ sẽ chèn — để biết vị trí của dấu mới. */
+  textBeforeInsertPoint: () => string;
+};
 
 export type MathRichTextEditorProps = {
+  handleRef?: Ref<MathRichTextEditorHandle>;
   value: string;
   onChange: (html: string) => void;
   minHeight?: string;
@@ -113,6 +127,15 @@ function isSameEditorHtml(a: string, b: string): boolean {
   return isEmptyEditorHtml(a) && isEmptyEditorHtml(b);
 }
 
+/** Dời vị trí chèn ra sau dấu `[[…]]` nếu con trỏ đang nằm giữa dấu. */
+function skipPastMarker($pos: ResolvedPos, pos: number): number {
+  const parent = $pos.parent;
+  if (!parent.isTextblock) return pos;
+  // Mỗi node lá (công thức, xuống dòng) = 1 ký tự → offset khớp parentOffset.
+  const text = parent.textBetween(0, parent.content.size, undefined, "\uFFFC");
+  return pos + (offsetPastMarker(text, $pos.parentOffset) - $pos.parentOffset);
+}
+
 function toolbarBtnClass(active: boolean, disabled: boolean): string {
   return [
     "inline-flex size-8 items-center justify-center rounded-md text-sm transition-colors",
@@ -144,6 +167,10 @@ function MathEditorToolbar({
   const inTable = editor.isActive("table");
   const codeLanguageActive = (language: string) =>
     editor.isActive("codeBlock", { language });
+  // Khối code Py/C++ chỉ có nghĩa với hồ sơ IT. Lúc chưa tải config vẫn hiện
+  // (giữ hành vi cũ); nội dung đã có khối code vẫn hiển thị/sửa bình thường.
+  const { data: appConfig } = useAppConfig();
+  const showCodeTools = !appConfig || appConfig.profile === "it";
   return (
     <div
       className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-border-default px-1.5 py-1"
@@ -236,34 +263,38 @@ function MathEditorToolbar({
       >
         <ImagePlus className="size-3.5" />
       </button>
-      {(
-        [
-          ["python", "Py", "Khối code Python"],
-          ["cpp", "C++", "Khối code C++"],
-        ] as const
-      ).map(([language, text, label]) => (
-        <button
-          key={language}
-          type="button"
-          disabled={disabled}
-          aria-label={label}
-          aria-pressed={codeLanguageActive(language)}
-          className={`${toolbarBtnClass(codeLanguageActive(language), disabled)} w-auto px-1.5 font-mono text-[11px] font-semibold`}
-          onClick={() => editor.chain().focus().toggleCodeBlock({ language }).run()}
-        >
-          {text}
-        </button>
-      ))}
-      <button
-        type="button"
-        disabled={disabled}
-        aria-label="Chèn code song song Python | C++"
-        aria-pressed={editor.isActive("codeParallel")}
-        className={toolbarBtnClass(editor.isActive("codeParallel"), disabled)}
-        onClick={() => insertCodeParallel(editor)}
-      >
-        <Columns2 className="size-3.5" />
-      </button>
+      {showCodeTools ? (
+        <>
+          {(
+            [
+              ["python", "Py", "Khối code Python"],
+              ["cpp", "C++", "Khối code C++"],
+            ] as const
+          ).map(([language, text, label]) => (
+            <button
+              key={language}
+              type="button"
+              disabled={disabled}
+              aria-label={label}
+              aria-pressed={codeLanguageActive(language)}
+              className={`${toolbarBtnClass(codeLanguageActive(language), disabled)} w-auto px-1.5 font-mono text-[11px] font-semibold`}
+              onClick={() => editor.chain().focus().toggleCodeBlock({ language }).run()}
+            >
+              {text}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label="Chèn code song song Python | C++"
+            aria-pressed={editor.isActive("codeParallel")}
+            className={toolbarBtnClass(editor.isActive("codeParallel"), disabled)}
+            onClick={() => insertCodeParallel(editor)}
+          >
+            <Columns2 className="size-3.5" />
+          </button>
+        </>
+      ) : null}
       {inTable ? (
         <span className="flex flex-wrap items-center gap-0.5" role="group" aria-label="Sửa bảng">
           {(
@@ -352,8 +383,12 @@ export default function MathRichTextEditor({
   disabled = false,
   fill = false,
   onUploadImage,
+  handleRef,
 }: MathRichTextEditorProps) {
   const onChangeRef = useRef(onChange);
+  // Người soạn đã đặt con trỏ trong editor chưa — chưa thì chèn cuối, không
+  // chèn vào đầu tài liệu (selection mặc định của ProseMirror).
+  const touchedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // editorProps tạo một lần → dán / thả gọi qua ref để luôn dùng bản mới nhất.
   const dropImagesRef = useRef<
@@ -463,6 +498,42 @@ export default function MathRichTextEditor({
         ? (files, pos) => void uploadImagesInto(editor, onUploadImage, files, pos)
         : null;
   }, [editor, onUploadImage]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const markTouched = () => {
+      touchedRef.current = true;
+    };
+    editor.on("focus", markTouched);
+    return () => {
+      editor.off("focus", markTouched);
+    };
+  }, [editor]);
+
+  useImperativeHandle(handleRef, () => {
+    /** Chỗ chèn: cuối tài liệu nếu chưa đặt con trỏ, không thì cuối vùng chọn. */
+    const insertPos = (ed: Editor): number => {
+      const { doc, selection } = ed.state;
+      if (!touchedRef.current) return doc.content.size;
+      return skipPastMarker(selection.$to, selection.to);
+    };
+    return {
+      insertTextAtCursor: (text: string) => {
+        if (!editor) return;
+        // Chưa đặt con trỏ → "end"; có → vị trí đã né dấu, không ghi đè vùng chọn.
+        const pos = touchedRef.current ? insertPos(editor) : "end";
+        editor
+          .chain()
+          .focus(pos)
+          .insertContent({ type: "text", text })
+          .run();
+      },
+      textBeforeInsertPoint: () => {
+        if (!editor) return "";
+        return editor.state.doc.textBetween(0, insertPos(editor), "\n", "\n");
+      },
+    };
+  }, [editor]);
 
   const [, setToolbarTick] = useState(0);
   useEffect(() => {

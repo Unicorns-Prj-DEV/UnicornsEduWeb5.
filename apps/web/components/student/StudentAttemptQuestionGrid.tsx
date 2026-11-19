@@ -63,18 +63,20 @@ export default function StudentAttemptQuestionGrid({
     <section
       ref={ref}
       className={cn(
-        "z-20 rounded-2xl border border-border-default bg-bg-surface/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg-surface/80",
+        "z-20 rounded-2xl border border-border-default bg-bg-surface/95 px-3 py-2 backdrop-blur lg:py-3 supports-[backdrop-filter]:bg-bg-surface/80",
         className,
       )}
       aria-label="Danh sách câu hỏi"
     >
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 lg:mb-2">
         <LegendSwatch status="unanswered" label="Chưa làm" />
         <LegendSwatch status="answered" label="Đã làm" />
         <LegendSwatch status="marked_for_review" label="Quay lại" />
       </div>
-      {/* Lưới cột đều: mọi ô cùng kích thước, kể cả nhãn dài "TC1·3". */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1.5">
+      {/* Mobile: một hàng vuốt ngang — thanh này dính đầu trang, lưới nhiều
+          hàng (đề 30–40 câu) che gần hết chỗ đọc đề. Desktop: lưới cột đều,
+          mọi ô cùng kích thước, kể cả nhãn dài "TC1·3". */}
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto overscroll-x-contain px-1 pb-0.5 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
         {questions.map((q, index) => {
           const status = getAttemptQuestionVisualStatus(q);
           const label = labels?.[index] ?? String(index + 1);
@@ -91,7 +93,7 @@ export default function StudentAttemptQuestionGrid({
                     : ", chưa làm"
               }`}
               className={cn(
-                "inline-flex h-10 w-full min-w-0 items-center justify-center rounded-md border px-0.5 font-semibold tabular-nums",
+                "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border px-0.5 font-semibold tabular-nums lg:w-full lg:min-w-0",
                 label.length > 4 ? "text-[10px] tracking-tight" : "text-xs",
                 cellClass(status),
               )}

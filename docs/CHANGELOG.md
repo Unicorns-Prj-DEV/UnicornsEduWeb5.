@@ -21,6 +21,26 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Rà soát LMS hồ sơ JP — sửa lỗi soạn câu / bộ câu hỏi (20/11)
+
+#### Fixed
+
+- **Thêm / sửa câu trong Bộ câu hỏi không lưu, dialog bộ bị đóng:** `ResponsiveDialog` không dùng portal nên form soạn câu (`QuestionFormDialog`) nằm lồng trong form bộ (`SharedMaterialFormDialog`); submit câu nổi bọt lên form bộ → lưu bộ + đóng, câu mất. Sửa: `QuestionFormDialog` gọi `stopPropagation()` khi submit; form bộ thành `<form id>` rỗng, ô tên và nút Lưu gắn qua thuộc tính `form` — thân dialog không còn bọc trong `<form>`.
+- **Câu điền ô trống:** bấm **+ Thêm đáp án hợp lệ** đưa con trỏ vào ô đáp án vừa thêm (`FillBlankAnswerFields`).
+- **Thông báo lỗi form soạn câu** báo đúng trường thiếu: "Chọn chuyên đề" / "Chọn độ khó" / "Nhập nội dung câu hỏi" (trước: một câu gộp). Nhãn Chuyên đề, Độ khó có dấu `*` bắt buộc.
+- **Trọng số câu (JP):** bấm nút **Trọng số** thì ô nhập tự focus + bôi đen số cũ (`PracticeQuestionLinkItem`).
+- **Dialog thêm câu vào tiết thực hành** (`AddPracticeQuestionDialog`): câu điền ô trống hiện 【1】【2】 thay cho dấu `[[___]]`; câu sắp xếp ghi "n thẻ" thay vì "n đáp án".
+- **Chèn ô trống / vị trí trống đúng tại con trỏ:** trước đây **Chèn ô trống** (câu điền ô) và **Chèn vị trí trống** (bộ câu hỏi) luôn nối vào cuối nội dung, người soạn phải cắt-dán. Giờ `MathRichTextEditor` có `handleRef` (`insertTextAtCursor`, `textBeforeInsertPoint`) và chèn tại con trỏ; chưa chạm vào editor thì chèn cuối. Con trỏ nằm giữa dấu `[[…]]` được dời ra sau dấu (`offsetPastMarker`) để không làm hỏng dấu.
+- **Đáp án ô trống tự dời khi chèn ô vào giữa:** đáp án gắn theo thứ tự ô, nên chèn ô mới trước ô cũ sẽ chèn một khung đáp án trống tại đúng chỉ số (`insertBlankAnswerSlot`) — đáp án các ô sau giữ nguyên ô của nó.
+- **Trang làm bài trên mobile:** lưới câu (dính dưới đồng hồ) thành **một hàng vuốt ngang** thay cho lưới nhiều hàng — đề 40 câu trước chiếm ~nửa màn hình 375px, giờ ~86px. Desktop (`lg`) giữ lưới (`StudentAttemptQuestionGrid`).
+
+#### Changed
+
+- Nút **Câu có sẵn** trong bộ câu hỏi đổi nhãn thành **Chuyển câu có sẵn** (nói rõ câu bị chuyển vào bộ, không còn là câu lẻ).
+
+- **Toolbar editor (`MathRichTextEditor`)**: nút khối code Py / C++ và **Chèn code song song** chỉ hiện ở hồ sơ IT (`appConfig.profile === "it"`). Nội dung đã có khối code vẫn hiển thị / sửa bình thường.
+- Thêm tài liệu hướng dẫn sử dụng: `docs/Hướng dẫn LMS JP.md`.
+
 ### Trưởng kết thúc / mở lại lớp, sửa Lịch lớp; link video trong tin Zalo (18/11)
 
 #### Changed

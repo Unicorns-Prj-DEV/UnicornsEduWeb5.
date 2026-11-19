@@ -414,6 +414,9 @@ export function PracticeQuestionLinkItem({
                 <input
                   type="number"
                   min={weighted ? 1 : 0}
+                  // Bấm "Trọng số" là để gõ ngay — không bắt bấm thêm vào ô.
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
                   value={pointsDraft}
                   onChange={(e) => setPointsDraft(e.target.value)}
                   onKeyDown={(e) => {
