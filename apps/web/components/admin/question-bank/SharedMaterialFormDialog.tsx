@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as questionApi from "@/lib/apis/question.api";
 import * as sharedMaterialApi from "@/lib/apis/shared-material.api";
 import { questionKeys, sharedMaterialKeys } from "@/lib/query-keys";
-import { appendInlineText } from "@/lib/fill-blank";
 import { materialGapIds, materialGapMarker } from "@/lib/material-gaps";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import {
@@ -18,7 +17,9 @@ import {
   confirmUnsavedClose,
   useConfirmDialog,
 } from "@/components/ui/ConfirmDialog";
-import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
+import MathRichTextEditor, {
+  type MathRichTextEditorHandle,
+} from "@/components/ui/MathRichTextEditor";
 import { useQuestionImageUpload } from "@/lib/hooks/useQuestionImageUpload";
 import AudioUploadField from "@/components/admin/question/AudioUploadField";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
@@ -82,6 +83,7 @@ export default function SharedMaterialFormDialog({
   const [initial, setInitial] = useState(() => headerFormOf(material));
   const [form, setForm] = useState(initial);
   const [gapQuestionId, setGapQuestionId] = useState("");
+  const contentEditorRef = useRef<MathRichTextEditorHandle>(null);
 
   // Câu của bộ theo thứ tự bộ — danh sách câu + nối vị trí trống.
   const attachedFilter = { courseId, sharedMaterialId: saved?.id };
@@ -133,6 +135,8 @@ export default function SharedMaterialFormDialog({
       toast.error(getMutationErrorMessage(error, "Không thể lưu bộ câu hỏi.")),
   });
 
+  const formId = useId();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.moduleId) {
@@ -171,13 +175,18 @@ export default function SharedMaterialFormDialog({
             {saved ? "Sửa bộ câu hỏi" : "Thêm bộ câu hỏi"}
           </h2>
         </div>
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        {/* Form rỗng, các ô/nút gắn qua thuộc tính `form`: thân dialog chứa
+            SetQuestionList — có <form> soạn câu riêng. Bọc cả thân trong <form>
+            bộ thì thành form lồng form, submit câu nổi bọt lên lưu bộ + đóng. */}
+        <form id={formId} onSubmit={handleSubmit} className="hidden" />
+        <div className="flex min-h-0 flex-1 flex-col">
           <ResponsiveDialogBody className="space-y-4">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-text-muted">
                 Tên (chỉ người soạn thấy)
               </span>
               <input
+                form={formId}
                 value={form.title}
                 maxLength={SHARED_MATERIAL_TITLE_MAX}
                 onChange={(e) =>
@@ -208,9 +217,11 @@ export default function SharedMaterialFormDialog({
             </div>
             <div>
               <span className="mb-1 block text-xs font-medium text-text-muted">
-                Phần đầu bộ (đoạn văn, ảnh) — cần ít nhất văn bản, ảnh hoặc audio
+                Phần đầu bộ (đoạn văn, ảnh) — cần ít nhất văn bản, ảnh hoặc
+                audio
               </span>
               <MathRichTextEditor
+                handleRef={contentEditorRef}
                 value={form.content}
                 onChange={(next) =>
                   setForm((prev) => ({ ...prev, content: next }))
@@ -253,13 +264,9 @@ export default function SharedMaterialFormDialog({
                     type="button"
                     disabled={!gapQuestionId}
                     onClick={() => {
-                      setForm((prev) => ({
-                        ...prev,
-                        content: appendInlineText(
-                          prev.content,
-                          materialGapMarker(gapQuestionId),
-                        ),
-                      }));
+                      contentEditorRef.current?.insertTextAtCursor(
+                        materialGapMarker(gapQuestionId),
+                      );
                       setGapQuestionId("");
                     }}
                     className="inline-flex min-h-11 items-center justify-center rounded-md border border-border-default px-3 text-sm text-primary hover:border-primary/50 disabled:opacity-50 sm:min-h-10"
@@ -273,8 +280,9 @@ export default function SharedMaterialFormDialog({
                 </p>
               )}
               <p className="text-xs text-text-muted">
-                Dấu <code>[[#…]]</code> chèn vào cuối nội dung — cắt/dán tới đúng
-                chỗ. Học sinh thấy số câu trong lượt làm, vd （27）.
+                Đặt con trỏ trong phần đầu bộ tại chỗ trống, chọn câu rồi bấm
+                chèn — dấu <code>[[#…]]</code> vào đúng chỗ đó. Học sinh thấy số
+                câu trong lượt làm, vd （27）.
               </p>
               {gapIds.length > 0 && !(saved && attachedPending) ? (
                 <ol className="space-y-1 text-xs">
@@ -338,6 +346,7 @@ export default function SharedMaterialFormDialog({
             </button>
             <button
               type="submit"
+              form={formId}
               disabled={saveMutation.isPending}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-text-inverse hover:bg-primary/90 disabled:opacity-50"
             >
@@ -348,7 +357,7 @@ export default function SharedMaterialFormDialog({
                   : "Tạo bộ"}
             </button>
           </ResponsiveActionFooter>
-        </form>
+        </div>
       </ResponsiveDialog>
       {dialog}
     </>

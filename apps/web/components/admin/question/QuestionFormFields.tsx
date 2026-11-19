@@ -1,22 +1,26 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
 
 import ClassTabList from "@/components/class-timeline/ClassTabList";
 import QuestionPreview from "@/components/admin/question/QuestionPreview";
-import MathRichTextEditor from "@/components/ui/MathRichTextEditor";
+import MathRichTextEditor, {
+  type MathRichTextEditorHandle,
+} from "@/components/ui/MathRichTextEditor";
 import { useQuestionImageUpload } from "@/lib/hooks/useQuestionImageUpload";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
 import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
 import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
-import { appendBlankMarker } from "@/lib/fill-blank";
+import { insertBlankAnswerSlot } from "@/lib/fill-blank";
 import {
   ESSAY_INPUT_SIZE_OPTIONS,
   type EssayInputSizeDto,
+  BLANK_MARKER,
   QUESTION_TYPE_LABELS,
   QuestionSkillDto,
+  countBlanks,
   QuestionTypeDto,
   TRUE_FALSE_CHOICE_LABELS,
   TRUE_FALSE_STATEMENT_LABELS,
@@ -108,6 +112,21 @@ export default function QuestionFormFields({
   const viewIdPrefix = useId();
   const viewPanelId = `${viewIdPrefix}-panel`;
   const [view, setView] = useState<FormView>("edit");
+  const contentEditorRef = useRef<MathRichTextEditorHandle>(null);
+  /** Chèn ô tại con trỏ; đáp án ô sau dời theo để không lệch ô. */
+  const insertBlank = () => {
+    const editor = contentEditorRef.current;
+    if (!editor) return;
+    const index = countBlanks(editor.textBeforeInsertPoint());
+    onChange({
+      blankAnswerKey: insertBlankAnswerSlot(
+        value.blankAnswerKey,
+        countBlanks(value.content),
+        index,
+      ),
+    });
+    editor.insertTextAtCursor(BLANK_MARKER);
+  };
   const { data: appConfig } = useAppConfig();
   const maxOptions = appConfig?.optionCount.max ?? 6;
   const minOptions = appConfig?.optionCount.min ?? 2;
@@ -206,7 +225,7 @@ export default function QuestionFormFields({
               {courseSlot}
               <div>
                 <span className="mb-1 block text-xs font-medium text-text-muted">
-                  Chuyên đề
+                  Chuyên đề <span className="text-error">*</span>
                 </span>
                 <UpgradedSelect
                   searchable
@@ -227,7 +246,7 @@ export default function QuestionFormFields({
               </div>
               <div>
                 <span className="mb-1 block text-xs font-medium text-text-muted">
-                  Độ khó
+                  Độ khó <span className="text-error">*</span>
                 </span>
                 <UpgradedSelect
                   searchable
@@ -266,6 +285,7 @@ export default function QuestionFormFields({
                 Nội dung câu hỏi (hỗ trợ LaTeX: $x^2$)
               </span>
               <MathRichTextEditor
+                handleRef={contentEditorRef}
                 value={value.content}
                 onChange={(next) => onChange({ content: next })}
                 ariaLabel="Nội dung câu hỏi"
@@ -361,9 +381,7 @@ export default function QuestionFormFields({
                 content={value.content}
                 blankAnswerKey={value.blankAnswerKey}
                 onChange={(blankAnswerKey) => onChange({ blankAnswerKey })}
-                onInsertBlank={() =>
-                  onChange({ content: appendBlankMarker(value.content) })
-                }
+                onInsertBlank={insertBlank}
               />
             )}
 

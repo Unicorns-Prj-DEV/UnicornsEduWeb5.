@@ -95,6 +95,10 @@ export default function QuestionFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Dialog này có thể render trong cây React của form khác (SetQuestionList
+    // trong "Sửa bộ câu hỏi"); submit event React nổi bọt theo cây component —
+    // chặn để form cha không submit theo (lưu bộ + đóng dialog).
+    e.stopPropagation();
     const result = questionFormToPayload(form, {
       requireSkills: appConfig?.questionSkills,
       essayInputSizes: appConfig?.essayInputSizes,

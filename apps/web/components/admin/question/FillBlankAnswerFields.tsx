@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Plus, X } from "lucide-react";
 import {
   BLANK_ANSWER_MAX_LENGTH,
@@ -32,6 +33,9 @@ export default function FillBlankAnswerFields({
 
   const setAnswers = (blank: number, answers: string[]) =>
     onChange(key.map((a, i) => (i === blank ? answers : a)));
+  // Ô đáp án vừa thêm cần focus ngay — không thì người soạn gõ tiếp vẫn nối
+  // vào ô cũ đang focus. Ref callback chạy khi input mới mount.
+  const pendingFocusRef = useRef<string | null>(null);
 
   return (
     <div className="space-y-3">
@@ -51,8 +55,8 @@ export default function FillBlankAnswerFields({
       </div>
       {count === 0 ? (
         <p className="text-xs text-text-muted">
-          Bấm “Chèn ô trống” hoặc gõ <code>{BLANK_MARKER}</code> vào đề tại chỗ
-          cần điền.
+          Đặt con trỏ trong đề tại chỗ cần điền rồi bấm “Chèn ô trống” (hoặc
+          gõ <code>{BLANK_MARKER}</code>).
         </p>
       ) : (
         <ol className="space-y-3">
@@ -67,6 +71,12 @@ export default function FillBlankAnswerFields({
               {answers.map((answer, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input
+                    ref={(node) => {
+                      if (node && pendingFocusRef.current === `${blank}-${i}`) {
+                        pendingFocusRef.current = null;
+                        node.focus();
+                      }
+                    }}
                     value={answer}
                     maxLength={BLANK_ANSWER_MAX_LENGTH}
                     onChange={(e) =>
@@ -99,7 +109,10 @@ export default function FillBlankAnswerFields({
               {answers.length < MAX_ANSWERS_PER_BLANK && (
                 <button
                   type="button"
-                  onClick={() => setAnswers(blank, [...answers, ""])}
+                  onClick={() => {
+                    pendingFocusRef.current = `${blank}-${answers.length}`;
+                    setAnswers(blank, [...answers, ""]);
+                  }}
                   className="text-sm text-primary hover:underline"
                 >
                   + Thêm đáp án hợp lệ
