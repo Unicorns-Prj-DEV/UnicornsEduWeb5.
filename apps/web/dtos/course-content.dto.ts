@@ -99,6 +99,8 @@ export interface QuestionLinkQuestion {
   explanation: string | null;
   answerGuide: string | null;
   essayInputSize?: "short" | "long" | null;
+  /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+  essayMaxChars?: number | null;
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
   blankAnswerKey?: string[][] | null;
   /** Tư liệu dùng chung (JP); null = câu đứng riêng. */
@@ -159,6 +161,8 @@ export interface LessonQuizQuestion {
     answerGuide: string | null;
     /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
     essayInputSize?: "short" | "long" | null;
+    /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+    essayMaxChars?: number | null;
     /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
     tfLabelStyle?: TrueFalseLabelStyleDto | null;
     /** Đáp án hợp lệ từng ô — học sinh làm bài nhận null. */
@@ -199,6 +203,8 @@ export interface LessonQuizAnswer {
     answerGuide: string | null;
     /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
     essayInputSize?: "short" | "long" | null;
+    /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+    essayMaxChars?: number | null;
     /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
     tfLabelStyle?: TrueFalseLabelStyleDto | null;
     /** Đáp án hợp lệ từng ô — học sinh làm bài nhận null. */

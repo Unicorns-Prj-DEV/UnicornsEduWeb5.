@@ -2,8 +2,6 @@
 
 import {
   DEFAULT_TRUE_FALSE_LABEL_STYLE,
-  ESSAY_INPUT_SIZE_OPTIONS,
-  type EssayInputSizeDto,
   QuestionSkillDto,
   QuestionTypeDto,
   TF_LABEL_STYLE_OPTIONS,
@@ -14,6 +12,7 @@ import {
 } from "@/dtos/question.dto";
 import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
 import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
+import EssayMaxCharsField from "@/components/admin/question/EssayMaxCharsField";
 import { appendBlankMarker, numberBlanks } from "@/lib/fill-blank";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import { useState, useMemo, useCallback, useId } from "react";
@@ -158,7 +157,7 @@ export default function AiImportModal({
     [difficultyLevels],
   );
 
-  const essayInputSizes = appConfig?.essayInputSizes ?? false;
+  const essayMaxChars = appConfig?.essayMaxChars ?? false;
   const prompt = useMemo(
     () =>
       buildAiImportPrompt({
@@ -167,13 +166,13 @@ export default function AiImportModal({
         questionCount,
         difficultyNames,
         allowedTypes,
-        essayInputSizes,
+        essayMaxChars,
       }),
     [
       allowedTypes,
       course?.name,
       difficultyNames,
-      essayInputSizes,
+      essayMaxChars,
       questionCount,
       selectedChapterTitle,
     ],
@@ -276,6 +275,7 @@ export default function AiImportModal({
           answerGuide: item.answerGuide,
           blankAnswerKey: item.blankAnswerKey,
           essayInputSize: item.essayInputSize,
+          essayMaxChars: item.essayMaxChars,
           tfLabelStyle: item.tfLabelStyle,
           difficultyLevelId: item.difficultyLevelId,
           ...(appConfig?.questionSkills && { skills }),
@@ -639,7 +639,7 @@ export default function AiImportModal({
                     index={currentQuestionIndex}
                     viewed={reviewed.has(currentQuestionIndex)}
                     difficultyLevels={difficultyLevels}
-                    essayInputSizes={essayInputSizes}
+                    essayMaxChars={essayMaxChars}
                     onUpdate={(patch) =>
                       updateItem(currentQuestionIndex, patch)
                     }
@@ -730,7 +730,7 @@ function QuestionReviewCard({
   index,
   viewed,
   difficultyLevels,
-  essayInputSizes,
+  essayMaxChars,
   onUpdate,
   onRemove,
 }: {
@@ -739,8 +739,8 @@ function QuestionReviewCard({
   index: number;
   viewed: boolean;
   difficultyLevels: CourseDifficultyLevel[];
-  /** Hồ sơ có kiểu ô tự luận ngắn/dài (JP). */
-  essayInputSizes: boolean;
+  /** Hồ sơ có giới hạn ký tự câu tự luận (JP). */
+  essayMaxChars: boolean;
   onUpdate: (patch: Partial<ValidatedAiQuestion>) => void;
   onRemove: () => void;
 }) {
@@ -976,24 +976,18 @@ function QuestionReviewCard({
           />
         )}
 
-        {item.type === QuestionTypeDto.essay && essayInputSizes && (
-          <div>
-            <label
-              htmlFor={`${fieldId}-essay-size`}
-              className="mb-1 block text-xs font-medium text-text-muted"
-            >
-              Kiểu ô trả lời
-            </label>
-            <UpgradedSelect
-              id={`${fieldId}-essay-size`}
-              value={item.essayInputSize ?? "long"}
-              onValueChange={(value) =>
-                onUpdate({ essayInputSize: value as EssayInputSizeDto })
-              }
-              options={ESSAY_INPUT_SIZE_OPTIONS}
-              ariaLabel="Kiểu ô trả lời"
-            />
-          </div>
+        {item.type === QuestionTypeDto.essay && essayMaxChars && (
+          <EssayMaxCharsField
+            id={`${fieldId}-essay-max-chars`}
+            value={item.essayMaxChars?.toString() ?? ""}
+            onChange={(raw) =>
+              onUpdate({
+                // Số lẻ / ngoài khoảng vẫn giữ để validator báo lỗi trên thẻ.
+                essayMaxChars: raw.trim() === "" ? undefined : Number(raw),
+                essayInputSize: undefined,
+              })
+            }
+          />
         )}
 
         {item.type !== "essay" && (

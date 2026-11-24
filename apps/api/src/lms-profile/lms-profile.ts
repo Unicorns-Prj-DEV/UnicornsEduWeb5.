@@ -43,6 +43,8 @@ export interface LmsProfileConfig {
   questionWeights: boolean;
   /** Câu tự luận chọn được kiểu ô nhập ngắn/dài (chỉ đổi giao diện làm bài). */
   essayInputSizes: boolean;
+  /** Câu tự luận đặt được giới hạn số ký tự câu trả lời (`essayMaxChars`). */
+  essayMaxChars: boolean;
   /** Ngân hàng câu hỏi có Tư liệu dùng chung (nhiều câu dựa vào một đoạn văn/ảnh). */
   sharedMaterials: boolean;
   /** Tư liệu có audio (tải lên, phát trong bài làm / ôn nhẹ / xem lại). */
@@ -65,6 +67,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: false,
     questionWeights: false,
     essayInputSizes: false,
+    essayMaxChars: false,
     sharedMaterials: false,
     questionAudio: false,
     inClassTest: false,
@@ -85,6 +88,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: true,
     questionWeights: true,
     essayInputSizes: true,
+    essayMaxChars: true,
     sharedMaterials: true,
     questionAudio: true,
     inClassTest: true,
@@ -99,6 +103,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: false,
     questionWeights: false,
     essayInputSizes: false,
+    essayMaxChars: false,
     sharedMaterials: false,
     questionAudio: false,
     inClassTest: true,

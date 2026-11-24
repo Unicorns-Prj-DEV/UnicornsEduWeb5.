@@ -190,6 +190,10 @@ export class QuestionService {
           dto.essayInputSize !== undefined
             ? dto.essayInputSize
             : existing.essayInputSize,
+        essayMaxChars:
+          dto.essayMaxChars !== undefined
+            ? dto.essayMaxChars
+            : existing.essayMaxChars,
         tfLabelStyle:
           dto.tfLabelStyle !== undefined
             ? dto.tfLabelStyle
@@ -352,6 +356,7 @@ export class QuestionService {
             answerGuide: item.answerGuide ?? undefined,
             skills: item.skills ?? [],
             essayInputSize: item.essayInputSize ?? undefined,
+            essayMaxChars: item.essayMaxChars ?? undefined,
             tfLabelStyle: item.tfLabelStyle ?? undefined,
             blankAnswerKey: item.blankAnswerKey ?? undefined,
           },

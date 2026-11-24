@@ -460,6 +460,8 @@ export interface QuestionLinkResponseDto {
     options: unknown;
     tfAnswerKey: boolean[];
     essayInputSize: 'short' | 'long' | null;
+    /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+    essayMaxChars: number | null;
     tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
     /** Đáp án hợp lệ từng ô (câu điền vào ô trống, JP). */
     blankAnswerKey: string[][] | null;
@@ -557,6 +559,8 @@ export interface LessonQuizResponseDto {
     answerGuide: string | null;
     /** Kiểu ô tự luận (JP): short = một dòng, long/null = nhiều dòng. */
     essayInputSize: 'short' | 'long' | null;
+    /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+    essayMaxChars: number | null;
     /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
     tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
     /** Đáp án hợp lệ từng ô — học sinh nhận null (chỉ biết `blankCount`). */

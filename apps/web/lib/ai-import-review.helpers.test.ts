@@ -312,6 +312,21 @@ describe("validateAiJson — loại câu JP", () => {
     ).toContain("Chỉ câu essay mới có essayInputSize");
   });
 
+  it("accepts essayMaxChars 1–5000 only on essay", () => {
+    const essay = (essayMaxChars: unknown) =>
+      one({ type: "essay", content: "名前は？", essayMaxChars });
+    expect(essay(200)._errors).toEqual([]);
+    expect(essay(200).essayMaxChars).toBe(200);
+    for (const bad of [0, 5001, 1.5, "200"]) {
+      expect(essay(bad)._errors).toContain(
+        "essayMaxChars phải là số nguyên 1–5000",
+      );
+    }
+    expect(one({ ...validChoice(), essayMaxChars: 100 })._errors).toContain(
+      "Chỉ câu essay mới có essayMaxChars",
+    );
+  });
+
   it("keeps type-specific fields through revalidation", () => {
     const item = one({
       type: "fill_blank",

@@ -60,6 +60,7 @@ import {
 } from './assignment-window';
 import { resolveAudioRefs } from 'src/question/audio-asset.service';
 import { attemptAudioView } from './audio-play';
+import { assertEssayWithinLimit } from './essay-limit';
 
 /** Include chấm/đọc bài: chỉ snapshot trên AttemptAnswer, không join Question live. */
 type AttemptWithAnswers = Prisma.AttemptGetPayload<{
@@ -245,6 +246,7 @@ export class AttemptService {
                 explanation: link.question.explanation,
                 answerGuide: link.question.answerGuide,
                 essayInputSize: link.question.essayInputSize,
+                essayMaxChars: link.question.essayMaxChars,
                 tfLabelStyle: link.question.tfLabelStyle,
                 blankAnswerKey:
                   link.question.blankAnswerKey === null
@@ -346,6 +348,7 @@ export class AttemptService {
     const row = await this.loadOwned(classId, attemptId, studentId);
     if (row.status === AttemptStatus.in_progress) {
       const allowed = new Set(row.answers.map((a) => a.questionId));
+      assertEssayWithinLimit(row.answers, answers);
       const ops = answers
         .filter((item) => allowed.has(item.questionId))
         .map((item) =>
@@ -1135,6 +1138,7 @@ export class AttemptService {
         content: ans.content,
         options: Array.isArray(ans.options) ? (ans.options as string[]) : null,
         essayInputSize: ans.essayInputSize,
+        essayMaxChars: ans.essayMaxChars,
         choiceIndex: ans.choiceIndex,
         tfChoices: tfChoicesOf(ans.type, ans.tfChoices),
         tfLabelStyle: ans.tfLabelStyle,

@@ -5,6 +5,8 @@
 export const CONTENT_LIMITS = {
   /** Student essay answer (Attempt + lecture quiz). */
   essayAnswer: 20_000,
+  /** Trần của giới hạn ký tự gia sư đặt cho một câu tự luận (`essayMaxChars`). */
+  essayMaxChars: 5_000,
   /** Teacher grading comment on one essay answer. Matches notification body. */
   feedback: 4_000,
   /** Theory lesson HTML (TipTap + LaTeX). */

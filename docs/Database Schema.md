@@ -503,6 +503,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `attempts.elective_voided` (`BOOLEAN`, default `false`): học sinh có ít nhất một nhận định được chọn ở **cả hai** nhóm tự chọn → mọi câu `elective_1`/`elective_2` chấm 0.
   - `attempt_answers.slot` (`QuestionSlot`): snapshot vị trí câu lúc start (từ `question_links.slot`).
   - `attempt_answers.essay_input_size` (`EssayInputSize?`): snapshot kiểu ô tự luận lúc start (`null` = ô dài).
+  - `attempt_answers.essay_max_chars` (`INT?`): snapshot giới hạn ký tự câu tự luận lúc start (`null` = không giới hạn). Lưu bài (`PATCH` answers) với `essayAnswer` dài hơn → `400`.
   - `attempt_answers.shared_material_id` (`UUID?`, không FK) + `shared_material_content` (`TEXT?`): snapshot Tư liệu dùng chung lúc start (JP). Các câu cùng tư liệu đứng liền nhau trong `order`; Đảo câu xáo cả khối. Sửa tư liệu không đổi bài đã bắt đầu.
   - `attempt_answers.audio_id` + `shared_material_audio_id` (`UUID?`, không FK): snapshot audio của câu và của tư liệu lúc start (JP). URL ký mới mỗi lần tải bài; audio có Giới hạn nghe thì lượt đang làm không nhận URL sẵn (xin qua endpoint phát, xem `attempt_audio_plays`).
   - `attempt_answers.tf_label_style` (`TrueFalseLabelStyle?`): snapshot kiểu nhãn Câu Đúng/Sai lúc start (`null` = ○/×). Câu `true_false` lưu lựa chọn ở `tf_choices[0]`.
@@ -712,7 +713,8 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
   - `shared_material_id` (`UUID?` → `shared_materials.id`, `ON DELETE NO ACTION`): Bộ câu hỏi (JP) — tối đa một; phải cùng khoá **và cùng chuyên đề** với bộ. Index `(shared_material_id)`.
   - `set_position` (`INT?`): vị trí của câu trong bộ (0-based) — câu mới vào bộ xếp cuối bộ. CHECK `questions_set_position_check`: có `shared_material_id` ⇔ có `set_position`. Làm bài / xem lại / ôn nhẹ xếp câu trong khối bộ theo `set_position`.
   - `audio_id` (`UUID?` → `audio_assets.id`, `ON DELETE SET NULL`): audio nhúng của câu (JP) — tối đa một; phải cùng khoá.
-  - `essay_input_size` (`EssayInputSize?`: `short` | `long`): kiểu ô nhập câu tự luận — chỉ hồ sơ JP, chỉ câu `essay`. `null` = ô dài (câu cũ, hồ sơ khác); form JP mặc định `short` cho câu mới. Chỉ đổi giao diện làm bài/ôn nhẹ (ô ngắn một dòng, tự xuống dòng), không giới hạn độ dài, không ảnh hưởng chấm.
+  - `essay_input_size` (`EssayInputSize?`: `short` | `long`): kiểu ô nhập câu tự luận — chỉ hồ sơ JP, chỉ câu `essay`. `null` = ô dài (câu cũ, hồ sơ khác); Chỉ đổi giao diện làm bài/ôn nhẹ (ô ngắn một dòng, tự xuống dòng), không ảnh hưởng chấm. **Cũ:** form JP không còn chọn kiểu ô — lưu câu tự luận từ form gửi `null` (câu cũ `short` sửa lại thành ô nhiều dòng); API vẫn nhận để tương thích.
+  - `essay_max_chars` (`INT?`): giới hạn số ký tự câu trả lời tự luận — chỉ hồ sơ JP (`essayMaxChars`), chỉ câu `essay`, số nguyên 1–5000. `null` = không giới hạn. Đếm theo `String.length` (khớp `maxLength` textarea). Không ảnh hưởng chấm. Migration `20261123100000_essay_max_chars`.
   - `deleted_at` (`TIMESTAMPTZ`, nullable): soft-delete timestamp
   - `created_at`, `updated_at` (`TIMESTAMPTZ`)
 - Indexes: `(course_id)`, `(module_id)`, `(difficulty_level_id)`

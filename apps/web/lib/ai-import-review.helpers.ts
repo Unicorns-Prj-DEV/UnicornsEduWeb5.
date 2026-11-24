@@ -10,6 +10,7 @@ import {
   type TrueFalseLabelStyleDto,
   type ValidatedAiQuestion,
 } from "@/dtos/question.dto";
+import { CONTENT_LIMITS } from "@/dtos/content-limits";
 
 const ALLOWED_FIELDS = new Set([
   "type",
@@ -21,6 +22,7 @@ const ALLOWED_FIELDS = new Set([
   "answerGuide",
   "blankAnswerKey",
   "essayInputSize",
+  "essayMaxChars",
   "tfLabelStyle",
   "difficulty",
 ]);
@@ -31,6 +33,15 @@ const TF_LABEL_STYLES: readonly TrueFalseLabelStyleDto[] = [
   "true_false",
 ];
 const ESSAY_INPUT_SIZES: readonly EssayInputSizeDto[] = ["short", "long"];
+
+function isEssayMaxChars(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= CONTENT_LIMITS.essayMaxChars
+  );
+}
 
 const MAX_AI_IMPORT_QUESTIONS = 50;
 
@@ -105,6 +116,9 @@ export function revalidateAiQuestion(
   }
   if (next.essayInputSize !== undefined) {
     record.essayInputSize = next.essayInputSize;
+  }
+  if (next.essayMaxChars !== undefined) {
+    record.essayMaxChars = next.essayMaxChars;
   }
   if (next.tfLabelStyle !== undefined) record.tfLabelStyle = next.tfLabelStyle;
 
@@ -372,8 +386,18 @@ function validateAiQuestionRecord(
     ) {
       errors.push('essayInputSize phải là "short" hoặc "long"');
     }
-  } else if (obj.essayInputSize !== undefined) {
-    errors.push("Chỉ câu essay mới có essayInputSize");
+    if (obj.essayMaxChars !== undefined && !isEssayMaxChars(obj.essayMaxChars)) {
+      errors.push(
+        `essayMaxChars phải là số nguyên 1–${CONTENT_LIMITS.essayMaxChars}`,
+      );
+    }
+  } else {
+    if (obj.essayInputSize !== undefined) {
+      errors.push("Chỉ câu essay mới có essayInputSize");
+    }
+    if (obj.essayMaxChars !== undefined) {
+      errors.push("Chỉ câu essay mới có essayMaxChars");
+    }
   }
 
   return {
@@ -398,6 +422,9 @@ function validateAiQuestionRecord(
       obj.essayInputSize as EssayInputSizeDto,
     )
       ? (obj.essayInputSize as EssayInputSizeDto)
+      : undefined,
+    essayMaxChars: isEssayMaxChars(obj.essayMaxChars)
+      ? obj.essayMaxChars
       : undefined,
     tfLabelStyle: TF_LABEL_STYLES.includes(
       obj.tfLabelStyle as TrueFalseLabelStyleDto,

@@ -65,6 +65,11 @@ export class AppConfigResponseDto implements LmsProfileConfig {
   essayInputSizes!: boolean;
 
   @ApiProperty({
+    description: 'Câu tự luận đặt được giới hạn số ký tự câu trả lời (JP)',
+  })
+  essayMaxChars!: boolean;
+
+  @ApiProperty({
     description:
       'Ngân hàng câu hỏi có Tư liệu dùng chung — nhiều câu dựa vào một đoạn văn/ảnh (JP)',
   })

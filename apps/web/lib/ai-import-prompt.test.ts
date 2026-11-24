@@ -28,9 +28,9 @@ describe("buildAiImportPrompt", () => {
     const prompt = buildAiImportPrompt({
       ...base,
       allowedTypes: JP_TYPES,
-      essayInputSizes: true,
+      essayMaxChars: true,
     });
-    for (const field of ["[[___]]", "blankAnswerKey", "tfLabelStyle", "essayInputSize", "ordering"]) {
+    for (const field of ["[[___]]", "blankAnswerKey", "tfLabelStyle", "essayMaxChars", "ordering"]) {
       expect(prompt).toContain(field);
     }
     expect(prompt).not.toContain("true_false_group");
@@ -40,7 +40,7 @@ describe("buildAiImportPrompt", () => {
     const prompt = buildAiImportPrompt({
       ...base,
       allowedTypes: JP_TYPES,
-      essayInputSizes: true,
+      essayMaxChars: true,
     });
     const { items, parseError } = validateAiJson(
       exampleJson(prompt),

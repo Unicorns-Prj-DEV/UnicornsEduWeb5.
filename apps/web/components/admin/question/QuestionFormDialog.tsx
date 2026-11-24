@@ -61,8 +61,8 @@ export default function QuestionFormDialog({
     explanation: question?.explanation || "",
     answerGuide: question?.answerGuide || "",
     skills: question?.skills ?? [],
-    // Câu cũ (null) giữ ô dài như trước; câu mới mặc định ô ngắn.
-    essayInputSize: question ? (question.essayInputSize ?? "long") : "short",
+    essayMaxChars:
+      question?.essayMaxChars != null ? String(question.essayMaxChars) : "",
     sharedMaterialId: question?.sharedMaterialId ?? set?.id ?? "",
     audio: question?.audio ?? null,
   };
@@ -101,7 +101,7 @@ export default function QuestionFormDialog({
     e.stopPropagation();
     const result = questionFormToPayload(form, {
       requireSkills: appConfig?.questionSkills,
-      essayInputSizes: appConfig?.essayInputSizes,
+      essayMaxChars: appConfig?.essayMaxChars,
     });
     if ("error" in result) {
       toast.error(result.error);

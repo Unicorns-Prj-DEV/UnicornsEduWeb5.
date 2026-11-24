@@ -2028,7 +2028,7 @@ describe('CourseContentService — ClassContent methods', () => {
       it('should upsert answers and return them with correctIndex for review', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(mockLecture);
         mockPrisma.lessonQuiz.findMany.mockResolvedValue([
-          { questionId: 'q-1' },
+          { questionId: 'q-1', question: { essayMaxChars: null } },
         ]);
         mockPrisma.lessonQuizAnswer.upsert.mockResolvedValue({});
         mockPrisma.lessonQuizAnswer.findMany.mockResolvedValue([
@@ -2054,7 +2054,7 @@ describe('CourseContentService — ClassContent methods', () => {
       it('should throw if answer references a question not linked to the lecture', async () => {
         mockPrisma.lesson.findUnique.mockResolvedValue(mockLecture);
         mockPrisma.lessonQuiz.findMany.mockResolvedValue([
-          { questionId: 'q-1' },
+          { questionId: 'q-1', question: { essayMaxChars: null } },
         ]);
 
         await expect(
@@ -2062,6 +2062,20 @@ describe('CourseContentService — ClassContent methods', () => {
             { questionId: 'q-foreign', choiceIndex: 0 },
           ]),
         ).rejects.toThrow(BadRequestException);
+      });
+      it('chặn câu tự luận vượt giới hạn ký tự', async () => {
+        mockPrisma.lesson.findUnique.mockResolvedValue(mockLecture);
+        mockPrisma.lessonQuiz.findMany.mockResolvedValue([
+          { questionId: 'q-1', question: { essayMaxChars: 3 } },
+        ]);
+        mockPrisma.lessonQuizAnswer.upsert.mockClear();
+
+        await expect(
+          quizService.submitQuizAnswers('lecture-1', 'student-1', [
+            { questionId: 'q-1', essayAnswer: 'abcd' },
+          ]),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.lessonQuizAnswer.upsert).not.toHaveBeenCalled();
       });
     });
 

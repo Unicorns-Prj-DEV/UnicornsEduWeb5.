@@ -175,6 +175,8 @@ export interface AttemptQuestionDto {
   options: string[] | null;
   /** Kiểu ô tự luận (snapshot): short = một dòng, long/null = nhiều dòng. */
   essayInputSize: 'short' | 'long' | null;
+  /** Giới hạn ký tự câu trả lời tự luận (snapshot lúc start); null = không giới hạn. */
+  essayMaxChars: number | null;
   /** Kiểu nhãn Câu Đúng/Sai (snapshot): maru_batsu (○/×, mặc định khi null) / dung_sai / true_false. */
   tfLabelStyle: 'maru_batsu' | 'dung_sai' | 'true_false' | null;
   choiceIndex: number | null;

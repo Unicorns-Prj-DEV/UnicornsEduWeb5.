@@ -18,6 +18,7 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CONTENT_LIMITS } from './content-limits';
 
 /** Độ dài tối đa một đáp án hợp lệ của ô trống. */
 export const BLANK_ANSWER_MAX_LENGTH = 200;
@@ -96,6 +97,8 @@ export interface QuestionResponseDto {
   skills: QuestionSkillDto[];
   /** Kiểu ô tự luận (JP); null = ô dài (câu cũ / hồ sơ khác). */
   essayInputSize: EssayInputSizeDto | null;
+  /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+  essayMaxChars: number | null;
   /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
   tfLabelStyle: TrueFalseLabelStyleDto | null;
   /** Câu điền vào ô trống (JP): đáp án hợp lệ từng ô; null với loại khác. */
@@ -221,6 +224,19 @@ export class CreateQuestionDto {
 
   @ApiPropertyOptional({
     description:
+      'Giới hạn số ký tự câu trả lời tự luận (chỉ essay, hồ sơ JP). null/bỏ trống = không giới hạn.',
+    minimum: 1,
+    maximum: CONTENT_LIMITS.essayMaxChars,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(CONTENT_LIMITS.essayMaxChars)
+  essayMaxChars?: number | null;
+
+  @ApiPropertyOptional({
+    description:
       'Kiểu nhãn Câu Đúng/Sai (chỉ true_false, JP): maru_batsu = ○/× (mặc định khi null), dung_sai = Đúng/Sai, true_false = True/False.',
     enum: TrueFalseLabelStyleDto,
     nullable: true,
@@ -331,6 +347,19 @@ export class UpdateQuestionDto {
   @IsOptional()
   @IsIn(Object.values(EssayInputSizeDto))
   essayInputSize?: EssayInputSizeDto | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Giới hạn số ký tự câu trả lời tự luận (chỉ essay, hồ sơ JP). null/bỏ trống = không giới hạn.',
+    minimum: 1,
+    maximum: CONTENT_LIMITS.essayMaxChars,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(CONTENT_LIMITS.essayMaxChars)
+  essayMaxChars?: number | null;
 
   @ApiPropertyOptional({
     description:
@@ -458,6 +487,19 @@ export class BulkCreateQuestionItemDto {
 
   @ApiPropertyOptional({
     description:
+      'Giới hạn số ký tự câu trả lời tự luận (chỉ essay, hồ sơ JP). null/bỏ trống = không giới hạn.',
+    minimum: 1,
+    maximum: CONTENT_LIMITS.essayMaxChars,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(CONTENT_LIMITS.essayMaxChars)
+  essayMaxChars?: number | null;
+
+  @ApiPropertyOptional({
+    description:
       'Kiểu nhãn Câu Đúng/Sai (chỉ true_false, JP): maru_batsu = ○/× (mặc định), dung_sai = Đúng/Sai, true_false = True/False.',
     enum: TrueFalseLabelStyleDto,
   })
@@ -549,7 +591,8 @@ export class QuestionFilterDto {
   sharedMaterialId?: string;
 
   @ApiPropertyOptional({
-    description: "'true' = chỉ câu lẻ (không thuộc bộ nào) — ngân hàng JP hiện bộ dạng thẻ riêng.",
+    description:
+      "'true' = chỉ câu lẻ (không thuộc bộ nào) — ngân hàng JP hiện bộ dạng thẻ riêng.",
     enum: ['true'],
   })
   @IsOptional()

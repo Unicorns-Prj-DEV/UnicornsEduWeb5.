@@ -21,6 +21,21 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### LMS JP — Giới hạn ký tự câu tự luận (23/11)
+
+#### Added
+
+- **Giới hạn ký tự câu trả lời tự luận (hồ sơ JP):** người soạn nhập **Giới hạn ký tự** (1–5000, để trống = không giới hạn) thay cho ô chọn "Ô ngắn / Ô dài". Học sinh thấy bộ đếm `n/N ký tự`, textarea `maxLength` chặn gõ/dán quá (bài làm + ôn nhẹ). Server chặn `400` khi lưu bài / nộp quiz ôn nhẹ vượt giới hạn (`assertEssayWithinLimit`). Cột mới `questions.essay_max_chars`, `attempt_answers.essay_max_chars` (snapshot lúc start) — migration `20261123100000_essay_max_chars`; cờ hồ sơ + app-config `essayMaxChars` (JP `true`). Nhập từ AI: prompt/kiểm tra/màn soát dùng `essayMaxChars`.
+
+#### Changed
+
+- Form soạn câu JP không còn chọn kiểu ô tự luận; lưu câu tự luận gửi `essayInputSize: null` (câu cũ "ô ngắn" sửa lại thành ô nhiều dòng). Câu cũ chưa sửa vẫn hiển thị như trước; API vẫn nhận `essayInputSize`.
+
+#### Fixed
+
+- **Ô "Giới hạn ký tự" hiện bubble kiểm tra tiếng Anh của trình duyệt** ("Value must be greater than or equal to 1.") khi nhập `0`/số lẻ: `EssayMaxCharsField` đổi sang `type="text"` + `inputMode="numeric"`, chỉ giữ chữ số; số ngoài 1–5000 báo bằng toast Sonner.
+- **Tab "Xem trước" không phản ánh giới hạn:** `QuestionPreview` truyền `essayMaxChars` (giá trị hợp lệ đang nhập) → xem trước có `maxLength` + bộ đếm `0/N ký tự` như học sinh thấy.
+
 ### Rà soát LMS hồ sơ JP — sửa lỗi soạn câu / bộ câu hỏi (20/11)
 
 #### Fixed
