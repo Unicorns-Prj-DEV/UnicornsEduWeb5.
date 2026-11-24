@@ -77,18 +77,8 @@ export const QUESTION_SKILL_LABELS: Record<QuestionSkillDto, string> = {
   [QuestionSkillDto.writing]: "Viết câu",
 };
 
-/** Kiểu ô nhập câu tự luận (JP). null = ô dài (câu cũ / hồ sơ khác). */
+/** Kiểu ô nhập câu tự luận (JP, cũ — form mới dùng `essayMaxChars`). null = ô dài. */
 export type EssayInputSizeDto = "short" | "long";
-
-export const ESSAY_INPUT_SIZE_LABELS: Record<EssayInputSizeDto, string> = {
-  short: "Ô ngắn (một dòng)",
-  long: "Ô dài (nhiều dòng)",
-};
-
-/** Lựa chọn dropdown kiểu ô tự luận. */
-export const ESSAY_INPUT_SIZE_OPTIONS = (
-  Object.keys(ESSAY_INPUT_SIZE_LABELS) as EssayInputSizeDto[]
-).map((size) => ({ value: size, label: ESSAY_INPUT_SIZE_LABELS[size] }));
 
 /** Lựa chọn dropdown kiểu nhãn Câu Đúng/Sai, vd "○ / ×". */
 export const TF_LABEL_STYLE_OPTIONS = (
@@ -118,6 +108,8 @@ export interface Question {
   skills: QuestionSkillDto[];
   /** Kiểu ô tự luận (JP); null = ô dài. */
   essayInputSize: EssayInputSizeDto | null;
+  /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+  essayMaxChars: number | null;
   /** Kiểu nhãn Câu Đúng/Sai (JP); null = ○/×. */
   tfLabelStyle: TrueFalseLabelStyleDto | null;
   /** Đáp án hợp lệ từng ô (câu điền vào ô trống); null với loại khác. */
@@ -154,6 +146,7 @@ export type QuestionFormInitial = Pick<
       Question,
       | "skills"
       | "essayInputSize"
+      | "essayMaxChars"
       | "tfLabelStyle"
       | "blankAnswerKey"
       | "sharedMaterialId"
@@ -174,6 +167,7 @@ export interface CreateQuestionInput {
   answerGuide?: string;
   skills?: QuestionSkillDto[];
   essayInputSize?: EssayInputSizeDto | null;
+  essayMaxChars?: number | null;
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
   blankAnswerKey?: string[][];
 }
@@ -215,8 +209,10 @@ export interface AiQuestionItem {
   answerGuide?: string;
   /** Câu điền vào ô trống: đáp án hợp lệ từng ô `[[___]]`. */
   blankAnswerKey?: string[][];
-  /** Câu tự luận (JP): ô một dòng / nhiều dòng. */
+  /** Câu tự luận (JP, cũ): ô một dòng / nhiều dòng. */
   essayInputSize?: EssayInputSizeDto;
+  /** Câu tự luận (JP): giới hạn số ký tự câu trả lời. */
+  essayMaxChars?: number;
   /** Câu Đúng/Sai (JP): kiểu nhãn. */
   tfLabelStyle?: TrueFalseLabelStyleDto;
   difficulty: string;
@@ -244,6 +240,7 @@ export interface BulkCreateQuestionInput {
     answerGuide?: string;
     blankAnswerKey?: string[][];
     essayInputSize?: EssayInputSizeDto;
+    essayMaxChars?: number;
     tfLabelStyle?: TrueFalseLabelStyleDto;
     difficultyLevelId: string;
     skills?: QuestionSkillDto[];

@@ -8,7 +8,7 @@
       "compose_project": "unicorns-it",
       "nginx_publish": "127.0.0.1:80:80",
       "example_hostname": "it.unicornsedu.com",
-      "notes": "Instance IT. Dùng chung web image :latest với ENG và JP."
+      "notes": "Instance IT. Dùng chung web image :latest với ENG, JP và Physics."
     },
     {
       "id": "eng",
@@ -29,6 +29,16 @@
       "nginx_publish": "127.0.0.1:8081:80",
       "example_hostname": "jp.unicornsedu.com",
       "notes": "Instance JP. CD deploy sau khi bootstrap /root/UnicornsEduJP + migrate DB."
+    },
+    {
+      "id": "physics",
+      "label": "Uni Physics (Vật lý)",
+      "enabled": true,
+      "deploy_dir": "/root/UnicornsEduPhysics",
+      "compose_project": "unicorns-physics",
+      "nginx_publish": "127.0.0.1:8082:80",
+      "example_hostname": "physics.uniedu.vn",
+      "notes": "Instance Vật lý. LMS_PROFILE=physics (luật như ENG). Bootstrap 24/11/2026."
     }
   ]
 }

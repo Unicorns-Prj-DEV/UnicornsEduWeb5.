@@ -1,6 +1,6 @@
 # Xem DB production bằng Supabase Studio (chạy trên máy dev)
 
-Hướng dẫn dùng giao diện Supabase Studio để xem/truy vấn Postgres self-host trên VPS (`uniedu_it`, `uniedu_eng`, `uniedu_jp`) mà **không chạy thêm gì trên VPS** và **không mở port mới ra Internet**.
+Hướng dẫn dùng giao diện Supabase Studio để xem/truy vấn Postgres self-host trên VPS (`uniedu_it`, `uniedu_eng`, `uniedu_jp`, `uniedu_physics`) mà **không chạy thêm gì trên VPS** và **không mở port mới ra Internet**.
 
 Mã nguồn: [`deploy/studio-local/`](../../deploy/studio-local/) · Data stack trên VPS: [vps-local-supabase.md](vps-local-supabase.md)
 
@@ -64,8 +64,8 @@ deploy/studio-local/studio.sh down
 
 | Lệnh | Tác dụng |
 |---|---|
-| `studio.sh up [it\|eng\|jp]` | Mở tunnel (nếu chưa có), đọc mật khẩu từ VPS, chạy Studio của instance. Mặc định `it`. Chạy lại = khởi động lại Studio đó. |
-| `studio.sh down [it\|eng\|jp\|all]` | Dừng Studio. Mặc định `all`. Không còn Studio nào chạy thì tự đóng tunnel. |
+| `studio.sh up [it\|eng\|jp\|physics]` | Mở tunnel (nếu chưa có), đọc mật khẩu từ VPS, chạy Studio của instance. Mặc định `it`. Chạy lại = khởi động lại Studio đó. |
+| `studio.sh down [it\|eng\|jp\|physics\|all]` | Dừng Studio. Mặc định `all`. Không còn Studio nào chạy thì tự đóng tunnel. |
 | `studio.sh status` | Trạng thái tunnel + danh sách Studio đang chạy. |
 
 Chạy được cả 3 instance cùng lúc — dùng chung một tunnel:
@@ -75,6 +75,7 @@ Chạy được cả 3 instance cùng lúc — dùng chung một tunnel:
 | `it` | `uniedu_it` | http://localhost:64323 |
 | `eng` | `uniedu_eng` | http://localhost:64324 |
 | `jp` | `uniedu_jp` | http://localhost:64325 |
+| `physics` | `uniedu_physics` | http://localhost:64326 |
 
 Mỗi instance là một compose project riêng `uniedu-studio-<id>` (container `uniedu-studio-<id>-studio-1`, `uniedu-studio-<id>-meta-1`).
 

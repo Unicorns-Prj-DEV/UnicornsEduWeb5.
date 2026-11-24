@@ -1,4 +1,5 @@
 import { QuestionTypeDto } from "@/dtos/question.dto";
+import { CONTENT_LIMITS } from "@/dtos/content-limits";
 
 /**
  * Prompt "Nhập từ AI": schema, ví dụ, quy tắc và tự kiểm tra sinh theo đúng các
@@ -10,8 +11,8 @@ export interface AiImportPromptInput {
   questionCount: number;
   difficultyNames: string[];
   allowedTypes: readonly QuestionTypeDto[];
-  /** Hồ sơ có kiểu ô tự luận ngắn/dài (JP). */
-  essayInputSizes?: boolean;
+  /** Hồ sơ có giới hạn ký tự câu tự luận (JP). */
+  essayMaxChars?: boolean;
 }
 
 interface TypeSpec {
@@ -22,7 +23,7 @@ interface TypeSpec {
 }
 
 function typeSpecs(
-  essayInputSizes: boolean,
+  essayMaxChars: boolean,
 ): Record<QuestionTypeDto, TypeSpec> {
   return {
     [QuestionTypeDto.single_choice]: {
@@ -87,16 +88,18 @@ function typeSpecs(
       check: "ordering: 2–12 thẻ theo thứ tự đúng, không có correctIndex.",
     },
     [QuestionTypeDto.essay]: {
-      example: essayInputSizes
-        ? `{"type":"essay","content":"Câu tự luận","answerGuide":"...","essayInputSize":"short","difficulty":"<độ khó>"}`
+      example: essayMaxChars
+        ? `{"type":"essay","content":"Câu tự luận","answerGuide":"...","essayMaxChars":200,"difficulty":"<độ khó>"}`
         : `{"type":"essay","content":"Câu tự luận","answerGuide":"...","difficulty":"<độ khó>"}`,
       schema: `essay (tự luận):
-  type, content, answerGuide (barem chấm),${essayInputSizes ? '\n  essayInputSize (tuỳ chọn: "short" = ô một dòng cho câu trả lời ngắn, "long" = ô nhiều dòng — mặc định),' : ""} difficulty
+  type, content, answerGuide (barem chấm),${essayMaxChars ? `\n  essayMaxChars (tuỳ chọn: số ký tự tối đa của câu trả lời, số nguyên 1–${CONTENT_LIMITS.essayMaxChars}; bỏ = không giới hạn),` : ""} difficulty
   KHÔNG có options, KHÔNG có correctIndex`,
       rules: [
         "answerGuide   essay; ý chính để gia sư chấm",
-        ...(essayInputSizes
-          ? ['essayInputSize chỉ essay; "short" | "long"']
+        ...(essayMaxChars
+          ? [
+              `essayMaxChars  chỉ essay; số nguyên 1–${CONTENT_LIMITS.essayMaxChars}`,
+            ]
           : []),
       ],
       check: "essay: không có options, không có correctIndex.",
@@ -105,7 +108,7 @@ function typeSpecs(
 }
 
 export function buildAiImportPrompt(input: AiImportPromptInput): string {
-  const specs = typeSpecs(input.essayInputSizes ?? false);
+  const specs = typeSpecs(input.essayMaxChars ?? false);
   const types = input.allowedTypes;
   const firstDiff = input.difficultyNames[0] ?? "Nhận biết";
   const diffList = input.difficultyNames.length

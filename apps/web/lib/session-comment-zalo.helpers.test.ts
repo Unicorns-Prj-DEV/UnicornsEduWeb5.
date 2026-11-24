@@ -257,7 +257,7 @@ describe("buildSessionCommentZaloText — structured review", () => {
   });
 
   it("signs per instance subject profile", () => {
-    const signatureOf = (profile: "it" | "jp" | "eng" | null) =>
+    const signatureOf = (profile: "it" | "jp" | "eng" | "physics" | null) =>
       buildSessionCommentZaloText({
         ...baseInput,
         review,
@@ -269,6 +269,7 @@ describe("buildSessionCommentZaloText — structured review", () => {
     expect(signatureOf("it")).toBe("— Gia sư UniEdu Tin học");
     expect(signatureOf("jp")).toBe("— Gia sư UniEdu Tiếng Nhật");
     expect(signatureOf("eng")).toBe("— Gia sư UniEdu Tiếng Anh");
+    expect(signatureOf("physics")).toBe("— Gia sư UniEdu Vật lý");
     expect(signatureOf(null)).toBe("— Gia sư UniEdu");
   });
 

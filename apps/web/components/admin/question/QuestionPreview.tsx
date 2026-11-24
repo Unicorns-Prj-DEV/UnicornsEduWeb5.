@@ -6,6 +6,7 @@ import { QuestionTypeDto, countBlanks } from "@/dtos/question.dto";
 import { openAudio } from "@/lib/attempt-audio";
 import { resizeBlankKey } from "@/lib/fill-blank";
 import { assertNever } from "@/lib/assert-never";
+import { CONTENT_LIMITS } from "@/dtos/content-limits";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
 import SharedMaterialPanel from "@/components/student/SharedMaterialPanel";
 
@@ -72,6 +73,17 @@ function previewAnswerFields(value: QuestionFormValue): Partial<AnswerFields> {
   }
 }
 
+/** Chuỗi ô "Giới hạn ký tự" → số hợp lệ 1–max, ngược lại null (không giới hạn). */
+function previewEssayMaxChars(raw: string): number | null {
+  const n = Number(raw.trim());
+  return raw.trim() !== "" &&
+    Number.isInteger(n) &&
+    n >= 1 &&
+    n <= CONTENT_LIMITS.essayMaxChars
+    ? n
+    : null;
+}
+
 /**
  * Xem trước câu hỏi đúng như học sinh thấy sau khi nộp bài (đáp án đúng + giải thích),
  * dùng chính `StudentAttemptQuestion` để render LaTeX/HTML giống hệt phía học sinh.
@@ -116,6 +128,11 @@ export default function QuestionPreview({
     isCorrect: null,
     explanation: optionalHtml(value.explanation),
     answerGuide: optionalHtml(value.answerGuide),
+    // Giới hạn đang nhập (hợp lệ) → xem trước có bộ đếm n/N như học sinh thấy.
+    essayMaxChars:
+      value.type === QuestionTypeDto.essay
+        ? previewEssayMaxChars(value.essayMaxChars)
+        : null,
   };
 
   return (

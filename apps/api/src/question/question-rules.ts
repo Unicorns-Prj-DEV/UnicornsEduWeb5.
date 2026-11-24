@@ -10,6 +10,7 @@ import {
   countBlanks,
   normalizeBlankAnswer,
 } from '../attempt/fill-blank';
+import { CONTENT_LIMITS } from '../dtos/content-limits';
 
 /** Hình dạng câu hỏi theo loại + hồ sơ môn. Trả lỗi tiếng Việt hoặc null. */
 export interface QuestionShape {
@@ -19,6 +20,8 @@ export interface QuestionShape {
   tfAnswerKey?: boolean[] | null;
   /** Kiểu ô nhập của câu tự luận (JP). null = ô dài như câu cũ. */
   essayInputSize?: 'short' | 'long' | null;
+  /** Giới hạn ký tự câu trả lời tự luận (JP). null = không giới hạn. */
+  essayMaxChars?: number | null;
   /** Kiểu nhãn Câu Đúng/Sai (JP). null = ○/×. */
   tfLabelStyle?: string | null;
   /** Đề bài — câu điền vào ô trống đếm ô `[[___]]` trong đây. */
@@ -55,6 +58,9 @@ export function questionShapeError(
   const type = shape.type as LmsQuestionType;
   if (shape.essayInputSize != null && type !== 'essay') {
     return 'Chỉ câu tự luận có kiểu ô nhập.';
+  }
+  if (shape.essayMaxChars != null && type !== 'essay') {
+    return 'Chỉ câu tự luận có giới hạn ký tự.';
   }
   if (shape.tfLabelStyle != null && type !== 'true_false') {
     return 'Chỉ Câu Đúng/Sai có kiểu nhãn.';
@@ -130,6 +136,18 @@ export function questionShapeError(
       if (hasKey) return 'Câu tự luận không có đáp án Đúng/Sai.';
       if (shape.essayInputSize != null && !profile.essayInputSizes) {
         return `Hồ sơ ${profile.profile.toUpperCase()} không có kiểu ô tự luận.`;
+      }
+      if (shape.essayMaxChars != null) {
+        if (!profile.essayMaxChars) {
+          return `Hồ sơ ${profile.profile.toUpperCase()} không có giới hạn ký tự câu tự luận.`;
+        }
+        if (
+          !Number.isInteger(shape.essayMaxChars) ||
+          shape.essayMaxChars < 1 ||
+          shape.essayMaxChars > CONTENT_LIMITS.essayMaxChars
+        ) {
+          return `Giới hạn ký tự phải là số nguyên 1–${CONTENT_LIMITS.essayMaxChars}.`;
+        }
       }
       return null;
     default:

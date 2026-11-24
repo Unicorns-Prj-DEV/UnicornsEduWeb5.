@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Supabase Studio local (Mac) cho DB self-host trên VPS, qua SSH tunnel Tailscale.
 #
-#   ./studio.sh up [it|eng|jp]   mở tunnel (nếu chưa có) + chạy Studio của instance
+#   ./studio.sh up [it|eng|jp|physics]   mở tunnel (nếu chưa có) + chạy Studio của instance
 #   ./studio.sh down [id|all]    dừng Studio; không còn Studio nào thì đóng tunnel
 #   ./studio.sh status
 #
@@ -22,7 +22,8 @@ studio_port() {
     it) echo 64323 ;;
     eng) echo 64324 ;;
     jp) echo 64325 ;;
-    *) echo "Instance không hợp lệ: $1 (it|eng|jp)" >&2; exit 1 ;;
+    physics) echo 64326 ;;
+    *) echo "Instance không hợp lệ: $1 (it|eng|jp|physics)" >&2; exit 1 ;;
   esac
 }
 
@@ -54,7 +55,7 @@ tunnel_down() {
 
 running_instances() {
   local id
-  for id in it eng jp; do
+  for id in it eng jp physics; do
     if [ -n "$(compose "$id" ps -q 2>/dev/null)" ]; then
       echo "$id"
     fi
@@ -84,7 +85,7 @@ cmd_up() {
 cmd_down() {
   local target="${1:-all}" id
   if [ "$target" = "all" ]; then
-    for id in it eng jp; do compose "$id" down 2>/dev/null || true; done
+    for id in it eng jp physics; do compose "$id" down 2>/dev/null || true; done
   else
     studio_port "$target" >/dev/null
     compose "$target" down

@@ -602,6 +602,7 @@ function QuizAnswerField({
         <EssayAnswerInput
           value={value?.essayAnswer}
           size={quiz.question.essayInputSize}
+          maxChars={quiz.question.essayMaxChars}
           rows={4}
           className="rounded-lg"
           onChange={(essayAnswer) => onChange({ essayAnswer })}

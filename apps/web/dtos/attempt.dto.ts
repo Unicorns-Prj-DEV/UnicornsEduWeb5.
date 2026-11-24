@@ -31,6 +31,8 @@ export interface AttemptQuestionDto {
   options: string[] | null;
   /** Kiểu ô tự luận (snapshot): short = một dòng, long/null = nhiều dòng. */
   essayInputSize?: "short" | "long" | null;
+  /** Giới hạn ký tự câu trả lời tự luận (JP); null = không giới hạn. */
+  essayMaxChars?: number | null;
   /** Kiểu nhãn Câu Đúng/Sai (snapshot); null = ○/×. */
   tfLabelStyle?: TrueFalseLabelStyleDto | null;
   choiceIndex: number | null;

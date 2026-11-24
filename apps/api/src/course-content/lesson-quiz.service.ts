@@ -20,6 +20,7 @@ import {
   ActionHistoryActor,
   CourseContentSupportService,
 } from './course-content-support.service';
+import { assertEssayWithinLimit } from '../attempt/essay-limit';
 
 @Injectable()
 export class LessonQuizService extends CourseContentSupportService {
@@ -256,6 +257,7 @@ export class LessonQuizService extends CourseContentSupportService {
             explanation: true,
             answerGuide: true,
             essayInputSize: true,
+            essayMaxChars: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,
@@ -287,6 +289,7 @@ export class LessonQuizService extends CourseContentSupportService {
             explanation: true,
             answerGuide: true,
             essayInputSize: true,
+            essayMaxChars: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,
@@ -344,12 +347,14 @@ export class LessonQuizService extends CourseContentSupportService {
   ) {
     await this.loadTheoryLesson(lessonId);
 
-    const linkedQuestionIds = (
-      await this.prisma.lessonQuiz.findMany({
-        where: { lessonId },
-        select: { questionId: true },
-      })
-    ).map((q) => q.questionId);
+    const linked = await this.prisma.lessonQuiz.findMany({
+      where: { lessonId },
+      select: {
+        questionId: true,
+        question: { select: { essayMaxChars: true } },
+      },
+    });
+    const linkedQuestionIds = linked.map((q) => q.questionId);
 
     const linkedQuestionIdSet = new Set(linkedQuestionIds);
     const invalid = answers.filter(
@@ -358,6 +363,13 @@ export class LessonQuizService extends CourseContentSupportService {
     if (invalid.length) {
       throw new BadRequestException('Một số câu hỏi không thuộc tiết học này');
     }
+    assertEssayWithinLimit(
+      linked.map((q) => ({
+        questionId: q.questionId,
+        essayMaxChars: q.question.essayMaxChars,
+      })),
+      answers,
+    );
 
     await this.prisma.$transaction(
       answers.map((a) =>
@@ -416,6 +428,7 @@ export class LessonQuizService extends CourseContentSupportService {
             explanation: true,
             answerGuide: true,
             essayInputSize: true,
+            essayMaxChars: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,
@@ -446,6 +459,7 @@ export class LessonQuizService extends CourseContentSupportService {
             explanation: true,
             answerGuide: true,
             essayInputSize: true,
+            essayMaxChars: true,
             tfLabelStyle: true,
             blankAnswerKey: true,
             audioId: true,

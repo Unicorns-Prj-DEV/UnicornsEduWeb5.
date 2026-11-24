@@ -9,6 +9,7 @@ import {
   ORDERING_MIN_CARDS,
 } from "@/dtos/question.dto";
 import { resizeBlankKey } from "@/lib/fill-blank";
+import { CONTENT_LIMITS } from "@/dtos/content-limits";
 import { assertNever } from "@/lib/assert-never";
 import type { QuestionFormInitial } from "@/dtos/question.dto";
 import type { QuestionFormValue } from "@/components/admin/question/QuestionFormFields";
@@ -24,7 +25,9 @@ export type QuestionFormPayload = {
   explanation?: string;
   answerGuide?: string;
   skills?: QuestionSkillDto[];
-  essayInputSize?: EssayInputSizeDto;
+  /** Luôn gửi null khi có `essayMaxChars` — đổi câu cũ "ô ngắn" sang ô nhiều dòng. */
+  essayInputSize?: EssayInputSizeDto | null;
+  essayMaxChars?: number | null;
   tfLabelStyle?: TrueFalseLabelStyleDto;
   blankAnswerKey?: string[][];
 };
@@ -47,10 +50,11 @@ export function questionFormToPayload(
   form: QuestionFormValue,
   {
     requireSkills = false,
-    essayInputSizes = false,
+    essayMaxChars = false,
   }: {
     requireSkills?: boolean;
-    essayInputSizes?: boolean;
+    /** Hồ sơ có giới hạn ký tự câu tự luận (JP). */
+    essayMaxChars?: boolean;
   } = {},
 ): PayloadResult {
   // Báo đúng trường thiếu — thông báo gộp trước đây khiến người soạn phải đoán.
@@ -91,15 +95,7 @@ export function questionFormToPayload(
     case QuestionTypeDto.ordering:
       return orderingPayload(base, form);
     case QuestionTypeDto.essay:
-      return {
-        payload: {
-          ...base,
-          answerGuide: isBlankHtml(form.answerGuide)
-            ? undefined
-            : form.answerGuide.trim(),
-          ...(essayInputSizes && { essayInputSize: form.essayInputSize }),
-        },
-      };
+      return essayPayload(base, form, essayMaxChars);
     default:
       return assertNever(form.type, "question type");
   }
@@ -223,5 +219,29 @@ export function questionToFormParts(
           : [true, true, true, true],
     tfLabelStyle: question?.tfLabelStyle ?? DEFAULT_TRUE_FALSE_LABEL_STYLE,
     blankAnswerKey: question?.blankAnswerKey?.map((a) => [...a]) ?? [],
+  };
+}
+
+function essayPayload(
+  base: PayloadBase,
+  form: QuestionFormValue,
+  withMaxChars: boolean,
+): PayloadResult {
+  const answerGuide = isBlankHtml(form.answerGuide)
+    ? undefined
+    : form.answerGuide.trim();
+  if (!withMaxChars) return { payload: { ...base, answerGuide } };
+  const raw = form.essayMaxChars.trim();
+  const max = raw === "" ? null : Number(raw);
+  if (
+    max !== null &&
+    (!Number.isInteger(max) || max < 1 || max > CONTENT_LIMITS.essayMaxChars)
+  ) {
+    return {
+      error: `Giới hạn ký tự phải là số nguyên 1–${CONTENT_LIMITS.essayMaxChars}, hoặc để trống`,
+    };
+  }
+  return {
+    payload: { ...base, answerGuide, essayMaxChars: max, essayInputSize: null },
   };
 }

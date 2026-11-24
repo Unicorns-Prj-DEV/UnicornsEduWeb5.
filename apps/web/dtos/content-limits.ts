@@ -4,6 +4,8 @@
  */
 export const CONTENT_LIMITS = {
   essayAnswer: 20_000,
+  /** Trần giới hạn ký tự gia sư đặt cho một câu tự luận (`essayMaxChars`). */
+  essayMaxChars: 5_000,
   feedback: 4_000,
   theoryContent: 100_000,
   /** @deprecated Use theoryContent */

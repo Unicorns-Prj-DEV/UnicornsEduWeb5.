@@ -10,13 +10,12 @@ import MathRichTextEditor, {
 } from "@/components/ui/MathRichTextEditor";
 import { useQuestionImageUpload } from "@/lib/hooks/useQuestionImageUpload";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
+import EssayMaxCharsField from "@/components/admin/question/EssayMaxCharsField";
 import QuestionSkillPicker from "@/components/admin/question/QuestionSkillPicker";
 import OrderingCardFields from "@/components/admin/question/OrderingCardFields";
 import FillBlankAnswerFields from "@/components/admin/question/FillBlankAnswerFields";
 import { insertBlankAnswerSlot } from "@/lib/fill-blank";
 import {
-  ESSAY_INPUT_SIZE_OPTIONS,
-  type EssayInputSizeDto,
   BLANK_MARKER,
   QUESTION_TYPE_LABELS,
   QuestionSkillDto,
@@ -56,8 +55,8 @@ export type QuestionFormValue = {
   answerGuide: string;
   /** Kỹ năng (chỉ hồ sơ JP). */
   skills: QuestionSkillDto[];
-  /** Kiểu ô nhập câu tự luận (chỉ hồ sơ JP). Câu mới mặc định ngắn. */
-  essayInputSize: EssayInputSizeDto;
+  /** Giới hạn ký tự câu trả lời tự luận (chỉ hồ sơ JP), dạng chuỗi ô nhập; "" = không giới hạn. */
+  essayMaxChars: string;
   /** Bộ câu hỏi của câu (JP, chỉ đọc); "" = câu lẻ. Đổi bộ qua chuyển vào / ra bộ. */
   sharedMaterialId: string;
   /** Audio cũ của câu (JP, chỉ đọc — chỉ để xem trước); null = không có. */
@@ -78,7 +77,7 @@ export const emptyQuestionFormValue: QuestionFormValue = {
   explanation: "",
   answerGuide: "",
   skills: [],
-  essayInputSize: "short",
+  essayMaxChars: "",
   sharedMaterialId: "",
   audio: null,
 };
@@ -400,24 +399,11 @@ export default function QuestionFormFields({
             </div>
 
             {value.type === QuestionTypeDto.essay &&
-            appConfig?.essayInputSizes ? (
-              <div>
-                <span className="mb-1 block text-xs font-medium text-text-muted">
-                  Kiểu ô trả lời
-                </span>
-                <UpgradedSelect
-                  value={value.essayInputSize}
-                  onValueChange={(v) =>
-                    onChange({ essayInputSize: v as EssayInputSizeDto })
-                  }
-                  options={ESSAY_INPUT_SIZE_OPTIONS}
-                  ariaLabel="Kiểu ô trả lời"
-                />
-                <p className="mt-1 text-xs text-text-muted">
-                  Chỉ đổi giao diện làm bài, không giới hạn độ dài và không ảnh
-                  hưởng chấm.
-                </p>
-              </div>
+            appConfig?.essayMaxChars ? (
+              <EssayMaxCharsField
+                value={value.essayMaxChars}
+                onChange={(essayMaxChars) => onChange({ essayMaxChars })}
+              />
             ) : null}
 
             {value.type === QuestionTypeDto.essay && (

@@ -37,6 +37,7 @@ const LINK_INCLUDE = {
       explanation: true,
       answerGuide: true,
       essayInputSize: true,
+      essayMaxChars: true,
       tfLabelStyle: true,
       blankAnswerKey: true,
       sharedMaterialId: true,

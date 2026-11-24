@@ -5,7 +5,7 @@
 #
 #   Studio (localhost:6432x) → meta → host.docker.internal:64322 → ssh -L → VPS 127.0.0.1:54322
 #
-# Mỗi instance (it/eng/jp) là một compose project riêng `uniedu-studio-<id>`, đăng nhập
+# Mỗi instance (it/eng/jp/physics) là một compose project riêng `uniedu-studio-<id>`, đăng nhập
 # bằng role của instance (`uniedu_<id>`, owner DB) thay vì superuser `postgres`.
 # Xem docs/ops/supabase-studio-local.md.
 name: uniedu-studio-${STUDIO_INSTANCE:?run via ./studio.sh}

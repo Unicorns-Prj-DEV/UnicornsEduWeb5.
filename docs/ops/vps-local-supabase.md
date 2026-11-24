@@ -1,4 +1,4 @@
-# Runbook: Supabase tối giản self-host trên VPS (DB + Storage cho IT / ENG / JP)
+# Runbook: Supabase tối giản self-host trên VPS (DB + Storage cho IT / ENG / JP / Physics)
 
 Quyết định kiến trúc: [ADR 2026-10-27](../adr/2026-10-27-self-hosted-supabase-on-vps.md). Mã nguồn: [`deploy/data-stack/`](../../deploy/data-stack/).
 
@@ -6,14 +6,16 @@ Quyết định kiến trúc: [ADR 2026-10-27](../adr/2026-10-27-self-hosted-sup
 
 ```
 /root/uniedu-data  (compose project `uniedu-data`)
-  db            postgres:17.6-alpine   DB: uniedu_it, uniedu_eng, uniedu_jp   127.0.0.1:54322
+  db            postgres:17.6-alpine   DB: uniedu_it, uniedu_eng, uniedu_jp, uniedu_physics   127.0.0.1:54322
   storage-it    supabase/storage-api   volumes/storage-it                     127.0.0.1:55001
   storage-eng   supabase/storage-api   volumes/storage-eng                    127.0.0.1:55002
   storage-jp    supabase/storage-api   volumes/storage-jp                     127.0.0.1:55003
+  storage-physics supabase/storage-api volumes/storage-physics                127.0.0.1:55004
 
 network uniedu-data-it  (internal): db(alias db) + storage-it(alias storage) + unicorns-it api/nginx
 network uniedu-data-eng (internal): db + storage-eng + unicorns-eng api/nginx
 network uniedu-data-jp  (internal): db + storage-jp  + unicorns-jp  api/nginx
+network uniedu-data-physics (internal): db + storage-physics + unicorns-physics api/nginx
 ```
 
 Browser → `https://<instance>/storage/v1/...` → Cloudflare → nginx instance → `storage:5000`.
@@ -42,7 +44,7 @@ Giá trị bí mật nằm ở `/root/uniedu-data/.env` (chmod 600, sinh bởi `
 scp -r deploy/data-stack/* UnicornsEdu:/root/uniedu-data/
 ssh UnicornsEdu
 cd /root/uniedu-data
-./gen-env.sh https://it.uniedu.vn https://eng.uniedu.vn https://jp.uniedu.vn
+./gen-env.sh https://it.uniedu.vn https://eng.uniedu.vn https://jp.uniedu.vn https://physics.uniedu.vn
 docker compose up -d          # initdb tạo 3 role + 3 database, storage tự chạy migration
 ```
 
@@ -60,7 +62,7 @@ python3 -I sync_from_supabase.py <id> verify   # so số dòng từng bảng + s
 ## Cutover một instance
 
 ```bash
-cd /root/<deploy_dir>                 # UnicornsEdu | UnicornsEduEng | UnicornsEduJP
+cd /root/<deploy_dir>                 # UnicornsEdu | UnicornsEduEng | UnicornsEduJP | UnicornsEduPhysics
 export COMPOSE_PROJECT_NAME=unicorns-<id> NGINX_PUBLISH=<nginx_publish>
 docker compose -f docker-compose.prod.yml stop api        # ngừng ghi
 cd /root/uniedu-data && python3 -I sync_from_supabase.py <id> db \
@@ -115,11 +117,30 @@ docker exec uniedu-data-db-1 pg_restore -U postgres --clean --if-exists --no-own
 Data stack không có Studio. Chạy Studio **trên Mac**, nối về Postgres qua SSH tunnel Tailscale:
 
 ```bash
-deploy/studio-local/studio.sh up it      # http://localhost:64323  (eng: 64324, jp: 64325)
+deploy/studio-local/studio.sh up it      # http://localhost:64323  (eng: 64324, jp: 64325, physics: 64326)
 deploy/studio-local/studio.sh down
 ```
 
 Hướng dẫn đầy đủ (kiến trúc, bảo mật, giới hạn, xử lý sự cố): [supabase-studio-local.md](supabase-studio-local.md).
+
+## Thêm instance vào data stack đang chạy
+
+`initdb/` chỉ chạy khi volume Postgres còn trống, nên instance mới (vd. `physics`, 24/11/2026) phải tạo tay. Không restart `db` (đang phục vụ các instance khác):
+
+```bash
+cd /root/uniedu-data
+mkdir -p .bak-$(date +%Y%m%d-%H%M%S) && cp -a .env docker-compose.yml backup.sh initdb .bak-*/   # backup
+# 1. Thêm <ID>_PUBLIC_URL, <ID>_DB_PASSWORD, <ID>_STORAGE_JWT_SECRET, <ID>_STORAGE_ANON_KEY,
+#    <ID>_STORAGE_SERVICE_KEY vào .env (sinh như gen-env.sh: openssl rand + JWT HS256 role anon/service_role).
+# 2. Role + DB: chạy SQL tương đương create_instance_db trong initdb/10-uniedu-databases.sh
+#    (CREATE ROLE LOGIN, CREATE DATABASE OWNER, REVOKE PUBLIC, schema extensions + uuid-ossp/pgcrypto, search_path).
+# 3. Chép docker-compose.yml / backup.sh / initdb mới từ repo, rồi:
+mkdir -p volumes/storage-<id>
+docker compose up -d --no-deps storage-<id>                       # tạo network uniedu-data-<id>
+docker network connect --alias db uniedu-data-<id> uniedu-data-db-1 # gắn nóng db, không recreate
+```
+
+Lần `docker compose up -d` kế tiếp ở data stack sẽ recreate `db` (config đổi) — vài giây downtime cho mọi instance, nên chọn giờ vắng.
 
 ## Lưu ý vận hành
 

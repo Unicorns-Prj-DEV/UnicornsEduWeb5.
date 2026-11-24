@@ -2,7 +2,7 @@
  * Hồ sơ môn của instance (ADR `2026-10-07-instance-subject-profile`).
  * Mọi khoá trên một instance dùng chung bộ luật câu hỏi này.
  */
-export const LMS_PROFILES = ['it', 'jp', 'eng'] as const;
+export const LMS_PROFILES = ['it', 'jp', 'eng', 'physics'] as const;
 export type LmsProfile = (typeof LMS_PROFILES)[number];
 
 /** `equal_100`: chia đều 100 cho N câu. `absolute_it`: điểm tuyệt đối theo loại câu, đơn vị 1/100 điểm. */
@@ -43,6 +43,8 @@ export interface LmsProfileConfig {
   questionWeights: boolean;
   /** Câu tự luận chọn được kiểu ô nhập ngắn/dài (chỉ đổi giao diện làm bài). */
   essayInputSizes: boolean;
+  /** Câu tự luận đặt được giới hạn số ký tự câu trả lời (`essayMaxChars`). */
+  essayMaxChars: boolean;
   /** Ngân hàng câu hỏi có Tư liệu dùng chung (nhiều câu dựa vào một đoạn văn/ảnh). */
   sharedMaterials: boolean;
   /** Tư liệu có audio (tải lên, phát trong bài làm / ôn nhẹ / xem lại). */
@@ -65,6 +67,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: false,
     questionWeights: false,
     essayInputSizes: false,
+    essayMaxChars: false,
     sharedMaterials: false,
     questionAudio: false,
     inClassTest: false,
@@ -85,6 +88,7 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: true,
     questionWeights: true,
     essayInputSizes: true,
+    essayMaxChars: true,
     sharedMaterials: true,
     questionAudio: true,
     inClassTest: true,
@@ -99,6 +103,23 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
     questionSkills: false,
     questionWeights: false,
     essayInputSizes: false,
+    essayMaxChars: false,
+    sharedMaterials: false,
+    questionAudio: false,
+    inClassTest: true,
+    examPrint: false,
+  },
+  /** Vật lý: tạm dùng luật như ENG, chưa có tính năng LMS riêng. */
+  physics: {
+    profile: 'physics',
+    questionTypes: ['single_choice', 'essay'],
+    optionCount: OPTION_COUNT,
+    scoring: 'equal_100',
+    electiveGroups: false,
+    questionSkills: false,
+    questionWeights: false,
+    essayInputSizes: false,
+    essayMaxChars: false,
     sharedMaterials: false,
     questionAudio: false,
     inClassTest: true,

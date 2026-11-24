@@ -290,6 +290,7 @@ function AnswerArea({
         <EssayAnswerInput
           value={question.essayAnswer}
           size={question.essayInputSize}
+          maxChars={question.essayMaxChars}
           disabled={disabled}
           className="rounded-xl"
           onChange={(essayAnswer) => onChange({ essayAnswer })}

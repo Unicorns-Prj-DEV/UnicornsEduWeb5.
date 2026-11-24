@@ -209,6 +209,38 @@ describe('kiểu ô tự luận (essayInputSize)', () => {
   });
 });
 
+describe('giới hạn ký tự tự luận (essayMaxChars)', () => {
+  const ENG = lmsProfileConfig('eng');
+  it.each([1, 200, 5000])('JP nhận giới hạn %i', (n) => {
+    expect(
+      questionShapeError({ type: 'essay', essayMaxChars: n }, JP),
+    ).toBeNull();
+  });
+  it('null = không giới hạn', () => {
+    expect(
+      questionShapeError({ type: 'essay', essayMaxChars: null }, JP),
+    ).toBeNull();
+  });
+  it.each([0, -3, 5001, 1.5])('JP từ chối giới hạn %s', (n) => {
+    expect(questionShapeError({ type: 'essay', essayMaxChars: n }, JP)).toBe(
+      'Giới hạn ký tự phải là số nguyên 1–5000.',
+    );
+  });
+  it('ENG từ chối giới hạn ký tự', () => {
+    expect(questionShapeError({ type: 'essay', essayMaxChars: 100 }, ENG)).toBe(
+      'Hồ sơ ENG không có giới hạn ký tự câu tự luận.',
+    );
+  });
+  it('câu không phải tự luận không có giới hạn ký tự', () => {
+    expect(
+      questionShapeError(
+        { type: 'true_false', tfAnswerKey: [true], essayMaxChars: 10 },
+        JP,
+      ),
+    ).toBe('Chỉ câu tự luận có giới hạn ký tự.');
+  });
+});
+
 describe('questionSkillsError', () => {
   const ENG = lmsProfileConfig('eng');
   it('JP: tạo / sửa phải có ít nhất một kỹ năng', () => {

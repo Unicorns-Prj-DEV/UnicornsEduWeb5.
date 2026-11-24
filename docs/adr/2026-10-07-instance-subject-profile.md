@@ -12,7 +12,7 @@ Ba instance IT / ENG / JP chạy chung một web image và một api image (`dep
 ## Decision
 
 1. **Đơn vị quyết định luật câu hỏi là instance, không phải khoá.** Mọi khoá trên một instance dùng chung một **Hồ sơ môn** (loại câu được phép, số phương án, thang điểm, luật nhóm tự chọn). Khoá Toán THPT trên IT theo hồ sơ IT.
-2. **API là nguồn sự thật duy nhất.** API đọc `LMS_PROFILE=it|jp|eng`; validator DTO và logic chấm đọc hồ sơ từ đây. Web lấy hồ sơ qua `GET /public/app-config` (TanStack Query, `staleTime: Infinity`), không đọc env riêng.
+2. **API là nguồn sự thật duy nhất.** API đọc `LMS_PROFILE=it|jp|eng|physics`; validator DTO và logic chấm đọc hồ sơ từ đây. Web lấy hồ sơ qua `GET /public/app-config` (TanStack Query, `staleTime: Infinity`), không đọc env riêng.
 3. **Thiếu hoặc sai `LMS_PROFILE` thì API không khởi động.** Không có giá trị mặc định.
 
 ## Considered options
@@ -26,3 +26,7 @@ Ba instance IT / ENG / JP chạy chung một web image và một api image (`dep
 
 - Lên bản này phải thêm `LMS_PROFILE` vào `.env` của **cả ba** VPS trước khi CD chạy, nếu không API của instance đó không lên.
 - Muốn một khoá trên IT dùng luật khác IT thì phải đảo ADR này (chuyển hồ sơ xuống `Course`).
+
+## Bổ sung 24/11/2026 — hồ sơ `physics`
+
+Thêm instance Vật lý với `LMS_PROFILE=physics`. Chưa có tính năng LMS riêng: cờ hồ sơ giống hệt `eng` (trắc nghiệm một đáp án + tự luận, điểm chia đều 100, kiểm tra trên lớp). Chữ ký nhận xét Zalo: "— Gia sư UniEdu Vật lý". Khi Vật lý cần luật riêng thì chỉ sửa `PROFILE_CONFIGS.physics` trong `apps/api/src/lms-profile/lms-profile.ts`.

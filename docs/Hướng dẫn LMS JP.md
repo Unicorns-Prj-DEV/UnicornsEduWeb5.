@@ -28,7 +28,7 @@ Mọi câu hỏi thuộc **một khoá**, gắn **một chuyên đề** và **m�
 | **Đúng/Sai** | Chọn 1 trong 2 nhãn | Tự động | Chọn kiểu nhãn: `○ / ×` (mặc định), `Đúng / Sai`, `True / False` |
 | **Điền vào ô trống** | Gõ chữ vào từng ô 【1】【2】… | Tự động, **từng ô** (đúng 1/2 ô → được nửa điểm câu) | Mỗi ô có thể có **nhiều đáp án hợp lệ** (vd `で` / `では`) |
 | **Sắp xếp** | Chạm thẻ để xếp theo thứ tự (kéo để đổi chỗ) | Tự động, đúng cả câu mới có điểm | 2–12 thẻ, nhập **đúng thứ tự** — hệ thống tự xáo khi giao |
-| **Tự luận** | Gõ câu trả lời (ô ngắn hoặc ô dài) | **Gia sư chấm tay** | Có ô **Hướng dẫn / barem** cho người chấm |
+| **Tự luận** | Gõ câu trả lời (có bộ đếm nếu gia sư đặt giới hạn ký tự) | **Gia sư chấm tay** | Tuỳ chọn **Giới hạn ký tự**; có ô **Hướng dẫn / barem** cho người chấm |
 
 **Kỹ năng** (bắt buộc chọn ≥ 1): Kanji · Từ vựng · Ngữ pháp · Đọc hiểu · Nghe hiểu · Hội thoại · Viết câu. Dùng để lọc ngân hàng câu.
 
@@ -45,7 +45,7 @@ Mọi câu hỏi thuộc **một khoá**, gắn **một chuyên đề** và **m�
    - **Đúng/Sai:** nội dung là *một nhận định*; chọn đáp án và **kiểu nhãn**.
    - **Điền vào ô trống:** đặt con trỏ tại chỗ cần trống → bấm **Chèn ô trống** (hoặc gõ `[[___]]`). Ô được chèn **đúng tại con trỏ**; chèn ô vào giữa thì đáp án các ô sau **tự dời theo**, không phải nhập lại. Mỗi ô xuất hiện một khung đáp án; bấm **+ Thêm đáp án hợp lệ** để thêm cách viết khác. So khớp bỏ khoảng trắng đầu/cuối.
    - **Sắp xếp:** nhập từng thẻ theo **đúng thứ tự** (vd `わたしは` / `バスで` / `がっこうへ` / `いきます`).
-   - **Tự luận:** chọn **Ô ngắn (một dòng)** hoặc **Ô dài (nhiều dòng)**; nhập hướng dẫn chấm.
+   - **Tự luận:** (tuỳ chọn) nhập **Giới hạn ký tự** (1–5000; để trống = không giới hạn) — học sinh không gõ quá số này; nhập hướng dẫn chấm.
 4. (Tuỳ chọn) **Giải thích** — học sinh thấy sau khi nộp.
 5. Bấm **Lưu**. Thiếu trường nào, toast báo đúng trường đó ("Chọn chuyên đề", "Chọn độ khó", "Nhập nội dung câu hỏi", "Ô 2 cần ít nhất một đáp án"…).
 
@@ -111,7 +111,7 @@ Dùng khi nhiều câu cùng dựa trên **một đoạn văn, ảnh hoặc file
   - Trắc nghiệm / Đúng-Sai: bấm chọn.
   - Điền ô trống: gõ vào từng ô 【n】.
   - Sắp xếp: **chạm thẻ** để đưa lên dòng trả lời, **chạm lại** để gỡ, **kéo** để đổi chỗ, **Xếp lại** để làm lại từ đầu.
-  - Tự luận: gõ vào ô.
+  - Tự luận: gõ vào ô. Câu có giới hạn ký tự hiện bộ đếm `n/N ký tự` dưới ô, gõ tới N thì ô không nhận thêm (dán đoạn dài bị cắt ở N).
 - **Bài nghe**: nút ▶ + dòng “Còn 2/2 lượt nghe · không tua được”. Mỗi lần bấm nghe trừ 1 lượt (tính ở server, tải lại trang không hồi lượt). Hết lượt → “Đã hết lượt nghe”, nút khoá. Mỗi **lượt làm bài mới** có lại đủ số lần nghe.
 - **Nộp bài** → màn **Xem lại trước khi nộp** (số câu đã làm / chưa làm / quay lại) → **Xác nhận nộp bài**.
 - Sau nộp: điểm ngay phần tự động (“Trắc nghiệm: 78 · Tự luận: đang chờ chấm”), từng câu hiện điểm, đáp án đúng, thứ tự đúng (câu sắp xếp), đáp án hợp lệ từng ô, giải thích.

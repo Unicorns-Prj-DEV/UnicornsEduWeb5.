@@ -63,7 +63,8 @@ Prompt dựng sẵn có mục **CẤU TRÚC BẮT BUỘC** với ví dụ ĐÚNG
 | `tfAnswerKey` | có | `true_false_group`, `true_false` | `true_false_group`: đúng 4 boolean (`true` = Đúng); `true_false`: đúng 1 boolean. Loại khác gửi `tfAnswerKey` → lỗi |
 | `tfLabelStyle` | không | chỉ `true_false` | `"maru_batsu"` (○/×, mặc định) \| `"dung_sai"` \| `"true_false"` |
 | `blankAnswerKey` | có | chỉ `fill_blank` | mảng, mỗi phần tử là mảng đáp án chấp nhận của một ô theo thứ tự `[[___]]`, vd `[["七時","7時"],["十一時"]]`; số phần tử = số ô; mỗi ô 1–10 đáp án không rỗng ≤ 200 ký tự |
-| `essayInputSize` | không | chỉ `essay` (hồ sơ có `essayInputSizes`) | `"short"` (ô một dòng) \| `"long"` (ô nhiều dòng, mặc định) |
+| `essayMaxChars` | không | chỉ `essay` (hồ sơ có `essayMaxChars`) | số nguyên 1–5000 = số ký tự tối đa của câu trả lời; bỏ = không giới hạn. Màn soát sửa được |
+| `essayInputSize` | không | chỉ `essay` (cũ, prompt không còn nhắc) | `"short"` \| `"long"` — vẫn nhận để tương thích JSON cũ |
 | `explanation` | không | mọi loại trừ `essay` | chuỗi |
 | `answerGuide` | không | chỉ `essay` | chuỗi, dùng làm barem cho gia sư chấm |
 | `difficulty` | có | mọi câu | khớp tuyệt đối một giá trị trong `difficulty_levels` của khoá |

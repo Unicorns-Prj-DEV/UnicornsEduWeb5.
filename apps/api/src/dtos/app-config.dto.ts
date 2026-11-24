@@ -18,7 +18,7 @@ class OptionCountDto {
 }
 
 export class AppConfigResponseDto implements LmsProfileConfig {
-  @ApiProperty({ enum: ['it', 'jp', 'eng'], example: 'it' })
+  @ApiProperty({ enum: ['it', 'jp', 'eng', 'physics'], example: 'it' })
   profile!: LmsProfile;
 
   @ApiProperty({
@@ -63,6 +63,11 @@ export class AppConfigResponseDto implements LmsProfileConfig {
     description: 'Câu tự luận chọn được kiểu ô ngắn/dài (JP)',
   })
   essayInputSizes!: boolean;
+
+  @ApiProperty({
+    description: 'Câu tự luận đặt được giới hạn số ký tự câu trả lời (JP)',
+  })
+  essayMaxChars!: boolean;
 
   @ApiProperty({
     description:

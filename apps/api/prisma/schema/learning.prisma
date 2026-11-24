@@ -691,8 +691,10 @@ model Question {
   answerGuide       String? // for essay type – optional guide text (HTML)
   /// Kỹ năng (chỉ hồ sơ JP, chọn nhiều). Câu cũ được phép rỗng.
   skills            QuestionSkill[]      @default([])
-  /// Kiểu ô nhập câu tự luận (hồ sơ JP). null = ô dài (câu cũ). Không ảnh hưởng chấm.
+  /// Kiểu ô nhập câu tự luận (hồ sơ JP, cũ — form mới dùng `essayMaxChars`). null = ô dài. Không ảnh hưởng chấm.
   essayInputSize    EssayInputSize?      @map("essay_input_size")
+  /// Giới hạn số ký tự câu trả lời tự luận (hồ sơ JP). null = không giới hạn. Không ảnh hưởng chấm.
+  essayMaxChars     Int?                 @map("essay_max_chars")
   /// Kiểu nhãn Câu Đúng/Sai (JP). null = ○/×.
   tfLabelStyle      TrueFalseLabelStyle? @map("tf_label_style")
   /// Câu điền vào ô trống: đáp án hợp lệ từng ô `string[][]` (thứ tự ô trong `content`).
@@ -851,6 +853,8 @@ model AttemptAnswer {
   answerGuide           String?              @map("answer_guide") @db.Text
   /// Snapshot kiểu ô tự luận lúc start (null = ô dài).
   essayInputSize        EssayInputSize?      @map("essay_input_size")
+  /// Snapshot giới hạn ký tự câu tự luận lúc start (null = không giới hạn).
+  essayMaxChars         Int?                 @map("essay_max_chars")
   /// Snapshot kiểu nhãn Câu Đúng/Sai lúc start.
   tfLabelStyle          TrueFalseLabelStyle? @map("tf_label_style")
   difficultyLabel       String               @map("difficulty_label")
