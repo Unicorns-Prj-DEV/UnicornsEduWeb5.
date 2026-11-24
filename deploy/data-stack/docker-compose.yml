@@ -1,10 +1,10 @@
 # deploy/data-stack/docker-compose.yml
 #
-# Supabase tối giản self-host cho 3 instance IT / ENG / JP trên cùng VPS:
-#   - 1 Postgres server, 3 database: uniedu_it, uniedu_eng, uniedu_jp
-#   - 3 Supabase Storage API (file backend), mỗi instance một container + volume
+# Supabase tối giản self-host cho 4 instance IT / ENG / JP / PHYSICS trên cùng VPS:
+#   - 1 Postgres server, 4 database: uniedu_it, uniedu_eng, uniedu_jp, uniedu_physics
+#   - 4 Supabase Storage API (file backend), mỗi instance một container + volume
 #
-# Mỗi instance có một network riêng `uniedu-data-<id>`. Postgres gắn cả 3 với alias `db`;
+# Mỗi instance có một network riêng `uniedu-data-<id>`. Postgres gắn tất cả với alias `db`;
 # storage của instance chỉ gắn network của nó với alias `storage`. Compose app
 # (`docker-compose.prod.yml`) cho `api` + `nginx` join `${DATA_NETWORK}`, nên mọi instance
 # dùng chung hostname `db` / `storage` mà vẫn cô lập storage giữa các instance.
@@ -52,6 +52,7 @@ services:
       IT_DB_PASSWORD: ${IT_DB_PASSWORD:?set IT_DB_PASSWORD}
       ENG_DB_PASSWORD: ${ENG_DB_PASSWORD:?set ENG_DB_PASSWORD}
       JP_DB_PASSWORD: ${JP_DB_PASSWORD:?set JP_DB_PASSWORD}
+      PHYSICS_DB_PASSWORD: ${PHYSICS_DB_PASSWORD:?set PHYSICS_DB_PASSWORD}
     command:
       - postgres
       - -c
@@ -85,6 +86,8 @@ services:
       eng:
         aliases: [db]
       jp:
+        aliases: [db]
+      physics:
         aliases: [db]
       admin: {}
 
@@ -142,6 +145,24 @@ services:
         aliases: [storage]
       admin: {}
 
+  storage-physics:
+    <<: *storage-common
+    environment:
+      <<: *storage-env
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/uniedu_physics
+      AUTH_JWT_SECRET: ${PHYSICS_STORAGE_JWT_SECRET:?set PHYSICS_STORAGE_JWT_SECRET}
+      ANON_KEY: ${PHYSICS_STORAGE_ANON_KEY:?set PHYSICS_STORAGE_ANON_KEY}
+      SERVICE_KEY: ${PHYSICS_STORAGE_SERVICE_KEY:?set PHYSICS_STORAGE_SERVICE_KEY}
+      STORAGE_PUBLIC_URL: ${PHYSICS_PUBLIC_URL}/storage/v1
+    volumes:
+      - ./volumes/storage-physics:/var/lib/storage
+    ports:
+      - "127.0.0.1:55004:5000"
+    networks:
+      physics:
+        aliases: [storage]
+      admin: {}
+
 # Network instance: internal (không gateway) → container app join vào vẫn đi Internet qua
 # app-net của nó. `admin` là bridge thường, chỉ để publish port loopback cho ops.
 networks:
@@ -153,6 +174,9 @@ networks:
     internal: true
   jp:
     name: uniedu-data-jp
+    internal: true
+  physics:
+    name: uniedu-data-physics
     internal: true
   admin:
     name: uniedu-data-admin

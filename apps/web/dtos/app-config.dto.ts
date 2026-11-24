@@ -1,5 +1,5 @@
 /** Hồ sơ môn của instance — `GET /public/app-config`. */
-export type LmsProfile = "it" | "jp" | "eng";
+export type LmsProfile = "it" | "jp" | "eng" | "physics";
 
 /**
  * `equal_100`: chia đều 100 cho N câu.

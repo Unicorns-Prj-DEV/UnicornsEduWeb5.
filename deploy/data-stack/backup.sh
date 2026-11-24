@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 TS="$(date +%Y%m%d-%H%M%S)"
 mkdir -p backups/daily
 
-for id in it eng jp; do
+for id in it eng jp physics; do
   docker exec uniedu-data-db-1 pg_dump -U postgres --format=custom \
     --file "/backups/daily/uniedu_${id}-${TS}.dump" "uniedu_${id}"
   tar -C volumes -czf "backups/daily/storage-${id}-${TS}.tar.gz" "storage-${id}"

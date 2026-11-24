@@ -21,6 +21,15 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Instance Physics (Vật lý) (24/11)
+
+#### Added
+
+- **Hồ sơ môn `physics`:** `LMS_PROFILE=physics`, cờ giống hệt `eng` (chưa có tính năng LMS riêng); app-config enum + `LmsProfile` web thêm `physics`; chữ ký nhận xét Zalo "— Gia sư UniEdu Vật lý".
+- **Instance thứ tư trên VPS:** `deploy/instances.json` thêm `physics` (`/root/UnicornsEduPhysics`, `unicorns-physics`, `127.0.0.1:8082`); `.env.production.physics.example`.
+- **Data stack:** DB `uniedu_physics`, `storage-physics` (`127.0.0.1:55004`), network `uniedu-data-physics`; `gen-env.sh` nhận 4 URL, `backup.sh` dump thêm physics; Studio local `studio.sh up physics` (cổng 64326).
+- **Docs:** runbook Phần F (bootstrap Physics) + checklist; `vps-local-supabase.md` mục thêm instance vào data stack đang chạy; bổ sung ADR hồ sơ môn.
+
 ### LMS JP — Giới hạn ký tự câu tự luận (23/11)
 
 #### Added

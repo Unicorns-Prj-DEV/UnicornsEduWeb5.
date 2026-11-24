@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sinh .env cho data stack: mật khẩu Postgres, JWT secret + anon/service key (HS256)
 # cho từng storage. Không ghi đè .env đã có.
-#   ./gen-env.sh https://it.uniedu.vn https://eng.uniedu.vn https://jp.uniedu.vn
+#   ./gen-env.sh https://it.uniedu.vn https://eng.uniedu.vn https://jp.uniedu.vn https://physics.uniedu.vn
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -9,8 +9,8 @@ if [ -e .env ]; then
   echo ".env đã tồn tại — không ghi đè." >&2
   exit 1
 fi
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <it-public-url> <eng-public-url> <jp-public-url>" >&2
+if [ "$#" -ne 4 ]; then
+  echo "Usage: $0 <it-public-url> <eng-public-url> <jp-public-url> <physics-public-url>" >&2
   exit 1
 fi
 
@@ -33,7 +33,7 @@ umask 077
 {
   echo "POSTGRES_PASSWORD=$(rand_hex 24)"
   i=1
-  for id in IT ENG JP; do
+  for id in IT ENG JP PHYSICS; do
     secret="$(rand_hex 32)"
     echo
     echo "${id}_PUBLIC_URL=${!i}"

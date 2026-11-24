@@ -30,3 +30,4 @@ SQL
 create_instance_db it "${IT_DB_PASSWORD:?}"
 create_instance_db eng "${ENG_DB_PASSWORD:?}"
 create_instance_db jp "${JP_DB_PASSWORD:?}"
+create_instance_db physics "${PHYSICS_DB_PASSWORD:?}"

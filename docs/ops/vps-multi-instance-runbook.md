@@ -1,6 +1,6 @@
-# Runbook: Multi-instance VPS (IT + ENG + JP trên cùng máy)
+# Runbook: Multi-instance VPS (IT + ENG + JP + Physics trên cùng máy)
 
-Triển khai **nhiều bản UnicornsEduWeb5** độc lập trên **một VPS**: **IT**, **ENG** (Tiếng Anh), **JP** (Tiếng Nhật). Mỗi instance có database riêng, domain Cloudflare riêng, cổng loopback Nginx riêng; **dùng chung image `unicorns-api:latest` và `unicorns-web:latest`**. Web gọi API qua same-origin `/api` nên một web image phục vụ mọi domain.
+Triển khai **nhiều bản UnicornsEduWeb5** độc lập trên **một VPS**: **IT**, **ENG** (Tiếng Anh), **JP** (Tiếng Nhật), **Physics** (Vật lý). Mỗi instance có database riêng, domain Cloudflare riêng, cổng loopback Nginx riêng; **dùng chung image `unicorns-api:latest` và `unicorns-web:latest`**. Web gọi API qua same-origin `/api` nên một web image phục vụ mọi domain.
 
 ## Tổng quan kiến trúc
 
@@ -9,7 +9,7 @@ GitHub push main
     │
     ├─ build-api  ──► unicorns-api:latest
     ├─ build-web  ──► unicorns-web:latest  (NEXT_PUBLIC_BACKEND_URL=/api)
-    └─ deploy     ──► SSH: it → eng → jp (tuần tự, chỉ instance enabled)
+    └─ deploy     ──► SSH: it → eng → jp → physics (tuần tự, chỉ instance enabled)
 ```
 
 | Instance | Thư mục VPS | Compose project | Nginx loopback | Domain ví dụ |
@@ -17,20 +17,22 @@ GitHub push main
 | `it` | `/root/UnicornsEdu` | `unicorns-it` | `127.0.0.1:80` | `it.unicornsedu.com` |
 | `eng` | `/root/UnicornsEduEng` | `unicorns-eng` | `127.0.0.1:8080` | `eng.unicornsedu.com` |
 | `jp` | `/root/UnicornsEduJP` | `unicorns-jp` | `127.0.0.1:8081` | `jp.unicornsedu.com` |
+| `physics` | `/root/UnicornsEduPhysics` | `unicorns-physics` | `127.0.0.1:8082` | `physics.uniedu.vn` |
 
 **Khác nhau giữa các instance:** chỉ `.env` runtime (DB, `LMS_PROFILE`, `FRONTEND_URL`, `BACKEND_URL`, JWT, SePay, …) — **không** build web image riêng.
 
 ### `LMS_PROFILE` — bắt buộc trên mọi instance
 
-API đọc **Hồ sơ môn** từ `LMS_PROFILE` (`it` | `jp` | `eng`); thiếu hoặc sai thì API **không khởi động** (ADR [`2026-10-07-instance-subject-profile`](../adr/2026-10-07-instance-subject-profile.md)). Web lấy hồ sơ qua `GET /api/public/app-config`.
+API đọc **Hồ sơ môn** từ `LMS_PROFILE` (`it` | `jp` | `eng` | `physics`); thiếu hoặc sai thì API **không khởi động** (ADR [`2026-10-07-instance-subject-profile`](../adr/2026-10-07-instance-subject-profile.md)). Web lấy hồ sơ qua `GET /api/public/app-config`.
 
 | Instance | `LMS_PROFILE` |
 |---|---|
 | `it` | `it` |
 | `eng` | `eng` |
 | `jp` | `jp` |
+| `physics` | `physics` (luật như `eng`, chưa có tính năng riêng) |
 
-Lần đầu lên bản có biến này: thêm `LMS_PROFILE` vào `.env` của **cả ba** VPS **trước** khi merge vào `main` (CD). Sau deploy kiểm tra `curl -s https://<domain>/api/public/app-config`.
+Lần đầu lên bản có biến này: thêm `LMS_PROFILE` vào `.env` của **mọi** instance **trước** khi merge vào `main` (CD). Sau deploy kiểm tra `curl -s https://<domain>/api/public/app-config`.
 
 Registry: [`deploy/instances.json`](../../deploy/instances.json). Tắt instance tạm thời: `"enabled": false`.
 
@@ -45,7 +47,7 @@ Registry: [`deploy/instances.json`](../../deploy/instances.json). Tắt instance
 
 **Không cần** secret build theo từng domain — web build một lần với `/api`.
 
-Bật CD cho instance mới: bootstrap VPS (Phần B/C/E) → `"enabled": true` trong `deploy/instances.json` → push `main`.
+Bật CD cho instance mới: bootstrap VPS (Phần B/C/E/F) → `"enabled": true` trong `deploy/instances.json` → push `main`.
 
 ---
 
@@ -132,7 +134,7 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate
 
 ## Phần D — CD tự động
 
-Push `main` → build **một** web image → deploy tuần tự các instance `enabled` trong `deploy/instances.json` (thứ tự: `it` → `eng` → `jp`).
+Push `main` → build **một** web image → deploy tuần tự các instance `enabled` trong `deploy/instances.json` (thứ tự: `it` → `eng` → `jp` → `physics`).
 
 Migration: CD tự `prisma migrate deploy` trên từng instance (cần `DIRECT_URL` trong `.env` khi `DATABASE_URL` là pooler). Chạy tay khi bootstrap hoặc debug: `pnpm --filter api db:deploy` / `prisma migrate deploy` trong container.
 
@@ -209,6 +211,21 @@ curl -fsS https://jp.unicornsedu.com/api/
 
 ---
 
+## Phần F — Bootstrap instance `physics` (Vật lý)
+
+Làm như JP; thư mục **`/root/UnicornsEduPhysics`**, cổng loopback **`8082`**, domain **`physics.uniedu.vn`**. Đã bootstrap 24/11/2026.
+
+1. **Data stack:** DB `uniedu_physics` + `storage-physics` (`127.0.0.1:55004`) + network `uniedu-data-physics` — thêm vào stack đang chạy theo [vps-local-supabase.md § Thêm instance](vps-local-supabase.md#thêm-instance-vào-data-stack-đang-chạy).
+2. **Clone:** `git clone <repo> /root/UnicornsEduPhysics && git checkout main`.
+3. **`.env`:** từ [`.env.production.physics.example`](../../.env.production.physics.example) (hoặc copy `.env` JP rồi đổi): `LMS_PROFILE=physics`, `DATA_NETWORK`, `DATABASE_URL`/`DIRECT_URL` role `uniedu_physics` (`PHYSICS_DB_PASSWORD`), `SUPABASE_SERVICE_ROLE_KEY` = `PHYSICS_STORAGE_SERVICE_KEY`, các URL domain physics, **JWT secrets mới**, `COMPOSE_PROJECT_NAME=unicorns-physics`, `NGINX_PUBLISH=127.0.0.1:8082:80`. Riêng theo instance, để trống tới khi có: `GOOGLE_CALENDAR_ID` (trống → lịch `primary` của tài khoản Google chung), `SEPAY_TRANSFER_ACCOUNT_*` (trống → nạp ví báo chưa cấu hình).
+4. **Migrate:** `docker compose -f docker-compose.prod.yml run --rm --no-deps api npx prisma migrate deploy`.
+5. **Cloudflare (làm trên dashboard):** hostname `physics.uniedu.vn` → `http://localhost:8082`; thêm redirect URI `https://physics.uniedu.vn/api/auth/google/callback` vào Google OAuth client.
+6. **Chạy:** image phải có hồ sơ `physics` (API fail-fast với `LMS_PROFILE` lạ) → `"enabled": true` trong `deploy/instances.json` rồi push `main`; CD build image trước, deploy sau. Smoke: `curl -fsS http://127.0.0.1:8082/nginx-health`, `curl -s https://physics.uniedu.vn/api/public/app-config` (→ `"profile":"physics"`).
+
+**RAM:** VPS 3,3G; mỗi instance ~300–400MB. Sau khi có Physics, theo dõi `free -m` / `docker stats`; cân nhắc `mem_limit` cho api/web.
+
+---
+
 ## Checklist
 
 ### ENG
@@ -229,13 +246,23 @@ curl -fsS https://jp.unicornsedu.com/api/
 - [ ] `"enabled": true` cho `jp` trong `deploy/instances.json`
 - [ ] Push `main` → verify domain JP
 
+### Physics
+
+- [x] Database `uniedu_physics` + storage-physics + network `uniedu-data-physics`
+- [x] Clone `/root/UnicornsEduPhysics` + `.env` (`LMS_PROFILE=physics`, JWT mới)
+- [x] Migrate DB Physics
+- [x] Cloudflare `physics.uniedu.vn` → `http://localhost:8082` + Google OAuth redirect URI
+- [x] `"enabled": true` cho `physics` trong `deploy/instances.json`
+- [ ] Push `main` → verify `https://physics.uniedu.vn/api/public/app-config`
+
 ---
 
 ## Tài liệu liên quan
 
-- [vps-local-supabase.md](vps-local-supabase.md) — Postgres + Storage self-host cho cả ba instance
+- [vps-local-supabase.md](vps-local-supabase.md) — Postgres + Storage self-host cho mọi instance
 - [`docs/Cách làm việc.md`](../Cách%20làm%20việc.md)
 - [`deploy/instances.json`](../../deploy/instances.json)
 - [`.env.production.example`](../../.env.production.example)
 - [`.env.production.eng.example`](../../.env.production.eng.example)
 - [`.env.production.jp.example`](../../.env.production.jp.example)
+- [`.env.production.physics.example`](../../.env.production.physics.example)

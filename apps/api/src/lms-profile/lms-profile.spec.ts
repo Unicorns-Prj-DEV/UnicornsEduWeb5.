@@ -1,7 +1,7 @@
 import { loadLmsProfile } from './lms-profile';
 
 describe('loadLmsProfile', () => {
-  it.each(['it', 'jp', 'eng', ' IT '])('chấp nhận %p', (value) => {
+  it.each(['it', 'jp', 'eng', 'physics', ' IT '])('chấp nhận %p', (value) => {
     expect(loadLmsProfile({ LMS_PROFILE: value }).profile).toBe(
       value.trim().toLowerCase(),
     );

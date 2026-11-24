@@ -2,7 +2,7 @@
  * Hồ sơ môn của instance (ADR `2026-10-07-instance-subject-profile`).
  * Mọi khoá trên một instance dùng chung bộ luật câu hỏi này.
  */
-export const LMS_PROFILES = ['it', 'jp', 'eng'] as const;
+export const LMS_PROFILES = ['it', 'jp', 'eng', 'physics'] as const;
 export type LmsProfile = (typeof LMS_PROFILES)[number];
 
 /** `equal_100`: chia đều 100 cho N câu. `absolute_it`: điểm tuyệt đối theo loại câu, đơn vị 1/100 điểm. */
@@ -96,6 +96,22 @@ const PROFILE_CONFIGS: Record<LmsProfile, LmsProfileConfig> = {
   },
   eng: {
     profile: 'eng',
+    questionTypes: ['single_choice', 'essay'],
+    optionCount: OPTION_COUNT,
+    scoring: 'equal_100',
+    electiveGroups: false,
+    questionSkills: false,
+    questionWeights: false,
+    essayInputSizes: false,
+    essayMaxChars: false,
+    sharedMaterials: false,
+    questionAudio: false,
+    inClassTest: true,
+    examPrint: false,
+  },
+  /** Vật lý: tạm dùng luật như ENG, chưa có tính năng LMS riêng. */
+  physics: {
+    profile: 'physics',
     questionTypes: ['single_choice', 'essay'],
     optionCount: OPTION_COUNT,
     scoring: 'equal_100',

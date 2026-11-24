@@ -18,7 +18,7 @@ class OptionCountDto {
 }
 
 export class AppConfigResponseDto implements LmsProfileConfig {
-  @ApiProperty({ enum: ['it', 'jp', 'eng'], example: 'it' })
+  @ApiProperty({ enum: ['it', 'jp', 'eng', 'physics'], example: 'it' })
   profile!: LmsProfile;
 
   @ApiProperty({

@@ -486,6 +486,7 @@ const REVIEW_SIGNATURE_BY_PROFILE: Record<LmsProfile, string> = {
   it: "— Gia sư UniEdu Tin học",
   jp: "— Gia sư UniEdu Tiếng Nhật",
   eng: "— Gia sư UniEdu Tiếng Anh",
+  physics: "— Gia sư UniEdu Vật lý",
 };
 /** App-config chưa tải xong → chữ ký chung, không đoán môn. */
 const REVIEW_SIGNATURE_FALLBACK = "— Gia sư UniEdu";
