@@ -211,6 +211,24 @@ export class QuestionService {
     ) {
       throw new BadRequestException('Đổi bộ của câu qua chuyển vào / ra bộ.');
     }
+    if (dto.moduleId !== undefined && dto.moduleId !== existing.moduleId) {
+      // Bộ thuộc đúng một chuyên đề — câu trong bộ đổi chuyên đề theo bộ.
+      if (existing.sharedMaterialId) {
+        throw new BadRequestException(
+          'Câu trong bộ theo chuyên đề của bộ — đổi chuyên đề ở form bộ.',
+        );
+      }
+      await this.assertModuleBelongsToCourse(dto.moduleId, existing.courseId);
+    }
+    if (
+      dto.difficultyLevelId !== undefined &&
+      dto.difficultyLevelId !== existing.difficultyLevelId
+    ) {
+      await this.assertDifficultyBelongsToCourse(
+        dto.difficultyLevelId,
+        existing.courseId,
+      );
+    }
     if (dto.audioId !== existing.audioId) {
       await assertAudioAttachable(
         this.prisma,

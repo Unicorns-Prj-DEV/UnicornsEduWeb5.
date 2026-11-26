@@ -339,6 +339,64 @@ describe('QuestionService', () => {
       expect(mockPrisma.question.update).toHaveBeenCalledTimes(1);
     });
 
+    describe('đổi chuyên đề / độ khó', () => {
+      const loose = {
+        id: 'q1',
+        courseId: 'c1',
+        moduleId: 'm-kanji',
+        difficultyLevelId: 'd1',
+        sharedMaterialId: null,
+        audioId: null,
+        type: QuestionTypeDto.single_choice,
+        options: ['A', 'B'],
+        correctIndex: 0,
+        skills: [QuestionSkillDto.grammar],
+        deletedAt: null,
+      };
+
+      it('lưu moduleId + difficultyLevelId mới (câu lẻ)', async () => {
+        mockPrisma.question.findUnique.mockResolvedValue(loose);
+        mockPrisma.question.update.mockResolvedValue(loose);
+
+        await service.update(
+          'q1',
+          { moduleId: 'm-vocab', difficultyLevelId: 'd2' },
+          actor,
+        );
+        expect(mockPrisma.module.findUnique).toHaveBeenCalledWith(
+          contains({ where: { id: 'm-vocab' } }),
+        );
+        expect(
+          mockPrisma.courseDifficultyLevel.findUnique,
+        ).toHaveBeenCalledWith(contains({ where: { id: 'd2' } }));
+        expect(mockPrisma.question.update).toHaveBeenCalledWith(
+          contains({
+            data: contains({ moduleId: 'm-vocab', difficultyLevelId: 'd2' }),
+          }),
+        );
+      });
+
+      it('chặn chuyên đề khác khoá', async () => {
+        mockPrisma.question.findUnique.mockResolvedValue(loose);
+        mockPrisma.module.findUnique.mockResolvedValue({ courseId: 'c2' });
+        await expect(
+          service.update('q1', { moduleId: 'm-other' }, actor),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.question.update).not.toHaveBeenCalled();
+      });
+
+      it('câu trong bộ: chặn đổi chuyên đề, giữ nguyên thì cho qua', async () => {
+        const inSet = { ...loose, sharedMaterialId: 'set1' };
+        mockPrisma.question.findUnique.mockResolvedValue(inSet);
+        mockPrisma.question.update.mockResolvedValue(inSet);
+        await expect(
+          service.update('q1', { moduleId: 'm-vocab' }, actor),
+        ).rejects.toThrow('đổi chuyên đề ở form bộ');
+        await service.update('q1', { moduleId: 'm-kanji' }, actor);
+        expect(mockPrisma.question.update).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it('throws NotFoundException for missing question', async () => {
       mockPrisma.question.findUnique.mockResolvedValue(null);
       await expect(service.update('nonexistent', {}, actor)).rejects.toThrow(
