@@ -1,7 +1,12 @@
-import { Node, mergeAttributes, type Editor, type JSONContent } from "@tiptap/react";
+import { Mark, Node, mergeAttributes, type Editor, type JSONContent } from "@tiptap/react";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { TableKit } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
+import {
+  TEXT_COLOR_ATTR,
+  isTextColorKey,
+  type TextColorKey,
+} from "@/dtos/rich-text-color.dto";
 
 /**
  * Hai khối code đặt cạnh nhau (đề Tin: cùng thuật toán viết Python | C++).
@@ -128,11 +133,58 @@ const RichImage = Image.extend({
   },
 });
 
-/** Bảng, ảnh, code song song — ghép thêm sau StarterKit + Mathematics. */
+/**
+ * Màu chữ theo bảng cố định: `<span data-text-color="red">` (xem
+ * `dtos/rich-text-color.dto.ts`). Key lạ (dán từ nơi khác, sửa tay) bị bỏ
+ * mark, giữ chữ — không để lọt giá trị mà CSS không tô được.
+ */
+export const TextColor = Mark.create({
+  name: "textColor",
+
+  addAttributes() {
+    return {
+      color: {
+        default: null,
+        parseHTML: (el) => el.getAttribute(TEXT_COLOR_ATTR),
+        renderHTML: (attrs) => ({ [TEXT_COLOR_ATTR]: attrs.color }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: `span[${TEXT_COLOR_ATTR}]`,
+        getAttrs: (el) => (isTextColorKey(el.getAttribute(TEXT_COLOR_ATTR)) ? null : false),
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["span", mergeAttributes(HTMLAttributes), 0];
+  },
+});
+
+/** Màu đang áp tại vùng chọn / con trỏ; null = màu mặc định. */
+export function activeTextColor(editor: Editor): TextColorKey | null {
+  const color: unknown = editor.getAttributes(TextColor.name).color;
+  return isTextColorKey(color) ? color : null;
+}
+
+/** `null` = bỏ màu (về màu chữ mặc định của theme). */
+export function applyTextColor(editor: Editor, color: TextColorKey | null) {
+  const chain = editor.chain().focus();
+  if (color) chain.setMark(TextColor.name, { color });
+  else chain.unsetMark(TextColor.name);
+  chain.run();
+}
+
+/** Bảng, ảnh, code song song, màu chữ — ghép thêm sau StarterKit + Mathematics. */
 export const RICH_TEXT_EXTENSIONS = [
   TableKit.configure({ table: { resizable: false } }),
   RichImage.configure({ inline: false, allowBase64: false }),
   CodeParallel,
+  TextColor,
 ];
 
 /** Chỉ nhận ảnh qua http(s); chặn `javascript:`/`data:`. */

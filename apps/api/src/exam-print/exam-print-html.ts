@@ -315,6 +315,12 @@ img{max-width:100%;height:auto}
 .content ul,.content ol{margin:0 0 2pt;padding-left:20pt}
 .content table{border-collapse:collapse;margin:3pt 0}
 .content td,.content th{border:1px solid #000;padding:2pt 5pt;vertical-align:top}
+.content [data-text-color=red]{color:#C00000}
+.content [data-text-color=blue]{color:#0B3D91}
+.content [data-text-color=green]{color:#00703C}
+.content [data-text-color=orange]{color:#B85400}
+.content [data-text-color=purple]{color:#6B2C91}
+.content [data-text-color] .katex{color:inherit}
 .hdr{width:100%;border-collapse:collapse;margin-bottom:6pt}
 .hdr td{vertical-align:top;text-align:center;padding:0 2pt}
 .hdr-left{width:40%}

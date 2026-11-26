@@ -57,6 +57,13 @@
   --ue-viz-8: #E34948;
   --ue-viz-9: #0D9488;
   --ue-viz-10: #9A5B2E;
+
+  /* Màu chữ rich text (`data-text-color`, dtos/rich-text-color.dto.ts) */
+  --ue-text-color-red: #DC2626;
+  --ue-text-color-blue: #1D4ED8;
+  --ue-text-color-green: #15803D;
+  --ue-text-color-orange: #C2410C;
+  --ue-text-color-purple: #7E22CE;
 }
 
 [data-theme="dark"] {
@@ -102,6 +109,12 @@
   --ue-viz-8: #E66767;
   --ue-viz-9: #2DD4BF;
   --ue-viz-10: #D4935F;
+
+  --ue-text-color-red: #F87171;
+  --ue-text-color-blue: #60A5FA;
+  --ue-text-color-green: #4ADE80;
+  --ue-text-color-orange: #FB923C;
+  --ue-text-color-purple: #C084FC;
 }
 
 /* Hoa anh đào / Hana — tông hồng, điểm nhấn rose */
@@ -404,6 +417,14 @@
   color: var(--ue-text-muted);
   opacity: 0.7;
 }
+/* Màu chữ theo bảng cố định — HTML không mang `style` (sanitizer chặn). Công
+   thức KaTeX trong vùng tô màu cũng đổi màu theo (đè `[&_.katex]:text-…`). */
+.rich-content [data-text-color="red"] { color: var(--ue-text-color-red); }
+.rich-content [data-text-color="blue"] { color: var(--ue-text-color-blue); }
+.rich-content [data-text-color="green"] { color: var(--ue-text-color-green); }
+.rich-content [data-text-color="orange"] { color: var(--ue-text-color-orange); }
+.rich-content [data-text-color="purple"] { color: var(--ue-text-color-purple); }
+.rich-content [data-text-color] .katex { color: inherit; }
 .rich-content .selectedCell {
   background: color-mix(in srgb, var(--ue-border-focus) 12%, transparent);
 }
