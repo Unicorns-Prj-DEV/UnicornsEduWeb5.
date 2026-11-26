@@ -8,6 +8,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Mathematics from "@tiptap/extension-mathematics";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import {
+  Baseline,
   Bold,
   Columns2,
   ImagePlus,
@@ -17,15 +18,23 @@ import {
   Sigma,
   SquareFunction,
   Table,
+  Underline,
 } from "lucide-react";
 import { toast } from "sonner";
 import MathLatexInputPanel, { type MathLatexMode } from "@/components/ui/MathLatexInputPanel";
 import {
   RICH_TEXT_EXTENSIONS,
+  activeTextColor,
+  applyTextColor,
   insertCodeParallel,
   prepareBlockInsert,
   normalizeImageUrl,
 } from "@/components/ui/rich-text-extensions";
+import {
+  TEXT_COLORS,
+  textColorVar,
+  type TextColorKey,
+} from "@/dtos/rich-text-color.dto";
 import {
   QUESTION_IMAGE_ACCEPT,
   QUESTION_IMAGE_MAX_BYTES,
@@ -155,6 +164,8 @@ function MathEditorToolbar({
   imagePanelOpen,
   onImageClick,
   imageLabel,
+  colorPanelOpen,
+  onColorClick,
 }: {
   editor: Editor;
   disabled: boolean;
@@ -163,8 +174,11 @@ function MathEditorToolbar({
   imagePanelOpen: boolean;
   onImageClick: () => void;
   imageLabel: string;
+  colorPanelOpen: boolean;
+  onColorClick: () => void;
 }) {
   const inTable = editor.isActive("table");
+  const currentColor = activeTextColor(editor);
   const codeLanguageActive = (language: string) =>
     editor.isActive("codeBlock", { language });
   // Khối code Py/C++ chỉ có nghĩa với hồ sơ IT. Lúc chưa tải config vẫn hiện
@@ -196,6 +210,30 @@ function MathEditorToolbar({
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
         <Italic className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-pressed={editor.isActive("underline")}
+        aria-label="Gạch chân"
+        title="Gạch chân (Ctrl+U)"
+        className={toolbarBtnClass(editor.isActive("underline"), disabled)}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      >
+        <Underline className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-expanded={colorPanelOpen}
+        aria-label="Màu chữ"
+        title="Màu chữ"
+        className={toolbarBtnClass(colorPanelOpen, disabled)}
+        // Icon nhuộm theo màu đang áp tại con trỏ — nhìn là biết đang tô màu gì.
+        style={currentColor && !disabled ? { color: textColorVar(currentColor) } : undefined}
+        onClick={onColorClick}
+      >
+        <Baseline className="size-3.5" />
       </button>
       <button
         type="button"
@@ -325,6 +363,53 @@ function MathEditorToolbar({
   );
 }
 
+/** Dải chọn màu chữ ngay dưới toolbar (cùng kiểu panel ảnh / công thức). */
+function TextColorPanel({
+  current,
+  onPick,
+}: {
+  current: TextColorKey | null;
+  onPick: (color: TextColorKey | null) => void;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1 border-b border-border-default bg-bg-secondary/50 px-2 py-1.5"
+      role="group"
+      aria-label="Chọn màu chữ"
+    >
+      <button
+        type="button"
+        aria-pressed={current === null}
+        onClick={() => onPick(null)}
+        className={`${toolbarBtnClass(current === null, false)} w-auto gap-1.5 px-2 text-xs`}
+      >
+        <span
+          className="size-4 rounded-full border border-border-default bg-text-primary"
+          aria-hidden
+        />
+        Mặc định
+      </button>
+      {TEXT_COLORS.map(({ key, label }) => (
+        <button
+          key={key}
+          type="button"
+          aria-label={label}
+          title={label}
+          aria-pressed={current === key}
+          onClick={() => onPick(key)}
+          className={toolbarBtnClass(current === key, false)}
+        >
+          <span
+            className={`size-5 rounded-full ${current === key ? "ring-2 ring-primary ring-offset-1 ring-offset-bg-surface" : ""}`}
+            style={{ backgroundColor: textColorVar(key) }}
+            aria-hidden
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ImageUrlPanel({
   onSubmit,
   onCancel,
@@ -397,6 +482,7 @@ export default function MathRichTextEditor({
   const lastEmittedHtmlRef = useRef(value);
   const [mathDraft, setMathDraft] = useState<MathDraft | null>(null);
   const [imagePanelOpen, setImagePanelOpen] = useState(false);
+  const [colorPanelOpen, setColorPanelOpen] = useState(false);
 
   const takeImages = (view: EditorView, files: File[], pos: number | null) => {
     const drop = dropImagesRef.current;
@@ -639,7 +725,18 @@ export default function MathRichTextEditor({
             ? fileInputRef.current?.click()
             : setImagePanelOpen((open) => !open)
         }
+        colorPanelOpen={colorPanelOpen && !disabled}
+        onColorClick={() => setColorPanelOpen((open) => !open)}
       />
+      {colorPanelOpen && !disabled ? (
+        <TextColorPanel
+          current={activeTextColor(editor)}
+          onPick={(color) => {
+            applyTextColor(editor, color);
+            setColorPanelOpen(false);
+          }}
+        />
+      ) : null}
       {onUploadImage ? (
         <input
           ref={fileInputRef}

@@ -39,3 +39,14 @@ describe("sanitizeRichHtml — giữ định dạng đề Tin", () => {
     expect(clean.match(/code-line/g)).toHaveLength(2);
   });
 });
+
+describe("sanitizeRichHtml — gạch chân & màu chữ", () => {
+  it("giữ <u> và data-text-color, vẫn bỏ style", () => {
+    const html =
+      '<p><u>gạch</u> <span data-text-color="red" style="color:red">đỏ</span></p>';
+    const clean = sanitizeRichHtml(html);
+    expect(clean).toContain("<u>gạch</u>");
+    expect(clean).toContain('data-text-color="red"');
+    expect(clean).not.toContain("style=");
+  });
+});

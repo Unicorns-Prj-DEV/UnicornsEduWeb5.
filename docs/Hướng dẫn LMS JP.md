@@ -39,7 +39,7 @@ Mọi câu hỏi thuộc **một khoá**, gắn **một chuyên đề** và **m�
 **Khoá học → tab "Câu hỏi" → `+ Thêm câu hỏi`**
 
 1. Chọn **Chuyên đề\***, **Độ khó\***, **Loại câu**, **Kỹ năng**.
-2. Nhập **nội dung** (editor hỗ trợ đậm/nghiêng, danh sách, công thức, bảng, **ảnh** — dán hoặc kéo-thả ảnh đều được).
+2. Nhập **nội dung** (editor hỗ trợ đậm/nghiêng/**gạch chân**, **màu chữ** (bôi đen chữ → nút màu chữ → chọn màu; «Mặc định» để bỏ màu), danh sách, công thức, bảng, **ảnh** — dán hoặc kéo-thả ảnh đều được).
 3. Phần riêng theo loại:
    - **Trắc nghiệm:** nhập phương án, tick phương án đúng.
    - **Đúng/Sai:** nội dung là *một nhận định*; chọn đáp án và **kiểu nhãn**.

@@ -21,6 +21,14 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Editor rich text — gạch chân & màu chữ (26/11)
+
+#### Added
+
+- **Toolbar `MathRichTextEditor`** (soạn câu hỏi, bộ câu hỏi, tiết lý thuyết — mọi hồ sơ): nút **Gạch chân** (`<u>`, Underline có sẵn trong StarterKit, phím tắt Ctrl/Cmd+U) và **Màu chữ** (mở dải chọn màu ngay dưới toolbar: Mặc định / Đỏ / Xanh dương / Xanh lá / Cam / Tím; icon nhuộm theo màu đang áp tại con trỏ).
+- **Mark `textColor`** (`components/ui/rich-text-extensions.ts`): lưu `<span data-text-color="red">` theo bảng màu cố định `dtos/rich-text-color.dto.ts`, **không** dùng `style` — `sanitizeRichHtml` vẫn chặn `style`. Key lạ khi nạp HTML bị bỏ mark, giữ chữ. Màu render bằng CSS `--ue-text-color-*` trong `globals.css` (có bản dark), công thức KaTeX trong vùng tô màu đổi màu theo; đề in PDF (`EXAM_CSS`, API) có bảng màu tương ứng.
+- Test: `lib/rich-text-color.test.ts` (mark + gạch chân), bổ sung `lib/rich-html.sanitize.test.ts` (giữ `<u>` / `data-text-color`, bỏ `style`).
+
 ### Instance Physics (Vật lý) (24/11)
 
 #### Added
