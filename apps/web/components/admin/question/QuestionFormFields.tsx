@@ -26,6 +26,7 @@ import {
   TF_LABEL_STYLE_OPTIONS,
   type TrueFalseLabelStyleDto,
 } from "@/dtos/question.dto";
+import { optionsAsPlainText } from "@/components/admin/question/question-form-payload";
 import { useAppConfig } from "@/lib/hooks/useAppConfig";
 import type { AudioRef } from "@/dtos/audio-asset.dto";
 import { useSharedMaterials } from "@/lib/hooks/useSharedMaterials";
@@ -273,7 +274,14 @@ export default function QuestionFormFields({
               </span>
               <UpgradedSelect
                 value={value.type}
-                onValueChange={(v) => onChange({ type: v as QuestionTypeDto })}
+                onValueChange={(v) => {
+                  const type = v as QuestionTypeDto;
+                  onChange(
+                    type === QuestionTypeDto.ordering
+                      ? { type, options: optionsAsPlainText(value.options) }
+                      : { type },
+                  );
+                }}
                 options={typeOptions}
                 ariaLabel="Loại câu hỏi"
               />
@@ -310,21 +318,27 @@ export default function QuestionFormFields({
                   className="space-y-2"
                 >
                   {value.options.map((opt, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="w-6 text-center text-sm font-bold text-text-muted">
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="mt-2 w-6 shrink-0 text-center text-sm font-bold text-text-muted">
                         {String.fromCharCode(65 + i)}
                       </span>
-                      <input
-                        value={opt}
-                        onChange={(e) => updateOption(i, e.target.value)}
-                        className={`min-w-0 flex-1 rounded-md border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus ${
+                      {/* Rich text như nhận định Đúng/Sai: đậm / nghiêng / gạch chân / màu, công thức, ảnh. */}
+                      <div
+                        className={`min-w-0 flex-1 rounded-md ${
                           value.correctIndex === i
-                            ? "border-success bg-success/5"
-                            : "border-border-default bg-bg-surface"
+                            ? "bg-success/5 ring-2 ring-success"
+                            : ""
                         }`}
-                        aria-label={`Phương án ${String.fromCharCode(65 + i)}`}
-                        placeholder={`Phương án ${String.fromCharCode(65 + i)}`}
-                      />
+                      >
+                        <MathRichTextEditor
+                          value={opt}
+                          onChange={(next) => updateOption(i, next)}
+                          ariaLabel={`Phương án ${String.fromCharCode(65 + i)}`}
+                          onUploadImage={uploadImage}
+                          placeholder={`Phương án ${String.fromCharCode(65 + i)}`}
+                          minHeight="min-h-[44px]"
+                        />
+                      </div>
                       <CorrectOptionToggle
                         label={String.fromCharCode(65 + i)}
                         checked={value.correctIndex === i}

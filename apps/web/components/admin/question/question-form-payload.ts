@@ -32,6 +32,19 @@ export type QuestionFormPayload = {
   blankAnswerKey?: string[][];
 };
 
+/**
+ * Phương án trắc nghiệm là rich text (HTML), thẻ Câu sắp xếp là chữ thuần
+ * (chấm theo chữ). Hai loại dùng chung `form.options` — đổi sang Sắp xếp thì
+ * bỏ định dạng, giữ chữ; ô chưa từng là HTML giữ nguyên (kể cả khoảng trắng).
+ */
+export function optionsAsPlainText(options: string[]): string[] {
+  return options.map((option) => {
+    if (!/<[a-z][^>]*>/i.test(option)) return option;
+    const doc = new DOMParser().parseFromString(option, "text/html");
+    return (doc.body.textContent ?? "").replace(/ /g, " ").trim();
+  });
+}
+
 function isBlankHtml(html: string): boolean {
   if (/data-latex=|<img|<table|<pre/i.test(html)) return false;
   return (
@@ -117,7 +130,8 @@ function singleChoicePayload(
   form: QuestionFormValue,
 ): PayloadResult {
   const options = form.options.map((o) => o.trim());
-  if (options.some((o) => !o)) {
+  // Ô rich text rỗng vẫn có `<p></p>` — chỉ tính chữ / công thức / ảnh.
+  if (options.some(isBlankHtml)) {
     return { error: "Phương án không được để trống" };
   }
   if (options.length < 2 || options.length > 6) {
