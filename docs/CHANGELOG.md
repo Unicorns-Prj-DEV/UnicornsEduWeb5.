@@ -21,6 +21,15 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Phương án trắc nghiệm rich text (26/11)
+
+#### Added
+
+- **Phương án câu trắc nghiệm (`single_choice`) soạn bằng `MathRichTextEditor`** thay ô nhập chữ thuần (`QuestionFormFields.tsx`): đậm / nghiêng / gạch chân / màu chữ, công thức, ảnh — như nhận định Đúng/Sai. Lưu HTML trong `options[]`; phương án cũ chữ thuần vẫn hiển thị/sửa được (`MathContent` render cả hai; API in PDF đã sanitize + KaTeX `options`). Không đổi API/schema.
+- Ô rỗng (`<p></p>`) bị chặn "Phương án không được để trống"; ô chỉ có công thức/ảnh hợp lệ (`isBlankHtml`).
+- Đổi loại câu sang **Câu sắp xếp** (thẻ chữ thuần, chấm theo chữ): `optionsAsPlainText` bỏ thẻ HTML, giữ chữ.
+- Test: `lib/question-option-rich-text.test.ts`.
+
 ### Sửa câu hỏi không lưu chuyên đề / độ khó (26/11)
 
 #### Fixed
