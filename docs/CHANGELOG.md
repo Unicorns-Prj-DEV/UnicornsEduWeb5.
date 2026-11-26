@@ -21,6 +21,13 @@ Mọi thay đổi đáng kể của dự án được ghi lại tại file này.
 
 ## [Unreleased]
 
+### Sửa câu hỏi không lưu chuyên đề / độ khó (26/11)
+
+#### Fixed
+
+- **`PATCH /questions/:id` bỏ qua `moduleId` + `difficultyLevelId`.** `UpdateQuestionDto` không khai báo hai field nên `ValidationPipe({ whitelist: true })` lặng lẽ xoá — form sửa câu đổi chuyên đề (vd Kanji → Từ vựng) báo "Đã cập nhật" nhưng tải lại vẫn chuyên đề cũ. Nay DTO nhận cả hai; service kiểm tra cùng khoá (khác khoá → `400`). Câu trong bộ đổi `moduleId` khác chuyên đề hiện tại → `400` "Câu trong bộ theo chuyên đề của bộ — đổi chuyên đề ở form bộ." (gửi đúng chuyên đề hiện tại vẫn qua).
+- Test: `dtos/question.dto.spec.ts` (field sống qua pipe whitelist), `question/question.service.spec.ts` (đổi chuyên đề / độ khó, khác khoá, câu trong bộ).
+
 ### Editor rich text — gạch chân & màu chữ (26/11)
 
 #### Added

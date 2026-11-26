@@ -279,6 +279,19 @@ export class CreateQuestionDto {
 
 /** DTO for updating a question – all fields optional */
 export class UpdateQuestionDto {
+  @ApiPropertyOptional({
+    description:
+      'Đổi chuyên đề (cùng khoá). Câu trong bộ theo chuyên đề của bộ: khác chuyên đề hiện tại → 400, đổi ở form bộ.',
+  })
+  @IsOptional()
+  @IsUUID()
+  moduleId?: string;
+
+  @ApiPropertyOptional({ description: 'Đổi độ khó (cùng khoá).' })
+  @IsOptional()
+  @IsUUID()
+  difficultyLevelId?: string;
+
   @ApiPropertyOptional({ description: 'Question content (HTML)' })
   @IsOptional()
   @IsString()

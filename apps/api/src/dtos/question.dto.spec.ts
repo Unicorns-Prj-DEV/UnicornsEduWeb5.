@@ -1,3 +1,4 @@
+import { ValidationPipe } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
@@ -61,6 +62,20 @@ describe('UpdateQuestionDto', () => {
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
+  });
+
+  it('keeps moduleId + difficultyLevelId through the global whitelist pipe', async () => {
+    // Cùng cấu hình pipe global ở main.ts — whitelist lặng lẽ bỏ field không khai báo.
+    const pipe = new ValidationPipe({ transform: true, whitelist: true });
+    const out = (await pipe.transform(
+      {
+        moduleId: capturedCreateBody.moduleId,
+        difficultyLevelId: capturedCreateBody.difficultyLevelId,
+      },
+      { type: 'body', metatype: UpdateQuestionDto },
+    )) as UpdateQuestionDto;
+    expect(out.moduleId).toBe(capturedCreateBody.moduleId);
+    expect(out.difficultyLevelId).toBe(capturedCreateBody.difficultyLevelId);
   });
 });
 
