@@ -194,3 +194,8 @@ export const classTimelineKeys = {
 export const appConfigKeys = {
   all: ["app-config"] as const,
 };
+
+export const uniojStudentSyncKeys = {
+  usernameCheck: (username: string) =>
+    ["unioj-student-sync", "username-check", username] as const,
+};

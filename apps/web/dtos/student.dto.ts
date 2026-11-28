@@ -84,6 +84,8 @@ export interface StudentDetail extends StudentListItem {
   userId?: string | null;
   /** Tên đăng nhập của tài khoản học sinh; `null` khi chưa có tài khoản. */
   accountHandle?: string | null;
+  /** Instance IT: username tài khoản UNIOJ (cố định từ lúc tạo); `null` khi chưa có. */
+  uniojUsername?: string | null;
   /** Cờ «Email đã xác thực» của tài khoản; `null` khi chưa có tài khoản. */
   emailVerified?: boolean | null;
   avatarUrl?: string | null;

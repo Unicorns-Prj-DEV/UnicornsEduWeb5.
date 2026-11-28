@@ -169,6 +169,8 @@ const ASSISTANT_ADMIN_ROUTE_ALLOWLIST = [
   'StudentGalleryController.uploadImage',
   // Tạo tài khoản học sinh, đặt mật khẩu (service giới hạn đích là học sinh).
   'UserController.createStudentUser',
+  // 26/11: kiểm tra tên đăng nhập UNIOJ trên form tạo học sinh (cùng quyền).
+  'UniojStudentSyncController.checkUsername',
   'UserController.setUserPassword',
   'UserController.setUserAccountHandle',
   // Đăng xuất thiết bị học sinh.

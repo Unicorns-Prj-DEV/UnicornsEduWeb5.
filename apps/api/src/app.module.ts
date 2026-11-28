@@ -20,6 +20,7 @@ import { CfProblemTutorialModule } from './cf-problem-tutorial/cf-problem-tutori
 import { SessionModule } from './session/session.module';
 import { UniojModule } from './unioj/unioj.module';
 import { ProtectedVideoModule } from './protected-video/protected-video.module';
+import { UniojStudentSyncModule } from './unioj-student-sync/unioj-student-sync.module';
 import { CustomerCareModule } from './customer-care/customer-care.module';
 import { AssistantCommissionModule } from './assistant-commission/assistant-commission.module';
 import { TrainingManagerModule } from './training-manager/training-manager.module';
@@ -91,6 +92,7 @@ function parsePositiveIntegerEnv(
     SessionModule,
     UniojModule,
     ProtectedVideoModule,
+    UniojStudentSyncModule,
     CustomerCareModule,
     AssistantCommissionModule,
     TrainingManagerModule,

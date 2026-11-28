@@ -738,6 +738,14 @@ export default function AdminStudentDetailPage() {
                                                 @{student.accountHandle}
                                             </span>
                                         ) : null}
+                                        {canManageStudent && student.uniojUsername ? (
+                                            <span
+                                                className="inline-flex max-w-full truncate rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-border-default"
+                                                title="Tên đăng nhập UNIOJ"
+                                            >
+                                                UNIOJ: {student.uniojUsername}
+                                            </span>
+                                        ) : null}
                                         {isCustomerCareReadOnlyView ? (
                                             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                                                 CSKH

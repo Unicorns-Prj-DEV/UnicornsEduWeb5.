@@ -31,6 +31,7 @@ Tài liệu này được tổng hợp trực tiếp từ Prisma schema tại `a
 
 - `staff_info`
 - `student_info`
+- `unioj_student_sync_events` (outbox gỡ/bật role UNIOJ, chỉ instance IT)
 
 ### Learning
 
@@ -239,6 +240,7 @@ Bảng `user_devices` và `login_requests` được tạo bởi migration `20260
 - Chuyển học sinh sang `inactive` chỉ là trạng thái hồ sơ học tập; `users.status`, ví, công nợ và lịch sử học tập không bị xóa.
 - `drop_out_date` (`DATE`, nullable): ngày học sinh nghỉ học. Backend tự **đóng dấu** ngày này (UTC) khi chuyển `status` → `inactive` mà chưa có giá trị nhập tay, và **xoá** (`null`) khi mở lại `status` → `active`. Đây là nguồn authoritative cho chỉ số **"Học sinh nghỉ tháng này"** trên dashboard CSKH (`StaffDashboardCustomerCareSection.droppedStudentsThisMonth` đếm `drop_out_date` thuộc tháng đang xem). Dashboard CSKH/Trưởng phòng Sale & CSKH: **Học phí đã học** và **Tiền nạp ví** chỉ tính giao dịch/buổi học trong tháng đang xem; **công nợ** đếm mọi HS được gán CSKH có `account_balance < 0` (không lọc `status` hay lớp `running`). Vẫn cho phép nhập tay `drop_out_date` ở popup sửa học sinh để override ngày mặc định. Migration `20260621150000_backfill_inactive_student_drop_out_dates` backfill các hồ sơ `inactive` thiếu ngày: ưu tiên `action_history` (mô tả *Chuyển học sinh sang nghỉ học* hoặc `after_value.status = inactive`), fallback `updated_at` (UTC).
 - `drop_out_reason` (`VARCHAR(500)`, nullable): **lý do nghỉ học**. Từ 10/2026 bắt buộc khi chuyển `status` `active` → `inactive` (qua `PATCH /student/:id/status` field `reason` hoặc `PATCH /student/:id` field `drop_out_reason`), backend trim và từ chối khi trống. **Không xoá** khi học sinh học lại, lần nghỉ sau ghi đè. Học sinh đã nghỉ có thể sửa lý do bằng `drop_out_reason` (không nhận chuỗi trống, không nhận cho học sinh đang học). Tạo hồ sơ mới với `status = inactive` chưa bắt lý do. Migration `20261003020000_add_student_drop_out_reason`; hồ sơ nghỉ trước đó để `NULL`.
+- `unioj_username` (`VARCHAR(50)`, nullable, chỉ instance IT): username tài khoản UNIOJ, bằng `users.account_handle` lúc tạo tài khoản học sinh (`POST /users/student`, hoặc `POST /users` với `roleType: student`) và cố định sau đó (đổi handle LMS không đổi). `null` = chưa có tài khoản UNIOJ: instance khác, học sinh tạo trước khi bật đồng bộ, hoặc hồ sơ tạo qua `POST /student` / tự sinh khi `PATCH /users` đổi role sang student. Chỉ hồ sơ có giá trị này mới sinh lệnh gỡ/bật role (xem 4.10c). Migration `20261126100000_unioj_student_sync`.
 - `parent_email` là email nhận biên nhận nạp ví SePay của phụ huynh; không fallback sang email học sinh.
 - `parent_receipt_email_enabled` (`BOOLEAN`, mặc định `true`): khi `false`, webhook SePay **không** gửi email biên lai nạp ví cho phụ huynh lẫn CSKH (ví vẫn được cộng bình thường).
 - `customer_source` (`StudentCustomerSource`, NOT NULL, default `acquaintance`): **Nguồn khách** trên hồ sơ. Tập đóng 4 giá trị theo thứ tự hiển thị: `tiktok`, `fanpage_hoc_tin`, `fanpage_luyen_tin`, `acquaintance` (**Người quen**). Không còn trạng thái Chưa gán. Migration `20261018090000_customer_source_merge_acquaintance` gộp `referral`, `personal`, `returning_customer`, `other` và `NULL` vào `acquaintance` (ADR `2026-10-18-customer-source-merge-into-acquaintance`). Thống kê dashboard đọc nguồn hiện tại, không khóa nguồn tại buổi học.
@@ -954,6 +956,17 @@ ADR: `docs/adr/2026-10-18-protected-video-via-unioj-sync.md`. Một dòng mỗi 
 - Index: `(status, requested_at)`, `(status, synced_at)`.
 - Migration `20261023100000_protected_videos` backfill mọi link YouTube hiện có thành `pending` (`requested_at` = `updated_at` mới nhất của tiết/buổi dùng link).
 
+### 4.10c Đồng bộ học sinh UNIOJ (`unioj_student_sync_events`)
+
+Chỉ instance `LMS_PROFILE=it`. Glossary: `CONTEXT.md` mục «Đồng bộ học sinh UNIOJ». API UNIOJ: `docs/api/unioj-student-sync-request.md`.
+
+- Outbox lệnh `POST /api/partner-students/<external_id>/deactivate|activate/`. Ghi **trong cùng transaction** với: `PATCH /student/:id/status` và `PATCH /student/:id` (khi `status` thực sự đổi: `inactive` → `deactivate` / `student_inactive`, `active` → `activate` / `student_reactivated`), `DELETE /student/:id` (`deactivate` / `student_deleted`). Hồ sơ không có `student_info.unioj_username` thì không ghi.
+- PK `id` (`VARCHAR(26)`): ULID, gửi làm `event_id`, giữ nguyên qua mọi lần retry. `external_id` = `student_info.id` (`UNIST-…`), **không FK** để hồ sơ đã xoá vẫn gửi được.
+- `action` (`UniojStudentSyncAction`), `reason`, `occurred_at` (thời điểm đổi trên LMS; UNIOJ bỏ qua lệnh cũ hơn lệnh đã áp).
+- `status` (`UniojStudentSyncStatus`): `pending` chờ gửi; `done` UNIOJ đã nhận (2xx, kể cả `ignored: true`), `sent_at`; `failed` UNIOJ từ chối 4xx (404 `STUDENT_NOT_FOUND`, 400, 401/403) — không retry, cần admin xử lý, `last_error` ghi lý do.
+- Cron mỗi phút (`UniojStudentSyncJob`) gửi tối đa 50 lệnh `pending` có `next_attempt_at <= now()`, theo `occurred_at` tăng dần. 429/5xx/timeout: `attempts + 1`, `next_attempt_at` lùi 1, 2, 4… phút (trần 60 phút, tôn trọng `Retry-After`). 401/403 dừng lượt.
+- Index: `(status, next_attempt_at)`, `(external_id)`. Migration `20261126100000_unioj_student_sync`.
+
 ### 4.11 Contract notes for authoritative ID generation
 
 - `student_info.id`, `classes.id`, `staff_info.id`: dùng mã định danh hệ thống ngắn (`UNIST-*`, `UNICL-*`, `UNISTAFF-*`), không dùng UUID trần và không derive từ UUID cũ.
@@ -1017,6 +1030,7 @@ ADR: `docs/adr/2026-10-18-protected-video-via-unioj-sync.md`. Một dòng mỗi 
 - `LessonTaskPriority`: `low | medium | high`
 - `LessonOutputStatus`: `pending | completed | cancelled`
 - `LessonOutputDifficultyBand`: `easy | medium | hard | very_hard | extreme` (nullable trên `lesson_outputs.difficulty_band`)
+- `UniojStudentSyncAction`: `deactivate | activate`; `UniojStudentSyncStatus`: `pending | done | failed` (`unioj_student_sync_events`)
 - `ProtectedVideoStatus`: `pending | queued | downloading | transcoding | uploading | ready | failed` (`protected_videos.status`)
 
 ### Notification

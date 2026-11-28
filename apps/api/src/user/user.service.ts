@@ -5,9 +5,12 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
+import { UniojStudentSyncService } from 'src/unioj-student-sync/unioj-student-sync.service';
 import type { Prisma } from '../../generated/client';
 import {
   assertClassTuitionBeforeFirstStudent,
@@ -104,11 +107,15 @@ const STANDING_TEACHER_NAME_SELECT = {
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly actionHistoryService: ActionHistoryService,
     private readonly authService: AuthService,
     private readonly staffService: StaffService,
+    @Optional()
+    private readonly uniojStudentSync?: UniojStudentSyncService,
   ) {}
 
   private buildAvatarStoragePath(userId: string) {
@@ -467,6 +474,42 @@ export class UserService {
         nextRoleType === UserRole.staff ? (data.staffRoles ?? []) : [],
     });
 
+    // Instance IT: tạo học sinh từ trang Users cũng phải có tài khoản UNIOJ,
+    // tạo TRƯỚC khi ghi gì trên LMS (giống `createStudentUser`).
+    const unioj =
+      nextRoleType === UserRole.student
+        ? await this.provisionUniojAccountForNewStudent({
+            ...data,
+            first_name: data.first_name ?? '',
+            last_name: data.last_name ?? '',
+          })
+        : null;
+
+    try {
+      return await this.createUserAfterUniojProvision(
+        data,
+        nextRoleType,
+        unioj,
+        auditActor,
+        emailLinkOrigin,
+      );
+    } catch (error) {
+      if (unioj) {
+        this.logger.error(
+          `UNIOJ đã tạo tài khoản ${unioj.username} (external_id ${unioj.externalId}) nhưng LMS ghi hồ sơ lỗi — cần đối soát.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async createUserAfterUniojProvision(
+    data: AdminCreateUserDto,
+    nextRoleType: UserRole,
+    unioj: { externalId: string; username: string } | null,
+    auditActor?: ActionHistoryActor,
+    emailLinkOrigin?: PublicRequestOrigin,
+  ) {
     const response =
       await this.authService.createPendingUserWithVerificationEmail(data, {
         auditActor,
@@ -494,19 +537,35 @@ export class UserService {
       );
     }
 
-    await this.updateUser(
-      {
-        id: createdUser.id,
-        roleType: nextRoleType,
-        ...(nextRoleType === UserRole.staff && data.staffRoles
-          ? { staffRoles: data.staffRoles }
-          : {}),
-        ...(data.emailVerified !== undefined
-          ? { emailVerified: data.emailVerified }
-          : {}),
-      },
-      auditActor,
-    );
+    const roleUpdate: UpdateUserDto = {
+      id: createdUser.id,
+      roleType: nextRoleType,
+      ...(nextRoleType === UserRole.staff && data.staffRoles
+        ? { staffRoles: data.staffRoles }
+        : {}),
+      ...(data.emailVerified !== undefined
+        ? { emailVerified: data.emailVerified }
+        : {}),
+    };
+    if (unioj) {
+      await this.updateUser(roleUpdate, auditActor, {
+        newStudentProfile: {
+          id: unioj.externalId,
+          uniojUsername: unioj.username,
+        },
+      });
+    } else {
+      await this.updateUser(roleUpdate, auditActor);
+    }
+
+    if (unioj) {
+      // User pending có sẵn hồ sơ (externalId = mã hồ sơ đó) → `updateUser` không
+      // tạo hồ sơ mới, gắn username UNIOJ vào hồ sơ có sẵn.
+      await this.prisma.studentInfo.updateMany({
+        where: { id: unioj.externalId, userId: createdUser.id },
+        data: { uniojUsername: unioj.username },
+      });
+    }
 
     return response;
   }
@@ -566,6 +625,10 @@ export class UserService {
         await findClassIdsWithoutActiveStudents(this.prisma, classIds),
       );
     }
+
+    // Instance IT: tạo tài khoản UNIOJ TRƯỚC khi ghi gì trên LMS — UNIOJ từ chối
+    // hoặc không trả lời thì không tạo tài khoản LMS (CONTEXT «Tài khoản UNIOJ»).
+    const unioj = await this.provisionUniojAccountForNewStudent(data);
 
     const response =
       await this.authService.createPendingUserWithVerificationEmail(data, {
@@ -628,6 +691,7 @@ export class UserService {
             gender: data.gender,
             goal: normalizeOptionalText(data.goal),
             userId: createdUser.id,
+            ...(unioj ? { uniojUsername: unioj.username } : {}),
           };
 
           const student = createdUser.studentInfo
@@ -636,7 +700,11 @@ export class UserService {
                 data: profileData,
               })
             : await tx.studentInfo.create({
-                data: { ...profileData, id: generateStudentId() },
+                data: {
+                  ...profileData,
+                  // Mã đã gửi sang UNIOJ làm `external_id` phải trùng mã hồ sơ.
+                  id: unioj?.externalId ?? generateStudentId(),
+                },
               });
 
           const existingMemberships = await tx.studentClass.findMany({
@@ -761,6 +829,11 @@ export class UserService {
         }),
       );
     } catch (error) {
+      if (unioj) {
+        this.logger.error(
+          `UNIOJ đã tạo tài khoản ${unioj.username} (external_id ${unioj.externalId}) nhưng LMS ghi hồ sơ lỗi — cần đối soát.`,
+        );
+      }
       if (this.isUniqueConstraintError(error)) {
         throw new BadRequestException('Email or account handle already exists');
       }
@@ -769,6 +842,76 @@ export class UserService {
 
     this.authService.invalidateAuthIdentityCache(createdUser.id);
     return response;
+  }
+
+  /**
+   * Tạo tài khoản UNIOJ cho học sinh sắp tạo (chỉ instance IT). Trả `null` ở
+   * instance khác. Mã học sinh được chốt trước để làm `external_id`: dùng lại hồ
+   * sơ đã gắn với user pending cùng email, nếu không thì sinh mã mới chưa ai dùng.
+   * Lệnh tạo là upsert theo `external_id` nên gửi lại an toàn.
+   */
+  private async provisionUniojAccountForNewStudent(
+    data: Pick<
+      AdminCreateStudentUserDto,
+      'accountHandle' | 'email' | 'password' | 'first_name' | 'last_name'
+    > &
+      Partial<Pick<AdminCreateStudentUserDto, 'province' | 'birth_year'>>,
+  ): Promise<{ externalId: string; username: string } | null> {
+    if (!this.uniojStudentSync?.enabled) return null;
+    const handle = data.accountHandle;
+    this.uniojStudentSync.assertUsernameFormat(handle);
+
+    // Chặn sớm các lỗi LMS chắc chắn xảy ra, để không tạo tài khoản UNIOJ thừa.
+    const [handleOwner, emailOwner] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { accountHandle: handle },
+        select: { email: true, emailVerified: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { email: data.email },
+        select: {
+          emailVerified: true,
+          studentInfo: { select: { id: true } },
+        },
+      }),
+    ]);
+    if (
+      handleOwner &&
+      (handleOwner.email !== data.email || handleOwner.emailVerified)
+    ) {
+      throw new BadRequestException('Handle already exists');
+    }
+    if (emailOwner?.emailVerified) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    const externalId =
+      emailOwner?.studentInfo?.id ?? (await this.generateUnusedStudentId());
+    const fullName =
+      `${data.last_name ?? ''} ${data.first_name ?? ''}`.trim() || handle;
+    const created = await this.uniojStudentSync.provisionAccount({
+      external_id: externalId,
+      username: handle,
+      password: data.password,
+      full_name: fullName,
+      province: normalizeOptionalText(data.province) ?? null,
+      birth_year: data.birth_year ?? null,
+      // Gửi email để UNIOJ không bắt học sinh nhập email ở lần đăng nhập đầu.
+      email: data.email,
+    });
+    return { externalId, username: created.username || handle };
+  }
+
+  private async generateUnusedStudentId(): Promise<string> {
+    for (let i = 0; i < 5; i += 1) {
+      const id = generateStudentId();
+      const taken = await this.prisma.studentInfo.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!taken) return id;
+    }
+    throw new InternalServerErrorException('Không sinh được mã học sinh.');
   }
 
   /**
@@ -952,7 +1095,15 @@ export class UserService {
     return { id: targetUserId, accountHandle: change.next };
   }
 
-  async updateUser(data: UpdateUserDto, auditActor?: ActionHistoryActor) {
+  async updateUser(
+    data: UpdateUserDto,
+    auditActor?: ActionHistoryActor,
+    /**
+     * Chỉ dùng nội bộ (`createUser`): hồ sơ học sinh tự tạo phải mang đúng mã đã
+     * gửi UNIOJ làm `external_id`, kèm username UNIOJ.
+     */
+    options?: { newStudentProfile?: { id: string; uniojUsername: string } },
+  ) {
     const existingUser = await this.getUserAuditSnapshot(this.prisma, data.id);
 
     if (!existingUser) {
@@ -1070,7 +1221,10 @@ export class UserService {
           if (nextRoleType === UserRole.student && !existingUser.studentInfo) {
             const createdStudent = await tx.studentInfo.create({
               data: {
-                id: generateStudentId(),
+                id: options?.newStudentProfile?.id ?? generateStudentId(),
+                ...(options?.newStudentProfile
+                  ? { uniojUsername: options.newStudentProfile.uniojUsername }
+                  : {}),
                 fullName: this.getPreferredProfileFullName(updatedUser),
                 email: updatedUser.email,
                 province: normalizeOptionalText(updatedUser.province),

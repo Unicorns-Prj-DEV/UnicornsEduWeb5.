@@ -172,6 +172,11 @@ export class UserController {
       'Forbidden. Admin, sale_customer_care_head or customer care only; customer care cannot assign classes.',
   })
   @ApiResponse({ status: 404, description: 'One or more classes not found.' })
+  @ApiResponse({
+    status: 503,
+    description:
+      'Instance IT: hệ thống UNIOJ đang lỗi / không gọi được — body `code: UNIOJ_UNAVAILABLE`, không tạo học sinh.',
+  })
   async createStudentUser(
     @CurrentUser() user: JwtPayload,
     @Body() data: AdminCreateStudentUserDto,
