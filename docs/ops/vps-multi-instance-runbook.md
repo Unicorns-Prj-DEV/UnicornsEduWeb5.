@@ -253,7 +253,7 @@ Làm như JP; thư mục **`/root/UnicornsEduPhysics`**, cổng loopback **`8082
 - [x] Migrate DB Physics
 - [x] Cloudflare `physics.uniedu.vn` → `http://localhost:8082` + Google OAuth redirect URI
 - [x] `"enabled": true` cho `physics` trong `deploy/instances.json`
-- [ ] Push `main` → verify `https://physics.uniedu.vn/api/public/app-config`
+- [x] Push `main` → verify `https://physics.uniedu.vn/api/public/app-config`
 
 ---
 

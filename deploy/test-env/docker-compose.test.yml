@@ -1,0 +1,70 @@
+# deploy/test-env/docker-compose.test.yml
+#
+# Override cho test env (máy `sunny`, x86_64) — merge SAU docker-compose.prod.yml:
+#   docker compose -f docker-compose.prod.yml -f deploy/test-env/docker-compose.test.yml ...
+# (deploy/test-env/remote.sh đã bọc sẵn lệnh này.)
+#
+# Chỉ khác prod ở những điểm bắt buộc:
+#   - api/web build local từ cùng Dockerfile (image GHCR prod chỉ có linux/arm64).
+#   - nginx lấy từ Docker Hub (bản mirror GHCR là private), cùng tag 1.27-alpine.
+#   - thêm mailpit: SMTP giả bắt mọi email (magic link học sinh, reset password, …).
+#   - thêm seed-tools (profile `tools`): stage `builder` của API, có tsx + scripts/ để seed.
+# Còn lại (env_file, NODE_ENV=production, healthcheck, network, nginx config) giữ nguyên prod.
+#
+# Đường dẫn tương đối resolve theo project directory = repo root (file -f đầu tiên).
+
+services:
+  api:
+    image: unicorns-api:test
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        # sunny 7,6 GB RAM → V8 mặc định trần heap ~2 GB, không đủ cho `nest build`
+        # (CI chạy runner 16 GB nên trần ~4 GB).
+        NODE_OPTIONS: --max-old-space-size=4096
+    volumes:
+      # Script seed (bootstrap admin + mock data). Nằm dưới /app để ESM resolve
+      # được /app/node_modules (pg, bcrypt) của image prod.
+      - ./deploy/test-env/seed:/app/test-seed:ro
+
+  web:
+    image: unicorns-web:test
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_URL: /api
+
+  nginx:
+    image: nginx:1.27-alpine
+
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_MAX_MESSAGES: "5000"
+    ports:
+      # UI chỉ loopback; mở từ Mac: deploy/test-env/test-env.sh mail
+      - "127.0.0.1:${MAILPIT_UI_PORT:-18025}:8025"
+    networks:
+      - app-net
+
+  seed-tools:
+    image: unicorns-api:test-tools
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: builder
+      args:
+        NODE_OPTIONS: --max-old-space-size=4096
+    profiles: ["tools"]
+    env_file: .env
+    working_dir: /app/apps/api
+    networks:
+      - data

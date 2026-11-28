@@ -83,6 +83,9 @@ model StudentInfo {
   dropOutDate               DateTime?                         @map("drop_out_date") @db.Date
   /// Lý do nghỉ học, bắt buộc khi chuyển sang nghỉ; giữ lại khi học sinh học lại.
   dropOutReason             String?                           @map("drop_out_reason") @db.VarChar(500)
+  /// Username tài khoản UNIOJ (chỉ instance IT): bằng account handle LMS lúc tạo tài khoản, sau đó cố định.
+  /// null = chưa có tài khoản UNIOJ (instance khác, học sinh tạo trước khi bật đồng bộ, hoặc chưa có tài khoản LMS).
+  uniojUsername             String?                           @map("unioj_username") @db.VarChar(50)
   createdAt                 DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
   userId                    String?                           @unique @map("user_id")

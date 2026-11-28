@@ -1,3 +1,7 @@
+import {
+  enqueueUniojRoleEvent,
+  enqueueUniojStatusChange,
+} from 'src/unioj-student-sync/unioj-student-sync.events';
 import { lockOneTimeStudentPackages } from 'src/common/one-time-package-lock';
 import { hasSaleCsHeadAccess } from 'src/common/sale-cs-head-access';
 import { assertNotEditingOwnCompensation } from 'src/common/staff-role-policy';
@@ -473,6 +477,8 @@ export class StudentService {
       userId: student.userId,
       // 16/11: hiện + đổi tên đăng nhập trên hồ sơ học sinh.
       accountHandle: student.user?.accountHandle ?? null,
+      // Instance IT: username tài khoản UNIOJ; `null` khi chưa có.
+      uniojUsername: student.uniojUsername ?? null,
       // 16/11: cờ xác thực email của tài khoản; `null` khi chưa có tài khoản.
       emailVerified: student.user?.emailVerified ?? null,
       avatarPath: student.user?.avatarPath ?? null,
@@ -2638,6 +2644,8 @@ export class StudentService {
 
       if (dto.status !== undefined) {
         await this.applyStudentStatusSideEffects(tx, id, dto.status);
+        // Instance IT: nghỉ học / học lại → gỡ / bật role UNIOJ (outbox, cron gửi).
+        await enqueueUniojStatusChange(tx, student, dto.status);
       }
 
       await this.syncCustomerCareAssignment(tx, id, dto);
@@ -2682,7 +2690,7 @@ export class StudentService {
 
     const student = await this.prisma.studentInfo.findUnique({
       where: { id },
-      select: { id: true, status: true, userId: true },
+      select: { id: true, status: true, userId: true, uniojUsername: true },
     });
 
     if (!student) {
@@ -2706,6 +2714,7 @@ export class StudentService {
       });
 
       await this.applyStudentStatusSideEffects(tx, id, dto.status);
+      await enqueueUniojStatusChange(tx, student, dto.status);
 
       const nextStudent = await tx.studentInfo.findUnique({
         where: { id },
@@ -3033,6 +3042,8 @@ export class StudentService {
           id,
         },
       });
+      // Xoá hồ sơ chỉ gỡ role UNIOJ, không xoá tài khoản UNIOJ.
+      await enqueueUniojRoleEvent(tx, deletedStudent, 'student_deleted');
 
       if (auditActor) {
         await this.actionHistoryService.recordDelete(tx, {

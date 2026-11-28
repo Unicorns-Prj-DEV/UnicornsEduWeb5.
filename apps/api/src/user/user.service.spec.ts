@@ -5,7 +5,12 @@ jest.mock('src/staff/staff.service', () => ({
   StaffService: class StaffServiceMock {},
 }));
 
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { StaffRole, UserRole } from '../../generated/enums';
 import { UserService } from './user.service';
 import { ACTIVE_STANDING_TEACHER } from 'src/class/standing-teacher-filter';
@@ -45,6 +50,7 @@ describe('UserService', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -1457,6 +1463,195 @@ describe('UserService', () => {
       expect(mockPrisma.user.update).not.toHaveBeenCalled();
       expect(actionHistoryService.recordUpdate).not.toHaveBeenCalled();
       expect(authService.invalidateAuthIdentityCache).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createStudentUser — đồng bộ UNIOJ (instance IT)', () => {
+    const adminActor = {
+      userId: 'admin-1',
+      userEmail: 'admin@example.com',
+      roleType: UserRole.admin,
+    };
+    const payload = {
+      email: 'oj-student@example.com',
+      phone: '0900000001',
+      password: 'secret-pass',
+      accountHandle: 'minh.nguyen',
+      first_name: 'Minh',
+      last_name: 'Nguyễn Văn',
+      province: 'Hồ Chí Minh',
+      birth_year: 2010,
+      class_ids: [] as string[],
+    };
+    const uniojSync = {
+      enabled: true,
+      assertUsernameFormat: jest.fn(),
+      provisionAccount: jest.fn<Promise<unknown>, [{ external_id: string }]>(),
+    };
+    let itService: UserService;
+
+    beforeEach(() => {
+      itService = new UserService(
+        mockPrisma as never,
+        actionHistoryService as never,
+        authService as never,
+        staffService as never,
+        uniojSync as never,
+      );
+      authService.createPendingUserWithVerificationEmail.mockResolvedValue({
+        message: 'ok',
+      });
+      mockPrisma.staffInfo.findUnique.mockResolvedValue(null);
+      mockPrisma.studentClass.findMany.mockResolvedValue([]);
+      // provision pre-check: handle + email chưa ai dùng; sau đó user vừa tạo.
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({
+          id: 'user-1',
+          email: payload.email,
+          studentInfo: null,
+        });
+      mockPrisma.studentInfo.findUnique.mockResolvedValue(null);
+      mockPrisma.studentInfo.create.mockImplementation(
+        ({ data }: { data: { id: string } }) =>
+          Promise.resolve({ id: data.id }),
+      );
+    });
+
+    it('tạo UNIOJ trước, dùng cùng mã học sinh làm external_id và lưu username', async () => {
+      uniojSync.provisionAccount.mockResolvedValue({
+        external_id: 'x',
+        username: 'minh.nguyen',
+        role_active: true,
+        created: true,
+      });
+
+      await itService.createStudentUser(payload, adminActor);
+
+      const [ojInput] = uniojSync.provisionAccount.mock.calls[0];
+      expect(ojInput).toMatchObject({
+        username: 'minh.nguyen',
+        password: 'secret-pass',
+        full_name: 'Nguyễn Văn Minh',
+        province: 'Hồ Chí Minh',
+        birth_year: 2010,
+        email: payload.email,
+      });
+      expect(ojInput.external_id).toMatch(/^UNIST-[0-9a-f]{10}$/);
+      expect(
+        uniojSync.provisionAccount.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        authService.createPendingUserWithVerificationEmail.mock
+          .invocationCallOrder[0],
+      );
+      expect(mockPrisma.studentInfo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          id: ojInput.external_id,
+          uniojUsername: 'minh.nguyen',
+        }) as unknown,
+      });
+    });
+
+    it('UNIOJ từ chối → không tạo tài khoản LMS', async () => {
+      uniojSync.provisionAccount.mockRejectedValue(
+        new BadRequestException('Tên đăng nhập đã có tài khoản UNIOJ.'),
+      );
+
+      await expect(
+        itService.createStudentUser(payload, adminActor),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(
+        authService.createPendingUserWithVerificationEmail,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('handle đã thuộc tài khoản LMS khác → 400, không gọi UNIOJ', async () => {
+      mockPrisma.user.findUnique.mockReset();
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce({
+          email: 'other@example.com',
+          emailVerified: true,
+        })
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        itService.createStudentUser(payload, adminActor),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(uniojSync.provisionAccount).not.toHaveBeenCalled();
+    });
+
+    describe('createUser (trang Users) roleType=student', () => {
+      const userPayload = {
+        email: payload.email,
+        password: payload.password,
+        accountHandle: payload.accountHandle,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        roleType: UserRole.student,
+      };
+
+      it('tạo UNIOJ trước, hồ sơ tự tạo mang đúng external_id + username', async () => {
+        uniojSync.provisionAccount.mockResolvedValue({
+          external_id: 'x',
+          username: 'minh.nguyen',
+          role_active: true,
+          created: true,
+        });
+        const updateUserSpy = jest
+          .spyOn(itService, 'updateUser')
+          .mockResolvedValue({} as never);
+
+        await itService.createUser(userPayload, adminActor);
+
+        const [ojInput] = uniojSync.provisionAccount.mock.calls[0];
+        expect(ojInput).toMatchObject({
+          username: 'minh.nguyen',
+          password: 'secret-pass',
+          full_name: 'Nguyễn Văn Minh',
+          email: payload.email,
+        });
+        expect(
+          uniojSync.provisionAccount.mock.invocationCallOrder[0],
+        ).toBeLessThan(
+          authService.createPendingUserWithVerificationEmail.mock
+            .invocationCallOrder[0],
+        );
+        expect(updateUserSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ roleType: UserRole.student }),
+          adminActor,
+          {
+            newStudentProfile: {
+              id: ojInput.external_id,
+              uniojUsername: 'minh.nguyen',
+            },
+          },
+        );
+      });
+
+      it('UNIOJ sập → không tạo tài khoản LMS', async () => {
+        uniojSync.provisionAccount.mockRejectedValue(
+          new HttpException(
+            { code: 'UNIOJ_UNAVAILABLE' },
+            HttpStatus.SERVICE_UNAVAILABLE,
+          ),
+        );
+
+        await expect(
+          itService.createUser(userPayload, adminActor),
+        ).rejects.toBeInstanceOf(HttpException);
+        expect(
+          authService.createPendingUserWithVerificationEmail,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('roleType=guest → không gọi UNIOJ', async () => {
+        await itService.createUser(
+          { ...userPayload, roleType: UserRole.guest },
+          adminActor,
+        );
+        expect(uniojSync.provisionAccount).not.toHaveBeenCalled();
+      });
     });
   });
 });

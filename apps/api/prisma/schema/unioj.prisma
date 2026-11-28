@@ -1,0 +1,37 @@
+/// Lệnh đổi role học sinh gửi sang UNIOJ (`/api/partner-students/<external_id>/deactivate|activate/`).
+/// Outbox: ghi cùng transaction với đổi trạng thái / xoá hồ sơ trên LMS, cron gửi và retry tới khi UNIOJ nhận.
+/// Không FK tới `student_info`: hồ sơ bị xoá vẫn phải gửi lệnh gỡ role.
+model UniojStudentSyncEvent {
+  /// ULID, gửi sang UNIOJ làm `event_id`; giữ nguyên qua mọi lần retry.
+  id            String                  @id @db.VarChar(26)
+  /// Mã học sinh LMS `UNIST-…` (`external_id` bên UNIOJ).
+  externalId    String                  @map("external_id") @db.VarChar(32)
+  action        UniojStudentSyncAction
+  /// `student_inactive` | `student_deleted` | `student_reactivated`.
+  reason        String                  @db.VarChar(32)
+  occurredAt    DateTime                @map("occurred_at") @db.Timestamptz(6)
+  status        UniojStudentSyncStatus  @default(pending)
+  attempts      Int                     @default(0)
+  lastError     String?                 @map("last_error") @db.VarChar(500)
+  nextAttemptAt DateTime                @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  /// Thời điểm UNIOJ nhận (2xx, kể cả `ignored: true`).
+  sentAt        DateTime?               @map("sent_at") @db.Timestamptz(6)
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt])
+  @@index([externalId])
+  @@map("unioj_student_sync_events")
+}
+
+enum UniojStudentSyncAction {
+  deactivate
+  activate
+}
+
+/// `pending` = chờ gửi / retry; `done` = UNIOJ đã nhận; `failed` = lỗi không retry (4xx), cần admin xử lý.
+enum UniojStudentSyncStatus {
+  pending
+  done
+  failed
+}

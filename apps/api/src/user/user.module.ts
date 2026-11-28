@@ -11,6 +11,7 @@ import { StaffModule } from 'src/staff/staff.module';
 import { StudentModule } from 'src/student/student.module';
 import { SePayModule } from 'src/sepay/sepay.module';
 import { CourseContentModule } from 'src/course-content/course-content.module';
+import { UniojStudentSyncModule } from 'src/unioj-student-sync/unioj-student-sync.module';
 import { UserController } from './user.controller';
 import { UserProfileController } from './user-profile.controller';
 import { UserService } from './user.service';
@@ -29,6 +30,7 @@ import { UserService } from './user.service';
     StudentModule,
     SePayModule,
     CourseContentModule,
+    UniojStudentSyncModule,
   ],
   controllers: [UserController, UserProfileController],
   providers: [UserService],

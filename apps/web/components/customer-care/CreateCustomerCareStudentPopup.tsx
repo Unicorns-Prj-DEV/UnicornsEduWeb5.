@@ -13,6 +13,9 @@ import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { StudentGender } from "@/dtos/user.dto";
 import * as userApi from "@/lib/apis/user.api";
 import { getMutationErrorMessage } from "@/lib/mutation-feedback";
+import { useUniojUsernameCheck } from "@/lib/hooks/useUniojUsernameCheck";
+import { isUniojUnavailableError, toastUniojUnavailable } from "@/lib/unioj-student-sync-error";
+import UniojUsernameHint from "./UniojUsernameHint";
 import {
   CUSTOMER_CARE_STUDENT_FIELD_ORDER,
   EMPTY_CUSTOMER_CARE_STUDENT_FORM,
@@ -110,6 +113,8 @@ export default function CreateCustomerCareStudentPopup({
   );
   const [errors, setErrors] = useState<CustomerCareStudentFormErrors>({});
   const isDirty = JSON.stringify(form) !== JSON.stringify(EMPTY_CUSTOMER_CARE_STUDENT_FORM);
+  // Instance IT: tên đăng nhập LMS cũng là username UNIOJ.
+  const uniojCheck = useUniojUsernameCheck(form.accountHandle);
 
   const createMutation = useMutation({
     mutationFn: () => userApi.createStudentUser(buildCustomerCareStudentPayload(form)),
@@ -123,6 +128,11 @@ export default function CreateCustomerCareStudentPopup({
       onClose();
     },
     onError: (error: unknown) => {
+      // Instance IT: UNIOJ sập → không tạo được tài khoản LMS lẫn UNIOJ.
+      if (isUniojUnavailableError(error)) {
+        toastUniojUnavailable();
+        return;
+      }
       toast.error(getMutationErrorMessage(error, "Không tạo được học sinh. Vui lòng thử lại."));
     },
   });
@@ -146,6 +156,10 @@ export default function CreateCustomerCareStudentPopup({
     event.preventDefault();
     const nextErrors = validateCustomerCareStudentForm(form);
     setErrors(nextErrors);
+    if (!nextErrors.accountHandle && uniojCheck.result && !uniojCheck.result.available) {
+      nextErrors.accountHandle =
+        uniojCheck.result.message ?? "Tên đăng nhập không dùng được trên UNIOJ.";
+    }
     const firstErrorField = CUSTOMER_CARE_STUDENT_FIELD_ORDER.find((field) => nextErrors[field]);
     if (firstErrorField) {
       toast.error(nextErrors[firstErrorField]);
@@ -226,11 +240,14 @@ export default function CreateCustomerCareStudentPopup({
                   inputMode="tel"
                   required
                 />
-                <FormTextField
-                  {...textFieldProps("accountHandle")}
-                  label="Tên đăng nhập"
-                  required
-                />
+                <div className="flex flex-col gap-1">
+                  <FormTextField
+                    {...textFieldProps("accountHandle")}
+                    label="Tên đăng nhập"
+                    required
+                  />
+                  {errors.accountHandle ? null : <UniojUsernameHint check={uniojCheck} />}
+                </div>
                 <div className="hidden sm:block" aria-hidden />
                 <FormTextField
                   {...textFieldProps("password")}

@@ -2,6 +2,8 @@
 
 Tài liệu này mô tả chi tiết tích hợp hệ thống chấm bài UNIOJ vào trang quản lý học tập cá nhân của học sinh tại `/student`.
 
+> Đồng bộ tài khoản học sinh LMS → UNIOJ (tạo tài khoản, gỡ/bật role khi nghỉ/học lại): **đã implement** (instance IT), xem [`unioj-student-sync-request.md`](./unioj-student-sync-request.md) mục 0.
+
 ## 1. Luồng hoạt động & Bảo mật
 
 Để bảo mật khóa `api_key` của UNIOJ (không lộ ra trình duyệt phía client), hệ thống sử dụng mô hình **Proxy Server** tại backend NestJS (`apps/api`).

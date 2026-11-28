@@ -3,9 +3,12 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import UniojUsernameHint from "@/components/customer-care/UniojUsernameHint";
 import UpgradedSelect from "@/components/ui/UpgradedSelect";
 import type { CreateUserPayload, StaffRole, UserRoleType } from "@/dtos/user.dto";
 import * as userApi from "@/lib/apis/user.api";
+import { useUniojUsernameCheck } from "@/lib/hooks/useUniojUsernameCheck";
+import { isUniojUnavailableError, toastUniojUnavailable } from "@/lib/unioj-student-sync-error";
 import { ROLE_LABELS } from "@/lib/staff.constants";
 import { USER_ROLE_LABELS } from "@/lib/user.constants";
 import {
@@ -69,6 +72,10 @@ export default function CreateUserDialog({
     ? STAFF_ROLES.filter((role) => role !== "admin")
     : STAFF_ROLES;
   const selectedStaffRoleSet = new Set(form.staffRoles);
+  // Instance IT: học sinh tạo ở đây cũng có tài khoản UNIOJ — chỉ hỏi UNIOJ khi role là student.
+  const uniojCheck = useUniojUsernameCheck(
+    form.roleType === "student" ? form.accountHandle : "",
+  );
 
   const handleClose = () => {
     setForm(EMPTY_CREATE_USER_FORM);
@@ -89,6 +96,11 @@ export default function CreateUserDialog({
       onClose();
     },
     onError: (err: unknown) => {
+      // Instance IT: UNIOJ sập → không tạo được học sinh (cả LMS lẫn UNIOJ).
+      if (isUniojUnavailableError(err)) {
+        toastUniojUnavailable();
+        return;
+      }
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data
           ?.message ??
@@ -153,6 +165,15 @@ export default function CreateUserDialog({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextErrors = validateCreateUserForm(form);
+    if (
+      form.roleType === "student" &&
+      !nextErrors.accountHandle &&
+      uniojCheck.result &&
+      !uniojCheck.result.available
+    ) {
+      nextErrors.accountHandle =
+        uniojCheck.result.message ?? "Tên đăng nhập không dùng được trên UNIOJ.";
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       focusFirstError(nextErrors);
@@ -290,6 +311,9 @@ export default function CreateUserDialog({
                     spellCheck={false}
                     aria-invalid={Boolean(errors.accountHandle)}
                   />
+                  {showStudentName && !errors.accountHandle ? (
+                    <UniojUsernameHint check={uniojCheck} />
+                  ) : null}
                 </label>
 
                 <label className="block">

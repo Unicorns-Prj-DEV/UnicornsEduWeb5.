@@ -20,6 +20,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY . .
+# Tuỳ chọn: máy build ít RAM (vd test env 8 GB, V8 tự đặt trần heap ~2 GB → `nest build`
+# OOM) truyền --build-arg NODE_OPTIONS=--max-old-space-size=4096. CI không truyền → không đổi.
+ARG NODE_OPTIONS
 # Generate Prisma client into apps/api/generated/
 RUN pnpm --filter api run db:generate
 # Compile TypeScript
